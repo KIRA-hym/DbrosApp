@@ -57,7 +57,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   int? _logId;
   int _grossIncome = 0;
   String _deductionHint = "";
-  String _selectedProgram = SettingsService.programList.isNotEmpty ? SettingsService.programList.first : "카카오";
+  String _selectedProgram =
+      SettingsService.programList.isNotEmpty ? SettingsService.programList.first : "카카오(일반)";
   final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
   bool _showWaypointField = false;
@@ -76,13 +77,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    _selectedProgram = _coerceProgramForSelection(_selectedProgram);
     if (widget.existingLog != null) {
       final log = widget.existingLog!;
       _logId = log['id'];
       _workDateCon.text = (log['work_date'] ?? log['drive_date'])?.toString() ?? '';
       _dateCon.text = log['drive_date']?.toString() ?? '';
       _timeCon.text = normalizeDriveTimeHm(log['drive_time']?.toString()) ?? log['drive_time']?.toString() ?? '';
-      _selectedProgram = log['program'];
+      _selectedProgram = _coerceProgramForSelection(log['program']?.toString());
       _incomeCon.text = NumberFormat('#,###').format(log['gross_fare']);
       _transportCon.text = log['transport_cost'] > 0 ? NumberFormat('#,###').format(log['transport_cost']) : '';
       _waypointTipCon.text = log['waypoint_tip'] != null && log['waypoint_tip'] > 0 ? NumberFormat('#,###').format(log['waypoint_tip']) : '';
@@ -236,14 +238,20 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return false;
     }
 
-    setState(() { _selectedProgram = detected; });
+    setState(() {
+      _selectedProgram = _coerceProgramForSelection(detected);
+    });
 
     _timeCon.clear(); _incomeCon.clear(); _transportCon.clear();
     _startLocCon.clear(); _waypointCon.clear(); _endLocCon.clear(); _memoCon.clear();
 
-    if (detected == "카카오") _parseKakao(blocks);
-    else if (detected == "로지") _parseLogi(blocks);
-    else if (detected == "콜마너") _parseColmanner(blocks);
+    if (detected == "카카오") {
+      _parseKakao(blocks);
+    } else if (detected == "로지") {
+      _parseLogi(blocks);
+    } else if (detected == "콜마너") {
+      _parseColmanner(blocks);
+    }
 
     _captureGrossAndApplyDeductions();
     return true;
@@ -1228,6 +1236,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Widget _buildDropdown() {
+    final options = SettingsService.programList;
+    final selected = options.contains(_selectedProgram)
+        ? _selectedProgram
+        : (options.isNotEmpty ? options.first : _selectedProgram);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1243,10 +1256,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
-              value: _selectedProgram,
+              value: selected,
               dropdownColor: const Color(0xFF1F222A),
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-              items: SettingsService.programList.map((program) {
+              items: options.map((program) {
                 return DropdownMenuItem<String>(
                   value: program,
                   child: Text(program),
@@ -1266,5 +1279,19 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         const SizedBox(height: 16),
       ],
     );
+  }
+
+  String _coerceProgramForSelection(String? raw) {
+    final options = SettingsService.programList;
+    if (options.isEmpty) return raw?.trim().isNotEmpty == true ? raw!.trim() : '기타';
+    final input = (raw ?? '').trim();
+    if (input.isEmpty) return options.first;
+    if (options.contains(input)) return input;
+    if (input == '카카오') {
+      for (final option in options) {
+        if (option.contains('카카오')) return option;
+      }
+    }
+    return options.first;
   }
 }

@@ -4,12 +4,28 @@ import 'package:flutter/foundation.dart';
 class SettingsService {
   static late SharedPreferences _prefs;
   static final ValueNotifier<bool> _showFloatingButtonsNotifier = ValueNotifier(true);
+  static const List<String> _defaultProgramList = <String>[
+    '카카오(일반)',
+    '카카오(맞춤)',
+    '카카오(프콜)',
+    '로지',
+    '콜마너',
+    '티맵',
+    '핸들포유',
+    '기타',
+  ];
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     // 월/년 일할 보험은 UI·로직에서 제거됨. 기존 'monthly' 선택은 'none'으로 이전.
     if (_prefs.getString('insuranceType') == 'monthly') {
       await _prefs.setString('insuranceType', 'none');
+    }
+    const legacyDefault = <String>['카카오', '로지', '콜마너', '티맵', '핸들포유', '기타'];
+    final savedPrograms = _prefs.getStringList('programList');
+    if (savedPrograms == null ||
+        listEquals(savedPrograms, legacyDefault)) {
+      await _prefs.setStringList('programList', defaultProgramList);
     }
     _showFloatingButtonsNotifier.value = showFloatingButtons;
   }
@@ -29,10 +45,10 @@ class SettingsService {
   static Future<void> setYearlyInsurance(int value) async => await _prefs.setInt('yearlyInsurance', value);
 
   /// DB `fee`·작성/미리보기 공통: 수수료율 + 건당 보험.
-  /// 카카오·티맵은 플랫폼 차감이 없으므로 수수료·건당 보험 모두 **0**.
+  /// 카카오(문구 포함)·티맵·핸들포유는 플랫폼 차감 제외로 **0**.
   /// 월/년 일할 보험은 추후 구현; 미적용.
   static int deductionFeeFromGross(int grossFare, String program) {
-    if (program == '카카오' || program == '티맵') return 0;
+    if (isAutoDeductionExcludedProgram(program)) return 0;
     int fee = (grossFare * (baseFeeRate / 100)).round();
     if (insuranceType == 'per_trip') {
       fee += perTripInsurance;
@@ -40,7 +56,17 @@ class SettingsService {
     return fee;
   }
 
-  static List<String> get programList => _prefs.getStringList('programList') ?? ['카카오', '로지', '콜마너', '티맵', '핸들포유', '기타'];
+  static bool isAutoDeductionExcludedProgram(String program) {
+    final normalized = program.trim();
+    if (normalized.isEmpty) return false;
+    if (normalized.contains('카카오')) return true;
+    return normalized == '티맵' || normalized == '핸들포유';
+  }
+
+  static List<String> get defaultProgramList => List<String>.from(_defaultProgramList);
+
+  static List<String> get programList =>
+      _prefs.getStringList('programList') ?? defaultProgramList;
   static Future<void> setProgramList(List<String> value) async => await _prefs.setStringList('programList', value);
 
   static bool get showFloatingButtons => _prefs.getBool('showFloatingButtons') ?? true;

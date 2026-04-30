@@ -282,13 +282,25 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<List<Map<String, dynamic>>> _getProgramStats(DateTime date, String period) async {
-    final List<String> fixedPrograms = ["카카오", "로지", "콜마너", "티맵", "핸들포유", "기타"];
+    final List<String> fixedPrograms = [
+      "카카오(일반)",
+      "카카오(맞춤)",
+      "카카오(프콜)",
+      "로지",
+      "콜마너",
+      "티맵",
+      "핸들포유",
+      "기타",
+    ];
     Map<String, int> programRevenue = { for (var p in fixedPrograms) p: 0 };
     Map<String, int> programCount = { for (var p in fixedPrograms) p: 0 };
 
     void processLogs(List<Map<String, dynamic>> logs) {
       for (var log in logs) {
         String program = log['program'] as String? ?? '기타';
+        if (program == '카카오') {
+          program = '카카오(일반)';
+        }
         if (!fixedPrograms.contains(program)) program = '기타';
         programRevenue[program] = (programRevenue[program]!) + _statsRowRevenue(log);
         programCount[program] = (programCount[program]!) + 1;
