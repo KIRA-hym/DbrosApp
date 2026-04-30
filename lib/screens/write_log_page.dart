@@ -20,6 +20,7 @@ import '../utils/drive_time_format.dart';
 import '../utils/logi_fare_parse.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/address_normalize.dart';
+import '../config/feature_flags.dart';
 import 'location_pick_map_page.dart';
 import 'log_list_page.dart';
 
@@ -540,6 +541,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _openStartMapPicker() async {
+    if (!kMapFeaturesEnabled) return;
     final LatLng? result = await Navigator.push<LatLng?>(
       context,
       MaterialPageRoute<LatLng?>(
@@ -558,6 +560,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _openEndMapPicker() async {
+    if (!kMapFeaturesEnabled) return;
     final LatLng? result = await Navigator.push<LatLng?>(
       context,
       MaterialPageRoute<LatLng?>(
@@ -576,6 +579,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Widget _pinPickButton({required bool forStart}) {
+    if (!kMapFeaturesEnabled) return const SizedBox.shrink();
     final has = forStart
         ? _startLat != null && _startLng != null
         : _endLat != null && _endLng != null;
@@ -990,7 +994,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    suffixIcon: _pinPickButton(forStart: true),
+                    suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -1153,13 +1157,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               ],
             ),
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지"),
-            _buildInputField(_endLocCon, label: "도착지", suffixIcon: _pinPickButton(forStart: false)),
-          ], trailing: IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-            icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-            onPressed: _openNaverMapRoute,
-          )),
+            _buildInputField(
+              _endLocCon,
+              label: "도착지",
+              suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null,
+            ),
+          ],
+            trailing: kMapFeaturesEnabled
+                ? IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                    icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                    onPressed: _openNaverMapRoute,
+                  )
+                : null,
+          ),
           const SizedBox(height: 20),
           _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3)]),
         ],

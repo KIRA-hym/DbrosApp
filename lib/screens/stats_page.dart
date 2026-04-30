@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
+import '../config/feature_flags.dart';
 
 int _statsRowRevenue(Map<String, dynamic> log) =>
     (log['gross_fare'] as int? ?? 0) + (log['waypoint_tip'] as int? ?? 0);
@@ -466,6 +467,7 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<void> _openRouteMap() async {
+    if (!kMapFeaturesEnabled) return;
     final logs = await _getLogsForSelectedPeriod();
     if (!mounted) return;
     final points = _buildRoutePoints(logs);
@@ -585,6 +587,14 @@ class _StatsPageState extends State<StatsPage> {
                               ),
                             ),
                           ),
+                          if (kMapFeaturesEnabled) ...[
+                            IconButton(
+                              onPressed: _openRouteMap,
+                              icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                              tooltip: '기간 경로 지도',
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           SizedBox(width: compact ? 6 : 10),
                           Flexible(
                             child: FittedBox(
@@ -592,12 +602,6 @@ class _StatsPageState extends State<StatsPage> {
                               alignment: Alignment.centerRight,
                               child: _buildDateSelector(),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _openRouteMap,
-                            icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-                            tooltip: '기간 경로 지도',
                           ),
                         ],
                       ),
