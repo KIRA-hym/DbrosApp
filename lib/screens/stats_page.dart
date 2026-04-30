@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
 import '../config/feature_flags.dart';
@@ -435,8 +437,8 @@ class _StatsPageState extends State<StatsPage> {
     return out;
   }
 
-  List<_RoutePoint> _buildRoutePoints(List<Map<String, dynamic>> logs) {
-    final points = <_RoutePoint>[];
+  List<_TripSegment> _buildTripSegments(List<Map<String, dynamic>> logs) {
+    final trips = <_TripSegment>[];
     for (final log in logs) {
       final startLat = (log['start_lat'] as num?)?.toDouble();
       final startLng = (log['start_lng'] as num?)?.toDouble();
@@ -444,34 +446,25 @@ class _StatsPageState extends State<StatsPage> {
       final endLng = (log['end_lng'] as num?)?.toDouble();
       final time = (log['drive_time'] ?? '').toString();
       final program = (log['program'] ?? '').toString();
-      if (startLat != null && startLng != null) {
-        points.add(
-          _RoutePoint(
-            position: LatLng(startLat, startLng),
-            title: '출발',
-            snippet: '$time · $program',
-          ),
-        );
-      }
-      if (endLat != null && endLng != null) {
-        points.add(
-          _RoutePoint(
-            position: LatLng(endLat, endLng),
-            title: '도착',
+      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+        trips.add(
+          _TripSegment(
+            start: LatLng(startLat, startLng),
+            end: LatLng(endLat, endLng),
             snippet: '$time · $program',
           ),
         );
       }
     }
-    return points;
+    return trips;
   }
 
   Future<void> _openRouteMap() async {
     if (!kMapFeaturesEnabled) return;
     final logs = await _getLogsForSelectedPeriod();
     if (!mounted) return;
-    final points = _buildRoutePoints(logs);
-    if (points.isEmpty) {
+    final segments = _buildTripSegments(logs);
+    if (segments.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')),
       );
@@ -489,7 +482,7 @@ class _StatsPageState extends State<StatsPage> {
                   : _selectedPeriod == '월간'
                       ? _getMonthlyDisplayText()
                       : _getYearlyDisplayText(),
-          points: points,
+          segments: segments,
         ),
       ),
     );
@@ -934,15 +927,15 @@ class _StatsPageState extends State<StatsPage> {
   }
 }
 
-class _RoutePoint {
-  const _RoutePoint({
-    required this.position,
-    required this.title,
+class _TripSegment {
+  const _TripSegment({
+    required this.start,
+    required this.end,
     required this.snippet,
   });
 
-  final LatLng position;
-  final String title;
+  final LatLng start;
+  final LatLng end;
   final String snippet;
 }
 
@@ -950,12 +943,12 @@ class _StatsRouteMapPage extends StatefulWidget {
   const _StatsRouteMapPage({
     required this.periodLabel,
     required this.dateLabel,
-    required this.points,
+    required this.segments,
   });
 
   final String periodLabel;
   final String dateLabel;
-  final List<_RoutePoint> points;
+  final List<_TripSegment> segments;
 
   @override
   State<_StatsRouteMapPage> createState() => _StatsRouteMapPageState();
@@ -963,44 +956,152 @@ class _StatsRouteMapPage extends StatefulWidget {
 
 class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
   GoogleMapController? _controller;
+  bool _roadRouteEnabled = false;
+  bool _roadRouteLoading = false;
+  final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
 
   Set<Marker> _buildMarkers() {
     final markers = <Marker>{};
-    for (int i = 0; i < widget.points.length; i++) {
-      final p = widget.points[i];
-      final isStart = i == 0;
-      final isEnd = i == widget.points.length - 1;
-      final hue = isStart
-          ? BitmapDescriptor.hueGreen
-          : isEnd
-              ? BitmapDescriptor.hueRed
-              : BitmapDescriptor.hueAzure;
-      final markerTitle = isStart
-          ? '시작'
-          : isEnd
-              ? '종료'
-              : p.title;
+    for (int i = 0; i < widget.segments.length; i++) {
+      final seg = widget.segments[i];
+      final isFirstStart = i == 0;
+      final isLastEnd = i == widget.segments.length - 1;
+
+      final startHue = _roadRouteEnabled
+          ? (isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueOrange)
+          : BitmapDescriptor.hueGreen;
+      final endHue = _roadRouteEnabled
+          ? (isLastEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueAzure)
+          : BitmapDescriptor.hueRed;
+
       markers.add(
         Marker(
-          markerId: MarkerId('route_$i'),
-          position: p.position,
-          infoWindow: InfoWindow(title: markerTitle, snippet: p.snippet),
-          icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+          markerId: MarkerId('start_$i'),
+          position: seg.start,
+          infoWindow: InfoWindow(
+            title: isFirstStart ? '시작' : '출발',
+            snippet: seg.snippet,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(startHue),
+        ),
+      );
+      markers.add(
+        Marker(
+          markerId: MarkerId('end_$i'),
+          position: seg.end,
+          infoWindow: InfoWindow(
+            title: isLastEnd ? '종료' : '도착',
+            snippet: seg.snippet,
+          ),
+          icon: BitmapDescriptor.defaultMarkerWithHue(endHue),
         ),
       );
     }
     return markers;
   }
 
+  List<LatLng> _orderedPathPoints() {
+    final out = <LatLng>[];
+    for (final seg in widget.segments) {
+      out.add(seg.start);
+      out.add(seg.end);
+    }
+    return out;
+  }
+
+  Future<List<LatLng>> _fetchRoadPath(LatLng from, LatLng to) async {
+    final uri = Uri.parse(
+      'https://router.project-osrm.org/route/v1/driving/'
+      '${from.longitude},${from.latitude};${to.longitude},${to.latitude}'
+      '?overview=full&geometries=geojson',
+    );
+    final res = await http.get(uri).timeout(const Duration(seconds: 10));
+    if (res.statusCode != 200) {
+      throw Exception('OSRM route status ${res.statusCode}');
+    }
+    final map = jsonDecode(res.body) as Map<String, dynamic>;
+    final routes = map['routes'] as List<dynamic>? ?? const [];
+    if (routes.isEmpty) return [from, to];
+    final geometry = routes.first['geometry'] as Map<String, dynamic>?;
+    final coords = geometry?['coordinates'] as List<dynamic>? ?? const [];
+    final points = <LatLng>[];
+    for (final c in coords) {
+      if (c is List && c.length >= 2) {
+        final lon = (c[0] as num?)?.toDouble();
+        final lat = (c[1] as num?)?.toDouble();
+        if (lat != null && lon != null) points.add(LatLng(lat, lon));
+      }
+    }
+    return points.isEmpty ? [from, to] : points;
+  }
+
+  Future<void> _toggleRoadRoute() async {
+    if (_roadRouteLoading) return;
+    if (_roadRouteEnabled) {
+      setState(() {
+        _roadRouteEnabled = false;
+      });
+      return;
+    }
+    setState(() {
+      _roadRouteLoading = true;
+    });
+    final points = _orderedPathPoints();
+    try {
+      final result = <int, List<LatLng>>{};
+      for (int i = 0; i < points.length - 1; i++) {
+        result[i] = await _fetchRoadPath(points[i], points[i + 1]);
+      }
+      if (!mounted) return;
+      setState(() {
+        _roadRouteSegments
+          ..clear()
+          ..addAll(result);
+        _roadRouteEnabled = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('도로 경로를 가져오지 못했습니다.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _roadRouteLoading = false;
+        });
+      }
+    }
+  }
+
   Set<Polyline> _buildPolylines() {
-    return {
-      Polyline(
-        polylineId: const PolylineId('route_all'),
-        points: widget.points.map((e) => e.position).toList(),
-        color: const Color(0xFFFFC700),
-        width: 4,
-      ),
-    };
+    if (_roadRouteEnabled && _roadRouteSegments.isNotEmpty) {
+      final out = <Polyline>{};
+      final keys = _roadRouteSegments.keys.toList()..sort();
+      for (final k in keys) {
+        out.add(
+          Polyline(
+            polylineId: PolylineId('road_$k'),
+            points: _roadRouteSegments[k] ?? const [],
+            color: const Color(0xFF4FC3F7),
+            width: 5,
+          ),
+        );
+      }
+      return out;
+    }
+    final out = <Polyline>{};
+    for (int i = 0; i < widget.segments.length; i++) {
+      final seg = widget.segments[i];
+      out.add(
+        Polyline(
+          polylineId: PolylineId('pair_$i'),
+          points: [seg.start, seg.end],
+          color: const Color(0xFFFFC700),
+          width: 4,
+        ),
+      );
+    }
+    return out;
   }
 
   LatLngBounds _boundsForPoints(List<LatLng> points) {
@@ -1021,14 +1122,15 @@ class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
   }
 
   Future<void> _fitBounds() async {
-    if (_controller == null || widget.points.isEmpty) return;
-    if (widget.points.length == 1) {
+    final points = _orderedPathPoints();
+    if (_controller == null || points.isEmpty) return;
+    if (points.length == 1) {
       await _controller!.animateCamera(
-        CameraUpdate.newLatLngZoom(widget.points.first.position, 15),
+        CameraUpdate.newLatLngZoom(points.first, 15),
       );
       return;
     }
-    final bounds = _boundsForPoints(widget.points.map((e) => e.position).toList());
+    final bounds = _boundsForPoints(points);
     await _controller!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 64));
   }
 
@@ -1036,12 +1138,31 @@ class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
   Widget build(BuildContext context) {
     final markers = _buildMarkers();
     final polylines = _buildPolylines();
-    final initial = widget.points.first.position;
+    final initial = widget.segments.first.start;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
         title: Text('${widget.periodLabel} 경로 지도'),
+        actions: [
+          TextButton.icon(
+            onPressed: _roadRouteLoading ? null : _toggleRoadRoute,
+            icon: _roadRouteLoading
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    _roadRouteEnabled ? Icons.route : Icons.alt_route,
+                    color: const Color(0xFFFFC700),
+                  ),
+            label: Text(
+              _roadRouteEnabled ? '직선보기' : '도로경로보기',
+              style: const TextStyle(color: Color(0xFFFFC700)),
+            ),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(24),
           child: Padding(
