@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Google Cloud Console → OAuth 2.0 → "웹 애플리케이션" 클라이언트 ID (…apps.googleusercontent.com).
+         Drive 연동 시 여기에 붙여넣기. 비워 두면 서버 인증 코드 요청 없음. -->
+    <string name="default_web_client_id" translatable="false">643066110177-3mm0917ti59t2g7rnmq77uvdp83l8edp.apps.googleusercontent.com</string>
+    <!-- google_maps_api_key 는 android/app/build.gradle.kts 에서 MAPS_API_KEY 로 주입됩니다. -->
+</resources>
