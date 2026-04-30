@@ -128,6 +128,27 @@ class DriveLogDatabase {
     return result.isNotEmpty ? result.first : {'count': 0, 'gross': 0, 'net': 0, 'expenses': 0};
   }
 
+  /// 근무일(`work_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
+  Future<Map<String, dynamic>> getTodayStatsByWorkDate(String workDateYmd) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      '''
+      SELECT COUNT(*) as count,
+        COALESCE(SUM(gross_fare + COALESCE(waypoint_tip, 0)), 0) as gross,
+        COALESCE(SUM(
+          MAX(0,
+            COALESCE(gross_fare, 0) + COALESCE(waypoint_tip, 0)
+              - COALESCE(fee, 0) - COALESCE(transport_cost, 0)
+          )
+        ), 0) as net,
+        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) as expenses
+      FROM drive_logs WHERE work_date = ?
+      ''',
+      [workDateYmd],
+    );
+    return result.isNotEmpty ? result.first : {'count': 0, 'gross': 0, 'net': 0, 'expenses': 0};
+  }
+
   /// 운행일이 [startYmd] ~ [endYmd] (포함, `yyyy-MM-dd`) 인 일지.
   Future<List<Map<String, dynamic>>> getLogsByDriveDateRange(String startYmd, String endYmd) async {
     final db = await database;

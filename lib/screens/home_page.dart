@@ -31,7 +31,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   int _todayExpenses = 0;
   bool _isLoading = true;
   Timer? _workDateTick;
-  /// 홈 상단·DB 집계: 달력 `yyyy-MM-dd` (운행일 `drive_date` 기준)
+  /// 홈 상단·DB 집계: 유효 근무일 `yyyy-MM-dd` (근무일 `work_date` 기준)
   String _homeCalendarYmd = '';
   List<Map<String, dynamic>> _recentLogs = const [];
   int _recentLogIndex = 0;
@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _rollWorkDateIfNeeded() {
-    final cal = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final cal = WorkDateUtils.effectiveWorkDateYmd();
     if (cal != _homeCalendarYmd) {
       _loadHomeData();
     }
@@ -93,8 +93,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadHomeData() async {
-    final String cal = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final stats = await DriveLogDatabase.instance.getTodayStats(cal);
+    final String cal = WorkDateUtils.effectiveWorkDateYmd();
+    final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(cal);
     final recent = await DriveLogDatabase.instance.getRecentLogsByDriveDateTime(limit: 5);
 
     if (!mounted) return;
