@@ -421,27 +421,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _showWorkDateQuickPicker() async {
-    final now = DateTime.now();
     final DateTime initial = DateTime.tryParse(_workDateCon.text.trim()) ??
         WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020, 1, 1),
-      lastDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
-      locale: const Locale('ko', 'KR'),
-      helpText: '근무일자 선택',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFFFFC700),
-            surface: Color(0xFF1F222A),
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1F222A)),
-        ),
-        child: child!,
-      ),
-    );
+    final DateTime? picked =
+        await _pickDateFromMonthlyScroller(initialDate: initial, title: '근무일자 선택');
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
@@ -451,27 +434,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _showDateQuickPicker() async {
-    final now = DateTime.now();
     final DateTime initial = DateTime.tryParse(_dateCon.text.trim()) ??
         WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020, 1, 1),
-      lastDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
-      locale: const Locale('ko', 'KR'),
-      helpText: '운행일자 선택',
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFFFFC700),
-            surface: Color(0xFF1F222A),
-          ),
-          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1F222A)),
-        ),
-        child: child!,
-      ),
-    );
+    final DateTime? picked =
+        await _pickDateFromMonthlyScroller(initialDate: initial, title: '운행일자 선택');
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
@@ -524,6 +490,124 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return TimeOfDay(hour: hour, minute: minute);
   }
   String _formatTime24(TimeOfDay time) => "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+  DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Future<DateTime?> _pickDateFromMonthlyScroller({
+    required DateTime initialDate,
+    required String title,
+  }) async {
+    final now = DateTime.now();
+    final today = _dayOnly(now);
+    final firstOfMonth = DateTime(today.year, today.month, 1);
+    final maxDate = today.add(const Duration(days: 1));
+    final dates = <DateTime>[];
+    var cursor = maxDate;
+    while (!cursor.isBefore(firstOfMonth)) {
+      dates.add(cursor);
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+
+    DateTime selected = _dayOnly(initialDate);
+    if (selected.isBefore(firstOfMonth)) selected = firstOfMonth;
+    if (selected.isAfter(maxDate)) selected = maxDate;
+
+    final picked = await showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: const Color(0xFF1F222A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            final selectedIndex = dates.indexWhere((d) => d == selected);
+            return SizedBox(
+              height: 420,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+                    child: Row(
+                      children: [
+                        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_left, color: Color(0xFFFFC700)),
+                          onPressed: () {
+                            final prev = selected.subtract(const Duration(days: 1));
+                            if (prev.isBefore(firstOfMonth)) return;
+                            setModalState(() => selected = prev);
+                          },
+                        ),
+                        Text(
+                          DateFormat('yyyy-MM-dd').format(selected),
+                          style: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.chevron_right, color: Color(0xFFFFC700)),
+                          onPressed: () {
+                            final next = selected.add(const Duration(days: 1));
+                            if (next.isAfter(maxDate)) return;
+                            setModalState(() => selected = next);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(color: Colors.white12, height: 1),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: dates.length,
+                      itemBuilder: (ctx, i) {
+                        final d = dates[i];
+                        final isSelected = i == selectedIndex;
+                        return ListTile(
+                          title: Text(
+                            DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(d),
+                            style: TextStyle(
+                              color: isSelected ? const Color(0xFFFFC700) : Colors.white,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
+                            ),
+                          ),
+                          onTap: () => setModalState(() => selected = d),
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(ctx, selected),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFFFC700),
+                              foregroundColor: Colors.black,
+                            ),
+                            child: const Text('확인'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    return picked;
+  }
 
   Future<void> _openNaverMapRoute() async {
     final String start = _startLocCon.text.trim(); final String end = _endLocCon.text.trim();
