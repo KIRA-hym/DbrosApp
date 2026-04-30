@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 펼침: (접힘과 동일) 근무일자 → 순익 → 하단 수입·지출 + 1행 우측 퀵등록 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -13,7 +14,7 @@
         android:gravity="center_vertical">
 
         <TextView
-            android:id="@+id/notification_summary_expanded"
+            android:id="@+id/notification_expanded_line1"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
@@ -38,12 +39,32 @@
     </LinearLayout>
 
     <TextView
-        android:id="@+id/notification_work_date"
+        android:id="@+id/notification_expanded_line2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="2dp"
         android:maxLines="1"
         android:ellipsize="end"
-        android:textSize="14sp"
+        android:textSize="12sp"
+        android:textColor="#9EFFFFFF" />
+
+    <TextView
+        android:id="@+id/notification_expanded_income"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textSize="12sp"
+        android:textColor="#9EFFFFFF" />
+
+    <TextView
+        android:id="@+id/notification_expanded_expense"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:textSize="12sp"
         android:textColor="#9EFFFFFF" />
 </LinearLayout>
