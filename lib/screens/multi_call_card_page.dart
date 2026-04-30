@@ -139,8 +139,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final detectedProgram = _detectProgram(blocks);
-    if (detectedProgram == null) return {};
+    final rawProgram = _detectProgram(blocks);
+    if (rawProgram == null) return {};
+    final detectedProgram = _normalizeProgramForSave(rawProgram);
 
     final Map<String, dynamic> logData = {
       'program': detectedProgram,
@@ -155,11 +156,11 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       'memo': '',
     };
 
-    if (detectedProgram == "카카오") {
+    if (rawProgram == "카카오") {
       await _parseKakao(blocks, logData);
-    } else if (detectedProgram == "로지") {
+    } else if (rawProgram == "로지") {
       await _parseLogi(blocks, logData);
-    } else if (detectedProgram == "콜마너") {
+    } else if (rawProgram == "콜마너") {
       await _parseColmanner(blocks, logData);
     }
 
@@ -181,6 +182,11 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       if (block.text.contains("출도")) return "콜마너";
     }
     return null;
+  }
+
+  String _normalizeProgramForSave(String program) {
+    if (program == '카카오') return '카카오(일반)';
+    return program;
   }
 
   Future<void> _parseKakao(List<TextBlock> blocks, Map<String, dynamic> logData) async {

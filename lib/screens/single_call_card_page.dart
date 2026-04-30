@@ -102,12 +102,13 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final detectedProgram = _detectProgram(blocks);
-    if (detectedProgram == null) {
+    final rawProgram = _detectProgram(blocks);
+    if (rawProgram == null) {
       _lastFailureReason = "프로그램 인식불가";
       return {};
     }
     _lastFailureReason = null;
+    final detectedProgram = _normalizeProgramForSave(rawProgram);
 
     final Map<String, dynamic> logData = {
       'program': detectedProgram,
@@ -122,11 +123,11 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       'memo': '',
     };
 
-    if (detectedProgram == "카카오") {
+    if (rawProgram == "카카오") {
       await _parseKakao(blocks, logData);
-    } else if (detectedProgram == "로지") {
+    } else if (rawProgram == "로지") {
       await _parseLogi(blocks, logData);
-    } else if (detectedProgram == "콜마너") {
+    } else if (rawProgram == "콜마너") {
       await _parseColmanner(blocks, logData);
     }
 
@@ -148,6 +149,11 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       if (block.text.contains("출도")) return "콜마너";
     }
     return null;
+  }
+
+  String _normalizeProgramForSave(String program) {
+    if (program == '카카오') return '카카오(일반)';
+    return program;
   }
 
   Future<void> _parseKakao(List<TextBlock> blocks, Map<String, dynamic> logData) async {

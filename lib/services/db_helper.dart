@@ -20,7 +20,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -55,6 +55,9 @@ class DriveLogDatabase {
         if (oldVersion < 3) {
           await db.execute('ALTER TABLE drive_logs ADD COLUMN work_date TEXT');
           await db.execute('UPDATE drive_logs SET work_date = drive_date WHERE work_date IS NULL OR TRIM(work_date) = \'\' ');
+        }
+        if (oldVersion < 4) {
+          await db.execute("UPDATE drive_logs SET program = '카카오(일반)' WHERE program = '카카오'");
         }
       },
     );
