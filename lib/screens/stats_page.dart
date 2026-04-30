@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
 
@@ -388,6 +389,110 @@ class _StatsPageState extends State<StatsPage> {
     return monthlyRevenue.entries.map((entry) => { 'month': entry.key, 'revenue': entry.value }).toList();
   }
 
+  Future<List<Map<String, dynamic>>> _getLogsForSelectedPeriod() async {
+    if (_selectedPeriod == "일간") {
+      final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      final db = await DriveLogDatabase.instance.database;
+      return db.query(
+        'drive_logs',
+        where: 'drive_date = ?',
+        whereArgs: [dateStr],
+        orderBy: 'drive_date ASC, drive_time ASC',
+      );
+    }
+    if (_selectedPeriod == "주간") {
+      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      final startStr = DateFormat('yyyy-MM-dd').format(weekStart);
+      final endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
+      return DriveLogDatabase.instance.getLogsByDriveDateRange(startStr, endStr);
+    }
+    if (_selectedPeriod == "월간") {
+      final yearMonth = DateFormat('yyyy-MM').format(_selectedDate);
+      final logs = await DriveLogDatabase.instance.getLogsByMonth(yearMonth);
+      logs.sort((a, b) {
+        final ad = (a['drive_date'] ?? '').toString();
+        final bd = (b['drive_date'] ?? '').toString();
+        final cmpDate = ad.compareTo(bd);
+        if (cmpDate != 0) return cmpDate;
+        return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
+      });
+      return logs;
+    }
+    final out = <Map<String, dynamic>>[];
+    for (int month = 1; month <= 12; month++) {
+      final logs = await DriveLogDatabase.instance
+          .getLogsByMonth(DateFormat('yyyy-MM').format(DateTime(_selectedDate.year, month)));
+      out.addAll(logs);
+    }
+    out.sort((a, b) {
+      final ad = (a['drive_date'] ?? '').toString();
+      final bd = (b['drive_date'] ?? '').toString();
+      final cmpDate = ad.compareTo(bd);
+      if (cmpDate != 0) return cmpDate;
+      return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
+    });
+    return out;
+  }
+
+  List<_RoutePoint> _buildRoutePoints(List<Map<String, dynamic>> logs) {
+    final points = <_RoutePoint>[];
+    for (final log in logs) {
+      final startLat = (log['start_lat'] as num?)?.toDouble();
+      final startLng = (log['start_lng'] as num?)?.toDouble();
+      final endLat = (log['end_lat'] as num?)?.toDouble();
+      final endLng = (log['end_lng'] as num?)?.toDouble();
+      final time = (log['drive_time'] ?? '').toString();
+      final program = (log['program'] ?? '').toString();
+      if (startLat != null && startLng != null) {
+        points.add(
+          _RoutePoint(
+            position: LatLng(startLat, startLng),
+            title: '출발',
+            snippet: '$time · $program',
+          ),
+        );
+      }
+      if (endLat != null && endLng != null) {
+        points.add(
+          _RoutePoint(
+            position: LatLng(endLat, endLng),
+            title: '도착',
+            snippet: '$time · $program',
+          ),
+        );
+      }
+    }
+    return points;
+  }
+
+  Future<void> _openRouteMap() async {
+    final logs = await _getLogsForSelectedPeriod();
+    if (!mounted) return;
+    final points = _buildRoutePoints(logs);
+    if (points.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')),
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => _StatsRouteMapPage(
+          periodLabel: _selectedPeriod,
+          dateLabel: _selectedPeriod == '일간'
+              ? _getDailyDisplayText()
+              : _selectedPeriod == '주간'
+                  ? _getWeeklyDisplayText()
+                  : _selectedPeriod == '월간'
+                      ? _getMonthlyDisplayText()
+                      : _getYearlyDisplayText(),
+          points: points,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -487,6 +592,12 @@ class _StatsPageState extends State<StatsPage> {
                               alignment: Alignment.centerRight,
                               child: _buildDateSelector(),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: _openRouteMap,
+                            icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                            tooltip: '기간 경로 지도',
                           ),
                         ],
                       ),
@@ -815,6 +926,139 @@ class _StatsPageState extends State<StatsPage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _RoutePoint {
+  const _RoutePoint({
+    required this.position,
+    required this.title,
+    required this.snippet,
+  });
+
+  final LatLng position;
+  final String title;
+  final String snippet;
+}
+
+class _StatsRouteMapPage extends StatefulWidget {
+  const _StatsRouteMapPage({
+    required this.periodLabel,
+    required this.dateLabel,
+    required this.points,
+  });
+
+  final String periodLabel;
+  final String dateLabel;
+  final List<_RoutePoint> points;
+
+  @override
+  State<_StatsRouteMapPage> createState() => _StatsRouteMapPageState();
+}
+
+class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
+  GoogleMapController? _controller;
+
+  Set<Marker> _buildMarkers() {
+    final markers = <Marker>{};
+    for (int i = 0; i < widget.points.length; i++) {
+      final p = widget.points[i];
+      final isStart = i == 0;
+      final isEnd = i == widget.points.length - 1;
+      final hue = isStart
+          ? BitmapDescriptor.hueGreen
+          : isEnd
+              ? BitmapDescriptor.hueRed
+              : BitmapDescriptor.hueAzure;
+      final markerTitle = isStart
+          ? '시작'
+          : isEnd
+              ? '종료'
+              : p.title;
+      markers.add(
+        Marker(
+          markerId: MarkerId('route_$i'),
+          position: p.position,
+          infoWindow: InfoWindow(title: markerTitle, snippet: p.snippet),
+          icon: BitmapDescriptor.defaultMarkerWithHue(hue),
+        ),
+      );
+    }
+    return markers;
+  }
+
+  Set<Polyline> _buildPolylines() {
+    return {
+      Polyline(
+        polylineId: const PolylineId('route_all'),
+        points: widget.points.map((e) => e.position).toList(),
+        color: const Color(0xFFFFC700),
+        width: 4,
+      ),
+    };
+  }
+
+  LatLngBounds _boundsForPoints(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+    for (final p in points.skip(1)) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
+  Future<void> _fitBounds() async {
+    if (_controller == null || widget.points.isEmpty) return;
+    if (widget.points.length == 1) {
+      await _controller!.animateCamera(
+        CameraUpdate.newLatLngZoom(widget.points.first.position, 15),
+      );
+      return;
+    }
+    final bounds = _boundsForPoints(widget.points.map((e) => e.position).toList());
+    await _controller!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 64));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final markers = _buildMarkers();
+    final polylines = _buildPolylines();
+    final initial = widget.points.first.position;
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121418),
+      appBar: AppBar(
+        title: Text('${widget.periodLabel} 경로 지도'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(24),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              widget.dateLabel,
+              style: const TextStyle(color: Color(0xFF9FA3AE), fontSize: 12),
+            ),
+          ),
+        ),
+      ),
+      body: GoogleMap(
+        initialCameraPosition: CameraPosition(target: initial, zoom: 12),
+        myLocationButtonEnabled: false,
+        markers: markers,
+        polylines: polylines,
+        onMapCreated: (controller) {
+          _controller = controller;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+        },
+      ),
     );
   }
 }
