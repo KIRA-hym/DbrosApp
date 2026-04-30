@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import java.text.DecimalFormat
 import java.util.concurrent.atomic.AtomicReference
 
-/** 오늘 요약 알림 — RemoteViews 한 줄 레이아웃 (플러그인 표준 액션은 줄이 늘어남). */
+/** 오늘 요약 알림 — RemoteViews 접힌 2줄 + 펼침. */
 object TodaySummaryNotifier {
 
     // v2: 무음/무진동 채널로 분리 (기존 채널 중요도/진동 설정은 OS가 고정 보관)
@@ -30,10 +30,11 @@ object TodaySummaryNotifier {
 
         val pkg = context.packageName
         val compact = RemoteViews(pkg, R.layout.notification_today_one_row)
-        compact.setTextViewText(R.id.notification_summary, formatCompactLine(income, expense, workDate))
+        compact.setTextViewText(R.id.notification_compact_line1, formatCompactDateLine(workDate))
+        compact.setTextViewText(R.id.notification_compact_line2, formatNetLine(income, expense))
         val expanded = RemoteViews(pkg, R.layout.notification_today_expanded)
-        expanded.setTextViewText(R.id.notification_summary_expanded, formatNetLine(income, expense))
-        expanded.setTextViewText(R.id.notification_work_date, formatIncomeExpenseLine(income, expense))
+        expanded.setTextViewText(R.id.notification_summary_expanded, formatIncomeLine(income))
+        expanded.setTextViewText(R.id.notification_work_date, formatExpenseLine(expense))
 
         val intentFlags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
@@ -67,9 +68,11 @@ object TodaySummaryNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        compact.setOnClickPendingIntent(R.id.notification_summary, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_line1, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_line2, piFull)
         compact.setOnClickPendingIntent(R.id.notification_quick, piQuick)
         expanded.setOnClickPendingIntent(R.id.notification_summary_expanded, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_work_date, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_quick_expanded, piQuick)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -122,20 +125,25 @@ object TodaySummaryNotifier {
         }
     }
 
-    private fun formatCompactLine(income: Int, expense: Int, workDate: String): String {
-        val df = DecimalFormat("#,###")
-        val net = income - expense
-        return "$workDate · 💰순익 ${df.format(net)}원"
-    }
+    /** 접힌 1줄: 근무일자만 (순익은 2줄로 분리해 좁은 화면에서 잘림 완화) */
+    private fun formatCompactDateLine(workDate: String): String = workDate
 
+    /** 접힌 2줄: 순익만 */
     private fun formatNetLine(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
         return "💰순익 ${df.format(net)}원"
     }
 
-    private fun formatIncomeExpenseLine(income: Int, expense: Int): String {
+    /** 펼침 1행 본문: 수입 */
+    private fun formatIncomeLine(income: Int): String {
         val df = DecimalFormat("#,###")
-        return "수입 ${df.format(income)}원 · 지출 ${df.format(expense)}원"
+        return "수입 ${df.format(income)}원"
+    }
+
+    /** 펼침 2행: 지출 */
+    private fun formatExpenseLine(expense: Int): String {
+        val df = DecimalFormat("#,###")
+        return "지출 ${df.format(expense)}원"
     }
 }

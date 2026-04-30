@@ -135,6 +135,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         latestChannel = meta.channelName;
         latestPublishedDot = meta.publishedDot;
       }
+      if (latest != null &&
+          latest.length == 11 &&
+          latestTitle.isEmpty &&
+          latestChannel.isEmpty) {
+        final fill = await YoutubeRssService.fetchVideoMetaById(latest);
+        if (fill != null) {
+          latestTitle = fill.title;
+          latestChannel = fill.channelName;
+        }
+      }
     } else if (raw.length == 11) {
       latest = raw;
       final oembed = await YoutubeRssService.fetchVideoMetaById(raw);
@@ -191,28 +201,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
         titleSpacing: 20.0,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            SizedBox(
-              width: screenWidth * 0.60,
-              height: titleFontSize + 70,
-              child: Image.asset(
-                'assets/title.png',
-                fit: BoxFit.fill,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 30.0, right: 8.0),
-              child: Text(
-                "운행 일지 관리",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFFFFC700),
-                      fontWeight: FontWeight.bold,
+        title: LayoutBuilder(
+          builder: (context, constraints) {
+            return Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: SizedBox(
+                    height: titleFontSize + 70,
+                    child: Image.asset(
+                      'assets/title.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerLeft,
                     ),
-              ),
-            ),
-          ],
+                  ),
+                ),
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 30.0, left: 4.0, right: 4.0),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        "운행 일지 관리",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                              color: const Color(0xFFFFC700),
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
         ),
         centerTitle: false,
       ),

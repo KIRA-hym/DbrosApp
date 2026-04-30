@@ -15,12 +15,34 @@ typedef YoutubeLatestVideoMeta = ({
 class YoutubeRssService {
   YoutubeRssService._();
 
+  /// 기본 Dart UA는 YouTube RSS/oEmbed에서 거절되는 경우가 있어 브라우저형으로 통일.
+  static const Map<String, String> _rssHeaders = {
+    'Accept': 'application/atom+xml, application/xml, text/xml, */*',
+    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+    'User-Agent':
+        'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+  };
+
+  static final Map<String, String> _oembedHeaders = {
+    ..._rssHeaders,
+    'Accept': 'application/json, */*',
+  };
+
   static final _ytVideoIdTag = RegExp(
     r'<yt:videoId>\s*([a-zA-Z0-9_-]{11})\s*</yt:videoId>',
     caseSensitive: false,
   );
   static final _watchLink = RegExp(
     r'youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})',
+    caseSensitive: false,
+  );
+  /// Atom entry 없이 본문에만 링크가 있을 때 (형식 변동 대비)
+  static final _watchInHref = RegExp(
+    r'href="https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})',
+    caseSensitive: false,
+  );
+  static final _embedOrShort = RegExp(
+    r'(?:youtube\.com/embed/|youtu\.be/)([a-zA-Z0-9_-]{11})',
     caseSensitive: false,
   );
 
@@ -70,11 +92,32 @@ class YoutubeRssService {
         .replaceAll('&gt;', '>');
   }
 
+  static bool _looksLikeAtomFeed(String body) {
+    final t = body.trimLeft();
+    if (t.length < 80) return false;
+    return t.startsWith('<?xml') || t.contains('<feed') || t.contains('<entry');
+  }
+
   static String? _parseFirstVideoId(String xml) {
     final m = _ytVideoIdTag.firstMatch(xml);
-    if (m != null) return m.group(1);
-    final m2 = _watchLink.firstMatch(xml);
-    return m2?.group(1);
+    if (m != null && (m.group(1)?.length == 11)) return m.group(1);
+    for (final r in [_watchInHref, _embedOrShort, _watchLink]) {
+      final hit = r.firstMatch(xml);
+      if (hit != null && (hit.group(1)?.length == 11)) return hit.group(1);
+    }
+    return null;
+  }
+
+  static String _parseFirstPublishedAnywhere(String xml) {
+    final pm = RegExp(
+      r'<published>\s*([^<]+?)\s*</published>',
+      caseSensitive: false,
+    ).firstMatch(xml);
+    if (pm != null) {
+      final d = _dotDateFromIsoPublished(pm.group(1) ?? '');
+      if (d.isNotEmpty) return d;
+    }
+    return '';
   }
 
   static String _dotDateFromIsoPublished(String iso) {
@@ -147,7 +190,9 @@ class YoutubeRssService {
         'url': 'https://www.youtube.com/watch?v=$videoId',
         'format': 'json',
       });
-      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      final res = await http
+          .get(uri, headers: _oembedHeaders)
+          .timeout(const Duration(seconds: 12));
       if (res.statusCode != 200) return null;
       final map = jsonDecode(res.body) as Map<String, dynamic>;
       final title = (map['title'] ?? '').toString().trim();
@@ -169,15 +214,10 @@ class YoutubeRssService {
     );
     try {
       final res = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/xml, text/xml, */*',
-              'User-Agent': 'Mozilla/5.0 (compatible; DbrosApp RSS/1.0; +https://www.youtube.com/)',
-            },
-          )
+          .get(uri, headers: _rssHeaders)
           .timeout(const Duration(seconds: 15));
       if (res.statusCode != 200) return null;
+      if (!_looksLikeAtomFeed(res.body)) return null;
       return _parseFirstVideoId(res.body);
     } catch (_) {
       return null;
@@ -253,16 +293,24 @@ class YoutubeRssService {
     );
     try {
       final res = await http
-          .get(
-            uri,
-            headers: {
-              'Accept': 'application/xml, text/xml, */*',
-              'User-Agent': 'Mozilla/5.0 (compatible; DbrosApp RSS/1.0; +https://www.youtube.com/)',
-            },
-          )
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode == 200) {
+          .get(uri, headers: _rssHeaders)
+          .timeout(const Duration(seconds: 18));
+      if (res.statusCode == 200 && _looksLikeAtomFeed(res.body)) {
         var meta = _parseLatestVideoMeta(res.body);
+        if (meta == null) {
+          final id = _parseFirstVideoId(res.body);
+          if (id != null) {
+            final oembed = await _fetchOEmbedMeta(id);
+            meta = (
+              id: id,
+              title: (oembed?.title.isNotEmpty ?? false)
+                  ? oembed!.title
+                  : '유튜브 최신 영상',
+              channelName: oembed?.channelName ?? '',
+              publishedDot: _parseFirstPublishedAnywhere(res.body),
+            );
+          }
+        }
         if (meta != null && (meta.channelName.isEmpty || meta.title.isEmpty)) {
           final oembed = await _fetchOEmbedMeta(meta.id);
           if (oembed != null) {
