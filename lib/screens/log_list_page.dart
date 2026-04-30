@@ -68,7 +68,7 @@ class _LogListPageState extends State<LogListPage> {
   Future<void> _loadMonthData() async {
     setState(() => _isLoading = true);
     final String yearMonth = DateFormat('yyyy-MM').format(_focusedMonth);
-    final logs = await DriveLogDatabase.instance.getLogsByMonth(yearMonth);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(yearMonth);
 
     Map<String, List<Map<String, dynamic>>> grouped = {};
     int count = logs.length;
@@ -80,7 +80,7 @@ class _LogListPageState extends State<LogListPage> {
       incomeSum += _rowIncomePlusTip(log);
       netProfitSum += _rowNetProfit(log);
       expenseSum += _rowExpenseFeePlusTransport(log);
-      String date = (log['drive_date'] ?? log['work_date']).toString();
+      String date = (log['work_date'] ?? log['drive_date']).toString();
       if (!grouped.containsKey(date)) grouped[date] = [];
       grouped[date]!.add(log);
     }

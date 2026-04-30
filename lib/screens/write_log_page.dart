@@ -421,50 +421,62 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _showWorkDateQuickPicker() async {
-    final DateTime base = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateFormat formatter = DateFormat('yyyy-MM-dd');
-    final List<DateTime> options = [base.subtract(const Duration(days: 1)), base, base.add(const Duration(days: 1))];
-
-    final DateTime? picked = await showDialog<DateTime>(
+    final now = DateTime.now();
+    final DateTime initial = DateTime.tryParse(_workDateCon.text.trim()) ??
+        WorkDateUtils.effectiveWorkDateStartOfDay();
+    final DateTime? picked = await showDatePicker(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.map((date) => ListTile(title: Text(formatter.format(date), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)), onTap: () => Navigator.of(context).pop(date))).toList(),
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
+      locale: const Locale('ko', 'KR'),
+      helpText: '근무일자 선택',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFFFFC700),
+            surface: Color(0xFF1F222A),
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1F222A)),
         ),
+        child: child!,
       ),
     );
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
       _syncedEffectiveYmd = null;
-      _workDateCon.text = formatter.format(picked);
+      _workDateCon.text = DateFormat('yyyy-MM-dd').format(picked);
     });
   }
 
   Future<void> _showDateQuickPicker() async {
-    final DateTime base = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateFormat formatter = DateFormat('yyyy-MM-dd');
-    final List<DateTime> options = [base.subtract(const Duration(days: 1)), base, base.add(const Duration(days: 1))];
-
-    final DateTime? picked = await showDialog<DateTime>(
+    final now = DateTime.now();
+    final DateTime initial = DateTime.tryParse(_dateCon.text.trim()) ??
+        WorkDateUtils.effectiveWorkDateStartOfDay();
+    final DateTime? picked = await showDatePicker(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.map((date) => ListTile(title: Text(formatter.format(date), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)), onTap: () => Navigator.of(context).pop(date))).toList(),
+      initialDate: initial,
+      firstDate: DateTime(2020, 1, 1),
+      lastDate: DateTime(now.year, now.month, now.day).add(const Duration(days: 1)),
+      locale: const Locale('ko', 'KR'),
+      helpText: '운행일자 선택',
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: Color(0xFFFFC700),
+            surface: Color(0xFF1F222A),
+          ),
+          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1F222A)),
         ),
+        child: child!,
       ),
     );
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
       _syncedEffectiveYmd = null;
-      _dateCon.text = formatter.format(picked);
+      _dateCon.text = DateFormat('yyyy-MM-dd').format(picked);
     });
   }
 

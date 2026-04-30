@@ -149,6 +149,18 @@ class DriveLogDatabase {
     );
   }
 
+  /// 근무일(`work_date`) 기준 월 목록. (구버전 데이터 호환: work_date 비어있으면 drive_date 사용)
+  Future<List<Map<String, dynamic>>> getLogsByWorkMonth(String yearMonth) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          "(work_date LIKE ?) OR ((work_date IS NULL OR TRIM(work_date) = '') AND drive_date LIKE ?)",
+      whereArgs: ['$yearMonth-%', '$yearMonth-%'],
+      orderBy: 'work_date DESC, drive_date DESC, drive_time DESC',
+    );
+  }
+
   Future<int> deleteLog(int id) async {
     final db = await database;
     final n = await db.delete('drive_logs', where: 'id = ?', whereArgs: [id]);
