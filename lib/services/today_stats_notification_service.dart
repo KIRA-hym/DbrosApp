@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
-import 'package:intl/intl.dart';
 
 import '../app_navigator.dart';
 import '../screens/write_log_page.dart';
@@ -120,8 +119,8 @@ class TodayStatsNotificationService {
     if (!_isAndroid || !_initialized) return;
     if (!SettingsService.statusBarQuickEnabled) return;
 
-    final String displayDay = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final totals = await DriveLogDatabase.instance.getTodayIncomeExpense(displayDay);
+    final String displayDay = WorkDateUtils.effectiveWorkDateYmd();
+    final totals = await DriveLogDatabase.instance.getTodayIncomeExpenseByWorkDate(displayDay);
     await _showNative(
       income: totals['income'] ?? 0,
       expense: totals['expense'] ?? 0,

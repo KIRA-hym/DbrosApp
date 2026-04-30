@@ -107,6 +107,28 @@ class DriveLogDatabase {
     };
   }
 
+  /// 근무일(`work_date`) 기준: 수입 = gross + waypoint_tip, 지출 = fee + transport
+  Future<Map<String, int>> getTodayIncomeExpenseByWorkDate(String workDateYmd) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT
+        COALESCE(SUM(gross_fare + COALESCE(waypoint_tip, 0)), 0) AS income,
+        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) AS expense
+      FROM drive_logs WHERE work_date = ?
+      ''',
+      [workDateYmd],
+    );
+    if (rows.isEmpty) {
+      return {'income': 0, 'expense': 0};
+    }
+    final r = rows.first;
+    return {
+      'income': (r['income'] as num?)?.toInt() ?? 0,
+      'expense': (r['expense'] as num?)?.toInt() ?? 0,
+    };
+  }
+
   /// 운행일(`drive_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
   Future<Map<String, dynamic>> getTodayStats(String driveDateYmd) async {
     final db = await database;
