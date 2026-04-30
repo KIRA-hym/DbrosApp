@@ -11,7 +11,7 @@ import androidx.core.app.NotificationCompat
 import java.text.DecimalFormat
 import java.util.concurrent.atomic.AtomicReference
 
-/** 오늘 요약 알림 — 접힌: 근무일자/순익 2줄, 펼침: 동일 2줄 + 수입·지출 + 퀵등록. */
+/** 오늘 요약 알림 — 접힌: 근무일자/순익 2줄, 펼침: 동일 2줄 + 수입·지출 한 줄 + 퀵등록. */
 object TodaySummaryNotifier {
 
     // v2: 무음/무진동 채널로 분리 (기존 채널 중요도/진동 설정은 OS가 고정 보관)
@@ -37,8 +37,10 @@ object TodaySummaryNotifier {
         val line2 = formatNetLine(income, expense)
         expanded.setTextViewText(R.id.notification_expanded_line1, line1)
         expanded.setTextViewText(R.id.notification_expanded_line2, line2)
-        expanded.setTextViewText(R.id.notification_expanded_income, formatIncomeLine(income))
-        expanded.setTextViewText(R.id.notification_expanded_expense, formatExpenseLine(expense))
+        expanded.setTextViewText(
+            R.id.notification_expanded_income_expense,
+            formatIncomeExpenseOneLine(income, expense)
+        )
 
         val intentFlags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
@@ -77,8 +79,7 @@ object TodaySummaryNotifier {
         compact.setOnClickPendingIntent(R.id.notification_quick, piQuick)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line1, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line2, piFull)
-        expanded.setOnClickPendingIntent(R.id.notification_expanded_income, piFull)
-        expanded.setOnClickPendingIntent(R.id.notification_expanded_expense, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_income_expense, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_quick_expanded, piQuick)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -141,15 +142,9 @@ object TodaySummaryNotifier {
         return "💰순익 ${df.format(net)}원"
     }
 
-    /** 펼침 1행 본문: 수입 */
-    private fun formatIncomeLine(income: Int): String {
+    /** 펼침 하단 한 줄: 수입 · 지출 */
+    private fun formatIncomeExpenseOneLine(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
-        return "수입 ${df.format(income)}원"
-    }
-
-    /** 펼침 2행: 지출 */
-    private fun formatExpenseLine(expense: Int): String {
-        val df = DecimalFormat("#,###")
-        return "지출 ${df.format(expense)}원"
+        return "수입 ${df.format(income)}원 · 지출 ${df.format(expense)}원"
     }
 }
