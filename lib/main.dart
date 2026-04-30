@@ -20,6 +20,9 @@ import 'utils/work_date_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations(const [
+    DeviceOrientation.portraitUp,
+  ]);
   await SettingsService.init();
   await FontSizeService.loadFontSize();
   await initializeDateFormatting('ko_KR', null);
