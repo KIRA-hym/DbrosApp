@@ -5,6 +5,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:intl/intl.dart';
 import '../main_navigation.dart';
 import '../services/db_helper.dart';
+import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_fare_parse.dart';
@@ -356,6 +357,10 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       final work = _driveDateStr();
       final timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
       final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
+      final imagePath = await ImageStorageService.compressAndPersistForDisplay(
+        logData['image_path']?.toString(),
+        prefix: 'single',
+      );
 
       final Map<String, dynamic> row = {
         "work_date": work,
@@ -370,7 +375,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         "waypoint": logData['waypoint'],
         "end_location": logData['end_location'],
         "memo": logData['memo'],
-        "image_path": logData['image_path'],
+        "image_path": imagePath,
         "created_at": nowIso,
         "updated_at": nowIso,
       };

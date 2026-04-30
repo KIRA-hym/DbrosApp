@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../services/db_helper.dart';
+import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../main_navigation.dart';
@@ -755,6 +756,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     _grossIncome = _parseMoney(_incomeCon.text);
     final String nowIso = DateTime.now().toIso8601String();
+    final compactImagePath = await ImageStorageService.compressAndPersistForDisplay(
+      _capturedImage?.path,
+      prefix: 'manual',
+    );
 
     final Map<String, dynamic> row = {
       if (_logId != null) "id": _logId,
@@ -770,7 +775,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       "start_lng": _startLng,
       "end_lat": _endLat,
       "end_lng": _endLng,
-      "image_path": _capturedImage?.path,
+      "image_path": compactImagePath,
       "updated_at": nowIso,
       if (_logId == null)
         "created_at": nowIso

@@ -64,6 +64,8 @@ dependencies:
   webview_flutter_android: ^4.11.0
   flutter_local_notifications: ^21.0.0
   package_info_plus: ^9.0.1
+  archive: ^4.0.9
+  image: ^4.8.0
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -87,7 +89,6 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-  image: ^4.8.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

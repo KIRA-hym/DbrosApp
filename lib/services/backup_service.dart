@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
@@ -56,33 +58,67 @@ class BackupService {
 
   static String _backupFileName([DateTime? now]) {
     final dt = now ?? DateTime.now();
-    return 'dbros_backup_${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}_${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}.json';
+    return 'dbros_backup_${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}_${dt.hour.toString().padLeft(2, '0')}${dt.minute.toString().padLeft(2, '0')}.zip';
   }
 
-  static Future<Map<String, dynamic>> _buildBackupPayload() async {
-    final db = await DriveLogDatabase.instance.database;
-    final List<Map<String, dynamic>> logs = await db.query('drive_logs');
+  static Map<String, dynamic> _currentSettings() {
     return <String, dynamic>{
-      'logs': logs,
-      'settings': {
-        'baseFeeRate': SettingsService.baseFeeRate,
-        'insuranceType': SettingsService.insuranceType,
-        'perTripInsurance': SettingsService.perTripInsurance,
-        'yearlyInsurance': SettingsService.yearlyInsurance,
-        'programList': SettingsService.programList,
-        'showFloatingButtons': SettingsService.showFloatingButtons,
-      },
-      'backupDate': DateTime.now().toIso8601String(),
-      'formatVersion': 2,
+      'baseFeeRate': SettingsService.baseFeeRate,
+      'insuranceType': SettingsService.insuranceType,
+      'perTripInsurance': SettingsService.perTripInsurance,
+      'yearlyInsurance': SettingsService.yearlyInsurance,
+      'programList': SettingsService.programList,
+      'showFloatingButtons': SettingsService.showFloatingButtons,
     };
   }
 
-  static Future<File> _writeTempBackupFile() async {
-    final payload = await _buildBackupPayload();
+  static Future<({List<Map<String, dynamic>> logs, Map<String, File> images})>
+      _rewriteLogsWithBundledImageRefs() async {
+    final db = await DriveLogDatabase.instance.database;
+    final sourceLogs = await db.query('drive_logs');
+    final logs = <Map<String, dynamic>>[];
+    final images = <String, File>{};
+    var imageSeq = 0;
+
+    for (final raw in sourceLogs) {
+      final log = Map<String, dynamic>.from(raw);
+      final pathRaw = log['image_path']?.toString() ?? '';
+      final pathTrim = pathRaw.trim();
+      if (pathTrim.isNotEmpty) {
+        final f = File(pathTrim);
+        if (await f.exists()) {
+          imageSeq++;
+          final key = 'img_${imageSeq.toString().padLeft(4, '0')}_${p.basename(pathTrim)}';
+          images[key] = f;
+          log['image_path'] = 'images/$key';
+        }
+      }
+      logs.add(log);
+    }
+    return (logs: logs, images: images);
+  }
+
+  static Future<File> _writeTempBackupZipFile() async {
+    final rewritten = await _rewriteLogsWithBundledImageRefs();
+    final payload = <String, dynamic>{
+      'logs': rewritten.logs,
+      'settings': _currentSettings(),
+      'backupDate': DateTime.now().toIso8601String(),
+      'formatVersion': 3,
+    };
     final tempDir = await getTemporaryDirectory();
     final backupFile =
         File('${tempDir.path}/${_backupFileName(DateTime.now())}');
-    await backupFile.writeAsString(jsonEncode(payload));
+
+    final archive = Archive();
+    archive.addFile(ArchiveFile.string('backup.json', jsonEncode(payload)));
+    for (final entry in rewritten.images.entries) {
+      final bytes = await entry.value.readAsBytes();
+      archive.addFile(ArchiveFile('images/${entry.key}', bytes.length, bytes));
+    }
+
+    final encoded = ZipEncoder().encode(archive);
+    await backupFile.writeAsBytes(encoded, flush: true);
     return backupFile;
   }
 
@@ -94,15 +130,68 @@ class BackupService {
     await _restoreLogsFromBackupPayload(payload['logs'] as List);
   }
 
+  static Future<void> _restoreFromBackupZip(File zipFile) async {
+    final bytes = await zipFile.readAsBytes();
+    final arc = ZipDecoder().decodeBytes(bytes);
+
+    ArchiveFile? backupJsonEntry;
+    for (final f in arc.files) {
+      if (!f.isFile) continue;
+      if (f.name == 'backup.json') {
+        backupJsonEntry = f;
+        break;
+      }
+    }
+    if (backupJsonEntry == null) {
+      throw const FormatException('ZIP 안에 backup.json 파일이 없습니다.');
+    }
+
+    final payload = _parseJsonMap(utf8.decode(backupJsonEntry.content as List<int>));
+    _validateBackupPayload(payload);
+    final logsRaw = List<Map<String, dynamic>>.from(
+      (payload['logs'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+
+    final appDoc = await getApplicationDocumentsDirectory();
+    final imageDir = Directory(p.join(appDoc.path, 'attached_images'));
+    if (!await imageDir.exists()) {
+      await imageDir.create(recursive: true);
+    }
+
+    final extractedMap = <String, String>{};
+    for (final f in arc.files) {
+      if (!f.isFile) continue;
+      if (!f.name.startsWith('images/')) continue;
+      final fileName = p.basename(f.name);
+      final targetPath = p.join(
+        imageDir.path,
+        'restored_${DateTime.now().microsecondsSinceEpoch}_$fileName',
+      );
+      final content = f.content as List<int>;
+      await File(targetPath).writeAsBytes(content, flush: true);
+      extractedMap[f.name] = targetPath;
+    }
+
+    for (final log in logsRaw) {
+      final rawPath = log['image_path']?.toString() ?? '';
+      if (extractedMap.containsKey(rawPath)) {
+        log['image_path'] = extractedMap[rawPath];
+      }
+    }
+
+    await _applySettingsFromBackup(payload['settings']);
+    await _restoreLogsFromBackupPayload(logsRaw);
+  }
+
   static Future<bool> backupToSelectedFile(BuildContext context) async {
     File? backupFile;
     try {
-      backupFile = await _writeTempBackupFile();
+      backupFile = await _writeTempBackupZipFile();
 
       final savedPath = await FlutterFileDialog.saveFile(
         params: SaveFileDialogParams(
           sourceFilePath: backupFile.path,
-          mimeTypesFilter: const <String>['application/json'],
+          mimeTypesFilter: const <String>['application/zip', 'application/octet-stream'],
           localOnly: false,
         ),
       );
@@ -139,8 +228,8 @@ class BackupService {
     try {
       final pickedPath = await FlutterFileDialog.pickFile(
         params: const OpenFileDialogParams(
-          fileExtensionsFilter: <String>['json'],
-          mimeTypesFilter: <String>['application/json', 'text/plain'],
+          fileExtensionsFilter: <String>['zip', 'json'],
+          mimeTypesFilter: <String>['application/zip', 'application/json', 'text/plain'],
           localOnly: false,
           copyFileToCacheDir: true,
         ),
@@ -158,8 +247,13 @@ class BackupService {
         throw const FormatException('선택된 파일을 읽을 수 없습니다.');
       }
 
-      final jsonData = await pickedFile.readAsString();
-      await _restoreFromBackupJson(jsonData);
+      final lower = pickedPath.toLowerCase();
+      if (lower.endsWith('.zip')) {
+        await _restoreFromBackupZip(pickedFile);
+      } else {
+        final jsonData = await pickedFile.readAsString();
+        await _restoreFromBackupJson(jsonData);
+      }
 
       if (!context.mounted) return false;
       _maybeShowSnackBar(

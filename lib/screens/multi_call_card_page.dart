@@ -5,6 +5,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:intl/intl.dart';
 import '../main_navigation.dart';
 import '../services/db_helper.dart';
+import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_fare_parse.dart';
@@ -412,6 +413,10 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       for (final logData in _parsedLogs) {
         final timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
         final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
+        final imagePath = await ImageStorageService.compressAndPersistForDisplay(
+          logData['image_path']?.toString(),
+          prefix: 'multi',
+        );
         final Map<String, dynamic> row = {
           "work_date": work,
           "drive_date": drive,
@@ -425,7 +430,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           "waypoint": logData['waypoint'],
           "end_location": logData['end_location'],
           "memo": logData['memo'],
-          "image_path": logData['image_path'],
+          "image_path": imagePath,
           "created_at": nowIso,
           "updated_at": nowIso,
         };
