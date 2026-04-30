@@ -760,7 +760,11 @@ class _StatsPageState extends State<StatsPage> {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
         final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
-        const minItemWidth = 30.0;
+        final longestValueLen = data
+            .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
+            .fold<int>(1, (a, b) => a > b ? a : b);
+        final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
+        final minItemWidth = math.max(30.0, valueWidthByText);
         const maxItemWidth = 56.0;
         const itemSpacing = 6.0;
         final labelHeight = textFontSize + 6.0;
@@ -773,7 +777,9 @@ class _StatsPageState extends State<StatsPage> {
 
         final naturalWidth = (data.length * (minItemWidth + itemSpacing)).toDouble();
         final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
-        final itemWidth = ((contentWidth - (data.length * itemSpacing)) / data.length).clamp(minItemWidth, maxItemWidth);
+        final itemWidth = (((contentWidth - (data.length * itemSpacing)) / data.length)
+                .clamp(minItemWidth, math.max(maxItemWidth, minItemWidth)))
+            .toDouble();
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -831,7 +837,6 @@ class _StatsPageState extends State<StatsPage> {
                             ),
                             textAlign: TextAlign.center,
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -851,7 +856,11 @@ class _StatsPageState extends State<StatsPage> {
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
         final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
-        const minItemWidth = 30.0;
+        final longestValueLen = data
+            .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
+            .fold<int>(1, (a, b) => a > b ? a : b);
+        final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
+        final minItemWidth = math.max(30.0, valueWidthByText);
         const itemSpacing = 6.0;
         final labelHeight = textFontSize + 6.0;
         final valueHeight = textFontSize + 6.0;
@@ -863,7 +872,8 @@ class _StatsPageState extends State<StatsPage> {
 
         final naturalWidth = (data.length * (minItemWidth + itemSpacing)).toDouble();
         final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
-        final itemWidth = (contentWidth / data.length).clamp(minItemWidth, 48.0);
+        final itemWidth =
+            ((contentWidth / data.length).clamp(minItemWidth, math.max(48.0, minItemWidth))).toDouble();
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
@@ -910,7 +920,6 @@ class _StatsPageState extends State<StatsPage> {
                               ),
                               textAlign: TextAlign.center,
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
