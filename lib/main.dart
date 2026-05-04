@@ -73,6 +73,8 @@ class _QuickRegisterOverlayRoot extends StatefulWidget {
 
 class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
   String _initialDate = WorkDateUtils.effectiveWorkDateYmd();
+  /// 오버레이 엔진이 캐시되면 [DriveLogForm] State가 유지되므로, 퀵등록을 열 때마다 증가시켜 신규 폼을 만든다.
+  int _quickFormSession = 0;
   StreamSubscription<dynamic>? _sub;
 
   @override
@@ -81,7 +83,10 @@ class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
     _sub = FlutterOverlayWindow.overlayListener.listen((event) {
       final text = event?.toString().trim() ?? '';
       if (text.isNotEmpty && mounted) {
-        setState(() => _initialDate = text);
+        setState(() {
+          _initialDate = text;
+          _quickFormSession++;
+        });
       }
     });
   }
@@ -95,6 +100,7 @@ class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
   @override
   Widget build(BuildContext context) {
     return DriveLogForm(
+      key: ValueKey<String>('quick_overlay_$_quickFormSession'),
       initialDate: _initialDate,
       quickPanel: true,
       fromOverlay: true,

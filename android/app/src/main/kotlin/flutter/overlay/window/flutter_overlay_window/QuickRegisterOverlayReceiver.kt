@@ -1,5 +1,7 @@
 package flutter.overlay.window.flutter_overlay_window
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -17,6 +19,25 @@ import io.flutter.embedding.engine.dart.DartExecutor
  * 알림 퀵등록 액션을 앱 Activity를 전면 실행하지 않고 오버레이로 직접 띄우기 위한 리시버.
  */
 class QuickRegisterOverlayReceiver : BroadcastReceiver() {
+    private fun ensureSilentOverlayChannel(context: Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        // flutter_overlay_window 기본 채널을 무음/무진동으로 강제.
+        nm.deleteNotificationChannel(OverlayConstants.CHANNEL_ID)
+        val ch = NotificationChannel(
+            OverlayConstants.CHANNEL_ID,
+            "Foreground Service Channel",
+            NotificationManager.IMPORTANCE_LOW,
+        ).apply {
+            enableVibration(false)
+            vibrationPattern = longArrayOf(0L)
+            setSound(null, null)
+            enableLights(false)
+            setShowBadge(false)
+        }
+        nm.createNotificationChannel(ch)
+    }
+
     override fun onReceive(context: Context, intent: Intent?) {
         try {
             // 알림창이 열린 상태에서 퀵등록을 눌렀을 때 shade를 먼저 닫아
@@ -53,6 +74,7 @@ class QuickRegisterOverlayReceiver : BroadcastReceiver() {
             WindowSetup.overlayTitle = "Dbros Quick Register"
             WindowSetup.overlayContent = intent?.getStringExtra("workDate") ?: ""
             WindowSetup.setNotificationVisibility("visibilityPublic")
+            ensureSilentOverlayChannel(context)
 
             // 퀵등록 중에는 오늘 요약 알림을 잠시 내려 중복(위아래 2개) 노출을 줄임.
             TodaySummaryNotifier.cancel(context)

@@ -20,7 +20,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -47,6 +47,7 @@ class DriveLogDatabase {
             updated_at TEXT
           )
         ''');
+        await _ensureDriveLogsSchema(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -59,7 +60,56 @@ class DriveLogDatabase {
         if (oldVersion < 4) {
           await db.execute("UPDATE drive_logs SET program = '카카오(일반)' WHERE program = '카카오'");
         }
+        if (oldVersion < 5) {
+          await _ensureDriveLogsSchema(db);
+        }
       },
+      onOpen: (db) async {
+        // 일부 기존 설치본은 버전/스키마가 불일치할 수 있어 실행 시점에 자체 복구.
+        await _ensureDriveLogsSchema(db);
+      },
+    );
+  }
+
+  Future<void> _ensureDriveLogsSchema(Database db) async {
+    final List<Map<String, Object?>> rows = await db.rawQuery("PRAGMA table_info(drive_logs)");
+    if (rows.isEmpty) return;
+    final Set<String> columns = rows
+        .map((r) => (r['name']?.toString() ?? '').trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    Future<void> addIfMissing(String column, String definition) async {
+      if (columns.contains(column)) return;
+      await db.execute('ALTER TABLE drive_logs ADD COLUMN $column $definition');
+      columns.add(column);
+    }
+
+    await addIfMissing('work_date', 'TEXT');
+    await addIfMissing('drive_date', 'TEXT');
+    await addIfMissing('waypoint_tip', 'INTEGER DEFAULT 0');
+    await addIfMissing('start_lat', 'REAL');
+    await addIfMissing('start_lng', 'REAL');
+    await addIfMissing('end_lat', 'REAL');
+    await addIfMissing('end_lng', 'REAL');
+
+    if (!columns.contains('drive_date') && columns.contains('date')) {
+      await db.execute("ALTER TABLE drive_logs ADD COLUMN drive_date TEXT");
+      columns.add('drive_date');
+    }
+    if (columns.contains('date')) {
+      await db.execute(
+        "UPDATE drive_logs SET drive_date = date "
+        "WHERE (drive_date IS NULL OR TRIM(drive_date) = '') AND date IS NOT NULL",
+      );
+      await db.execute(
+        "UPDATE drive_logs SET work_date = COALESCE(work_date, date) "
+        "WHERE (work_date IS NULL OR TRIM(work_date) = '') AND date IS NOT NULL",
+      );
+    }
+    await db.execute(
+      "UPDATE drive_logs SET work_date = drive_date "
+      "WHERE (work_date IS NULL OR TRIM(work_date) = '') AND drive_date IS NOT NULL",
     );
   }
 
@@ -179,6 +229,31 @@ class DriveLogDatabase {
       where: 'drive_date >= ? AND drive_date <= ?',
       whereArgs: [startYmd, endYmd],
       orderBy: 'drive_date ASC, drive_time ASC',
+    );
+  }
+
+  /// 근무일(`work_date`)이 [startYmd] ~ [endYmd] (포함). 구버전: work_date 비면 drive_date로 대체.
+  Future<List<Map<String, dynamic>>> getLogsByWorkDateRange(String startYmd, String endYmd) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          '((work_date IS NOT NULL AND TRIM(work_date) != \'\' AND work_date >= ? AND work_date <= ?) '
+          'OR ((work_date IS NULL OR TRIM(work_date) = \'\') AND drive_date >= ? AND drive_date <= ?))',
+      whereArgs: [startYmd, endYmd, startYmd, endYmd],
+      orderBy: 'work_date ASC, drive_date ASC, drive_time ASC',
+    );
+  }
+
+  /// 단일 근무일(`yyyy-MM-dd`). 구버전: work_date 비면 drive_date 일치 행.
+  Future<List<Map<String, dynamic>>> getLogsForWorkDate(String workDateYmd) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          '(work_date = ?) OR ((work_date IS NULL OR TRIM(work_date) = \'\') AND drive_date = ?)',
+      whereArgs: [workDateYmd, workDateYmd],
+      orderBy: 'drive_time ASC',
     );
   }
 

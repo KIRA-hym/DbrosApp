@@ -29,14 +29,19 @@ class WorkDateUtils {
     return DateFormat('yyyy-MM-dd').format(d.add(Duration(days: days)));
   }
 
-  /// 새벽 00~01시는 익일 운행으로 간주 → **운행일자**를 근무일자 다음 날로 (콜카드 자동 등록 등).
+  /// 운행 시각(HH:mm)의 시(hour)가 [workDayRolloverHour] **미만**이면 true (00:00~08:59).
+  static bool isDriveHourBeforeWorkDayRollover(String driveTimeHm) {
+    return hourFromHm(driveTimeHm) < workDayRolloverHour;
+  }
+
+  /// 근무일·운행일이 같은 전제에서, 운행 시각이 [workDayRolloverHour] **이전**이면
+  /// **운행일자**를 근무일자 **전일**로 맞춘다 (일지 저장 확인·콜카드 자동 등록 공통).
+  /// [workDateYmd]는 화면에 선택된 근무/기준일(`yyyy-MM-dd`).
   static String resolveDriveDateForNightShift(String workDateYmd, String driveTimeHm) {
     final nt = normalizeDriveTimeHm(driveTimeHm) ?? driveTimeHm.trim();
-    final parts = nt.split(':');
-    if (parts.isEmpty) return workDateYmd;
-    final h = int.tryParse(parts[0]) ?? 12;
-    if (h <= 1) return addDays(workDateYmd, 1);
-    return workDateYmd;
+    if (nt.isEmpty) return workDateYmd;
+    if (!isDriveHourBeforeWorkDayRollover(driveTimeHm)) return workDateYmd;
+    return addDays(workDateYmd, -1);
   }
 
   static int hourFromHm(String hm) {

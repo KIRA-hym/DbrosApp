@@ -695,6 +695,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   int _parseMoney(String value) => int.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
   String _formatMoney(int value) => NumberFormat('#,###').format(value);
+  String? _normalizeYmdForStorage(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    final normalized = t.replaceAll('.', '-').replaceAll('/', '-');
+    try {
+      final d = DateFormat('yyyy-MM-dd').parseStrict(normalized);
+      return DateFormat('yyyy-MM-dd').format(d);
+    } catch (_) {
+      return null;
+    }
+  }
   
   int _currentFeeFromGross() => SettingsService.deductionFeeFromGross(_grossIncome, _selectedProgram);
   
@@ -716,22 +727,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     });
   }
 
-  Future<void> _maybePromptNextDriveDay() async {
+  /// 근무일·운행일이 같고, 운행 시각이 오전 9시 미만이면 운행일을 **전일**로 바꿀지 확인한다.
+  Future<void> _maybePromptPreviousDriveDateForMorningRun() async {
     final w = _workDateCon.text.trim();
     final d = _dateCon.text.trim();
     if (w.isEmpty || d.isEmpty) return;
     if (w != d) return;
-    final h = WorkDateUtils.hourFromHm(_timeCon.text);
-    if (h > 1) return;
+    if (!WorkDateUtils.isDriveHourBeforeWorkDayRollover(_timeCon.text)) return;
     if (!mounted) return;
-    final next = WorkDateUtils.addDays(w, 1);
+    final prev = WorkDateUtils.addDays(d, -1);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF1F222A),
         title: const Text('운행 날짜 확인', style: TextStyle(color: Colors.white)),
         content: Text(
-          '운행 시간이 새벽(00~01시)입니다.\n운행 날짜를 다음 날($next)로 설정할까요?',
+          '근무 일자와 운행 일자가 같고, 운행 시각이 오전 9시 이전입니다.\n'
+          '운행 일자를 전일($prev)로 맞출까요?\n'
+          '(근무 일자는 그대로 둡니다.)',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -741,7 +754,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       ),
     );
     if (ok == true && mounted) {
-      setState(() => _dateCon.text = next);
+      setState(() => _dateCon.text = prev);
     }
   }
 
@@ -751,43 +764,57 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("근무일자·운행 날짜를 확인해 주세요.")));
       return;
     }
-    await _maybePromptNextDriveDay();
-    if (!mounted) return;
-
-    _grossIncome = _parseMoney(_incomeCon.text);
-    final String nowIso = DateTime.now().toIso8601String();
-    final compactImagePath = await ImageStorageService.compressAndPersistForDisplay(
-      _capturedImage?.path,
-      prefix: 'manual',
-    );
-
-    final Map<String, dynamic> row = {
-      if (_logId != null) "id": _logId,
-      "work_date": _workDateCon.text.trim(),
-      "drive_date": _dateCon.text.trim(),
-      "drive_time": resolveDriveTimeForStorage(_timeCon.text),
-      "program": _selectedProgram,
-      "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "transport_cost": _parseMoney(_transportCon.text),
-      "waypoint_tip": _parseMoney(_waypointTipCon.text),
-      "net_income": _currentNetIncomeFromGross(), "start_location": _startLocCon.text.trim(),
-      "waypoint": _waypointCon.text.trim(), "end_location": _endLocCon.text.trim(), "memo": _memoCon.text.trim(),
-      "start_lat": _startLat,
-      "start_lng": _startLng,
-      "end_lat": _endLat,
-      "end_lng": _endLng,
-      "image_path": compactImagePath,
-      "updated_at": nowIso,
-      if (_logId == null)
-        "created_at": nowIso
-      else if (widget.existingLog != null && widget.existingLog!['created_at'] != null)
-        "created_at": widget.existingLog!['created_at'].toString(),
-    };
-
     try {
-      await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
-    } catch (_) {
+      await _maybePromptPreviousDriveDateForMorningRun();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("저장 중 오류가 발생했습니다.")));
+
+      final workDate = _normalizeYmdForStorage(_workDateCon.text);
+      final driveDate = _normalizeYmdForStorage(_dateCon.text);
+      if (workDate == null || driveDate == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("근무일자/운행일자 형식을 확인해 주세요. (yyyy-MM-dd)")),
+        );
+        return;
+      }
+
+      _grossIncome = _parseMoney(_incomeCon.text);
+      final String nowIso = DateTime.now().toIso8601String();
+      final compactImagePath = await ImageStorageService.compressAndPersistForDisplay(
+        _capturedImage?.path,
+        prefix: 'manual',
+      );
+
+      final Map<String, dynamic> row = {
+        if (_logId != null) "id": _logId,
+        "work_date": workDate,
+        "drive_date": driveDate,
+        "drive_time": resolveDriveTimeForStorage(_timeCon.text),
+        "program": _selectedProgram,
+        "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "transport_cost": _parseMoney(_transportCon.text),
+        "waypoint_tip": _parseMoney(_waypointTipCon.text),
+        "net_income": _currentNetIncomeFromGross(), "start_location": _startLocCon.text.trim(),
+        "waypoint": _waypointCon.text.trim(), "end_location": _endLocCon.text.trim(), "memo": _memoCon.text.trim(),
+        "start_lat": _startLat,
+        "start_lng": _startLng,
+        "end_lat": _endLat,
+        "end_lng": _endLng,
+        "image_path": compactImagePath,
+        "updated_at": nowIso,
+        if (_logId == null)
+          "created_at": nowIso
+        else if (widget.existingLog != null && widget.existingLog!['created_at'] != null)
+          "created_at": widget.existingLog!['created_at'].toString(),
+      };
+
+      await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+    } catch (e, st) {
+      debugPrint('write_log save error: $e');
+      debugPrintStack(stackTrace: st);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("저장 중 오류가 발생했습니다: $e")),
+      );
       return;
     }
 
