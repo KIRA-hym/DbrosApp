@@ -6,6 +6,7 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'db_helper.dart';
+import 'expense_repository.dart';
 import 'settings_service.dart';
 
 class BackupService {
@@ -42,6 +43,44 @@ class BackupService {
         throw const FormatException('백업 파일에 유효하지 않은 logs 데이터가 있습니다.');
       }
     }
+    if (payload.containsKey('expenseCategories')) {
+      if (payload['expenseCategories'] is! List) {
+        throw const FormatException('백업 파일에 expenseCategories 형식이 올바르지 않습니다.');
+      }
+      for (final item in payload['expenseCategories'] as List) {
+        if (item is! Map) {
+          throw const FormatException('백업 파일에 유효하지 않은 expenseCategories 데이터가 있습니다.');
+        }
+      }
+    }
+    if (payload.containsKey('expenseEntries')) {
+      if (payload['expenseEntries'] is! List) {
+        throw const FormatException('백업 파일에 expenseEntries 형식이 올바르지 않습니다.');
+      }
+      for (final item in payload['expenseEntries'] as List) {
+        if (item is! Map) {
+          throw const FormatException('백업 파일에 유효하지 않은 expenseEntries 데이터가 있습니다.');
+        }
+      }
+    }
+    final hasExpCat = payload.containsKey('expenseCategories');
+    final hasExpEnt = payload.containsKey('expenseEntries');
+    if (hasExpCat != hasExpEnt) {
+      throw const FormatException('백업 파일에 expenseCategories와 expenseEntries가 함께 있어야 합니다.');
+    }
+  }
+
+  static Future<void> _restoreExpenseIfPresent(Map<String, dynamic> payload) async {
+    if (!payload.containsKey('expenseCategories') || !payload.containsKey('expenseEntries')) {
+      return;
+    }
+    final cats = List<Map<String, dynamic>>.from(
+      (payload['expenseCategories'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    final ents = List<Map<String, dynamic>>.from(
+      (payload['expenseEntries'] as List).map((e) => Map<String, dynamic>.from(e as Map)),
+    );
+    await ExpenseRepository.replaceFromBackup(categories: cats, entries: ents);
   }
 
   static Future<void> _restoreLogsFromBackupPayload(List logsRaw) async {
@@ -100,11 +139,15 @@ class BackupService {
 
   static Future<File> _writeTempBackupZipFile() async {
     final rewritten = await _rewriteLogsWithBundledImageRefs();
+    final expenseCategories = await ExpenseRepository.exportCategoriesForBackup();
+    final expenseEntries = await ExpenseRepository.exportEntriesForBackup();
     final payload = <String, dynamic>{
       'logs': rewritten.logs,
       'settings': _currentSettings(),
       'backupDate': DateTime.now().toIso8601String(),
-      'formatVersion': 3,
+      'formatVersion': 4,
+      'expenseCategories': expenseCategories,
+      'expenseEntries': expenseEntries,
     };
     final tempDir = await getTemporaryDirectory();
     final backupFile =
@@ -128,6 +171,7 @@ class BackupService {
 
     await _applySettingsFromBackup(payload['settings']);
     await _restoreLogsFromBackupPayload(payload['logs'] as List);
+    await _restoreExpenseIfPresent(payload);
   }
 
   static Future<void> _restoreFromBackupZip(File zipFile) async {
@@ -181,6 +225,7 @@ class BackupService {
 
     await _applySettingsFromBackup(payload['settings']);
     await _restoreLogsFromBackupPayload(logsRaw);
+    await _restoreExpenseIfPresent(payload);
   }
 
   static Future<bool> backupToSelectedFile(BuildContext context) async {

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
@@ -11,6 +12,7 @@ import '../utils/work_date_utils.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
+import '../expense_main_wrapper.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -222,15 +224,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     padding: const EdgeInsets.only(top: 30.0, left: 4.0, right: 4.0),
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Text(
-                        "운행 일지 관리",
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              color: const Color(0xFFFFC700),
-                              fontWeight: FontWeight.bold,
+                      child: InkWell(
+                        onTap: () {
+                          if (!kExpenseOwnerOnly) return;
+                          Navigator.push<void>(
+                            context,
+                            MaterialPageRoute<void>(
+                              settings: const RouteSettings(name: '/expense_main'),
+                              builder: (_) => const ExpenseMainWrapper(),
                             ),
+                          );
+                        },
+                        child: Text(
+                          "운행 일지 관리",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: const Color(0xFFFFC700),
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
                       ),
                     ),
                   ),

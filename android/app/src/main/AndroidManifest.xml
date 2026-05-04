@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
         android:label="운행일지관리"
-        android:name="${applicationName}"
+        android:name=".DbrosApplication"
         android:icon="@mipmap/launcher_icon"
         android:enableOnBackInvokedCallback="true">
         <activity

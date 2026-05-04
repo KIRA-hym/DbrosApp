@@ -29,19 +29,25 @@ class TodayStatsNotificationService {
 
   bool get _isAndroid => !kIsWeb && Platform.isAndroid;
 
-  Future<void> initialize({bool triggerInitialRefresh = true}) async {
+  /// [enableAutoCapturePolling]: 메인 앱만 true. 오버레이 엔진에서는 false(중복 폴링·DB 접근 방지).
+  Future<void> initialize({
+    bool triggerInitialRefresh = true,
+    bool enableAutoCapturePolling = true,
+  }) async {
     if (!_isAndroid) return;
     if (_initialized) return;
 
     _androidChannel.setMethodCallHandler(_onNativeMethod);
     _initialized = true;
 
-    if (!SettingsService.statusBarQuickEnabled) {
-      await cancel();
-    } else if (triggerInitialRefresh) {
-      await refreshFromDbIfEnabled();
+    if (enableAutoCapturePolling) {
+      if (!SettingsService.statusBarQuickEnabled) {
+        await cancel();
+      } else {
+        if (triggerInitialRefresh) await refreshFromDbIfEnabled();
+        AutoCaptureOcrService.instance.start();
+      }
     }
-    AutoCaptureOcrService.instance.start();
   }
 
   Future<dynamic> _onNativeMethod(MethodCall call) async {
@@ -54,6 +60,11 @@ class TodayStatsNotificationService {
       } else {
         _openFullWriteScreen();
       }
+      return null;
+    }
+    if (call.method == 'onScreenshotMediaStoreChanged') {
+      AutoCaptureOcrService.instance.onMediaStoreImagesChanged();
+      return null;
     }
     return null;
   }
@@ -130,6 +141,7 @@ class TodayStatsNotificationService {
 
   Future<void> cancel() async {
     if (!_isAndroid || !_initialized) return;
+    AutoCaptureOcrService.instance.stop();
     try {
       await _androidChannel.invokeMethod<void>('cancel');
     } catch (_) {}

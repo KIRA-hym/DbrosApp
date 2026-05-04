@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 
 import '../services/backup_service.dart';
 import '../services/settings_service.dart';
+import '../services/auto_capture_ocr_service.dart';
 import '../services/today_stats_notification_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -518,7 +519,9 @@ class _SettingsPageState extends State<SettingsPage> {
             contentPadding: EdgeInsets.zero,
             title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
             subtitle: Text(
-              "알림 패널에 오늘 순익을 표시합니다. 일지 등록·수정 시 갱신됩니다.\n본문 탭: 일반 작성 화면 · ⚡ 퀵등록 버튼: 반투명 퀵 입력.",
+              "알림 패널에 오늘 순익을 표시합니다. 일지 등록·수정 시 갱신됩니다.\n"
+              "본문 탭: 일반 작성 화면 · ⚡ 퀵등록: 반투명 퀵 입력.\n"
+              "켜 두면 다른 앱에서 저장한 스크린샷을 감지해, 인식 가능한 콜카드·티맵 화면은 일지에 자동 저장을 시도합니다(사진·알림 권한 필요).",
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
             ),
             value: _statusBarQuickEnabled,
@@ -535,6 +538,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 }
                 await SettingsService.setStatusBarQuickEnabled(true);
                 await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+                AutoCaptureOcrService.instance.start();
               } else {
                 await SettingsService.setStatusBarQuickEnabled(false);
                 await TodayStatsNotificationService.instance.cancel();

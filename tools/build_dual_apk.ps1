@@ -1,6 +1,6 @@
-# 지도 기능 ON/OFF 2종 APK 빌드 스크립트
-# - owner: MAP_FEATURES_ENABLED=true
-# - public: MAP_FEATURES_ENABLED=false
+# 지도·개인지출(오너 전용) ON/OFF 2종 APK 빌드 스크립트
+# - owner: MAP_FEATURES_ENABLED=true (지도 + 개인지출관리)
+# - public: MAP_FEATURES_ENABLED=false (지도·개인지출관리 비활성)
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot

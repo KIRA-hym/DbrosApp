@@ -15,6 +15,34 @@ class MainActivity : FlutterActivity() {
 
     companion object {
         private const val CHANNEL = "dbros.app/today_summary"
+
+        @Volatile
+        private var screenshotNotifyChannel: MethodChannel? = null
+
+        fun attachScreenshotNotifyChannel(channel: MethodChannel) {
+            screenshotNotifyChannel = channel
+        }
+
+        fun detachScreenshotNotifyChannel() {
+            screenshotNotifyChannel = null
+        }
+
+        /** [DbrosApplication] MediaStore 변경 시 호출 — 메인 엔진이 살아 있을 때만 Dart로 전달 */
+        fun notifyScreenshotMediaStoreChanged() {
+            val ch = screenshotNotifyChannel ?: return
+            try {
+                ch.invokeMethod(
+                    "onScreenshotMediaStoreChanged",
+                    emptyMap<String, Any>(),
+                    object : MethodChannel.Result {
+                        override fun success(result: Any?) {}
+                        override fun error(errorCode: String, errorMessage: String?, errorDetails: Any?) {}
+                        override fun notImplemented() {}
+                    },
+                )
+            } catch (_: Throwable) {
+            }
+        }
     }
 
     private var summaryChannel: MethodChannel? = null
@@ -22,6 +50,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         summaryChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
+        attachScreenshotNotifyChannel(summaryChannel!!)
         summaryChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
                 "show" -> {
@@ -60,6 +89,8 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        detachScreenshotNotifyChannel()
+        summaryChannel = null
         super.onDestroy()
     }
 

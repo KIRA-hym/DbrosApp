@@ -10,6 +10,9 @@ import '../services/settings_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_fare_parse.dart';
 import '../utils/work_date_utils.dart';
+import '../utils/tmap_trip_detail_ocr.dart';
+import '../utils/kakao_call_card_ocr.dart';
+import '../utils/kakao_custom_call_ocr.dart';
 import 'log_list_page.dart';
 import '../widgets/drive_date_selector_bar.dart';
 
@@ -103,7 +106,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final rawProgram = _detectProgram(blocks);
+    final rawProgram = _detectProgram(blocks, recognizedText.text);
     if (rawProgram == null) {
       _lastFailureReason = "프로그램 인식불가";
       return {};
@@ -124,12 +127,16 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       'memo': '',
     };
 
-    if (rawProgram == "카카오") {
-      await _parseKakao(blocks, logData);
+    if (rawProgram == KakaoCustomCallOcr.programCustom) {
+      await _parseKakaoCustom(blocks, logData, fullText: recognizedText.text);
+    } else if (rawProgram == KakaoCallCardOcr.programGeneral || rawProgram == KakaoCallCardOcr.programPro) {
+      await _parseKakao(blocks, logData, fullText: recognizedText.text);
     } else if (rawProgram == "로지") {
       await _parseLogi(blocks, logData);
     } else if (rawProgram == "콜마너") {
       await _parseColmanner(blocks, logData);
+    } else if (rawProgram == "티맵") {
+      await _parseTmapTripDetail(recognizedText, logData);
     }
 
     final int grossFare = logData['gross_fare'] as int;
@@ -143,70 +150,51 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     return logData;
   }
 
-  String? _detectProgram(List<TextBlock> blocks) {
+  String? _detectProgram(List<TextBlock> blocks, String fullText) {
     for (final block in blocks) {
-      if (block.text.contains("고객과 통화")) return "카카오";
       if (block.text.contains("갱신")) return "로지";
       if (block.text.contains("출도")) return "콜마너";
+    }
+    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
+    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
+    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
+    if (kakao != null) return kakao;
+    for (final block in blocks) {
+      if (block.text.contains("고객과 통화")) return KakaoCallCardOcr.programGeneral;
     }
     return null;
   }
 
   String _normalizeProgramForSave(String program) {
     if (program == '카카오') return '카카오(일반)';
+    if (program == KakaoCallCardOcr.programGeneral ||
+        program == KakaoCallCardOcr.programPro ||
+        program == KakaoCustomCallOcr.programCustom) {
+      return program;
+    }
     return program;
   }
 
-  Future<void> _parseKakao(List<TextBlock> blocks, Map<String, dynamic> logData) async {
-    String? parsedDate;
-    String? parsedTime;
-    String parsedWaypoint = "";
-    final StringBuffer startLocBuffer = StringBuffer();
-    final StringBuffer endLocBuffer = StringBuffer();
-    int? parsedIncome;
+  Future<void> _parseKakaoCustom(List<TextBlock> blocks, Map<String, dynamic> logData, {required String fullText}) async {
+    final p = KakaoCustomCallOcr.parseScreen(blocks, fullText);
 
-    for (var block in blocks) {
-      final double y = block.boundingBox.top;
-      final String text = block.text.trim();
-      
-      if (y < 200) {
-        final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(text);
-        if (dateMatch != null) {
-          parsedDate = "${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}";
-        }
-        final timeMatch = RegExp(r'\d{1,2}:\d{1,2}').firstMatch(text);
-        if (timeMatch != null) {
-          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
-        }
-      }
-      
-      if (text.contains("경유")) {
-        parsedWaypoint = text.replaceAll("경유", "").trim();
-        continue;
-      }
-      
-      if (y > 500 && y < 900 && !text.contains(RegExp(r'배정|메뉴|완료|취소'))) {
-        startLocBuffer.write("$text ");
-      }
-      
-      if (y > 900 && y < 1400) {
-        endLocBuffer.write("$text ");
-      }
-      
-      if (y > 1400 && text.contains(RegExp(r'\d{3,}'))) {
-        final String cleanNum = text.replaceAll(RegExp(r'[^0-9]'), '');
-        if (cleanNum.length >= 4) {
-          parsedIncome = int.parse(cleanNum);
-        }
-      }
-    }
+    if (p.driveDateYmd != null) logData['drive_date'] = p.driveDateYmd;
+    if (p.driveTimeHm != null) logData['drive_time'] = p.driveTimeHm;
+    logData['waypoint'] = '';
+    logData['start_location'] = p.startLocation;
+    logData['end_location'] = p.endLocation;
+    if (p.grossFare != null) logData['gross_fare'] = p.grossFare;
+  }
 
-    if (parsedDate != null) logData['drive_date'] = parsedDate;
-    if (parsedTime != null) logData['drive_time'] = parsedTime;
-    logData['waypoint'] = parsedWaypoint;
-    logData['start_location'] = startLocBuffer.toString().trim();
-    logData['end_location'] = endLocBuffer.toString().trim();
-    if (parsedIncome != null) logData['gross_fare'] = parsedIncome;
+  Future<void> _parseKakao(List<TextBlock> blocks, Map<String, dynamic> logData, {required String fullText}) async {
+    final p = KakaoCallCardOcr.parseScreen(blocks, fullText);
+
+    if (p.driveDateYmd != null) logData['drive_date'] = p.driveDateYmd;
+    if (p.driveTimeHm != null) logData['drive_time'] = p.driveTimeHm;
+    logData['waypoint'] = p.waypoint;
+    logData['start_location'] = p.startLocation;
+    logData['end_location'] = p.endLocation;
+    if (p.grossFare != null) logData['gross_fare'] = p.grossFare;
   }
 
   Future<void> _parseLogi(List<TextBlock> blocks, Map<String, dynamic> logData) async {
@@ -345,6 +333,22 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     if (parsedIncome.isNotEmpty) logData['gross_fare'] = int.parse(parsedIncome);
     if (parsedStart.isNotEmpty) logData['start_location'] = parsedStart;
     if (parsedEnd.isNotEmpty) logData['end_location'] = parsedEnd;
+  }
+
+  Future<void> _parseTmapTripDetail(
+    RecognizedText recognizedText,
+    Map<String, dynamic> logData,
+  ) async {
+    final r = TmapTripDetailOcr.tryParse(
+      recognizedText.text,
+      blocks: recognizedText.blocks,
+    );
+    if (r == null) return;
+    if (r.driveDateYmd.isNotEmpty) logData['drive_date'] = r.driveDateYmd;
+    if (r.driveStartTimeHm.isNotEmpty) logData['drive_time'] = r.driveStartTimeHm;
+    if (r.grossFare > 0) logData['gross_fare'] = r.grossFare;
+    if (r.startAddress.isNotEmpty) logData['start_location'] = r.startAddress;
+    if (r.endAddress.isNotEmpty) logData['end_location'] = r.endAddress;
   }
 
   int _calculateFee(String program, int grossFare) => SettingsService.deductionFeeFromGross(grossFare, program);
@@ -496,7 +500,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
             ),
             SizedBox(height: innerSpacing),
             Text(
-              "카카오, 로지, 콜마너 콜카드를\n선택하면 자동으로 등록됩니다",
+              "카카오, 로지, 콜마너, 티맵 콜카드를\n선택하면 자동으로 등록됩니다",
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: subtitleFontSize, color: const Color(0xFF6E717C)),
             ),

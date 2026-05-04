@@ -20,6 +20,9 @@ import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_fare_parse.dart';
 import '../utils/work_date_utils.dart';
+import '../utils/tmap_trip_detail_ocr.dart';
+import '../utils/kakao_call_card_ocr.dart';
+import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
 import 'location_pick_map_page.dart';
@@ -217,11 +220,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     _detectProgramAndParse(recognizedText);
   }
 
-  String? _detectProgramFromBlocks(List<TextBlock> blocks) {
+  String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) {
     for (final b in blocks) {
-      if (b.text.contains("고객과 통화")) return "카카오";
       if (b.text.contains("갱신")) return "로지";
       if (b.text.contains("출도")) return "콜마너";
+    }
+    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
+    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
+    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
+    if (kakao != null) return kakao;
+    for (final b in blocks) {
+      if (b.text.contains("고객과 통화")) return KakaoCallCardOcr.programGeneral;
     }
     return null;
   }
@@ -230,7 +239,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final detected = _detectProgramFromBlocks(blocks);
+    final detected = _detectProgramFromBlocks(blocks, recognizedText.text);
     if (detected == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -247,41 +256,55 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     _timeCon.clear(); _incomeCon.clear(); _transportCon.clear();
     _startLocCon.clear(); _waypointCon.clear(); _endLocCon.clear(); _memoCon.clear();
 
-    if (detected == "카카오") {
-      _parseKakao(blocks);
+    if (detected == KakaoCustomCallOcr.programCustom) {
+      _parseKakaoCustom(blocks, fullText: recognizedText.text);
+    } else if (detected == KakaoCallCardOcr.programGeneral || detected == KakaoCallCardOcr.programPro) {
+      _parseKakao(blocks, fullText: recognizedText.text);
     } else if (detected == "로지") {
       _parseLogi(blocks);
     } else if (detected == "콜마너") {
       _parseColmanner(blocks);
+    } else if (detected == "티맵") {
+      _parseTmapTripDetail(recognizedText);
     }
 
     _captureGrossAndApplyDeductions();
     return true;
   }
 
-  void _parseKakao(List<TextBlock> blocks) {
-    String? parsedDate; String? parsedTime; String parsedWaypoint = "";
-    final StringBuffer startLocBuffer = StringBuffer(); final StringBuffer endLocBuffer = StringBuffer();
+  void _parseKakaoCustom(List<TextBlock> blocks, {required String fullText}) {
+    final p = KakaoCustomCallOcr.parseScreen(blocks, fullText);
+    final parsedDate = p.driveDateYmd;
+    final parsedTime = p.driveTimeHm;
     String? parsedIncome;
+    if (p.grossFare != null) {
+      parsedIncome = NumberFormat('#,###').format(p.grossFare!);
+    }
 
-    for (var b in blocks) {
-      final double y = b.boundingBox.top;
-      final String text = b.text.trim();
-      if (y < 200) {
-        final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(text);
-        if (dateMatch != null) parsedDate = "${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}";
-        final timeMatch = RegExp(r'\d{1,2}:\d{1,2}').firstMatch(text);
-        if (timeMatch != null) {
-          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
-        }
+    setState(() {
+      if (parsedDate != null) _dateCon.text = parsedDate;
+      if (parsedTime != null) _timeCon.text = parsedTime;
+      if (parsedTime == null || parsedTime.isEmpty) {
+        final now = DateTime.now();
+        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
-      if (text.contains("경유")) { parsedWaypoint = text.replaceAll("경유", "").trim(); continue; }
-      if (y > 500 && y < 900 && !text.contains(RegExp(r'배정|메뉴|완료|취소'))) startLocBuffer.write("$text ");
-      if (y > 900 && y < 1400) endLocBuffer.write("$text ");
-      if (y > 1400 && text.contains(RegExp(r'\d{3,}'))) {
-        final String cleanNum = text.replaceAll(RegExp(r'[^0-9]'), '');
-        if (cleanNum.length >= 4) parsedIncome = NumberFormat('#,###').format(int.parse(cleanNum));
-      }
+      _waypointCon.text = '';
+      _startLocCon.text = p.startLocation;
+      _endLocCon.text = p.endLocation;
+      if (parsedIncome != null) _incomeCon.text = parsedIncome;
+    });
+  }
+
+  void _parseKakao(List<TextBlock> blocks, {required String fullText}) {
+    final p = KakaoCallCardOcr.parseScreen(blocks, fullText);
+    final parsedDate = p.driveDateYmd;
+    final parsedTime = p.driveTimeHm;
+    final parsedWaypoint = p.waypoint;
+    final startLocBuffer = p.startLocation;
+    final endLocBuffer = p.endLocation;
+    String? parsedIncome;
+    if (p.grossFare != null) {
+      parsedIncome = NumberFormat('#,###').format(p.grossFare!);
     }
 
     setState(() {
@@ -292,8 +315,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
       _waypointCon.text = parsedWaypoint;
-      _startLocCon.text = startLocBuffer.toString().trim();
-      _endLocCon.text = endLocBuffer.toString().trim();
+      _startLocCon.text = startLocBuffer;
+      _endLocCon.text = endLocBuffer;
       if (parsedIncome != null) _incomeCon.text = parsedIncome;
     });
   }
@@ -418,6 +441,31 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       if (parsedIncome.isNotEmpty) _incomeCon.text = parsedIncome;
       if (parsedStart.isNotEmpty) _startLocCon.text = parsedStart;
       if (parsedEnd.isNotEmpty) _endLocCon.text = parsedEnd;
+    });
+  }
+
+  void _parseTmapTripDetail(RecognizedText recognizedText) {
+    final r = TmapTripDetailOcr.tryParse(
+      recognizedText.text,
+      blocks: recognizedText.blocks,
+    );
+    if (r == null) return;
+    setState(() {
+      if (r.driveDateYmd.isNotEmpty) {
+        _dateCon.text = r.driveDateYmd;
+      }
+      if (r.driveStartTimeHm.isNotEmpty) {
+        _timeCon.text = r.driveStartTimeHm;
+      } else {
+        final now = DateTime.now();
+        _timeCon.text =
+            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+      }
+      if (r.grossFare > 0) {
+        _incomeCon.text = NumberFormat('#,###').format(r.grossFare);
+      }
+      if (r.startAddress.isNotEmpty) _startLocCon.text = r.startAddress;
+      if (r.endAddress.isNotEmpty) _endLocCon.text = r.endAddress;
     });
   }
 
@@ -1427,9 +1475,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final input = (raw ?? '').trim();
     if (input.isEmpty) return options.first;
     if (options.contains(input)) return input;
-    if (input == '카카오') {
+    if (input == '카카오' ||
+        input == KakaoCallCardOcr.programGeneral ||
+        input == KakaoCallCardOcr.programPro ||
+        input == KakaoCustomCallOcr.programCustom) {
+      if (options.contains(input)) return input;
       for (final option in options) {
         if (option.contains('카카오')) return option;
+      }
+    }
+    if (input == '티맵') {
+      for (final option in options) {
+        if (option.contains('티맵')) return option;
       }
     }
     return options.first;

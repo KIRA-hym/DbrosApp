@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,6 +7,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/drive_time_format.dart';
 import '../utils/work_date_utils.dart';
+import '../utils/tmap_trip_detail_ocr.dart';
+import '../utils/kakao_call_card_ocr.dart';
+import '../utils/kakao_custom_call_ocr.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
 import 'today_stats_notification_service.dart';
@@ -18,7 +20,6 @@ class AutoCaptureOcrService {
 
   static const MethodChannel _androidChannel = MethodChannel('dbros.app/today_summary');
 
-  Timer? _pollTimer;
   bool _busy = false;
   bool _stateLoaded = false;
   String _lastProcessedCaptureKey = '';
@@ -27,15 +28,18 @@ class AutoCaptureOcrService {
 
   bool get _isAndroid => !kIsWeb && Platform.isAndroid;
 
+  /// 기능 켤 때 최신 스크린샷 1회 확인. 이후에는 [onMediaStoreImagesChanged]만 사용.
   void start() {
     if (!_isAndroid) return;
-    _pollTimer ??= Timer.periodic(const Duration(seconds: 4), (_) => _pollLatestScreenshot());
-    _pollLatestScreenshot();
+    Future<void>.microtask(() => _pollLatestScreenshot());
   }
 
-  void stop() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
+  void stop() {}
+
+  /// Android [MediaStore] 이미지 변경 시 네이티브 [ContentObserver]에서 호출.
+  void onMediaStoreImagesChanged() {
+    if (!_isAndroid) return;
+    Future<void>.microtask(() => _pollLatestScreenshot());
   }
 
   Future<void> _pollLatestScreenshot() async {
@@ -103,6 +107,80 @@ class AutoCaptureOcrService {
     final full = recognizedText.text;
 
     final program = _detectProgram(full) ?? '';
+    if (program == '티맵') {
+      final r = TmapTripDetailOcr.tryParse(full, blocks: recognizedText.blocks);
+      if (r != null) {
+        var timeHm = r.driveStartTimeHm;
+        if (timeHm.isEmpty) {
+          final now = DateTime.now();
+          timeHm =
+              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        }
+        return {
+          'program': '티맵',
+          'driveDate':
+              r.driveDateYmd.isNotEmpty ? r.driveDateYmd : WorkDateUtils.effectiveWorkDateYmd(),
+          'driveTime': timeHm,
+          'income': r.grossFare > 0 ? r.grossFare.toString() : '',
+          'start': r.startAddress,
+          'end': r.endAddress,
+          'waypoint': '',
+        };
+      }
+      final now = DateTime.now();
+      return {
+        'program': '티맵',
+        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
+        'driveTime':
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+        'income': '',
+        'start': '',
+        'end': '',
+        'waypoint': '',
+      };
+    }
+
+    if (program == KakaoCustomCallOcr.programCustom) {
+      final p = KakaoCustomCallOcr.parseScreen(blocks, full);
+      final wd = WorkDateUtils.effectiveWorkDateYmd();
+      var driveDate = p.driveDateYmd ?? wd;
+      var timeHm = p.driveTimeHm ?? '';
+      if (timeHm.isEmpty) {
+        final now = DateTime.now();
+        timeHm =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      }
+      return {
+        'program': program,
+        'driveDate': driveDate,
+        'driveTime': timeHm,
+        'income': p.grossFare != null && p.grossFare! > 0 ? p.grossFare!.toString() : '',
+        'start': p.startLocation,
+        'end': p.endLocation,
+        'waypoint': '',
+      };
+    }
+
+    if (program == KakaoCallCardOcr.programGeneral || program == KakaoCallCardOcr.programPro) {
+      final p = KakaoCallCardOcr.parseScreen(blocks, full);
+      final wd = WorkDateUtils.effectiveWorkDateYmd();
+      var driveDate = p.driveDateYmd ?? wd;
+      var timeHm = p.driveTimeHm ?? '';
+      if (timeHm.isEmpty) {
+        final now = DateTime.now();
+        timeHm =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      }
+      return {
+        'program': program,
+        'driveDate': driveDate,
+        'driveTime': timeHm,
+        'income': p.grossFare != null && p.grossFare! > 0 ? p.grossFare!.toString() : '',
+        'start': p.startLocation,
+        'end': p.endLocation,
+        'waypoint': p.waypoint,
+      };
+    }
 
     String driveDate = WorkDateUtils.effectiveWorkDateYmd();
     String driveTime = '';
@@ -175,10 +253,15 @@ class AutoCaptureOcrService {
 
   String? _detectProgram(String fullText) {
     final normalized = fullText.replaceAll(' ', '');
+    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) {
+      return KakaoCustomCallOcr.programCustom;
+    }
+    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
+    if (kakao != null) return kakao;
     if (normalized.contains('고객과통화') ||
         normalized.contains('카카오T') ||
         normalized.contains('카카오')) {
-      return '카카오';
+      return KakaoCallCardOcr.programGeneral;
     }
     if (normalized.contains('오더번호') ||
         normalized.contains('고객ID') ||
@@ -190,13 +273,17 @@ class AutoCaptureOcrService {
         normalized.contains('콜매니저')) {
       return '콜마너';
     }
+    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
     return null;
   }
 
   bool _isValidForAutoSave(Map<String, String> parsed) {
     final income = int.tryParse(parsed['income'] ?? '') ?? 0;
     final program = (parsed['program'] ?? '').trim();
-    final programDetected = program == '카카오' || program == '로지' || program == '콜마너';
+    final programDetected = program.contains('카카오') ||
+        program == '로지' ||
+        program == '콜마너' ||
+        program == '티맵';
     return programDetected &&
         income > 0 &&
         (parsed['start'] ?? '').trim().isNotEmpty &&
@@ -207,7 +294,7 @@ class AutoCaptureOcrService {
     final nowIso = DateTime.now().toIso8601String();
     final workDate = WorkDateUtils.effectiveWorkDateYmd();
     final income = int.tryParse(parsed['income'] ?? '') ?? 0;
-    final program = parsed['program'] ?? '카카오';
+    final program = parsed['program'] ?? KakaoCallCardOcr.programGeneral;
     final fee = SettingsService.deductionFeeFromGross(income, program);
     final net = (income - fee).clamp(0, 999999999);
 

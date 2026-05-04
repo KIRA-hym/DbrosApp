@@ -20,7 +20,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -48,6 +48,7 @@ class DriveLogDatabase {
           )
         ''');
         await _ensureDriveLogsSchema(db);
+        await _ensureExpenseTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -63,12 +64,40 @@ class DriveLogDatabase {
         if (oldVersion < 5) {
           await _ensureDriveLogsSchema(db);
         }
+        if (oldVersion < 6) {
+          await _ensureExpenseTables(db);
+        }
       },
       onOpen: (db) async {
         // 일부 기존 설치본은 버전/스키마가 불일치할 수 있어 실행 시점에 자체 복구.
         await _ensureDriveLogsSchema(db);
+        await _ensureExpenseTables(db);
       },
     );
+  }
+
+  Future<void> _ensureExpenseTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS expense_categories (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS expense_entries (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        expense_date TEXT NOT NULL,
+        written_at TEXT NOT NULL,
+        category_id INTEGER,
+        category_name TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        memo TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        FOREIGN KEY (category_id) REFERENCES expense_categories (id) ON DELETE SET NULL
+      )
+    ''');
   }
 
   Future<void> _ensureDriveLogsSchema(Database db) async {

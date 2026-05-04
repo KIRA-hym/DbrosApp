@@ -13,6 +13,8 @@ import 'screens/log_list_page.dart';
 import 'screens/stats_page.dart';
 import 'screens/settings_page.dart';
 import 'services/db_helper.dart';
+import 'services/expense_repository.dart';
+import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
 import 'services/today_stats_notification_service.dart';
@@ -31,6 +33,9 @@ void main() async {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     HomePage.requestRefresh();
   };
+  ExpenseRepository.afterExpensesChanged = () {
+    ExpenseHomePage.requestRefresh();
+  };
   await TodayStatsNotificationService.instance.initialize();
 
   runApp(const DbrosApp());
@@ -43,7 +48,10 @@ void overlayMain() async {
   await SettingsService.init();
   await FontSizeService.loadFontSize();
   await initializeDateFormatting('ko_KR', null);
-  await TodayStatsNotificationService.instance.initialize(triggerInitialRefresh: false);
+  await TodayStatsNotificationService.instance.initialize(
+    triggerInitialRefresh: false,
+    enableAutoCapturePolling: false,
+  );
   runApp(const _QuickRegisterOverlayApp());
 }
 
