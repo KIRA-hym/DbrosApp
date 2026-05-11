@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'app_navigator.dart';
+import 'app_navigator.dart' show rootNavigatorKey;
 import 'main_navigation.dart';
 import 'screens/write_log_page.dart';
 import 'screens/home_page.dart';
@@ -205,6 +208,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   late int _selectedIndex;
   Timer? _workDateNotificationTick;
   String _lastNotifiedWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
+  StreamSubscription<List<SharedMediaFile>>? _shareIntentSub;
 
   @override
   void initState() {
@@ -213,6 +217,54 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     _selectedIndex = widget.initialIndex;
     _lastNotifiedWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
     _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
+    _setupShareIntentListener();
+  }
+
+  /// 스크린샷·갤러리 등에서 이미지 공유 시 일지 작성 화면으로 연결 (**Android 전용**).
+  void _setupShareIntentListener() {
+    if (kIsWeb) return;
+    try {
+      if (!Platform.isAndroid) return;
+    } catch (_) {
+      return;
+    }
+
+    ReceiveSharingIntent.instance.getInitialMedia().then((List<SharedMediaFile> value) {
+      if (!mounted || value.isEmpty) return;
+      _openWriteLogWithSharedFiles(value);
+      ReceiveSharingIntent.instance.reset();
+    });
+
+    _shareIntentSub = ReceiveSharingIntent.instance.getMediaStream().listen(
+      (List<SharedMediaFile> value) {
+        if (!mounted || value.isEmpty) return;
+        _openWriteLogWithSharedFiles(value);
+      },
+      onError: (_) {},
+    );
+  }
+
+  void _openWriteLogWithSharedFiles(List<SharedMediaFile> files) {
+    SharedMediaFile? pick;
+    for (final f in files) {
+      final mime = f.mimeType ?? '';
+      if (f.type == SharedMediaType.image || mime.startsWith('image/')) {
+        pick = f;
+        break;
+      }
+    }
+    pick ??= files.first;
+    final path = pick.path.trim();
+    if (path.isEmpty) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute<void>(
+          builder: (_) => DriveLogForm(sharedImagePath: path),
+        ),
+      );
+    });
   }
 
   void _refreshNotificationIfWorkDateChanged() {
@@ -236,6 +288,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _shareIntentSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _workDateNotificationTick?.cancel();
     super.dispose();
@@ -244,7 +297,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   final List<Widget> _pages = [
     const HomePage(),
     const LogListPage(),
-    const DriveLogForm(),
+    DriveLogForm(),
     const StatsPage(),
     const SettingsPage(),
   ];

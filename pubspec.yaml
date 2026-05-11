@@ -66,6 +66,7 @@ dependencies:
   package_info_plus: ^9.0.1
   archive: ^4.0.9
   image: ^4.8.0
+  receive_sharing_intent: ^1.8.1
 
 flutter_launcher_icons:
   android: "launcher_icon"

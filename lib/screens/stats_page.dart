@@ -22,12 +22,7 @@ int _statsRowNet(Map<String, dynamic> log) {
 
 void _addDistinctWorkDate(Set<String> out, Map<String, dynamic> log) {
   final w = log['work_date']?.toString().trim();
-  if (w != null && w.isNotEmpty) {
-    out.add(w);
-    return;
-  }
-  final d = log['drive_date']?.toString().trim();
-  if (d != null && d.isNotEmpty) out.add(d);
+  if (w != null && w.isNotEmpty) out.add(w);
 }
 
 int _distinctWorkDateCount(List<Map<String, dynamic>> logs) {
@@ -243,7 +238,7 @@ class _StatsPageState extends State<StatsPage> {
     final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
     final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
     final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRange(startStr, endStr);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
     int totalRevenue = 0, totalNet = 0, totalExpenses = 0;
     for (final log in logs) {
       totalRevenue += _statsRowRevenue(log);
@@ -261,7 +256,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<Map<String, dynamic>> _getMonthlyStats(DateTime date) async {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(yearMonth);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
     int totalRevenue = 0, totalNet = 0, totalExpenses = 0;
     for (var log in logs) {
       totalRevenue += _statsRowRevenue(log);
@@ -282,7 +277,7 @@ class _StatsPageState extends State<StatsPage> {
     final Set<String> distinctWorkDates = {};
     for (int month = 1; month <= 12; month++) {
       final String yearMonth = DateFormat('yyyy-MM').format(DateTime(date.year, month));
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(yearMonth);
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
       for (var log in logs) {
         totalRevenue += _statsRowRevenue(log);
         totalNet += _statsRowNet(log);
@@ -326,17 +321,17 @@ class _StatsPageState extends State<StatsPage> {
 
     if (period == 'daily') {
       final String dateStr = DateFormat('yyyy-MM-dd').format(date);
-      processLogs(await DriveLogDatabase.instance.getLogsForWorkDate(dateStr));
+      processLogs(await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr));
     } else if (period == 'weekly') {
       final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
       final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
       final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-      processLogs(await DriveLogDatabase.instance.getLogsByWorkDateRange(startStr, endStr));
+      processLogs(await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr));
     } else if (period == 'monthly') {
-      processLogs(await DriveLogDatabase.instance.getLogsByWorkMonth(DateFormat('yyyy-MM').format(date)));
+      processLogs(await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(date)));
     } else if (period == 'yearly') {
       for (int month = 1; month <= 12; month++) {
-        processLogs(await DriveLogDatabase.instance.getLogsByWorkMonth(DateFormat('yyyy-MM').format(DateTime(date.year, month))));
+        processLogs(await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, month))));
       }
     }
 
@@ -349,7 +344,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<List<Map<String, dynamic>>> _getHourlyStats(DateTime date) async {
     final String dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsForWorkDate(dateStr);
+    final logs = await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr);
     final Map<int, int> byHour = {};
     for (final log in logs) {
       final String time = log['drive_time'] as String? ?? '';
@@ -362,26 +357,52 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<List<Map<String, dynamic>>> _getWeeklyDayStats(DateTime date) async {
-    final List<String> weekDays = ['월', '화', '수', '목', '금', '토', '일'];
+    const kDow = ['월', '화', '수', '목', '금', '토', '일'];
     final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
-    Map<String, int> dayRevenue = { for (var day in weekDays) day: 0 };
-    for (int i = 0; i < 7; i++) {
-      final String dateStr = DateFormat('yyyy-MM-dd').format(weekStart.add(Duration(days: i)));
-      dayRevenue[weekDays[i]] =
-          (await DriveLogDatabase.instance.getTodayStatsByWorkDate(dateStr))['gross'] as int? ?? 0;
+    final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
+    final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
+
+    final Map<String, int> revenueByYmd = {
+      for (int i = 0; i < 7; i++)
+        DateFormat('yyyy-MM-dd').format(weekStart.add(Duration(days: i))): 0,
+    };
+    for (final log in logs) {
+      final wd = log['work_date']?.toString().trim() ?? '';
+      if (wd.isEmpty || !revenueByYmd.containsKey(wd)) continue;
+      revenueByYmd[wd] = (revenueByYmd[wd] ?? 0) + _statsRowRevenue(log);
     }
-    return dayRevenue.entries.map((entry) => { 'day': entry.key, 'revenue': entry.value }).toList();
+
+    final List<Map<String, dynamic>> out = [];
+    for (int i = 0; i < 7; i++) {
+      final slotDate = weekStart.add(Duration(days: i));
+      final ymd = DateFormat('yyyy-MM-dd').format(slotDate);
+      final dow = kDow[slotDate.weekday - 1];
+      final label = '${slotDate.month}/${slotDate.day}($dow)';
+      out.add({'day': label, 'revenue': revenueByYmd[ymd] ?? 0});
+    }
+    return out;
   }
 
   Future<List<Map<String, dynamic>>> _getMonthlyDayStats(DateTime date) async {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(yearMonth);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
     final int lastDay = DateTime(date.year, date.month + 1, 0).day;
     Map<String, int> dailyRevenue = { for (int d = 1; d <= lastDay; d++) '$d일': 0 };
     for (var log in logs) {
-      final String? wd = (log['work_date'] ?? log['drive_date']) as String?;
-      final int day = int.tryParse(wd?.split('-').last ?? '1') ?? 1;
-      if (day >= 1 && day <= lastDay) dailyRevenue['$day일'] = (dailyRevenue['$day일'] ?? 0) + _statsRowRevenue(log);
+      final wd = log['work_date']?.toString().trim() ?? '';
+      if (wd.isEmpty) continue;
+      DateTime parsed;
+      try {
+        parsed = DateFormat('yyyy-MM-dd').parseStrict(wd);
+      } catch (_) {
+        continue;
+      }
+      if (parsed.year != date.year || parsed.month != date.month) continue;
+      final day = parsed.day;
+      if (day >= 1 && day <= lastDay) {
+        dailyRevenue['$day일'] = (dailyRevenue['$day일'] ?? 0) + _statsRowRevenue(log);
+      }
     }
     return dailyRevenue.entries.map((entry) => { 'day': entry.key, 'revenue': entry.value }).toList();
   }
@@ -389,7 +410,7 @@ class _StatsPageState extends State<StatsPage> {
   Future<List<Map<String, dynamic>>> _getYearlyMonthStats(DateTime date) async {
     Map<String, int> monthlyRevenue = {};
     for (int m = 1; m <= 12; m++) {
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(DateFormat('yyyy-MM').format(DateTime(date.year, m)));
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, m)));
       monthlyRevenue['$m월'] = logs.fold(0, (sum, log) => sum + _statsRowRevenue(log));
     }
     return monthlyRevenue.entries.map((entry) => { 'month': entry.key, 'revenue': entry.value }).toList();
@@ -398,20 +419,20 @@ class _StatsPageState extends State<StatsPage> {
   Future<List<Map<String, dynamic>>> _getLogsForSelectedPeriod() async {
     if (_selectedPeriod == "일간") {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-      return DriveLogDatabase.instance.getLogsForWorkDate(dateStr);
+      return DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr);
     }
     if (_selectedPeriod == "주간") {
       final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
       final startStr = DateFormat('yyyy-MM-dd').format(weekStart);
       final endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-      return DriveLogDatabase.instance.getLogsByWorkDateRange(startStr, endStr);
+      return DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
     }
     if (_selectedPeriod == "월간") {
       final yearMonth = DateFormat('yyyy-MM').format(_selectedDate);
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonth(yearMonth);
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
       logs.sort((a, b) {
-        final aw = (a['work_date'] ?? a['drive_date'] ?? '').toString();
-        final bw = (b['work_date'] ?? b['drive_date'] ?? '').toString();
+        final aw = (a['work_date'] ?? '').toString();
+        final bw = (b['work_date'] ?? '').toString();
         final cmpDate = aw.compareTo(bw);
         if (cmpDate != 0) return cmpDate;
         return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
@@ -421,12 +442,12 @@ class _StatsPageState extends State<StatsPage> {
     final out = <Map<String, dynamic>>[];
     for (int month = 1; month <= 12; month++) {
       final logs = await DriveLogDatabase.instance
-          .getLogsByWorkMonth(DateFormat('yyyy-MM').format(DateTime(_selectedDate.year, month)));
+          .getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(_selectedDate.year, month)));
       out.addAll(logs);
     }
     out.sort((a, b) {
-      final aw = (a['work_date'] ?? a['drive_date'] ?? '').toString();
-      final bw = (b['work_date'] ?? b['drive_date'] ?? '').toString();
+      final aw = (a['work_date'] ?? '').toString();
+      final bw = (b['work_date'] ?? '').toString();
       final cmpDate = aw.compareTo(bw);
       if (cmpDate != 0) return cmpDate;
       return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
@@ -709,7 +730,11 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildSecondChart(double titleFontSize) {
-    String title = _selectedPeriod == "일간" ? "시간대별 매출" : (_selectedPeriod == "주간" ? "요일별 매출" : (_selectedPeriod == "월간" ? "일자별 매출" : "월별 매출"));
+    String title = _selectedPeriod == "일간"
+        ? "시간대별 매출"
+        : (_selectedPeriod == "주간"
+            ? "요일별 매출 (근무일 기준)"
+            : (_selectedPeriod == "월간" ? "일자별 매출 (근무일 기준)" : "월별 매출 (근무일 기준)"));
     return Container(
       decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
       child: Padding(

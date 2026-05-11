@@ -2,10 +2,12 @@ package com.example.dbros_app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import java.util.Locale
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -115,51 +117,78 @@ class MainActivity : FlutterActivity() {
         )
     }
 
+    private fun looksLikeScreenshot(displayName: String?, relativePath: String?, bucket: String?): Boolean {
+        val n = displayName?.lowercase(Locale.ROOT) ?: ""
+        val r = relativePath?.lowercase(Locale.ROOT) ?: ""
+        val b = bucket?.lowercase(Locale.ROOT) ?: ""
+        return n.contains("screenshot") || n.contains("screencapture") || n.contains("screen_capture") ||
+            n.contains("스크린샷") || n.contains("캡처") ||
+            r.contains("screenshot") || r.contains("screencapture") || r.contains("스크린샷") ||
+            b.contains("screenshot") || b.contains("스크린샷") || b.contains("capture")
+    }
+
+    /**
+     * 제조사별 파일명·경로 차이 대응: 최근 이미지 일부를 가져온 뒤 휴리스틱으로 스크린샷만 고름.
+     * (기존 SQL OR + RELATIVE_PATH는 API/기기에 따라 쿼리 실패·빈 결과가 나오기 쉬움.)
+     */
     private fun getLatestScreenshotForOcr(): Map<String, Any>? {
         return try {
             val resolver = applicationContext.contentResolver
-            val projection = arrayOf(
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DISPLAY_NAME,
-                MediaStore.Images.Media.DATE_ADDED
-            )
-            val selection = "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ? OR " +
-                    "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ? OR " +
-                    "${MediaStore.Images.Media.DISPLAY_NAME} LIKE ? OR " +
-                    "${MediaStore.Images.Media.RELATIVE_PATH} LIKE ?"
-            val selectionArgs = arrayOf("%Screenshot%", "%ScreenCapture%", "%스크린샷%", "%Screenshots%")
+            val projection = buildList {
+                add(MediaStore.Images.Media._ID)
+                add(MediaStore.Images.Media.DISPLAY_NAME)
+                add(MediaStore.Images.Media.DATE_ADDED)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    add(MediaStore.Images.Media.RELATIVE_PATH)
+                }
+                add(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
+            }.toTypedArray()
+
             val sortOrder = "${MediaStore.Images.Media.DATE_ADDED} DESC"
 
             resolver.query(
                 MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 projection,
-                selection,
-                selectionArgs,
-                sortOrder
+                null,
+                null,
+                sortOrder,
             )?.use { cursor ->
-                if (!cursor.moveToFirst()) return null
                 val idIndex = cursor.getColumnIndex(MediaStore.Images.Media._ID)
                 val dateIndex = cursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED)
+                val nameIndex = cursor.getColumnIndex(MediaStore.Images.Media.DISPLAY_NAME)
+                val relIndex = cursor.getColumnIndex(MediaStore.Images.Media.RELATIVE_PATH)
+                val bucketIndex = cursor.getColumnIndex(MediaStore.Images.Media.BUCKET_DISPLAY_NAME)
                 if (idIndex < 0) return null
-                val imageId = cursor.getLong(idIndex)
-                val dateAdded = if (dateIndex >= 0) cursor.getLong(dateIndex) else 0L
-                val contentUri: Uri = Uri.withAppendedPath(
-                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                    imageId.toString()
-                )
 
-                val file = File(cacheDir, "latest_screenshot_for_ocr.jpg")
-                resolver.openInputStream(contentUri)?.use { input ->
-                    file.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                } ?: return null
+                var scanned = 0
+                while (cursor.moveToNext() && scanned < 60) {
+                    scanned++
+                    val name = if (nameIndex >= 0) cursor.getString(nameIndex) else null
+                    val rel = if (relIndex >= 0) cursor.getString(relIndex) else null
+                    val bucket = if (bucketIndex >= 0) cursor.getString(bucketIndex) else null
+                    if (!looksLikeScreenshot(name, rel, bucket)) continue
 
-                return mapOf(
-                    "path" to file.absolutePath,
-                    "dateAdded" to dateAdded,
-                    "imageId" to imageId
-                )
+                    val imageId = cursor.getLong(idIndex)
+                    val dateAdded = if (dateIndex >= 0) cursor.getLong(dateIndex) else 0L
+                    val contentUri: Uri = Uri.withAppendedPath(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        imageId.toString(),
+                    )
+
+                    val file = File(cacheDir, "latest_screenshot_for_ocr.jpg")
+                    resolver.openInputStream(contentUri)?.use { input ->
+                        file.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    } ?: continue
+
+                    return mapOf(
+                        "path" to file.absolutePath,
+                        "dateAdded" to dateAdded,
+                        "imageId" to imageId,
+                    )
+                }
+                null
             }
             null
         } catch (_: Throwable) {

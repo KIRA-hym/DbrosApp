@@ -1,6 +1,9 @@
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
+import '../utils/drive_time_format.dart';
+import '../utils/work_date_utils.dart';
+
 class DriveLogDatabase {
   DriveLogDatabase._();
   static final DriveLogDatabase instance = DriveLogDatabase._();
@@ -136,19 +139,91 @@ class DriveLogDatabase {
         "WHERE (work_date IS NULL OR TRIM(work_date) = '') AND date IS NOT NULL",
       );
     }
-    await db.execute(
+    await normalizeStoredWorkDriveDates(db);
+  }
+
+  /// 기존 행: `work_date`/`drive_date` 한쪽만 있으면 반대쪽에 복사.
+  Future<void> normalizeStoredWorkDriveDates([Database? db]) async {
+    final d = db ?? await database;
+    await d.execute(
       "UPDATE drive_logs SET work_date = drive_date "
-      "WHERE (work_date IS NULL OR TRIM(work_date) = '') AND drive_date IS NOT NULL",
+      "WHERE (work_date IS NULL OR TRIM(work_date) = '') AND drive_date IS NOT NULL AND TRIM(drive_date) != ''",
     );
+
+    final missingDrive = await d.rawQuery(
+      '''
+      SELECT id, work_date, drive_time FROM drive_logs
+      WHERE (drive_date IS NULL OR TRIM(drive_date) = '')
+        AND work_date IS NOT NULL AND TRIM(work_date) != ''
+      ''',
+    );
+    for (final r in missingDrive) {
+      final id = r['id'];
+      if (id == null) continue;
+      final w = (r['work_date'] ?? '').toString().trim();
+      if (w.isEmpty) continue;
+      final t = resolveDriveTimeForStorage(r['drive_time']?.toString());
+      final dr = WorkDateUtils.resolveDriveDateForNightShift(w, t);
+      await d.update(
+        'drive_logs',
+        <String, Object?>{'drive_date': dr, 'drive_time': t},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+
+    final orphans = await d.rawQuery(
+      '''
+      SELECT id, drive_time, created_at FROM drive_logs
+      WHERE (work_date IS NULL OR TRIM(work_date) = '')
+        AND (drive_date IS NULL OR TRIM(drive_date) = '')
+      ''',
+    );
+    for (final r in orphans) {
+      final id = r['id'];
+      if (id == null) continue;
+      final created = DateTime.tryParse((r['created_at'] ?? '').toString());
+      final w = WorkDateUtils.effectiveWorkDateYmd(created ?? DateTime.now());
+      final t = resolveDriveTimeForStorage(r['drive_time']?.toString());
+      final dr = WorkDateUtils.resolveDriveDateForNightShift(w, t);
+      await d.update(
+        'drive_logs',
+        <String, Object?>{'work_date': w, 'drive_date': dr, 'drive_time': t},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+  }
+
+  /// 저장 시 `work_date`·`drive_date`·`drive_time`이 비지 않도록 보정.
+  /// 근무일만 있고 운행일이 비면 → 새벽 규칙으로 운행일 산출(단순 동일 복사 아님).
+  static void ensureNonEmptyWorkDriveDatesInPlace(Map<String, dynamic> row) {
+    var w = (row['work_date']?.toString() ?? '').trim();
+    var d = (row['drive_date']?.toString() ?? '').trim();
+    final timeHm = resolveDriveTimeForStorage(row['drive_time']?.toString());
+    row['drive_time'] = timeHm;
+
+    if (w.isEmpty && d.isNotEmpty) {
+      w = d;
+    } else if (w.isNotEmpty && d.isEmpty) {
+      d = WorkDateUtils.resolveDriveDateForNightShift(w, timeHm);
+    } else if (w.isEmpty && d.isEmpty) {
+      w = WorkDateUtils.effectiveWorkDateYmd();
+      d = WorkDateUtils.resolveDriveDateForNightShift(w, timeHm);
+    }
+    row['work_date'] = w;
+    row['drive_date'] = d;
   }
 
   Future<int> insertOrUpdateDriveLog(Map<String, dynamic> row) async {
     final db = await database;
+    final out = Map<String, dynamic>.from(row);
+    ensureNonEmptyWorkDriveDatesInPlace(out);
     final int result;
-    if (row.containsKey('id') && row['id'] != null) {
-      result = await db.update('drive_logs', row, where: 'id = ?', whereArgs: [row['id']]);
+    if (out.containsKey('id') && out['id'] != null) {
+      result = await db.update('drive_logs', out, where: 'id = ?', whereArgs: [out['id']]);
     } else {
-      result = await db.insert("drive_logs", row, conflictAlgorithm: ConflictAlgorithm.replace);
+      result = await db.insert("drive_logs", out, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     afterLogsChanged?.call();
     return result;
@@ -286,6 +361,31 @@ class DriveLogDatabase {
     );
   }
 
+  /// 통계·집계용: **근무일(`work_date`)만** 일치 (비어 있으면 제외).
+  Future<List<Map<String, dynamic>>> getLogsForWorkDateStrict(String workDateYmd) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          'work_date IS NOT NULL AND TRIM(work_date) != \'\' AND work_date = ?',
+      whereArgs: [workDateYmd],
+      orderBy: 'drive_time ASC',
+    );
+  }
+
+  /// [getLogsForWorkDate]와 동일한 근무일 매칭으로, 그날 일지 중 **가장 늦은** `drive_time`(HH:mm) 하나.
+  /// 일지가 없거나 파싱 가능한 시각이 없으면 null.
+  Future<String?> getLatestDriveTimeHmOnWorkDate(String workDateYmd) async {
+    final logs = await getLogsForWorkDate(workDateYmd);
+    String? best;
+    for (final log in logs) {
+      final n = normalizeDriveTimeHm(log['drive_time']?.toString());
+      if (n == null) continue;
+      if (best == null || n.compareTo(best) > 0) best = n;
+    }
+    return best;
+  }
+
   Future<List<Map<String, dynamic>>> getLogsByMonth(String yearMonth) async {
     final db = await database;
     return db.query(
@@ -305,6 +405,32 @@ class DriveLogDatabase {
           "(work_date LIKE ?) OR ((work_date IS NULL OR TRIM(work_date) = '') AND drive_date LIKE ?)",
       whereArgs: ['$yearMonth-%', '$yearMonth-%'],
       orderBy: 'work_date DESC, drive_date DESC, drive_time DESC',
+    );
+  }
+
+  /// 통계용 주간·월간 합산: **근무일(`work_date`)만** 사용 (비어 있으면 제외).
+  /// 일자별 차트·상단 합계와 동일 기준을 맞춘다.
+  Future<List<Map<String, dynamic>>> getLogsByWorkDateRangeStrict(String startYmd, String endYmd) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          'work_date IS NOT NULL AND TRIM(work_date) != \'\' '
+          'AND work_date >= ? AND work_date <= ?',
+      whereArgs: [startYmd, endYmd],
+      orderBy: 'work_date ASC, drive_time ASC',
+    );
+  }
+
+  /// 통계용 월 목록: **근무일(`work_date`)만** (비어 있으면 제외).
+  Future<List<Map<String, dynamic>>> getLogsByWorkMonthStrict(String yearMonth) async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      where:
+          'work_date IS NOT NULL AND TRIM(work_date) != \'\' AND work_date LIKE ?',
+      whereArgs: ['$yearMonth-%'],
+      orderBy: 'work_date ASC, drive_time ASC',
     );
   }
 

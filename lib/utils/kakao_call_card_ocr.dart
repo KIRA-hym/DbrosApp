@@ -226,7 +226,107 @@ class KakaoCallCardOcr {
     if (t.contains('수익') && RegExp(r'\d').hasMatch(t)) return true;
     if (t.contains('밀어서') || t.contains('도착알림')) return true;
     if (t.contains('길찾기')) return true;
+    if (t.contains('배정취소 가능 잔여 시간')) return true;
+    if (t.contains('[취소불가]')) return true;
+    if (t.contains('고객과 만날 장소')) return true;
+    if (t.contains('위치정보가 공유')) return true;
+    if (t.contains('스크린샷을 삭제했어요')) return true;
+    if (t.contains('통화가 종료되었습니다')) return true;
     return false;
+  }
+
+  static List<String> _normalizedLines(String fullText) {
+    return fullText
+        .split(RegExp(r'[\r\n]+'))
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  static int _findPaymentLineIndex(List<String> lines) {
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if ((line.contains('카드') || line.contains('현금')) && line.contains('확정')) return i;
+    }
+    return -1;
+  }
+
+  static bool _looksLikeAddressLine(String line) {
+    final t = line.trim();
+    if (t.length < 2) return false;
+    if (_excludePaymentOrActionStrip(t)) return false;
+    if (RegExp(r'^\d+\s*점$').hasMatch(t.replaceAll(',', ''))) return false;
+    if (RegExp(r'^[\d,]+\s*(P|원)?$').hasMatch(t)) return false;
+    if (t.contains('배정취소') || t.contains('배정 완료') || t.contains('제휴콜')) return false;
+    if (t.contains('무료보험') || t.contains('법인')) return false;
+    if (t.contains('고객센터') || t.contains('사고신고') || t.contains('운행중')) return false;
+    if (t.contains('경유')) return false;
+    return true;
+  }
+
+  static bool _looksRegionLike(String line) {
+    return RegExp(r'(시|군|구|동|읍|면|로|길)').hasMatch(line);
+  }
+
+  static String _joinAddressParts(Iterable<String> parts) =>
+      parts.map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ').trim();
+
+  static (String, String) _parseAddressesFromLines(List<String> lines) {
+    final payIdx = _findPaymentLineIndex(lines);
+    final bound = payIdx >= 0 ? payIdx : lines.length;
+    final addrCandidates = <String>[];
+    for (var i = 0; i < bound; i++) {
+      final line = lines[i];
+      if (_looksLikeAddressLine(line)) addrCandidates.add(line);
+    }
+    if (addrCandidates.isEmpty) return ('', '');
+    if (addrCandidates.length == 1) return (addrCandidates.first, '');
+
+    // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응
+    if (addrCandidates.length >= 4) {
+      final start = _joinAddressParts([addrCandidates[0], addrCandidates[1]]);
+      final end = _joinAddressParts(addrCandidates.skip(2));
+      return (start, end);
+    }
+
+    final start = addrCandidates.first;
+    final end = _joinAddressParts(addrCandidates.skip(1));
+    return (start, end);
+  }
+
+  static String _parseWaypointFromLines(List<String> lines) {
+    final payIdx = _findPaymentLineIndex(lines);
+    final bound = payIdx >= 0 ? payIdx : lines.length;
+    final found = <String>[];
+    for (var i = 0; i < bound; i++) {
+      final line = lines[i];
+      if (!line.contains('경유')) continue;
+      final cleaned = line.replaceAll(RegExp(r'^\s*경유\s*지?\s*[:：]?\s*'), '').trim();
+      found.add(cleaned.isEmpty ? line.trim() : cleaned);
+    }
+    return found.join(' ').trim();
+  }
+
+  static int? _parseCardFareFromLines(List<String> lines) {
+    final payIdx = _findPaymentLineIndex(lines);
+    if (payIdx >= 0) {
+      for (var i = payIdx; i < lines.length && i <= payIdx + 4; i++) {
+        final line = lines[i];
+        final m = RegExp(r'([\d,]{4,})\s*P\b', caseSensitive: false).firstMatch(line);
+        if (m != null) {
+          final v = _parseCommaInt(m.group(1)!);
+          if (v != null && v > 0) return v;
+        }
+      }
+    }
+    for (final line in lines.reversed) {
+      final m = RegExp(r'([\d,]{4,})\s*P\b', caseSensitive: false).firstMatch(line);
+      if (m != null) {
+        final v = _parseCommaInt(m.group(1)!);
+        if (v != null && v > 0) return v;
+      }
+    }
+    return null;
   }
 
   /// 카카오(일반)·카카오(프콜) 동일 레이아웃 가정 — 카드/현금 요금만 다름.
@@ -265,10 +365,26 @@ class KakaoCallCardOcr {
       }
     }
 
-    parsedWaypoint = _mergeWaypointFromBlocks(sorted);
+    final lines = _normalizedLines(fullText);
+    parsedWaypoint = _parseWaypointFromLines(lines);
+    if (parsedWaypoint.isEmpty) {
+      parsedWaypoint = _mergeWaypointFromBlocks(sorted);
+    }
+
+    final fromLinesAddr = _parseAddressesFromLines(lines);
+    if (fromLinesAddr.$1.isNotEmpty) {
+      startBuf.clear();
+      startBuf.write(fromLinesAddr.$1);
+    }
+    if (fromLinesAddr.$2.isNotEmpty) {
+      endBuf.clear();
+      endBuf.write(fromLinesAddr.$2);
+    }
 
     if (looksLikeKakaoCashPayment(fullText)) {
       parsedIncome = parseKakaoCashGrossFareFromBlocks(sorted) ?? parseKakaoCashGrossFare(fullText);
+    } else {
+      parsedIncome = _parseCardFareFromLines(lines);
     }
 
     if (parsedIncome == null) {
@@ -304,6 +420,7 @@ class KakaoScreenParsed {
   final String startLocation;
   final String endLocation;
   final int? grossFare;
+  final String? paymentMethod;
 
   KakaoScreenParsed({
     required this.driveDateYmd,
@@ -312,5 +429,6 @@ class KakaoScreenParsed {
     required this.startLocation,
     required this.endLocation,
     required this.grossFare,
+    this.paymentMethod,
   });
 }

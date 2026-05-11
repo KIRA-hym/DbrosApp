@@ -536,6 +536,25 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                   return;
                 }
+                if (Platform.isAndroid) {
+                  var mediaOk = await Permission.photos.isGranted;
+                  if (!mediaOk) {
+                    mediaOk = (await Permission.photos.request()).isGranted;
+                  }
+                  if (!mediaOk) {
+                    mediaOk = (await Permission.storage.request()).isGranted;
+                  }
+                  if (!mediaOk) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          "스크린샷 자동 인식에는 사진·저장소 권한이 필요합니다. 설정 앱에서 허용해 주세요.",
+                        ),
+                      ),
+                    );
+                  }
+                }
                 await SettingsService.setStatusBarQuickEnabled(true);
                 await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
                 AutoCaptureOcrService.instance.start();

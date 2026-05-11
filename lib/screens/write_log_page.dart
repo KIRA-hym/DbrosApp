@@ -18,7 +18,7 @@ import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
-import '../utils/logi_fare_parse.dart';
+import '../utils/logi_colmanner_ocr.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
@@ -35,12 +35,15 @@ class DriveLogForm extends StatefulWidget {
   final bool quickPanel;
   /// 시스템 오버레이로 띄운 경우(다른 앱 위 레이어). 저장 후 리스트 네비 대신 오버레이 종료.
   final bool fromOverlay;
+  /// 다른 앱에서 이미지 공유(SEND)로 전달된 로컬 경로 — 열자마자 OCR 시도
+  final String? sharedImagePath;
   const DriveLogForm({
     super.key,
     this.existingLog,
     this.initialDate,
     this.quickPanel = false,
     this.fromOverlay = false,
+    this.sharedImagePath,
   });
 
   @override
@@ -73,6 +76,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   Timer? _workDateRollTimer;
   bool _autoWorkDateRollActive = false;
   bool _overlayAutoOcrHandled = false;
+  int _driveTimeDefaultGen = 0;
 
   double? _startLat;
   double? _startLng;
@@ -122,6 +126,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         WidgetsBinding.instance.addObserver(this);
         _workDateRollTimer = Timer.periodic(const Duration(minutes: 1), (_) => _maybeRollEffectiveWorkDates());
       }
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _applyDefaultDriveTimeForNewLog();
+        final sp = widget.sharedImagePath?.trim();
+        if (sp != null && sp.isNotEmpty) {
+          await _runOcrOnSharedPath(sp);
+        }
+      });
     }
 
     if (widget.quickPanel && widget.fromOverlay) {
@@ -186,6 +197,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _dateCon.text = cur;
       _syncedEffectiveYmd = cur;
     });
+    _applyDefaultDriveTimeForNewLog();
   }
 
   @override
@@ -220,10 +232,52 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     _detectProgramAndParse(recognizedText);
   }
 
+  /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
+  Future<void> _runOcrOnSharedPath(String path) async {
+    try {
+      final file = File(path);
+      if (!file.existsSync()) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('공유한 이미지를 열 수 없습니다. 저장소 권한을 확인해 주세요.')),
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _capturedImage = file);
+      final inputImage = InputImage.fromFilePath(file.path);
+      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
+      final recognizedText = await textRecognizer.processImage(inputImage);
+      await textRecognizer.close();
+      if (!mounted) return;
+      _detectProgramAndParse(recognizedText);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('공유 이미지 처리 중 오류: $e')),
+        );
+      }
+    }
+  }
+
   String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) {
+    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
     for (final b in blocks) {
       if (b.text.contains("갱신")) return "로지";
       if (b.text.contains("출도")) return "콜마너";
+    }
+    if (normalized.contains('운행시작') &&
+        normalized.contains('출발지') &&
+        normalized.contains('도착지') &&
+        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
+      return "로지";
+    }
+    if (normalized.contains('지사명') &&
+        normalized.contains('출도') &&
+        normalized.contains('출발지') &&
+        normalized.contains('도착지')) {
+      return "콜마너";
     }
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
     if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
@@ -292,6 +346,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _startLocCon.text = p.startLocation;
       _endLocCon.text = p.endLocation;
       if (parsedIncome != null) _incomeCon.text = parsedIncome;
+      if ((p.paymentMethod ?? '').isNotEmpty && _memoCon.text.trim().isEmpty) {
+        _memoCon.text = '결제방식:${p.paymentMethod}';
+      }
     });
   }
 
@@ -322,125 +379,36 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   void _parseLogi(List<TextBlock> blocks) {
-    final noiseList = ['완료', '배차', '경로', '지도', '처리', '취소', '안내', '닫기', '서명', '갱신', '고객ID', '오더번호', '차량번호', '출도', '전화', '전화2', '적요', '메모', '법인', '고객', '도착', '연기', '상황실', '발주사', '이용개시번호', '통화'];
-    final labelList = ['도착지', '출발지', '요금', '입금액'];
-    final List<TextBlock> sortedBlocks = List.from(blocks)..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    bool startParsed = false; bool endParsed = false;
-    String parsedTime = ""; String parsedIncome = ""; String parsedStart = ""; String parsedEnd = "";
-
-    for (int i = 0; i < sortedBlocks.length; i++) {
-      final String text = sortedBlocks[i].text.trim();
-      final String norm = text.replaceAll('그', '7').replaceAll('l', '1').replaceAll('o', '0');
-
-      if (sortedBlocks[i].boundingBox.top < 200 && parsedTime.isEmpty) {
-        final tMatch = RegExp(r'(\d{1,2}:\d{1,2})').firstMatch(norm);
-        if (tMatch != null) {
-          parsedTime = normalizeDriveTimeHm(tMatch.group(1)!) ?? tMatch.group(1)!;
-        }
-      }
-
-      if (text.contains("요금")) {
-        int? n = parseLogiFareFromOcrText(text);
-        if (n == null) {
-          for (final j in [i - 1, i + 1]) {
-            if (j >= 0 && j < sortedBlocks.length) {
-              n = parseLogiFareFromOcrText(sortedBlocks[j].text);
-              if (n != null) break;
-            }
-          }
-        }
-        if (n != null) parsedIncome = NumberFormat('#,###').format(n);
-      }
-
-      if (text == "출발지" && !startParsed) {
-        String addr = "";
-        for (int j in [i - 1, i + 1]) {
-          if (j >= 0 && j < sortedBlocks.length) {
-            final String neighbor = sortedBlocks[j].text.trim();
-            if (!noiseList.contains(neighbor) && !labelList.contains(neighbor) && neighbor.length > 5) addr += (addr.isEmpty ? "" : " ") + neighbor;
-          }
-        }
-        if (addr.isNotEmpty && !addr.contains("도착")) { parsedStart = addr.replaceAll("상세:", "").trim(); startParsed = true; }
-      }
-
-      if (text == "도착지" && !endParsed) {
-        String addr = "";
-        for (int j in [i - 1, i + 1]) {
-          if (j >= 0 && j < sortedBlocks.length) {
-            final String neighbor = sortedBlocks[j].text.trim();
-            if (!noiseList.contains(neighbor) && !labelList.contains(neighbor) && neighbor.length > 3) addr += (addr.isEmpty ? "" : " ") + neighbor;
-          }
-        }
-        if (addr.isNotEmpty) { parsedEnd = addr.trim(); endParsed = true; }
-      }
-    }
+    final sortedBlocks = List<TextBlock>.from(blocks)
+      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+    final full = sortedBlocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
+    final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
 
     setState(() {
-      if (parsedTime.isNotEmpty) _timeCon.text = parsedTime;
-      if (parsedIncome.isNotEmpty) _incomeCon.text = parsedIncome;
-      if (parsedStart.isNotEmpty) _startLocCon.text = parsedStart;
-      if (parsedEnd.isNotEmpty) _endLocCon.text = parsedEnd;
+      if (p.driveTimeHm.isNotEmpty) _timeCon.text = p.driveTimeHm;
+      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
+      if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
+      if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
+      if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
     });
   }
 
   void _parseColmanner(List<TextBlock> blocks) {
-    final List<TextBlock> sorted = List.from(blocks)..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final noiseList = ['완료', '배차', '경로', '지도', '처리', '취소', '안내', '닫기', '서명', '갱신', '오더번호', '출도', '전화', '적요', '메모', '법인', '고객', '도착', '연기', '상황실', '발주사', '이용개시번호', '통화', '합계', '수수료', '보험료', '차감합계', '입금합계', '예상', '고객위치', '길안내', '운행'];
-    String parsedTime = ""; String parsedIncome = ""; String parsedStart = ""; String parsedEnd = "";
-
-    for (int i = 0; i < sorted.length; i++) {
-      final String text = sorted[i].text.trim();
-      final String cleanText = text.replaceAll(RegExp(r'\s+'), '').replaceAll('그', '7').replaceAll('l', '1').replaceAll('o', '0');
-      final double y = sorted[i].boundingBox.top;
-
-      if (y < 250 && parsedTime.isEmpty) {
-        final tMatch = RegExp(r'(\d{1,2}[:：\.]\d{1,2})').firstMatch(cleanText);
-        if (tMatch != null) {
-          final timeStr = tMatch.group(1)!.replaceAll('.', ':').replaceAll('：', ':');
-          parsedTime = normalizeDriveTimeHm(timeStr) ?? timeStr;
-        }
-      }
-
-      if (cleanText.contains("요금")) {
-        final matches = RegExp(r'\d{4,6}').allMatches(cleanText.replaceAll(',', ''));
-        if (matches.isNotEmpty) {
-          final List<int> prices = matches.map((m) => int.parse(m.group(0)!)).toList()..sort((a, b) => b.compareTo(a));
-          if (prices.isNotEmpty) parsedIncome = NumberFormat('#,###').format(prices.first);
-        }
-      }
-
-      if (text.contains("출발지")) {
-        String addr = "";
-        for (int j in [i - 1, i + 1]) {
-          if (j >= 0 && j < sorted.length) {
-            final String n = sorted[j].text.trim();
-            if (!noiseList.contains(n) && n.length > 3 && !n.contains("도착")) addr += (addr.isEmpty ? "" : " ") + n;
-          }
-        }
-        if (addr.isNotEmpty) parsedStart = addr.trim();
-      }
-
-      if (text.contains("도착지")) {
-        String addr = "";
-        for (int j in [i - 1, i + 1]) {
-          if (j >= 0 && j < sorted.length) {
-            final String n = sorted[j].text.trim();
-            if (!noiseList.contains(n) && n.length > 3 && !n.contains("출발")) addr += (addr.isEmpty ? "" : " ") + n;
-          }
-        }
-        if (addr.isNotEmpty) parsedEnd = addr.trim();
-      }
-    }
+    final sorted = List<TextBlock>.from(blocks)
+      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+    final full = sorted.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
+    final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
 
     setState(() {
-      if (parsedTime.isNotEmpty) _timeCon.text = parsedTime;
-      if (parsedTime.isEmpty) {
+      if (p.driveTimeHm.isNotEmpty) _timeCon.text = p.driveTimeHm;
+      if (p.driveTimeHm.isEmpty) {
         final now = DateTime.now();
         _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
-      if (parsedIncome.isNotEmpty) _incomeCon.text = parsedIncome;
-      if (parsedStart.isNotEmpty) _startLocCon.text = parsedStart;
-      if (parsedEnd.isNotEmpty) _endLocCon.text = parsedEnd;
+      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
+      if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
+      if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
+      if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
     });
   }
 
@@ -480,6 +448,31 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _syncedEffectiveYmd = null;
       _workDateCon.text = DateFormat('yyyy-MM-dd').format(picked);
     });
+    if (_logId == null && widget.existingLog == null) {
+      await _applyDefaultDriveTimeForNewLog();
+    }
+  }
+
+  /// 신규 작성: 해당 근무일에 일지가 있으면 마지막 운행시각+30분, 없으면 현재 시각.
+  Future<void> _applyDefaultDriveTimeForNewLog() async {
+    if (!mounted || _logId != null || widget.existingLog != null) return;
+    final gen = ++_driveTimeDefaultGen;
+    final wd = _normalizeYmdForStorage(_workDateCon.text);
+    if (wd == null) return;
+    final lastHm = await DriveLogDatabase.instance.getLatestDriveTimeHmOnWorkDate(wd);
+    if (!mounted || gen != _driveTimeDefaultGen) return;
+    final String nextHm;
+    if (lastHm == null) {
+      nextHm = DateFormat('HH:mm').format(DateTime.now());
+    } else {
+      final parts = lastHm.split(':');
+      final h = int.tryParse(parts.isNotEmpty ? parts[0] : '0') ?? 0;
+      final mi = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+      final base = DateTime(2000, 1, 1, h, mi);
+      nextHm = formatDriveTimeHm(base.add(const Duration(minutes: 30)));
+    }
+    if (!mounted || gen != _driveTimeDefaultGen) return;
+    setState(() => _timeCon.text = nextHm);
   }
 
   Future<void> _showDateQuickPicker() async {
@@ -775,15 +768,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     });
   }
 
-  /// 근무일·운행일이 같고, 운행 시각이 오전 9시 미만이면 운행일을 **전일**로 바꿀지 확인한다.
-  Future<void> _maybePromptPreviousDriveDateForMorningRun() async {
+  /// 근무일·운행일이 같고, 운행 시각이 오전 9시 미만(새벽)이면 운행일을 **익일**로 바꿀지 확인한다.
+  Future<void> _maybePromptNextDriveDateForEarlyMorning() async {
     final w = _workDateCon.text.trim();
     final d = _dateCon.text.trim();
     if (w.isEmpty || d.isEmpty) return;
     if (w != d) return;
     if (!WorkDateUtils.isDriveHourBeforeWorkDayRollover(_timeCon.text)) return;
     if (!mounted) return;
-    final prev = WorkDateUtils.addDays(d, -1);
+    final next = WorkDateUtils.addDays(d, 1);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -791,7 +784,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         title: const Text('운행 날짜 확인', style: TextStyle(color: Colors.white)),
         content: Text(
           '근무 일자와 운행 일자가 같고, 운행 시각이 오전 9시 이전입니다.\n'
-          '운행 일자를 전일($prev)로 맞출까요?\n'
+          '운행 일자를 익일($next)로 맞출까요?\n'
           '(근무 일자는 그대로 둡니다.)',
           style: const TextStyle(color: Colors.white70),
         ),
@@ -802,7 +795,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       ),
     );
     if (ok == true && mounted) {
-      setState(() => _dateCon.text = prev);
+      setState(() => _dateCon.text = next);
     }
   }
 
@@ -813,7 +806,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return;
     }
     try {
-      await _maybePromptPreviousDriveDateForMorningRun();
+      await _maybePromptNextDriveDateForEarlyMorning();
       if (!mounted) return;
 
       final workDate = _normalizeYmdForStorage(_workDateCon.text);

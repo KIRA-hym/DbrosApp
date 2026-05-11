@@ -10,6 +10,7 @@ import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
+import '../utils/logi_colmanner_ocr.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
 import 'today_stats_notification_service.dart';
@@ -54,7 +55,8 @@ class AutoCaptureOcrService {
       final path = (map['path'] as String?)?.trim() ?? '';
       final dateAdded = (map['dateAdded'] as num?)?.toInt() ?? 0;
       final imageId = (map['imageId'] as num?)?.toInt() ?? 0;
-      if (path.isEmpty || dateAdded <= 0) return;
+      // imageId는 항상 > 0. dateAdded는 기기/API에 따라 0일 수 있어 imageId만으로 중복 방지.
+      if (path.isEmpty || imageId <= 0) return;
       final captureKey = '${dateAdded}_$imageId';
       if (captureKey == _lastProcessedCaptureKey) return;
 
@@ -158,6 +160,7 @@ class AutoCaptureOcrService {
         'start': p.startLocation,
         'end': p.endLocation,
         'waypoint': '',
+        'paymentMethod': p.paymentMethod ?? '',
       };
     }
 
@@ -176,6 +179,40 @@ class AutoCaptureOcrService {
         'driveDate': driveDate,
         'driveTime': timeHm,
         'income': p.grossFare != null && p.grossFare! > 0 ? p.grossFare!.toString() : '',
+        'start': p.startLocation,
+        'end': p.endLocation,
+        'waypoint': p.waypoint,
+      };
+    }
+
+    if (program == '로지') {
+      final p = LogiColmannerOcr.parseLogi(full, blocks: blocks);
+      final now = DateTime.now();
+      final timeHm = p.driveTimeHm.isNotEmpty
+          ? p.driveTimeHm
+          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      return {
+        'program': '로지',
+        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
+        'driveTime': timeHm,
+        'income': p.grossFare > 0 ? p.grossFare.toString() : '',
+        'start': p.startLocation,
+        'end': p.endLocation,
+        'waypoint': p.waypoint,
+      };
+    }
+
+    if (program == '콜마너') {
+      final p = LogiColmannerOcr.parseColmanner(full, blocks: blocks);
+      final now = DateTime.now();
+      final timeHm = p.driveTimeHm.isNotEmpty
+          ? p.driveTimeHm
+          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      return {
+        'program': '콜마너',
+        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
+        'driveTime': timeHm,
+        'income': p.grossFare > 0 ? p.grossFare.toString() : '',
         'start': p.startLocation,
         'end': p.endLocation,
         'waypoint': p.waypoint,
@@ -268,9 +305,21 @@ class AutoCaptureOcrService {
         normalized.contains('로지')) {
       return '로지';
     }
+    if (normalized.contains('운행시작') &&
+        normalized.contains('출발지') &&
+        normalized.contains('도착지') &&
+        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
+      return '로지';
+    }
     if (normalized.contains('출도') ||
         normalized.contains('콜마너') ||
         normalized.contains('콜매니저')) {
+      return '콜마너';
+    }
+    if (normalized.contains('지사명') &&
+        normalized.contains('출도') &&
+        normalized.contains('출발지') &&
+        normalized.contains('도착지')) {
       return '콜마너';
     }
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
@@ -292,7 +341,10 @@ class AutoCaptureOcrService {
 
   Map<String, dynamic> _buildRow(Map<String, String> parsed, String imagePath) {
     final nowIso = DateTime.now().toIso8601String();
+    /// 콜카드 단건·다중과 동일: 근무일 = 효과 근무일, 운행일 = 새벽 규칙 반영.
     final workDate = WorkDateUtils.effectiveWorkDateYmd();
+    final timeStr = resolveDriveTimeForStorage(parsed['driveTime']);
+    final driveDate = WorkDateUtils.resolveDriveDateForNightShift(workDate, timeStr);
     final income = int.tryParse(parsed['income'] ?? '') ?? 0;
     final program = parsed['program'] ?? KakaoCallCardOcr.programGeneral;
     final fee = SettingsService.deductionFeeFromGross(income, program);
@@ -300,8 +352,8 @@ class AutoCaptureOcrService {
 
     return {
       'work_date': workDate,
-      'drive_date': parsed['driveDate'] ?? workDate,
-      'drive_time': resolveDriveTimeForStorage(parsed['driveTime']),
+      'drive_date': driveDate,
+      'drive_time': timeStr,
       'program': program,
       'gross_fare': income,
       'fee': fee,
@@ -311,7 +363,11 @@ class AutoCaptureOcrService {
       'start_location': (parsed['start'] ?? '').trim(),
       'waypoint': (parsed['waypoint'] ?? '').trim(),
       'end_location': (parsed['end'] ?? '').trim(),
-      'memo': '자동등록(OCR)',
+      'memo': (() {
+        final pm = (parsed['paymentMethod'] ?? '').trim();
+        if (pm.isEmpty) return '자동등록(OCR)';
+        return '자동등록(OCR) 결제:$pm';
+      })(),
       'image_path': imagePath,
       'updated_at': nowIso,
       'created_at': nowIso,

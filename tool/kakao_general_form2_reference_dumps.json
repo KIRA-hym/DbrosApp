@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "description": "카카오(일반) 2번째 콜카드 양식 — 상단~출발지 사이 빨간색 '배정취소 가능 잔여 시간' 배너가 추가된 레퍼런스 덤프. 실제 ML Kit OCR과 다를 수 있어, 파서/테스트용 시뮬레이션 텍스트 포함.",
+    "program_detected": "카카오(일반)",
+    "form_variant": "general_call_card_v2_red_cancellation_banner",
+    "sample_images": [
+      "tool/ocr_samples/c__Users_HYM_AppData_Roaming_Cursor_User_workspaceStorage_03ba1b5617623ecb7c31cbc387393572_images_KakaoTalk_20260504_092834268_14-5695ac22-e5b5-4730-90de-c3e89ce6f8e8.png",
+      "tool/ocr_samples/c__Users_HYM_AppData_Roaming_Cursor_User_workspaceStorage_03ba1b5617623ecb7c31cbc387393572_images_KakaoTalk_20260504_092834268_18-5f5b7384-a066-41a2-a68e-e561b67e8675.png",
+      "tool/ocr_samples/c__Users_HYM_AppData_Roaming_Cursor_User_workspaceStorage_03ba1b5617623ecb7c31cbc387393572_images_KakaoTalk_20260504_092834268_10-9fb88414-b657-40f8-bca3-21fc86531468.png"
+    ],
+    "red_banner_patterns": [
+      "배정취소\\s*가능\\s*잔여\\s*시간\\s*[:：]\\s*\\d+\\s*초",
+      "\\[취소불가\\]"
+    ]
+  },
+  "samples": [
+    {
+      "id": "form2_card_32000_toast",
+      "payment": "card",
+      "simulated_full_text": "T 전화 배정 완료\n배정취소\n메뉴\n배정취소 가능 잔여 시간 : 0초 [취소불가]\n군포시 금정동 힐스테이트금정역아파트\n송파구 마천동 송파파크데일2단지아파트 210동\n무료보험\n100점\n카드 | 확정\n32,000 P\n고객\n상황실\n메모\n고객과 만날 장소 길찾기\n출발지에 도착하시면 도착완료 해주세요.\n스크린샷을 삭제했어요.\n밀어서 고객에게 도착알림",
+      "canonical": {
+        "header_assignment": "T 전화 배정 완료",
+        "cancellation_banner": "배정취소 가능 잔여 시간 : 0초 [취소불가]",
+        "cancellation_seconds": 0,
+        "cancellation_blocked": true,
+        "pickup_raw": "군포시 금정동 힐스테이트금정역아파트",
+        "destination_raw": "송파구 마천동 송파파크데일2단지아파트 210동",
+        "payment_chip": "카드 | 확정",
+        "fare_points": 32000,
+        "fare_currency_line": null,
+        "subsidy_line": null
+      }
+    },
+    {
+      "id": "form2_cash_25000_subsidy",
+      "payment": "cash",
+      "simulated_full_text": "T 전화 배정 완료\n배정취소\n메뉴\n배정취소 가능 잔여 시간 : 15초\n미추홀구 학익동 일동수산회직판장\n연수구 송도동 송도글로벌파크베르디움아파트\n무료보험\n100점\n현금 | 확정\n25,000원\n수익 20,000 P + 지원금 3,000P\n고객\n상황실\n메모\n고객과 만날 장소 길찾기\n출발지에 도착하시면 도착완료 해주세요.\n밀어서 고객에게 도착알림",
+      "canonical": {
+        "header_assignment": "T 전화 배정 완료",
+        "cancellation_banner": "배정취소 가능 잔여 시간 : 15초",
+        "cancellation_seconds": 15,
+        "cancellation_blocked": false,
+        "pickup_raw": "미추홀구 학익동 일동수산회직판장",
+        "destination_raw": "연수구 송도동 송도글로벌파크베르디움아파트",
+        "payment_chip": "현금 | 확정",
+        "total_won": 25000,
+        "revenue_p": 20000,
+        "subsidy_p": 3000,
+        "fare_points": null
+      }
+    },
+    {
+      "id": "form2_card_35200",
+      "payment": "card",
+      "simulated_full_text": "T 전화 배정 완료\n배정취소\n메뉴\n배정취소 가능 잔여 시간 : 0초 [취소불가]\n성남시분당구 정자동 6\n시흥시 대야동 693\n무료보험\n100점\n카드 | 확정\n35,200 P\n고객\n상황실\n메모\n고객과 만날 장소 길찾기\n출발지에 도착하시면 도착완료 해주세요.\n밀어서 고객에게 도착알림",
+      "canonical": {
+        "header_assignment": "T 전화 배정 완료",
+        "cancellation_banner": "배정취소 가능 잔여 시간 : 0초 [취소불가]",
+        "cancellation_seconds": 0,
+        "cancellation_blocked": true,
+        "pickup_raw": "성남시분당구 정자동 6",
+        "destination_raw": "시흥시 대야동 693",
+        "payment_chip": "카드 | 확정",
+        "fare_points": 35200,
+        "fare_currency_line": null,
+        "subsidy_line": null
+      }
+    }
+  ]
+}

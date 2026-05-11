@@ -35,6 +35,38 @@ class KakaoCustomCallOcr {
     return false;
   }
 
+  /// `실제 수익 카드 | 확정 | 36,000 P` 형태를 분해.
+  static ({String? paymentMethod, int? amount}) parsePaymentAndFare(String fullText) {
+    final lines = fullText
+        .replaceAll('\r', '\n')
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    for (final line in lines) {
+      if (!line.contains('실제') || !line.contains('수익')) continue;
+      final m = RegExp(
+        r'실제\s*수익\s*([^\|\n]+?)\s*\|\s*([^\|\n]+?)\s*\|\s*([\d,]{3,})\s*P',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (m != null) {
+        final method = m.group(1)?.trim();
+        final amount = int.tryParse((m.group(3) ?? '').replaceAll(',', ''));
+        return (paymentMethod: method, amount: amount);
+      }
+      // 구분자 OCR 누락 대비: 실제 수익 ... [숫자] P
+      final amountOnly = RegExp(r'([\d,]{3,})\s*P', caseSensitive: false).firstMatch(line);
+      if (amountOnly != null) {
+        final amount = int.tryParse((amountOnly.group(1) ?? '').replaceAll(',', ''));
+        final method = line.contains('카드')
+            ? '카드'
+            : (line.contains('현금') ? '현금' : null);
+        return (paymentMethod: method, amount: amount);
+      }
+    }
+    return (paymentMethod: null, amount: null);
+  }
+
   /// `실제 수익` 근처 또는 전체에서 `[금액] P` (3자리 이상) 첫 매칭.
   static int? parseProfitBeforeP(String fullText) {
     final flat = fullText.replaceAll(RegExp(r'[\r\n]+'), ' ');
@@ -59,6 +91,7 @@ class KakaoCustomCallOcr {
   static String? _extractLabeledPlace(
     List<TextBlock> sorted,
     String label,
+    String fullText,
   ) {
     for (var i = 0; i < sorted.length; i++) {
       final raw = sorted[i].text.trim();
@@ -85,16 +118,18 @@ class KakaoCustomCallOcr {
       }
     }
 
-    final full = sorted.map((b) => b.text).join('\n');
-    final esc = RegExp.escape(label);
-    final lineRe = RegExp('$esc\\s*[:\\s]*([^\\n]+)');
-    final lm = lineRe.firstMatch(full);
-    if (lm != null) {
-      var rest = lm.group(1)!.trim();
+    final lines = fullText
+        .replaceAll('\r', '\n')
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    for (final line in lines) {
+      if (!line.startsWith(label)) continue;
+      var rest = line.substring(label.length).replaceFirst(RegExp(r'^[:\s]+'), '').trim();
+      rest = rest.replaceFirst(RegExp(r'^[\|\s]+'), '').trim();
       rest = rest.split(RegExp(r'(?=도착|실제\s*수익)')).first.trim();
-      if (rest.isNotEmpty && !_isMapRouteNoise(rest)) {
-        return rest;
-      }
+      if (rest.isNotEmpty && !_isMapRouteNoise(rest)) return rest;
     }
     return null;
   }
@@ -124,11 +159,12 @@ class KakaoCustomCallOcr {
       }
     }
 
-    final start = _extractLabeledPlace(sorted, '출발') ?? '';
-    final endRaw = _extractLabeledPlace(sorted, '도착') ?? '';
+    final start = _extractLabeledPlace(sorted, '출발', fullText) ?? '';
+    final endRaw = _extractLabeledPlace(sorted, '도착', fullText) ?? '';
     final end = stripHeartDecorations(endRaw);
 
-    final fare = parseProfitBeforeP(fullText);
+    final income = parsePaymentAndFare(fullText);
+    final fare = income.amount ?? parseProfitBeforeP(fullText);
 
     return KakaoScreenParsed(
       driveDateYmd: parsedDate,
@@ -137,6 +173,7 @@ class KakaoCustomCallOcr {
       startLocation: start,
       endLocation: end,
       grossFare: fare,
+      paymentMethod: income.paymentMethod,
     );
   }
 }

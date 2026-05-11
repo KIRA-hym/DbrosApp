@@ -34,14 +34,14 @@ class WorkDateUtils {
     return hourFromHm(driveTimeHm) < workDayRolloverHour;
   }
 
-  /// 근무일·운행일이 같은 전제에서, 운행 시각이 [workDayRolloverHour] **이전**이면
-  /// **운행일자**를 근무일자 **전일**로 맞춘다 (일지 저장 확인·콜카드 자동 등록 공통).
-  /// [workDateYmd]는 화면에 선택된 근무/기준일(`yyyy-MM-dd`).
+  /// 근무일·운행일이 같은 전제에서, 운행 시각이 [workDayRolloverHour] **이전**(새벽)이면
+  /// **운행일자**를 근무일자 **다음날**로 맞춘다 (일지 저장 확인·콜카드 자동 등록 공통).
+  /// [workDateYmd]는 화면에 선택된 근무일(`yyyy-MM-dd`).
   static String resolveDriveDateForNightShift(String workDateYmd, String driveTimeHm) {
     final nt = normalizeDriveTimeHm(driveTimeHm) ?? driveTimeHm.trim();
     if (nt.isEmpty) return workDateYmd;
     if (!isDriveHourBeforeWorkDayRollover(driveTimeHm)) return workDateYmd;
-    return addDays(workDateYmd, -1);
+    return addDays(workDateYmd, 1);
   }
 
   static int hourFromHm(String hm) {

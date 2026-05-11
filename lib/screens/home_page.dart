@@ -97,7 +97,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Future<void> _loadHomeData() async {
     final String cal = WorkDateUtils.effectiveWorkDateYmd();
     final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(cal);
-    final recent = await DriveLogDatabase.instance.getRecentLogsByDriveDateTime(limit: 5);
+    final recent = await DriveLogDatabase.instance.getRecentLogs(limit: 5);
 
     if (!mounted) return;
     setState(() {
@@ -370,6 +370,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       ),
                                     ),
                                   ),
+                                  if (_homeCalendarYmd.isNotEmpty)
+                                    Padding(
+                                      padding: EdgeInsets.only(top: (cell * 0.01).clamp(2.0, 6.0)),
+                                      child: Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          '근무일 기준 · $_homeCalendarYmd',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: const Color(0xFF6E717C),
+                                            fontSize: (netFs * 0.58).clamp(9.0, 12.0),
+                                            fontWeight: FontWeight.w500,
+                                            height: 1.1,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                   SizedBox(height: (cell * 0.04).clamp(6.0, 12.0)),
                                   Expanded(
                                     child: Align(
@@ -824,7 +842,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final expense = fee + transport;
     final net = _asInt(log['net_income']);
     final time = (log['drive_time'] ?? '').toString();
-    final driveDate = (log['drive_date'] ?? '').toString();
+    final workDateLabel =
+        (log['work_date']?.toString().trim().isNotEmpty == true ? log['work_date'] : log['drive_date'])?.toString() ?? '';
     final program = (log['program'] ?? '-').toString();
     final start = (log['start_location'] ?? '').toString().trim();
     final waypoint = (log['waypoint'] ?? '').toString().trim();
@@ -899,7 +918,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             text: TextSpan(
                               style: metaTextStyle,
                               children: [
-                                TextSpan(text: '$driveDate $time · '),
+                                TextSpan(text: '$workDateLabel $time · '),
                                 TextSpan(
                                   text: program,
                                   style: metaTextStyle?.copyWith(color: Colors.greenAccent),
