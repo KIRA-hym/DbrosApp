@@ -6,6 +6,39 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+function Assert-GitCommittedAndPushedForReleaseBuild {
+    try {
+        git rev-parse --is-inside-work-tree 2>$null | Out-Null
+        if ($LASTEXITCODE -ne 0) { return }
+    } catch {
+        return
+    }
+
+    $dirty = git -C $root status --porcelain 2>$null
+    if ($dirty) {
+        Write-Host ">>> ERROR: 커밋되지 않은 변경이 있습니다. 모두 커밋한 뒤 다시 빌드하세요." -ForegroundColor Red
+        git -C $root status -s
+        exit 1
+    }
+
+    $null = git -C $root rev-parse --abbrev-ref HEAD 2>$null
+    if ($LASTEXITCODE -ne 0) { return }
+
+    $upstream = git -C $root rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>$null
+    if ($LASTEXITCODE -ne 0 -or -not $upstream) {
+        Write-Host ">>> WARN: upstream 브랜치가 없어 푸시 여부는 검사하지 않습니다. (git push -u origin <브랜치> 권장)" -ForegroundColor Yellow
+        return
+    }
+
+    $ahead = git -C $root rev-list --count '@{u}..HEAD' 2>$null
+    if ($LASTEXITCODE -eq 0 -and $ahead -match '^\d+$' -and [int]$ahead -gt 0) {
+        Write-Host ">>> ERROR: 원격에 푸시되지 않은 커밋이 $ahead 개 있습니다. git push 후 다시 빌드하세요." -ForegroundColor Red
+        exit 1
+    }
+}
+
+Assert-GitCommittedAndPushedForReleaseBuild
+
 function Get-VersionSuffix {
     $pubspec = Get-Content "$root\pubspec.yaml" -Raw
     $m = [regex]::Match($pubspec, '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$')

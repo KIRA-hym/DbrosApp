@@ -10,6 +10,14 @@ When creating a `git commit` for this project:
 1. **Subject**: one line, imperative mood, include app version if `pubspec.yaml` changed (e.g. `Release v1.0.00+9: …`).
 2. **Body (required)**: blank line after subject, then bullet list of **concrete changes** (paths or feature areas, what changed and why if non-obvious). Group by theme (Android, lib/screens, parsers, tests, etc.).
 
+# Before Android release builds (commit + push)
+
+- **Before** running **`tools/build_dual_apk.ps1`** (or any release APK build the user treats as “배포용”), the agent must ensure:
+  1. **Working tree clean** — all intended changes are **committed** (`git status` shows no modified/untracked files that belong in the repo).
+  2. **Pushed to remote** — the current branch has no **unpushed** commits vs its upstream (e.g. `git status` not “ahead of …”, or `git push` done so `origin/<branch>` matches `HEAD`).
+- If the tree is dirty or local is ahead of upstream, **commit** (following the message rules above), **push**, then run the dual build script. Do not skip push when the user asked for a release build.
+- The script **`tools/build_dual_apk.ps1`** itself **aborts** if the repo is dirty or ahead of upstream (when upstream exists), so local CLI runs match the same policy.
+
 # Android release builds (default)
 
 - When the user asks to **build** the app (APK / release / 배포용 빌드) **without** an explicit exception, always run **`tools/build_dual_apk.ps1`** from the repo root (PowerShell). That produces **owner** (`MAP_FEATURES_ENABLED=true`) and **public** (`false`) APKs plus dated copies under `build/app/outputs/flutter-apk/`: `DbrosInstall_<date>_v<ver>_owner.apk` and `_public.apk`.
