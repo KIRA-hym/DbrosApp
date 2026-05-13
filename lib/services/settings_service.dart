@@ -72,30 +72,40 @@ class SettingsService {
   static int get yearlyInsurance => _prefs.getInt('yearlyInsurance') ?? 0;
   static Future<void> setYearlyInsurance(int value) async => await _prefs.setInt('yearlyInsurance', value);
 
-  /// DB `fee`·작성/미리보기 공통: 수수료율 + 건당 보험.
-  /// 카카오(일반·프콜·맞춤)·티맵·핸들포유는 플랫폼 차감 제외로 **0**. `카카오(제휴)`만 차감.
-  /// 월/년 일할 보험은 추후 구현; 미적용.
+  /// DB `fee`·작성/미리보기 공통: **플랫폼 수수료율** + **건당 보험**(설정이 `per_trip`일 때).
+  ///
+  /// - **카카오** 전 항목(일반·프콜·맞춤·제휴·레거시 `카카오`): 플랫폼 수수료율 **적용 안 함**.
+  /// - **티맵**: 항상 0.
+  /// - **핸들포유**: 플랫폼 수수료율 없음; 건당 보험만 아래 집합에 해당 시 가산.
+  /// - **건당 보험**이 붙는 프로그램: `카카오(제휴)`, `로지`, `콜마너`, `핸들포유` 만.
+  /// - 그 외(로지·콜마너·`기타` 등): 플랫폼율 적용; 건당 보험은 위 네 가지만(로지·콜마너 포함).
+  /// 월/년 일할 보험은 미적용.
   static int deductionFeeFromGross(int grossFare, String program) {
-    if (isAutoDeductionExcludedProgram(program)) return 0;
-    int fee = (grossFare * (baseFeeRate / 100)).round();
-    if (insuranceType == 'per_trip') {
+    final n = program.trim();
+    if (n.isEmpty) return 0;
+    if (n == '티맵') return 0;
+
+    var fee = 0;
+    final isKakao = n == '카카오' || n.contains('카카오');
+    if (!isKakao && n != '핸들포유') {
+      fee += (grossFare * (baseFeeRate / 100)).round();
+    }
+
+    if (insuranceType == 'per_trip' && _perTripInsuranceAppliesToProgram(n)) {
       fee += perTripInsurance;
     }
     return fee;
   }
 
-  static const Set<String> _kakaoProgramsExcludedFromDeduction = {
-    '카카오',
-    '카카오(일반)',
-    '카카오(프콜)',
-    '카카오(맞춤)',
-  };
-
-  static bool isAutoDeductionExcludedProgram(String program) {
-    final normalized = program.trim();
-    if (normalized.isEmpty) return false;
-    if (_kakaoProgramsExcludedFromDeduction.contains(normalized)) return true;
-    return normalized == '티맵' || normalized == '핸들포유';
+  /// 설정의 건당 보험료가 **이 프로그램**에만 반영되는지.
+  static bool _perTripInsuranceAppliesToProgram(String normalizedProgram) {
+    const withInsurance = <String>{
+      '카카오(제휴)',
+      '로지',
+      '콜마너',
+      '핸들포유',
+    };
+    return withInsurance.contains(normalizedProgram);
   }
 
   static List<String> get defaultProgramList => List<String>.from(_defaultProgramList);

@@ -112,6 +112,13 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildOcrParseLogSettings(),
           SizedBox(height: groupSpacing),
           _buildSettingsGroup("수수료 설정", [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '카카오 전 항목·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
+              ),
+            ),
             _buildTextField(_baseFeeCon, "기본 수수료율 (%)", onChanged: () {
               _checkFeeChanges();
             }),
@@ -122,6 +129,13 @@ class _SettingsPageState extends State<SettingsPage> {
           }),
           SizedBox(height: groupSpacing),
           _buildSettingsGroup("보험료 설정", [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유에만 1건당 금액이 더해집니다.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
+              ),
+            ),
             _buildRadioTile("적용 안 함", 'none'),
             _buildRadioTile("건당 보험료", 'per_trip', child: _insuranceType == 'per_trip' ? _buildTextField(_perTripInsCon, "1건당 차감 금액 (원)", onChanged: () {
               _checkInsuranceChanges();
