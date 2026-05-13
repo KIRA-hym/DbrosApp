@@ -1,5 +1,13 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../services/db_helper.dart';
 import '../main.dart'; 
 import 'write_log_page.dart';
@@ -379,7 +387,8 @@ class DailyLogListPage extends StatefulWidget {
 class _DailyLogListPageState extends State<DailyLogListPage> {
   List<Map<String, dynamic>> _dailyLogs = [];
   bool _isLoading = true;
-  
+  final ScreenshotController _shareScreenshotController = ScreenshotController();
+
   int _totalCount = 0;
   int _totalIncomeSum = 0;
   int _totalNetProfitSum = 0;
@@ -442,6 +451,56 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     }
   }
 
+  Future<void> _shareDetailAsImage() async {
+    if (!mounted || _isLoading) return;
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('웹에서는 공유를 지원하지 않습니다.')),
+      );
+      return;
+    }
+
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
+      final bytes = await _shareScreenshotController.capture(
+        delay: const Duration(milliseconds: 100),
+        pixelRatio: pixelRatio,
+      );
+
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.')),
+        );
+        return;
+      }
+
+      final dir = await getTemporaryDirectory();
+      final safe = widget.dateStr.replaceAll(RegExp(r'[^0-9\-]'), '');
+      final file = File(p.join(dir.path, 'dbros_daily_$safe.png'));
+      await file.writeAsBytes(bytes, flush: true);
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: <XFile>[XFile(file.path, mimeType: 'image/png')],
+          subject: widget.dateTitle,
+          title: widget.dateTitle,
+          text: widget.dateTitle,
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('DailyLogListPage share error: $e');
+      debugPrintStack(stackTrace: st);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('공유에 실패했습니다: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
@@ -455,17 +514,35 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
         title: Text(widget.dateTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: titleFontSize)),
         centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-              : _buildList(),
-          ),
-          _buildDailySummaryFooter(),
+        actions: [
+          if (!_isLoading)
+            TextButton(
+              onPressed: _shareDetailAsImage,
+              child: Text(
+                '공유',
+                style: TextStyle(
+                  color: const Color(0xFFFFC700),
+                  fontWeight: FontWeight.w600,
+                  fontSize: isTablet ? 15 : 14,
+                ),
+              ),
+            ),
         ],
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+          : Screenshot(
+              controller: _shareScreenshotController,
+              child: ColoredBox(
+                color: const Color(0xFF121418),
+                child: Column(
+                  children: [
+                    Expanded(child: _buildList()),
+                    _buildDailySummaryFooter(),
+                  ],
+                ),
+              ),
+            ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
