@@ -1,0 +1,14 @@
+---
+description: Git commit messages for this repo
+alwaysApply: true
+---
+
+# Commits
+
+When creating a `git commit` for this project:
+
+1. **Subject**: one line, imperative mood, include app version if `pubspec.yaml` changed (e.g. `Release v1.0.00+9: …`).
+2. **Body (required)**: blank line after subject, then bullet list of **concrete changes** (paths or feature areas, what changed and why if non-obvious). Group by theme (Android, lib/screens, parsers, tests, etc.).
+3. After a **version bump + release**, run `tools/build_dual_apk.ps1` (owner + public named APKs) unless the user asks for a single `flutter build apk` only; mention build outputs in the commit body when relevant.
+
+Release APK copies live under `build/app/outputs/flutter-apk/` (gitignored): `DbrosInstall_<date>_v<ver>_owner.apk` / `_public.apk`.
