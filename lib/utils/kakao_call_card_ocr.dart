@@ -9,6 +9,37 @@ class KakaoCallCardOcr {
 
   static const String programGeneral = '카카오(일반)';
   static const String programPro = '카카오(프콜)';
+  /// 일반·2종과 동일 UI로 인식한 뒤, OCR에 `100점` 등이 없으면 제휴로 구분.
+  static const String programAlliance = '카카오(제휴)';
+
+  /// 일반 콜카드에 나오는 `100점`·`10점`·`1,500점` 등(제휴 콜에는 보통 없음).
+  static final RegExp _driverScorePointsInText = RegExp(
+    r'(?<![0-9,])([0-9]{1,5}(?:,[0-9]{3})*|[0-9]{1,5})\s*점(?![0-9])',
+  );
+
+  /// [fullText]·블록에 기사 점수 표기가 있으면 true.
+  static bool hasCallCardDriverScoreMarker(String fullText, [List<TextBlock>? blocks]) {
+    final flat = fullText.replaceAll(RegExp(r'[\r\n]+'), ' ');
+    if (_driverScorePointsInText.hasMatch(flat)) return true;
+    if (blocks != null) {
+      for (final b in blocks) {
+        final t = b.text.trim().replaceAll(',', '');
+        if (RegExp(r'^[0-9]{1,5}점$').hasMatch(t)) return true;
+      }
+    }
+    return false;
+  }
+
+  /// [detectKakaoProgram] 결과가 `카카오(일반)`일 때만, 점수 표기 부재 시 `카카오(제휴)`.
+  static String refineProgramByAllianceHeuristic(
+    String fullText,
+    List<TextBlock> blocks,
+    String detected,
+  ) {
+    if (detected != programGeneral) return detected;
+    if (hasCallCardDriverScoreMarker(fullText, blocks)) return programGeneral;
+    return programAlliance;
+  }
 
   /// 공백 제거 후 부분 문자열 검사용.
   static String _compact(String s) => s.replaceAll(RegExp(r'\s+'), '');

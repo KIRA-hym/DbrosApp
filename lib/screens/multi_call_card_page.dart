@@ -194,7 +194,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
     if (rawProgram == KakaoCustomCallOcr.programCustom) {
       await _parseKakaoCustom(blocks, logData, fullText: recognizedText.text);
-    } else if (rawProgram == KakaoCallCardOcr.programGeneral || rawProgram == KakaoCallCardOcr.programPro) {
+    } else if (rawProgram == KakaoCallCardOcr.programGeneral ||
+        rawProgram == KakaoCallCardOcr.programPro ||
+        rawProgram == KakaoCallCardOcr.programAlliance) {
       await _parseKakao(blocks, logData, fullText: recognizedText.text);
     } else if (rawProgram == "로지") {
       await _parseLogi(blocks, logData);
@@ -246,9 +248,17 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
     if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
     final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) return kakao;
+    if (kakao != null) {
+      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
+    }
     for (final block in blocks) {
-      if (block.text.contains("고객과 통화")) return KakaoCallCardOcr.programGeneral;
+      if (block.text.contains("고객과 통화")) {
+        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+          fullText,
+          blocks,
+          KakaoCallCardOcr.programGeneral,
+        );
+      }
     }
     return null;
   }
@@ -257,6 +267,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     if (program == '카카오') return '카카오(일반)';
     if (program == KakaoCallCardOcr.programGeneral ||
         program == KakaoCallCardOcr.programPro ||
+        program == KakaoCallCardOcr.programAlliance ||
         program == KakaoCustomCallOcr.programCustom) {
       return program;
     }

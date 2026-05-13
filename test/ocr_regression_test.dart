@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'package:dbros_app/utils/kakao_call_card_ocr.dart';
 import 'package:dbros_app/utils/kakao_custom_call_ocr.dart';
@@ -302,6 +303,55 @@ T 전화 배정 완료
 ''';
       expect(
         KakaoCallCardOcr.detectKakaoProgram(rawText),
+        KakaoCallCardOcr.programPro,
+      );
+    });
+
+    test('alliance heuristic: score line keeps general', () {
+      const rawText = '''
+T 전화 배정 완료
+배정취소
+100점
+카드 | 확정
+24,000 P
+고객 상황실
+''';
+      expect(
+        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+          rawText,
+          const <TextBlock>[],
+          KakaoCallCardOcr.programGeneral,
+        ),
+        KakaoCallCardOcr.programGeneral,
+      );
+    });
+
+    test('alliance heuristic: no score marker becomes alliance', () {
+      const rawText = '''
+T 전화 배정 완료
+배정취소
+카드 | 확정
+24,000 P
+고객 상황실
+제휴콜
+''';
+      expect(
+        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+          rawText,
+          const <TextBlock>[],
+          KakaoCallCardOcr.programGeneral,
+        ),
+        KakaoCallCardOcr.programAlliance,
+      );
+    });
+
+    test('alliance heuristic: pro unchanged', () {
+      expect(
+        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+          '법인 무료보험 200점',
+          const <TextBlock>[],
+          KakaoCallCardOcr.programPro,
+        ),
         KakaoCallCardOcr.programPro,
       );
     });

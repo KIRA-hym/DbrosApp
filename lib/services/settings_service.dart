@@ -8,6 +8,7 @@ class SettingsService {
     '카카오(일반)',
     '카카오(맞춤)',
     '카카오(프콜)',
+    '카카오(제휴)',
     '로지',
     '콜마너',
     '티맵',
@@ -27,7 +28,34 @@ class SettingsService {
         listEquals(savedPrograms, legacyDefault)) {
       await _prefs.setStringList('programList', defaultProgramList);
     }
+    await _ensureAllianceProgramInList();
     _showFloatingButtonsNotifier.value = showFloatingButtons;
+  }
+
+  /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
+  static Future<void> _ensureAllianceProgramInList() async {
+    const alliance = '카카오(제휴)';
+    final raw = _prefs.getStringList('programList');
+    if (raw == null) return;
+    final list = List<String>.from(raw);
+    if (list.contains(alliance)) return;
+    final pro = list.indexOf('카카오(프콜)');
+    if (pro >= 0) {
+      list.insert(pro + 1, alliance);
+    } else {
+      final custom = list.indexOf('카카오(맞춤)');
+      if (custom >= 0) {
+        list.insert(custom + 1, alliance);
+      } else {
+        final gen = list.indexOf('카카오(일반)');
+        if (gen >= 0) {
+          list.insert(gen + 1, alliance);
+        } else {
+          list.insert(0, alliance);
+        }
+      }
+    }
+    await _prefs.setStringList('programList', list);
   }
 
   static ValueNotifier<bool> get showFloatingButtonsNotifier => _showFloatingButtonsNotifier;
@@ -45,7 +73,7 @@ class SettingsService {
   static Future<void> setYearlyInsurance(int value) async => await _prefs.setInt('yearlyInsurance', value);
 
   /// DB `fee`·작성/미리보기 공통: 수수료율 + 건당 보험.
-  /// 카카오(문구 포함)·티맵·핸들포유는 플랫폼 차감 제외로 **0**.
+  /// 카카오(일반·프콜·맞춤)·티맵·핸들포유는 플랫폼 차감 제외로 **0**. `카카오(제휴)`만 차감.
   /// 월/년 일할 보험은 추후 구현; 미적용.
   static int deductionFeeFromGross(int grossFare, String program) {
     if (isAutoDeductionExcludedProgram(program)) return 0;
@@ -56,10 +84,17 @@ class SettingsService {
     return fee;
   }
 
+  static const Set<String> _kakaoProgramsExcludedFromDeduction = {
+    '카카오',
+    '카카오(일반)',
+    '카카오(프콜)',
+    '카카오(맞춤)',
+  };
+
   static bool isAutoDeductionExcludedProgram(String program) {
     final normalized = program.trim();
     if (normalized.isEmpty) return false;
-    if (normalized.contains('카카오')) return true;
+    if (_kakaoProgramsExcludedFromDeduction.contains(normalized)) return true;
     return normalized == '티맵' || normalized == '핸들포유';
   }
 

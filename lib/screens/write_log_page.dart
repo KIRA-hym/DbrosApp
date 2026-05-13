@@ -285,9 +285,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
     if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
     final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) return kakao;
+    if (kakao != null) {
+      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
+    }
     for (final b in blocks) {
-      if (b.text.contains("고객과 통화")) return KakaoCallCardOcr.programGeneral;
+      if (b.text.contains("고객과 통화")) {
+        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+          fullText,
+          blocks,
+          KakaoCallCardOcr.programGeneral,
+        );
+      }
     }
     return null;
   }
@@ -322,7 +330,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     if (detected == KakaoCustomCallOcr.programCustom) {
       _parseKakaoCustom(blocks, fullText: recognizedText.text);
-    } else if (detected == KakaoCallCardOcr.programGeneral || detected == KakaoCallCardOcr.programPro) {
+    } else if (detected == KakaoCallCardOcr.programGeneral ||
+        detected == KakaoCallCardOcr.programPro ||
+        detected == KakaoCallCardOcr.programAlliance) {
       _parseKakao(blocks, fullText: recognizedText.text);
     } else if (detected == "로지") {
       _parseLogi(blocks);
@@ -1516,9 +1526,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final input = (raw ?? '').trim();
     if (input.isEmpty) return options.first;
     if (options.contains(input)) return input;
+    if (input == KakaoCallCardOcr.programAlliance) {
+      for (final option in options) {
+        if (option.contains('제휴')) return option;
+      }
+    }
     if (input == '카카오' ||
         input == KakaoCallCardOcr.programGeneral ||
         input == KakaoCallCardOcr.programPro ||
+        input == KakaoCallCardOcr.programAlliance ||
         input == KakaoCustomCallOcr.programCustom) {
       if (options.contains(input)) return input;
       for (final option in options) {

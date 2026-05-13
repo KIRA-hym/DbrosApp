@@ -130,7 +130,9 @@ class AutoCaptureOcrService {
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     final full = recognizedText.text;
 
-    final program = _detectProgram(full) ?? '';
+    var program = _detectProgram(full) ?? '';
+    program = KakaoCallCardOcr.refineProgramByAllianceHeuristic(full, blocks, program);
+
     if (program == '티맵') {
       final r = TmapTripDetailOcr.tryParse(full, blocks: recognizedText.blocks);
       if (r != null) {
@@ -186,7 +188,9 @@ class AutoCaptureOcrService {
       };
     }
 
-    if (program == KakaoCallCardOcr.programGeneral || program == KakaoCallCardOcr.programPro) {
+    if (program == KakaoCallCardOcr.programGeneral ||
+        program == KakaoCallCardOcr.programPro ||
+        program == KakaoCallCardOcr.programAlliance) {
       final p = KakaoCallCardOcr.parseScreen(blocks, full);
       final wd = WorkDateUtils.effectiveWorkDateYmd();
       var driveDate = p.driveDateYmd ?? wd;
