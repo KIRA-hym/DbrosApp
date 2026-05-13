@@ -367,6 +367,64 @@ class _LogListPageState extends State<LogListPage> {
   }
 }
 
+/// 일지 상세(행 + 일일 합계) 공통 레이아웃 수치.
+class _DailyDetailShareLayout {
+  const _DailyDetailShareLayout({
+    required this.isTablet,
+    required this.rowHorizontalPadding,
+    required this.rowVerticalPadding,
+    required this.timeFontSize,
+    required this.programFontSize,
+    required this.incomeFontSize,
+    required this.locationFontSize,
+    required this.rowSpacing,
+    required this.innerSpacing,
+    required this.footerHorizontalPadding,
+    required this.footerVerticalPadding,
+    required this.footerValueFontSize,
+    required this.footerInfoFontSize,
+    required this.footerSpacing,
+    required this.footerItemSpacing,
+  });
+
+  final bool isTablet;
+  final double rowHorizontalPadding;
+  final double rowVerticalPadding;
+  final double timeFontSize;
+  final double programFontSize;
+  final double incomeFontSize;
+  final double locationFontSize;
+  final double rowSpacing;
+  final double innerSpacing;
+  final double footerHorizontalPadding;
+  final double footerVerticalPadding;
+  final double footerValueFontSize;
+  final double footerInfoFontSize;
+  final double footerSpacing;
+  final double footerItemSpacing;
+
+  factory _DailyDetailShareLayout.fromWidth(double screenWidth) {
+    final isTablet = screenWidth > 600;
+    return _DailyDetailShareLayout(
+      isTablet: isTablet,
+      rowHorizontalPadding: isTablet ? 24.0 : 20.0,
+      rowVerticalPadding: isTablet ? 18.0 : 16.0,
+      timeFontSize: isTablet ? 16.0 : 15.0,
+      programFontSize: isTablet ? 15.0 : 14.0,
+      incomeFontSize: isTablet ? 15.0 : 14.0,
+      locationFontSize: isTablet ? 14.0 : 13.0,
+      rowSpacing: isTablet ? 18.0 : 16.0,
+      innerSpacing: isTablet ? 14.0 : 12.0,
+      footerHorizontalPadding: isTablet ? 24.0 : 20.0,
+      footerVerticalPadding: isTablet ? 20.0 : 16.0,
+      footerValueFontSize: isTablet ? 15.0 : 14.0,
+      footerInfoFontSize: isTablet ? 14.0 : 13.0,
+      footerSpacing: isTablet ? 8.0 : 6.0,
+      footerItemSpacing: isTablet ? 20.0 : 16.0,
+    );
+  }
+}
+
 class DailyLogListPage extends StatefulWidget {
   final String dateStr;
   final String dateTitle;
@@ -460,25 +518,70 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       return;
     }
 
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
       await Future<void>.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
 
       final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
-      final bytes = await _shareScreenshotController.capture(
-        delay: const Duration(milliseconds: 100),
+      final captureWidth = MediaQuery.sizeOf(context).width;
+      final lay = _DailyDetailShareLayout.fromWidth(captureWidth);
+      final theme = Theme.of(context);
+
+      final captureRoot = Material(
+        color: const Color(0xFF121418),
+        child: MediaQuery(
+          data: MediaQuery.of(context),
+          child: Theme(
+            data: theme,
+            child: SizedBox(
+              width: captureWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final log in _dailyLogs)
+                    _buildLogTileContent(log, lay, memoMaxLines: 24),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: lay.footerHorizontalPadding,
+                      vertical: lay.footerVerticalPadding + 4,
+                    ),
+                    color: const Color(0xFF1F222A),
+                    child: _buildDailySummaryFooterRow(
+                      lay,
+                      theme,
+                      totalCount: _totalCount,
+                      incomeSum: _totalIncomeSum,
+                      netSum: _totalNetProfitSum,
+                      expenseSum: _totalExpenseSum,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      final bytes = await _shareScreenshotController.captureFromWidget(
+        captureRoot,
+        context: context,
+        delay: const Duration(milliseconds: 900),
         pixelRatio: pixelRatio,
       );
 
       if (!mounted) return;
-      if (bytes == null || bytes.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
           const SnackBar(content: Text('이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.')),
         );
         return;
       }
 
       final dir = await getTemporaryDirectory();
+      if (!mounted) return;
       final safe = widget.dateStr.replaceAll(RegExp(r'[^0-9\-]'), '');
       final file = File(p.join(dir.path, 'dbros_daily_$safe.png'));
       await file.writeAsBytes(bytes, flush: true);
@@ -495,7 +598,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       debugPrint('DailyLogListPage share error: $e');
       debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('공유에 실패했습니다: $e')),
       );
     }
@@ -531,16 +634,13 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : Screenshot(
-              controller: _shareScreenshotController,
-              child: ColoredBox(
-                color: const Color(0xFF121418),
-                child: Column(
-                  children: [
-                    Expanded(child: _buildList()),
-                    _buildDailySummaryFooter(),
-                  ],
-                ),
+          : ColoredBox(
+              color: const Color(0xFF121418),
+              child: Column(
+                children: [
+                  Expanded(child: _buildList()),
+                  _buildDailySummaryFooter(),
+                ],
               ),
             ),
       bottomNavigationBar: Container(
@@ -580,37 +680,172 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     );
   }
 
+  Widget _buildLogTileContent(
+    Map<String, dynamic> log,
+    _DailyDetailShareLayout lay, {
+    int memoMaxLines = 4,
+  }) {
+    final String time = log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
+    final fullStart = log['start_location']?.toString().trim();
+    final fullEnd = log['end_location']?.toString().trim();
+    final fullWp = log['waypoint']?.toString().trim();
+    final locStyle = TextStyle(color: const Color(0xFFFFC700), fontSize: lay.locationFontSize);
+    final arrowIcon = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: Icon(Icons.arrow_forward, color: Colors.white54, size: lay.isTablet ? 14 : 12),
+    );
+
+    Widget segment(String? full, String placeholder, {TextAlign align = TextAlign.start}) {
+      final t = (full != null && full.isNotEmpty) ? full : placeholder;
+      return Text(
+        t,
+        style: locStyle,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        textAlign: align,
+      );
+    }
+
+    final hasWp = fullWp != null && fullWp.isNotEmpty;
+    final g = _toInt(log['gross_fare']);
+    final tip = _toInt(log['waypoint_tip']);
+    final revenue = g + tip;
+
+    return Container(
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5))),
+      padding: EdgeInsets.symmetric(horizontal: lay.rowHorizontalPadding, vertical: lay.rowVerticalPadding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Text("[ $time ]", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: lay.timeFontSize)),
+                  SizedBox(width: lay.innerSpacing),
+                  Text(
+                    log['program']?.toString() ?? '',
+                    style: TextStyle(color: Colors.white70, fontSize: lay.programFontSize),
+                  ),
+                ],
+              ),
+              Row(
+                children: [
+                  const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                  Text(
+                    "₩${NumberFormat('#,###').format(revenue)}",
+                    style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.incomeFontSize, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          SizedBox(height: lay.rowSpacing),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(flex: 1, child: segment(fullStart, '출발지')),
+              arrowIcon,
+              if (hasWp) ...[
+                Expanded(flex: 1, child: segment(fullWp, '경유', align: TextAlign.center)),
+                arrowIcon,
+              ],
+              Expanded(flex: 1, child: segment(fullEnd, '도착지', align: TextAlign.end)),
+            ],
+          ),
+          SizedBox(height: lay.rowSpacing / 2),
+          if ((log['memo'] ?? '').toString().trim().isNotEmpty)
+            Text(
+              (log['memo'] ?? '').toString().trim(),
+              style: TextStyle(color: Colors.white70, fontSize: lay.locationFontSize - 1),
+              maxLines: memoMaxLines,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDailySummaryFooterRow(
+    _DailyDetailShareLayout lay,
+    ThemeData theme, {
+    required int totalCount,
+    required int incomeSum,
+    required int netSum,
+    required int expenseSum,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("[ 일일 합계 ]", style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+            SizedBox(height: lay.footerSpacing),
+            Row(
+              children: [
+                Text("순익 : ", style: TextStyle(color: Colors.blueAccent.shade200, fontSize: 14)),
+                Text(
+                  "₩${NumberFormat('#,###').format(netSum)}",
+                  style: TextStyle(color: Colors.blueAccent.shade200, fontSize: lay.footerValueFontSize, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              children: [
+                Text("$totalCount건", style: TextStyle(color: Colors.white, fontSize: lay.footerInfoFontSize)),
+                SizedBox(width: lay.footerItemSpacing),
+                const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                Text(
+                  "₩${NumberFormat('#,###').format(incomeSum)}",
+                  style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize),
+                ),
+              ],
+            ),
+            SizedBox(height: lay.footerSpacing),
+            Row(
+              children: [
+                const Text("지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                Text(
+                  "-₩${NumberFormat('#,###').format(expenseSum)}",
+                  style: TextStyle(color: const Color(0xFFFF5252), fontSize: lay.footerInfoFontSize),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildList() {
     return ListView.builder(
       itemCount: _dailyLogs.length,
       itemBuilder: (context, index) {
         final log = _dailyLogs[index];
         final String time = log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
-        
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final horizontalPadding = isTablet ? 24.0 : 20.0;
-        final verticalPadding = isTablet ? 18.0 : 16.0;
-        final timeFontSize = isTablet ? 16.0 : 15.0;
-        final programFontSize = isTablet ? 15.0 : 14.0;
-        final incomeFontSize = isTablet ? 15.0 : 14.0;
-        final locationFontSize = isTablet ? 14.0 : 13.0;
-        final spacing = isTablet ? 18.0 : 16.0;
-        final innerSpacing = isTablet ? 14.0 : 12.0;
-        
+        final lay = _DailyDetailShareLayout.fromWidth(MediaQuery.sizeOf(context).width);
+
         return Dismissible(
           key: Key(log['id'].toString()),
           direction: DismissDirection.endToStart,
           background: Container(
             color: Colors.red,
             alignment: Alignment.centerRight,
-            padding: EdgeInsets.only(right: horizontalPadding),
+            padding: EdgeInsets.only(right: lay.rowHorizontalPadding),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.delete, color: Colors.white, size: isTablet ? 26 : 24),
-                SizedBox(height: 4),
-                Text("삭제", style: TextStyle(color: Colors.white, fontSize: isTablet ? 13 : 12)),
+                Icon(Icons.delete, color: Colors.white, size: lay.isTablet ? 26 : 24),
+                const SizedBox(height: 4),
+                Text("삭제", style: TextStyle(color: Colors.white, fontSize: lay.isTablet ? 13 : 12)),
               ],
             ),
           ),
@@ -635,105 +870,23 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             );
           },
           onDismissed: (direction) async {
+            final ms = ScaffoldMessenger.of(context);
             await DriveLogDatabase.instance.deleteLog(log['id']);
             _loadData();
-            
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("운행일지가 삭제되었습니다."),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
+
+            if (!mounted) return;
+            ms.showSnackBar(
+              const SnackBar(
+                content: Text("운행일지가 삭제되었습니다."),
+                backgroundColor: Colors.red,
+              ),
+            );
           },
           child: InkWell(
             onTap: () {
               Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) => _loadData());
             },
-            child: Container(
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5))),
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Text("[ $time ]", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: timeFontSize)),
-                          SizedBox(width: innerSpacing),
-                          Text(log['program'], style: TextStyle(color: Colors.white70, fontSize: programFontSize)),
-                        ],
-                      ),
-                      Builder(
-                        builder: (context) {
-                          final g = _toInt(log['gross_fare']);
-                          final tip = _toInt(log['waypoint_tip']);
-                          final revenue = g + tip;
-                          return Row(
-                            children: [
-                              const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                              Text(
-                                "₩${NumberFormat('#,###').format(revenue)}",
-                                style: TextStyle(color: Colors.lightBlueAccent, fontSize: incomeFontSize, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: spacing),
-                  Builder(
-                    builder: (context) {
-                      final fullStart = log['start_location']?.toString().trim();
-                      final fullEnd = log['end_location']?.toString().trim();
-                      final fullWp = log['waypoint']?.toString().trim();
-                      final locStyle = TextStyle(color: const Color(0xFFFFC700), fontSize: locationFontSize);
-                      final arrowIcon = Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Icon(Icons.arrow_forward, color: Colors.white54, size: isTablet ? 14 : 12),
-                      );
-                      Widget segment(String? full, String placeholder, {TextAlign align = TextAlign.start}) {
-                        final t = (full != null && full.isNotEmpty) ? full : placeholder;
-                        return Text(
-                          t,
-                          style: locStyle,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: align,
-                        );
-                      }
-
-                      final hasWp = fullWp != null && fullWp.isNotEmpty;
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(flex: 1, child: segment(fullStart, '출발지')),
-                          arrowIcon,
-                          if (hasWp) ...[
-                            Expanded(flex: 1, child: segment(fullWp, '경유', align: TextAlign.center)),
-                            arrowIcon,
-                          ],
-                          Expanded(flex: 1, child: segment(fullEnd, '도착지', align: TextAlign.end)),
-                        ],
-                      );
-                    },
-                  ),
-                  SizedBox(height: spacing / 2),
-                  if ((log['memo'] ?? '').toString().trim().isNotEmpty)
-                    Text(
-                      (log['memo'] ?? '').toString().trim(),
-                      style: TextStyle(color: Colors.white70, fontSize: locationFontSize - 1),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
+            child: _buildLogTileContent(log, lay),
           ),
         );
       }
@@ -741,66 +894,19 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   }
 
   Widget _buildDailySummaryFooter() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 20.0;
-    final verticalPadding = isTablet ? 20.0 : 16.0;
-    final valueFontSize = isTablet ? 15.0 : 14.0;
-    final infoFontSize = isTablet ? 14.0 : 13.0;
-    final spacing = isTablet ? 8.0 : 6.0;
-    final itemSpacing = isTablet ? 20.0 : 16.0;
-
+    final lay = _DailyDetailShareLayout.fromWidth(MediaQuery.sizeOf(context).width);
     return Container(
-      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
+      padding: EdgeInsets.symmetric(vertical: lay.footerVerticalPadding, horizontal: lay.footerHorizontalPadding),
       color: const Color(0xFF1F222A),
       child: SafeArea(
         top: false,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("[ 일일 합계 ]", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-                SizedBox(height: spacing),
-                Row(
-                  children: [
-                    Text("순익 : ", style: TextStyle(color: Colors.blueAccent.shade200, fontSize: 14)),
-                    Text(
-                      "₩${NumberFormat('#,###').format(_totalNetProfitSum)}",
-                      style: TextStyle(color: Colors.blueAccent.shade200, fontSize: valueFontSize, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  children: [
-                    Text("${_totalCount}건", style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
-                    SizedBox(width: itemSpacing),
-                    const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                    Text(
-                      "₩${NumberFormat('#,###').format(_totalIncomeSum)}",
-                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize),
-                    ),
-                  ],
-                ),
-                SizedBox(height: spacing),
-                Row(
-                  children: [
-                    const Text("지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                    Text(
-                      "-₩${NumberFormat('#,###').format(_totalExpenseSum)}",
-                      style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
+        child: _buildDailySummaryFooterRow(
+          lay,
+          Theme.of(context),
+          totalCount: _totalCount,
+          incomeSum: _totalIncomeSum,
+          netSum: _totalNetProfitSum,
+          expenseSum: _totalExpenseSum,
         ),
       ),
     );
