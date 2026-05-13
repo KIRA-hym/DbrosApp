@@ -59,7 +59,7 @@ void main() {
     expect(SettingsService.deductionFeeFromGross(10000, '핸들포유'), 400);
   });
 
-  test('기타: 플랫폼%만 (건당 보험 대상 아님)', () async {
+  test('기타: 플랫폼% + 건당 보험', () async {
     SharedPreferences.setMockInitialValues({
       'insuranceType': 'per_trip',
       'perTripInsurance': 999,
@@ -67,7 +67,7 @@ void main() {
     });
     await SettingsService.init();
 
-    expect(SettingsService.deductionFeeFromGross(10000, '기타'), 2000);
+    expect(SettingsService.deductionFeeFromGross(10000, '기타'), 2000 + 999);
   });
 
   test('티맵: 항상 0', () async {

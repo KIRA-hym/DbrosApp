@@ -132,7 +132,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유에만 1건당 금액이 더해집니다.',
+                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 금액이 더해집니다.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
               ),
             ),
