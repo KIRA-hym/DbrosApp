@@ -329,6 +329,8 @@ class KakaoCallCardOcr {
     if (t.contains('[취소불가]')) return true;
     if (t.contains('고객과 만날 장소')) return true;
     if (t.contains('위치정보가 공유')) return true;
+    final compact = _compact(t);
+    if (compact.contains('위치정보') && compact.contains('공유')) return true;
     if (t.contains('스크린샷을 삭제했어요')) return true;
     if (t.contains('통화가 종료되었습니다')) return true;
     return false;
@@ -460,10 +462,14 @@ class KakaoCallCardOcr {
       '고객과 메시지',
       '출발지에 도착하시면 도착완료 해주세요.',
       '도착완료 해주세요.',
+      '고객에게 위치정보가 공유됩니다.',
+      '고객에게 위치정 보가 공유됩니다',
     ];
     for (final phrase in phrases) {
       t = t.replaceAll(phrase, ' ');
     }
+    t = t.replaceAll(RegExp(r'고객에게\s*위치정\s*보가?\s*공유[^\s]*'), ' ');
+    t = t.replaceAll(RegExp(r'고객에게\s*위치정보가\s*공유[^\s]*'), ' ');
     t = t.replaceAll(RegExp(r'고객과\s*통화'), ' ');
     t = t.replaceAll(RegExp(r'출발지에\s*도착[^.]*'), ' ');
     return t.replaceAll(RegExp(r'\s+'), ' ').trim();
@@ -476,12 +482,21 @@ class KakaoCallCardOcr {
   static String _joinAddressParts(Iterable<String> parts) =>
       parts.map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ').trim();
 
+  static bool _isKakaoParkingOrFloorNoiseLine(String line) {
+    final t = line.trim();
+    if (t.length > 8) return false;
+    return RegExp(r'^[A-Za-z]\d{1,2}$').hasMatch(t);
+  }
+
   static (String, String) _parseAddressesFromLines(List<String> lines) {
     final addrCandidates = <String>[];
     for (final line in lines) {
       if (_excludePaymentOrActionStrip(line)) continue;
       if (_looksLikeFareAmountLine(line)) break;
       if (_looksLikeAddressLine(line)) addrCandidates.add(line);
+    }
+    while (addrCandidates.isNotEmpty && _isKakaoParkingOrFloorNoiseLine(addrCandidates.first)) {
+      addrCandidates.removeAt(0);
     }
     if (addrCandidates.isEmpty) return ('', '');
     if (addrCandidates.length == 1) return (addrCandidates.first, '');

@@ -6,6 +6,7 @@ int? parseLogiFareFromOcrText(String raw) {
   String prepare(String r) {
     var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
     s = s.replaceAll(RegExp(r'원|₩'), '');
+    s = s.replaceAll(RegExp(r'[!]+'), '');
     s = s.replaceAll(RegExp(r'[\uAC00-\uD7A3]'), '');
     s = s.replaceAll('그', '7').replaceAll('o', '0').replaceAll('O', '0');
     return s;

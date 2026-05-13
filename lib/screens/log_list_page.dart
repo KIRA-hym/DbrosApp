@@ -52,6 +52,7 @@ class _LogListPageState extends State<LogListPage> {
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _todayKey = GlobalKey();
+  final ScreenshotController _monthShareScreenshotController = ScreenshotController();
 
   @override
   void initState() {
@@ -131,8 +132,28 @@ class _LogListPageState extends State<LogListPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
-        title: Text("운행 일지 목록", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700))),
+        title: Text(
+          "운행 일지 목록",
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFFFFC700),
+              ),
+        ),
         backgroundColor: const Color(0xFF1F222A),
+        actions: [
+          if (!_isLoading)
+            TextButton(
+              onPressed: _shareMonthListAsImage,
+              child: Text(
+                '공유',
+                style: TextStyle(
+                  color: const Color(0xFFFFC700),
+                  fontWeight: FontWeight.w600,
+                  fontSize: MediaQuery.sizeOf(context).width > 600 ? 15 : 14,
+                ),
+              ),
+            ),
+        ],
       ),
       body: Column(
         children: [
@@ -365,9 +386,325 @@ class _LogListPageState extends State<LogListPage> {
       ),
     );
   }
-}
 
-/// 일지 상세(행 + 일일 합계) 공통 레이아웃 수치.
+  Future<void> _shareMonthListAsImage() async {
+    if (!mounted || _isLoading) return;
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('웹에서는 공유를 지원하지 않습니다.')),
+      );
+      return;
+    }
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      if (!mounted) return;
+      final pixelRatio = MediaQuery.devicePixelRatioOf(context).clamp(1.0, 3.0);
+      final captureWidth = MediaQuery.sizeOf(context).width;
+      final theme = Theme.of(context);
+      final ymTitle = DateFormat('yyyy년 MM월').format(_focusedMonth);
+      final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
+      final now = DateTime.now();
+
+      final captureRoot = Material(
+        color: const Color(0xFF121418),
+        child: Theme(
+          data: theme,
+          child: SizedBox(
+            width: captureWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  color: const Color(0xFF1F222A),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '운행 일지 목록  $ymTitle',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                ...List<Widget>.generate(daysInMonth, (index) {
+                  final day = index + 1;
+                  final currentDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+                  final dateStr = DateFormat('yyyy-MM-dd').format(currentDate);
+                  final dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate);
+                  final isToday = currentDate.year == now.year &&
+                      currentDate.month == now.month &&
+                      currentDate.day == now.day;
+                  final dailyLogs = _groupedLogs[dateStr] ?? [];
+                  return _buildMonthShareDayRow(
+                    theme,
+                    captureWidth,
+                    day,
+                    dayOfWeek,
+                    isToday,
+                    dailyLogs,
+                  );
+                }),
+                _buildMonthShareFooter(theme, captureWidth),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      final bytes = await _monthShareScreenshotController.captureFromLongWidget(
+        captureRoot,
+        context: context,
+        delay: const Duration(milliseconds: 1200),
+        pixelRatio: pixelRatio,
+        constraints: BoxConstraints(
+          maxWidth: captureWidth,
+          maxHeight: double.maxFinite,
+        ),
+      );
+
+      if (!mounted) return;
+      if (bytes.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.')),
+        );
+        return;
+      }
+
+      final dir = await getTemporaryDirectory();
+      if (!mounted) return;
+      final safe = DateFormat('yyyyMM').format(_focusedMonth);
+      final file = File(p.join(dir.path, 'dbros_monthly_$safe.png'));
+      await file.writeAsBytes(bytes, flush: true);
+
+      final title = '운행 일지 목록 $ymTitle';
+      await SharePlus.instance.share(
+        ShareParams(
+          files: <XFile>[XFile(file.path, mimeType: 'image/png')],
+          subject: title,
+          title: title,
+          text: title,
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('LogListPage month share error: $e');
+      debugPrintStack(stackTrace: st);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('공유에 실패했습니다: $e')),
+      );
+    }
+  }
+
+  Widget _buildMonthShareDayRow(
+    ThemeData theme,
+    double width,
+    int day,
+    String dayOfWeek,
+    bool isToday,
+    List<Map<String, dynamic>> dailyLogs,
+  ) {
+    final isTablet = width > 600;
+    final horizontalPadding = isTablet ? 24.0 : 20.0;
+    final verticalPadding = isTablet ? 18.0 : 16.0;
+    final iconSize = isTablet ? 22.0 : 20.0;
+    final spacing = isTablet ? 14.0 : 12.0;
+    final innerSpacing = isTablet ? 6.0 : 4.0;
+
+    if (dailyLogs.isEmpty) {
+      return Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding * 0.75),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.label, color: isToday ? const Color(0xFFFFC700) : Colors.white54, size: iconSize),
+                  SizedBox(width: spacing),
+                  Text(
+                    '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: isToday ? const Color(0xFFFFC700) : Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
+              Text('<일지 입력>', style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+            ],
+          ),
+        ),
+      );
+    }
+
+    var dailyIncome = 0;
+    var dailyNetProfit = 0;
+    var dailyExpense = 0;
+    for (final log in dailyLogs) {
+      dailyIncome += _rowIncomePlusTip(log);
+      dailyNetProfit += _rowNetProfit(log);
+      dailyExpense += _rowExpenseFeePlusTransport(log);
+    }
+    final logCount = dailyLogs.length;
+    const double dayLabelReserve = 80;
+    const double rightBlockReserve = 142;
+    final double middleW = (width -
+            horizontalPadding * 2 -
+            iconSize -
+            spacing -
+            dayLabelReserve -
+            spacing -
+            rightBlockReserve)
+        .clamp(72.0, 2000.0);
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1F222A),
+        border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        child: Row(
+          children: [
+            Icon(Icons.contact_mail, color: isToday ? const Color(0xFFFFC700) : Colors.white, size: iconSize),
+            SizedBox(width: spacing),
+            Text(
+              '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: isToday ? const Color(0xFFFFC700) : Colors.white,
+              ),
+            ),
+            SizedBox(width: spacing + 8),
+            SizedBox(
+              width: middleW,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$logCount건', style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white)),
+                  SizedBox(height: innerSpacing),
+                  Row(
+                    children: [
+                      Text(
+                        '순익 : ₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: const Color(0xFFFFC700),
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Row(
+                  children: [
+                    const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                    Text(
+                      '₩${NumberFormat('#,###').format(dailyIncome)}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.lightBlueAccent),
+                    ),
+                  ],
+                ),
+                SizedBox(height: innerSpacing),
+                Row(
+                  children: [
+                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                    Text(
+                      '-₩${NumberFormat('#,###').format(dailyExpense)}',
+                      style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFFFF5252)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMonthShareFooter(ThemeData theme, double screenWidth) {
+    final isTablet = screenWidth > 600;
+    final horizontalPadding = isTablet ? 24.0 : 20.0;
+    final verticalPadding = isTablet ? 20.0 : 16.0;
+    final valueFontSize = isTablet ? 15.0 : 14.0;
+    final infoFontSize = isTablet ? 14.0 : 13.0;
+    final spacing = isTablet ? 8.0 : 6.0;
+    final itemSpacing = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
+      color: const Color(0xFF1F222A),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '[ 월간 합계 ]',
+                style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: spacing),
+              Row(
+                children: [
+                  const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 14)),
+                  Text(
+                    '₩${NumberFormat('#,###').format(_totalNet)}',
+                    style: TextStyle(
+                      color: const Color(0xFFFFC700),
+                      fontSize: valueFontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                children: [
+                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                  SizedBox(width: itemSpacing),
+                  const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                  Text(
+                    '₩${NumberFormat('#,###').format(_totalGross)}',
+                    style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize),
+                  ),
+                ],
+              ),
+              SizedBox(height: spacing),
+              Row(
+                children: [
+                  const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                  Text(
+                    '-₩${NumberFormat('#,###').format(_totalExpenses)}',
+                    style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _DailyDetailShareLayout {
   const _DailyDetailShareLayout({
     required this.isTablet,

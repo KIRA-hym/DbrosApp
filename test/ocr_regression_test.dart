@@ -133,6 +133,50 @@ void main() {
       expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
     });
 
+    test('general type1 drops D1 parking label and merges two-line departure', () {
+      const rawText = '''
+22:49 ㅠ
+배정 완료
+카드 | 확정
+D1
+여의도동
+신한은행 서여의도금융센터
+서울 강동구 성내동
+고객과 통화
+강동구청
+고객과 만날 장소 길찾기
+배정취소
+29,600
+고객과 메시지
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.startLocation, '여의도동 신한은행 서여의도금융센터');
+      expect(parsed.endLocation, '서울 강동구 성내동 강동구청');
+      expect(parsed.grossFare, 29600);
+    });
+
+    test('general type1 strips OCR-split 위치정보 footer from destination', () {
+      const rawText = '''
+1:19 % TT
+배정 완료
+카드 | 확정
+문래동3가
+스트롱무브
+서울 양천구 신월동
+강서성결행복한홈스쿨 지역아동센터
+고객과 통화
+고객과 만날 장소 길찾기
+배정취소
+고객에게 위치정 보가 공유됩니다
+11,600
+고객과 메시지
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.startLocation, '문래동3가 스트롱무브');
+      expect(parsed.endLocation, '서울 양천구 신월동 강서성결행복한홈스쿨 지역아동센터');
+      expect(parsed.grossFare, 11600);
+    });
+
     test('pro type2 with red banner and card fare', () {
       const rawText = '''
 T 전화 배정 완료
@@ -701,6 +745,27 @@ LG트윈타워
       expect(parsed.endLocation, '인천 연수구 송도동)인천송도동.더샵마스터뷰1단지');
     });
 
+    test('logi ignores 출발지 도착 pickup banner between 인천 and trailing 송도', () {
+      const rawText = '''
+요금 50000원
+출발지
+도착지
+상세:서울 영등포구 여의도동 20-0
+LG트윈타워
+인천 연수구
+출발지 도착(19분 35초)
+출발지
+송도동)인천송도동.더샵마스터뷰1단지
+지도
+완료
+배차
+''';
+      final parsed = LogiColmannerOcr.parseLogi(rawText);
+      expect(parsed.startLocation, contains('여의도'));
+      expect(parsed.startLocation, contains('LG트윈'));
+      expect(parsed.endLocation, contains('송도'));
+    });
+
     test('logi splits detail departure and destination before ui', () {
       const rawText = '''
 요금 50000원
@@ -718,6 +783,113 @@ LG트윈타워
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.startLocation, '서울 영등포구 여의도동 23-5 한화투자증권 본사');
       expect(parsed.endLocation, '인천 서구 청라동)인천청라동+청라한양수자 인레이크블루A');
+    });
+
+    test('logi menu header 도착지 + trailing block (user repro 광명→부천)', () {
+      const rawText = r'''
+00:05 00:49)
+운행 시작
+이용개시번호
+요금
+입금액
+고객
+메모
+적요
+전화
+전화2
+출발지
+도착지
+고객ID
+오더번호
+차량번호
+경로
+안내
+92500093291
+17분 31초 남음
+30000
+6000
+일반 일반
+0508-5068-8499
+광명KTX역
+[대표연합대리 010-4519-4599 00:02]
+고객과의 거리: 216미터
+상세:경기 광명시 일직동 276-8
+광명역(15447788)
+0118
+1334363576
+출발지
+지도
+경기 부천시 중동)부천신중동역푸르지오시티
+완료
+처리
+운행시작연기
+배차
+취소
+tl34
+갱신
+서명
+|||
+전화
+전화
+닫기''';
+      final parsed = LogiColmannerOcr.parseLogi(rawText);
+      expect(parsed.startLocation, contains('광명시'));
+      expect(parsed.startLocation, anyOf(contains('광명역'), contains('광명KTX')));
+      expect(parsed.endLocation, contains('부천시'));
+      expect(parsed.endLocation, contains('푸르지오'));
+      expect(parsed.grossFare, 30000);
+    });
+
+    test('logi 상세+목동 후 마포 도착 (user repro 등촌→마포)', () {
+      const rawText = r'''
+23:18 iT
+운행 시작
+요금
+입금액
+고객
+메모
+적요
+전화
+전화2
+출발지
+도착지
+고객D
+오더번호
+차량번호
+경로
+안내
+30000!
+19분 20초 남음
+6000
+일반 40
+[UE하나로(주)HnH 02-3706-1004
+0508-5067-6088
+23:09] 현금0.5 마일후불2.5 경유:등촌초교
+고객과의 거리: 264미터
+등존역 금별맥주>등존초교
+6512
+13344304049
+출발지
+지도
+상세:서울 양천구 목동 609-24 금별맥주
+등촌역점
+서울 마포구 중동)마포중동 건영월드컵@
+완료
+운행시작연기
+처리
+서명
+배차
+취소
+갱신
+전화
+전화
+닫기''';
+      final parsed = LogiColmannerOcr.parseLogi(rawText);
+      expect(parsed.startLocation, contains('양천구'));
+      expect(parsed.startLocation, contains('목동'));
+      expect(parsed.endLocation, contains('마포구'));
+      expect(parsed.endLocation, contains('건영'));
+      expect(parsed.grossFare, 30000);
     });
 
     test('colmanner keeps first admin departure line after label', () {
@@ -755,6 +927,31 @@ LG트윈타워
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.startLocation, '인천 연수구 송도동');
       expect(parsed.endLocation, '경기 화성시 병점동 화성시 병점동 105-1');
+    });
+
+    test('colmanner 출도 only row after 도착지 label still collects 주소 블록', () {
+      const rawText = '''
+1:33
+위치: 중3동/ 계남고가사거리 잔액 : 312,047원
+R 고객전화
+지사명 주)영암.스마트쌍둥이(L네트워크)
+고객명 ***
+출발지
+도착지
+출도
+경기 부천시원미구 중동 중동 1134-5
+굿모닝로얄프라자
+경기 부천시오정구 여월동 여월동 7-50
+차감합계
+경로거리 : ㅇkm
+요금 13,000원 (예상 수익금:10,276원)
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, contains('원미구'));
+      expect(parsed.startLocation, contains('굿모닝'));
+      expect(parsed.endLocation, contains('오정구'));
+      expect(parsed.endLocation, contains('여월동'));
+      expect(parsed.grossFare, 13000);
     });
   });
 

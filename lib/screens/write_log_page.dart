@@ -81,6 +81,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   bool _overlayAutoOcrHandled = false;
   int _driveTimeDefaultGen = 0;
 
+  /// 신규 작성: false면 저장 시 운행시각을 **등록 시점**으로 쓴다. OCR 비어 있음·갤러리 폴백 시각은 여기 해당.
+  /// true: OCR이 운행시각을 채웠거나 사용자가 시간 피커로 고른 경우 → [_timeCon] 사용.
+  bool _useFormDriveTimeOnSave = false;
+
   double? _startLat;
   double? _startLng;
   double? _endLat;
@@ -117,7 +121,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
       _showWaypointField = (log['waypoint'] != null && log['waypoint'].toString().isNotEmpty);
       _captureGrossAndApplyDeductions();
+      _useFormDriveTimeOnSave = true;
     } else {
+      _useFormDriveTimeOnSave = false;
       final def = widget.initialDate ?? WorkDateUtils.effectiveWorkDateYmd();
       _workDateCon.text = def;
       _dateCon.text = def;
@@ -303,6 +309,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   bool _detectProgramAndParse(RecognizedText recognizedText) {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+    _useFormDriveTimeOnSave = false;
 
     final detected = _detectProgramFromBlocks(blocks, recognizedText.text);
     if (detected == null) {
@@ -380,8 +387,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     setState(() {
       if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null) _timeCon.text = parsedTime;
-      if (parsedTime == null || parsedTime.isEmpty) {
+      if (parsedTime != null && parsedTime.isNotEmpty) {
+        _timeCon.text = parsedTime;
+        _useFormDriveTimeOnSave = true;
+      } else {
         final now = DateTime.now();
         _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
@@ -409,8 +418,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     setState(() {
       if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null) _timeCon.text = parsedTime;
-      if (parsedTime == null || parsedTime.isEmpty) {
+      if (parsedTime != null && parsedTime.isNotEmpty) {
+        _timeCon.text = parsedTime;
+        _useFormDriveTimeOnSave = true;
+      } else {
         final now = DateTime.now();
         _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
@@ -428,7 +439,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
 
     setState(() {
-      if (p.driveTimeHm.isNotEmpty) _timeCon.text = p.driveTimeHm;
+      if (p.driveTimeHm.isNotEmpty) {
+        _timeCon.text = p.driveTimeHm;
+        _useFormDriveTimeOnSave = true;
+      }
       if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
       if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
       if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
@@ -443,8 +457,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
 
     setState(() {
-      if (p.driveTimeHm.isNotEmpty) _timeCon.text = p.driveTimeHm;
-      if (p.driveTimeHm.isEmpty) {
+      if (p.driveTimeHm.isNotEmpty) {
+        _timeCon.text = p.driveTimeHm;
+        _useFormDriveTimeOnSave = true;
+      } else {
         final now = DateTime.now();
         _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
       }
@@ -467,6 +483,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
       if (r.driveStartTimeHm.isNotEmpty) {
         _timeCon.text = r.driveStartTimeHm;
+        _useFormDriveTimeOnSave = true;
       } else {
         final now = DateTime.now();
         _timeCon.text =
@@ -562,7 +579,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     hourController.dispose(); minuteController.dispose();
     if (picked == null) return;
-    setState(() { _timeCon.text = _formatTime24(picked); });
+    setState(() {
+      _timeCon.text = _formatTime24(picked);
+      _useFormDriveTimeOnSave = true;
+    });
   }
 
   TimeOfDay? _parseTimeText(String value) {
@@ -811,37 +831,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     });
   }
 
-  /// 근무일·운행일이 같고, 운행 시각이 오전 9시 미만(새벽)이면 운행일을 **익일**로 바꿀지 확인한다.
-  Future<void> _maybePromptNextDriveDateForEarlyMorning() async {
-    final w = _workDateCon.text.trim();
-    final d = _dateCon.text.trim();
-    if (w.isEmpty || d.isEmpty) return;
-    if (w != d) return;
-    if (!WorkDateUtils.isDriveHourBeforeWorkDayRollover(_timeCon.text)) return;
-    if (!mounted) return;
-    final next = WorkDateUtils.addDays(d, 1);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
-        title: const Text('운행 날짜 확인', style: TextStyle(color: Colors.white)),
-        content: Text(
-          '근무 일자와 운행 일자가 같고, 운행 시각이 오전 9시 이전입니다.\n'
-          '운행 일자를 익일($next)로 맞출까요?\n'
-          '(근무 일자는 그대로 둡니다.)',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('아니오', style: TextStyle(color: Color(0xFF6E717C)))),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('예', style: TextStyle(color: Color(0xFFFFC700)))),
-        ],
-      ),
-    );
-    if (ok == true && mounted) {
-      setState(() => _dateCon.text = next);
-    }
-  }
-
   bool _validateRequiredManualEntryFields() {
     final missing = <String>[];
     if (_parseMoney(_incomeCon.text) <= 0) missing.add('요금');
@@ -864,17 +853,38 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
     if (!_validateRequiredManualEntryFields()) return;
     try {
-      await _maybePromptNextDriveDateForEarlyMorning();
       if (!mounted) return;
 
       final workDate = _normalizeYmdForStorage(_workDateCon.text);
-      final driveDate = _normalizeYmdForStorage(_dateCon.text);
-      if (workDate == null || driveDate == null) {
+      final formDriveDate = _normalizeYmdForStorage(_dateCon.text);
+      if (workDate == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("근무일자/운행일자 형식을 확인해 주세요. (yyyy-MM-dd)")),
+          const SnackBar(content: Text("근무일자 형식을 확인해 주세요. (yyyy-MM-dd)")),
         );
         return;
+      }
+      if (formDriveDate == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("운행일자 형식을 확인해 주세요. (yyyy-MM-dd)")),
+        );
+        return;
+      }
+
+      final String driveTimeForRow = (_logId != null || widget.existingLog != null || _useFormDriveTimeOnSave)
+          ? resolveDriveTimeForStorage(_timeCon.text)
+          : formatDriveTimeHm(DateTime.now());
+
+      final String driveDateForRow = WorkDateUtils.isDriveHourBeforeWorkDayRollover(driveTimeForRow)
+          ? WorkDateUtils.addDays(workDate, 1)
+          : formDriveDate;
+
+      if (mounted) {
+        setState(() {
+          _timeCon.text = driveTimeForRow;
+          _dateCon.text = driveDateForRow;
+        });
       }
 
       _grossIncome = _parseMoney(_incomeCon.text);
@@ -887,8 +897,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       final Map<String, dynamic> row = {
         if (_logId != null) "id": _logId,
         "work_date": workDate,
-        "drive_date": driveDate,
-        "drive_time": resolveDriveTimeForStorage(_timeCon.text),
+        "drive_date": driveDateForRow,
+        "drive_time": resolveDriveTimeForStorage(driveTimeForRow),
         "program": _selectedProgram,
         "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "transport_cost": _parseMoney(_transportCon.text),
         "waypoint_tip": _parseMoney(_waypointTipCon.text),

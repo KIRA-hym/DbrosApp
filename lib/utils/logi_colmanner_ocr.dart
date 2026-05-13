@@ -113,14 +113,17 @@ class LogiColmannerOcr {
       final fromLine = parseLogiFareFromOcrText(l);
       if (fromLine != null) return fromLine;
 
-      for (var j = i + 1; j < lines.length && j <= i + 2; j++) {
-        final n = RegExp(r'^([\d,]{4,7})\s*원?$').firstMatch(lines[j].trim());
+      for (var j = i + 1; j < lines.length && j <= i + 25; j++) {
+        final trimmed = lines[j].trim();
+        if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
+        if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+        final fromNext = parseLogiFareFromOcrText(lines[j]);
+        if (fromNext != null && fromNext >= 1000 && fromNext <= 999_999) return fromNext;
+        final n = RegExp(r'^([\d,]{4,7})\s*[!원]*$').firstMatch(trimmed);
         if (n != null) {
           final v = int.tryParse((n.group(1) ?? '').replaceAll(',', ''));
           if (v != null && v > 0) return v;
         }
-        final fromNext = parseLogiFareFromOcrText(lines[j]);
-        if (fromNext != null) return fromNext;
       }
     }
 
@@ -143,7 +146,7 @@ class LogiColmannerOcr {
       for (var i = 0; i < lines.length; i++) {
         if (!lines[i].contains('요금')) continue;
         final window = <String>[];
-        for (var j = i; j <= i + 2 && j < lines.length; j++) {
+        for (var j = i; j <= i + 25 && j < lines.length; j++) {
           window.add(lines[j]);
         }
         final fare = parseLogiFareFromOcrText(window.join('\n'));
@@ -193,6 +196,12 @@ class LogiColmannerOcr {
     return false;
   }
 
+  /// "출발지 도착(19분 35초)" 등 픽업 상태 배너 — 주소 수집을 끊지 않고 해당 줄만 건너뛴다.
+  static bool _isLogiPickupArrivalStatusBanner(String line) {
+    final n = _normalizeKey(line);
+    return n.contains('출발지도착') && (n.contains('분') || n.contains('초'));
+  }
+
   static bool _isLogiUiNoiseLine(String line) {
     final n = _normalizeKey(line);
     const exact = {
@@ -211,10 +220,27 @@ class LogiColmannerOcr {
     };
     if (exact.contains(n)) return true;
     if (n == '||' || n.startsWith('경로')) return true;
-    if (n.contains('출발지도착')) return true;
     if (line.contains('운행시작연기')) return true;
     if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(line)) return true;
     if (RegExp(r'^\d+\s*분\s*\d+\s*초').hasMatch(n)) return true;
+    if (_isLogiCountdownRemainLine(line)) return true;
+    if (_isLogiFareClassNoiseLine(line)) return true;
+    return false;
+  }
+
+  /// "17분 31초 남음" 등 배차·남은시간 UI.
+  static bool _isLogiCountdownRemainLine(String line) {
+    if (!line.contains('남음')) return false;
+    return RegExp(r'\d+\s*분').hasMatch(line) || RegExp(r'\d+\s*초').hasMatch(line);
+  }
+
+  /// "일반 일반" 등 요금/등급만 있는 줄.
+  static bool _isLogiFareClassNoiseLine(String line) {
+    final t = line.trim();
+    if (t.isEmpty) return false;
+    final n = _normalizeKey(line);
+    if (n == '일반일반' || n == '일반' || n == '우선' || n == '프리') return true;
+    if (RegExp(r'^일반\s+일반').hasMatch(t)) return true;
     return false;
   }
 
@@ -387,6 +413,7 @@ class LogiColmannerOcr {
     final afterEnd = <String>[];
     for (var i = endIdx + 1; i < lines.length; i++) {
       final line = lines[i];
+      if (_isLogiPickupArrivalStatusBanner(line)) continue;
       if (_isLogiUiNoiseLine(line)) break;
       if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
       if (_isLogiNoiseLine(line) || _isLogiMemoLineForBody(line)) continue;
@@ -468,10 +495,12 @@ class LogiColmannerOcr {
       final line = lines[i];
       final inPostStart = lastStart >= 0 && i > lastStart;
       if (inPostStart) {
+        if (_isLogiPickupArrivalStatusBanner(line)) continue;
         if (_isLogiUiNoiseLine(line)) {
           if (_normalizeKey(line) == '지도') continue;
           break;
         }
+        if (_isLogiStopLine(line)) continue;
         if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
         if (_isLogiNoiseLine(line) || _isLogiMemoLineForBody(line)) continue;
         if (!_looksLikeAddressLine(line) && !line.contains('상세:')) continue;
@@ -479,9 +508,11 @@ class LogiColmannerOcr {
         continue;
       }
       if (lastStart >= 0 && i >= lastStart) continue;
+      if (_isLogiPickupArrivalStatusBanner(line)) continue;
       if (_isLogiUiNoiseLine(line) || _isLogiNoiseLine(line) || _isLogiMemoLineForBody(line)) {
         continue;
       }
+      if (_isLogiStopLine(line)) continue;
       if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
       if (!line.contains('상세:') && !_looksLikeAddressLine(line)) continue;
       preStart.add(line);
@@ -497,7 +528,7 @@ class LogiColmannerOcr {
         body.add(line);
       }
     }
-  for (final line in postStart) {
+    for (final line in postStart) {
       if (line.contains('상세:')) {
         final cleaned = line.replaceFirst(RegExp(r'^.*상세\s*:\s*'), '').trim();
         if (cleaned.isNotEmpty) detailLines.add(cleaned);
@@ -599,7 +630,11 @@ class LogiColmannerOcr {
     final afterEnd = <String>[];
     for (var i = endIdx + 1; i < lines.length; i++) {
       final line = lines[i];
-      if (_isColmannerStopLine(line)) break;
+      if (_isColmannerStopLine(line)) {
+        // "출도" 단독 줄은 주소 블록 앞에 붙는 UI 구분선이라, 그 다음 줄의 출발·도착 텍스트를 잃지 않도록 건너뛴다.
+        if (_normalizeKey(line) == '출도') continue;
+        break;
+      }
       if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
       if (_isColmannerNoiseLine(line)) continue;
       afterEnd.add(line);
@@ -838,6 +873,8 @@ class LogiColmannerOcr {
     if (n.startsWith('요금') || n.startsWith('입금액')) return false;
     if (line.length < 4) return false;
     if (_isCustomerMetaLine(line)) return false;
+    if (_isLogiCountdownRemainLine(line) || _isLogiFareClassNoiseLine(line)) return false;
+    if (_isLogiStopLine(line)) return false;
     if (RegExp(r'^\d{2,3}:\d{2}').hasMatch(line)) return false;
     if (RegExp(r'^\d{4,7}\s*원?$').hasMatch(line)) return false;
     if (line.contains('요금') && RegExp(r'\d{4,}').hasMatch(line)) return false;
