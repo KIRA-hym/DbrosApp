@@ -99,22 +99,31 @@ class KakaoCustomCallOcr {
       if (!t.contains(label)) continue;
 
       if (t == label || t == '$label:' || t == '$label :') {
+        final parts = <String>[];
         for (var j = i + 1; j < sorted.length && j < i + 6; j++) {
           final u = sorted[j].text.trim();
-          if (u.startsWith('출발') || u.startsWith('도착')) continue;
+          if (u.startsWith('출발') || u.startsWith('도착')) break;
           if (_isMapRouteNoise(u)) continue;
-          if (u.contains('실제') && u.contains('수익')) continue;
-          if (u.length >= 2) return u;
+          if (u.contains('실제') && u.contains('수익')) break;
+          if (u.length >= 2) parts.add(u);
         }
+        if (parts.isNotEmpty) return parts.join(' ');
         continue;
       }
 
       if (t.startsWith(label)) {
         var rest = t.substring(label.length).replaceFirst(RegExp(r'^[:\s]+'), '').trim();
         rest = rest.replaceFirst(RegExp(r'^[\|\s]+'), '').trim();
-        if (rest.isNotEmpty && !_isMapRouteNoise(rest)) {
-          return rest;
+        final parts = <String>[];
+        if (rest.isNotEmpty && !_isMapRouteNoise(rest)) parts.add(rest);
+        for (var j = i + 1; j < sorted.length && j < i + 6; j++) {
+          final u = sorted[j].text.trim();
+          if (u.startsWith('출발') || u.startsWith('도착')) break;
+          if (_isMapRouteNoise(u)) continue;
+          if (u.contains('실제') && u.contains('수익')) break;
+          if (u.length >= 2) parts.add(u);
         }
+        if (parts.isNotEmpty) return parts.join(' ');
       }
     }
 
@@ -124,12 +133,22 @@ class KakaoCustomCallOcr {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    for (final line in lines) {
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
       if (!line.startsWith(label)) continue;
       var rest = line.substring(label.length).replaceFirst(RegExp(r'^[:\s]+'), '').trim();
       rest = rest.replaceFirst(RegExp(r'^[\|\s]+'), '').trim();
       rest = rest.split(RegExp(r'(?=도착|실제\s*수익)')).first.trim();
-      if (rest.isNotEmpty && !_isMapRouteNoise(rest)) return rest;
+      final parts = <String>[];
+      if (rest.isNotEmpty && !_isMapRouteNoise(rest)) parts.add(rest);
+      for (var j = i + 1; j < lines.length && j < i + 6; j++) {
+        final next = lines[j];
+        if (next.startsWith('출발') || next.startsWith('도착')) break;
+        if (_isMapRouteNoise(next)) continue;
+        if (next.contains('실제') && next.contains('수익')) break;
+        if (next.length >= 2) parts.add(next);
+      }
+      if (parts.isNotEmpty) return parts.join(' ');
     }
     return null;
   }

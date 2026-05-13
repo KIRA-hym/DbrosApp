@@ -365,7 +365,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
                 if (index == 0) HomePage.requestRefresh();
               },
               items: const [
-                BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: '\u{c648}'),
+                BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: '홈'),
                 BottomNavigationBarItem(icon: Icon(Icons.list_alt), activeIcon: Icon(Icons.list_alt), label: '\u{baa9}\u{b85d}'),
                 BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: '\u{c791}\u{c131}'),
                 BottomNavigationBarItem(icon: Icon(Icons.bar_chart), activeIcon: Icon(Icons.bar_chart), label: '\u{d1b5}\u{acc4}'),

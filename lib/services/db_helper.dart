@@ -234,6 +234,14 @@ class DriveLogDatabase {
     return db.query('drive_logs', orderBy: 'work_date DESC, drive_date DESC, drive_time DESC', limit: limit);
   }
 
+  Future<List<Map<String, dynamic>>> getAllDriveLogsForExport() async {
+    final db = await database;
+    return db.query(
+      'drive_logs',
+      orderBy: 'created_at ASC, id ASC',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getRecentLogsByDriveDateTime({int limit = 10}) async {
     final db = await database;
     return db.query('drive_logs', orderBy: 'drive_date DESC, drive_time DESC', limit: limit);
@@ -357,7 +365,7 @@ class DriveLogDatabase {
       where:
           '(work_date = ?) OR ((work_date IS NULL OR TRIM(work_date) = \'\') AND drive_date = ?)',
       whereArgs: [workDateYmd, workDateYmd],
-      orderBy: 'drive_time ASC',
+      orderBy: 'drive_date ASC, drive_time ASC',
     );
   }
 
@@ -369,7 +377,7 @@ class DriveLogDatabase {
       where:
           'work_date IS NOT NULL AND TRIM(work_date) != \'\' AND work_date = ?',
       whereArgs: [workDateYmd],
-      orderBy: 'drive_time ASC',
+      orderBy: 'drive_date ASC, drive_time ASC',
     );
   }
 
@@ -418,7 +426,7 @@ class DriveLogDatabase {
           'work_date IS NOT NULL AND TRIM(work_date) != \'\' '
           'AND work_date >= ? AND work_date <= ?',
       whereArgs: [startYmd, endYmd],
-      orderBy: 'work_date ASC, drive_time ASC',
+      orderBy: 'work_date ASC, drive_date ASC, drive_time ASC',
     );
   }
 
@@ -430,7 +438,7 @@ class DriveLogDatabase {
       where:
           'work_date IS NOT NULL AND TRIM(work_date) != \'\' AND work_date LIKE ?',
       whereArgs: ['$yearMonth-%'],
-      orderBy: 'work_date ASC, drive_time ASC',
+      orderBy: 'work_date ASC, drive_date ASC, drive_time ASC',
     );
   }
 

@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # 홈 상단 표시: v{version}.{buildNumber} → 예) 1.0.00+5 → v1.0.00.5
 # 이후 +6 … +9 다음 단계는 예: 1.0.01+0 → v1.0.01.0 (마지막 자리 9 초과 시 중간 자리 증가 규칙에 맞게 조정)
 # APK 릴리스 빌드 시 버전 자동 증가: tools/build_release_apk.ps1 또는 `dart run tool/bump_pubspec_version.dart` 후 flutter build apk
-version: 1.0.00+6
+version: 1.0.00+9
 environment:
   sdk: ^3.11.5
 

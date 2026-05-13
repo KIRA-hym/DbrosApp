@@ -6,6 +6,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../services/backup_service.dart';
+import '../services/ocr_parse_log_service.dart';
 import '../services/settings_service.dart';
 import '../services/auto_capture_ocr_service.dart';
 import '../services/today_stats_notification_service.dart';
@@ -107,6 +108,8 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: EdgeInsets.all(horizontalPadding),
         children: [
           _buildBackupRestoreSettings(),
+          SizedBox(height: groupSpacing),
+          _buildOcrParseLogSettings(),
           SizedBox(height: groupSpacing),
           _buildSettingsGroup("수수료 설정", [
             _buildTextField(_baseFeeCon, "기본 수수료율 (%)", onChanged: () {
@@ -431,6 +434,61 @@ class _SettingsPageState extends State<SettingsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             child: const Text("저장", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOcrParseLogSettings() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+    final borderRadius = isTablet ? 24.0 : 20.0;
+
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "OCR 파싱 로그",
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: spacing),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  final file = await OcrParseLogService.exportToDownload();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("OCR 로그를 저장했습니다.\n${file.path}")),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("OCR 로그 추출 실패: $e")),
+                  );
+                }
+              },
+              icon: const Icon(Icons.file_download, color: Colors.white),
+              label: const Text("로그 추출"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9C27B0),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
+              ),
+            ),
+          ),
+          SizedBox(height: spacing),
+          Text(
+            "• OCR 인식 시 파싱 결과가 앱 내부에 누적됩니다\n• 추출 시 단말기 Downloads 폴더에 누적 OCR 로그와 drive_logs 저장 데이터가 함께 JSON으로 생성됩니다",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
       ),

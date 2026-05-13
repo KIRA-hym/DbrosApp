@@ -7,12 +7,14 @@ import '../main_navigation.dart';
 import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
+import '../services/ocr_parse_log_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
+import '../utils/ocr_failure_feedback.dart';
 import 'log_list_page.dart';
 import '../widgets/drive_date_selector_bar.dart';
 
@@ -32,6 +34,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _lastFailureReason;
+  String _lastOcrFullText = '';
 
   late DateTime _driveDay;
 
@@ -88,8 +91,11 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         await _saveLogData(logData);
       } else {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("등록에 실패했습니다. 사유: ${_lastFailureReason ?? "콜카드 정보를 파싱할 수 없습니다."}")),
+        OcrFailureFeedback.showUnrecognizedSnackbar(
+          context,
+          message:
+              "등록에 실패했습니다. 사유: ${_lastFailureReason ?? "콜카드 정보를 파싱할 수 없습니다."}",
+          fullText: _lastOcrFullText,
         );
       }
     } catch (e) {
@@ -109,9 +115,17 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     final rawProgram = _detectProgram(blocks, recognizedText.text);
     if (rawProgram == null) {
       _lastFailureReason = "프로그램 인식불가";
+      _lastOcrFullText = recognizedText.text;
+      OcrParseLogService.record(
+        source: 'single_call_card',
+        rawText: recognizedText.text,
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
       return {};
     }
     _lastFailureReason = null;
+    _lastOcrFullText = '';
     final detectedProgram = _normalizeProgramForSave(rawProgram);
 
     final Map<String, dynamic> logData = {
@@ -146,6 +160,16 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
     logData['fee'] = fee;
     logData['net_income'] = netIncome;
+
+    final ocrLogId = await OcrParseLogService.record(
+      source: 'single_call_card',
+      program: detectedProgram,
+      rawText: recognizedText.text,
+      parsedData: OcrParseLogService.parsedDataFromLogData(logData),
+    );
+    if (ocrLogId != null) {
+      logData['ocr_log_id'] = ocrLogId;
+    }
 
     return logData;
   }
@@ -288,7 +312,14 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         "updated_at": nowIso,
       };
 
-      await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+      final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+      final ocrLogId = logData['ocr_log_id']?.toString();
+      if (ocrLogId != null && ocrLogId.isNotEmpty) {
+        await OcrParseLogService.attachSavedDriveLog(
+          ocrLogId,
+          {...row, 'id': insertedId},
+        );
+      }
 
       if (!mounted) return;
 

@@ -408,13 +408,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final db = await DriveLogDatabase.instance.database;
-      final rawLogs = await db.query(
-        'drive_logs',
-        where: 'work_date = ?',
-        whereArgs: [widget.dateStr],
-        orderBy: 'drive_time ASC',
-      );
+      final rawLogs = await DriveLogDatabase.instance.getLogsForWorkDate(widget.dateStr);
       final logs = List<Map<String, dynamic>>.from(rawLogs);
       
       int incomeSum = 0;

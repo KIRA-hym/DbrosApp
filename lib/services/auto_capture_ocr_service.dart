@@ -14,6 +14,7 @@ import '../utils/logi_colmanner_ocr.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
 import 'today_stats_notification_service.dart';
+import 'ocr_parse_log_service.dart';
 
 class AutoCaptureOcrService {
   AutoCaptureOcrService._();
@@ -65,13 +66,34 @@ class AutoCaptureOcrService {
 
       final recognized = await _runOcr(file.path);
       final parsed = _parseRecognized(recognized);
+      final program = (parsed['program'] ?? '').trim();
+      final waypoint = (parsed['waypoint'] ?? '').trim();
+      final ocrLogId = await OcrParseLogService.record(
+        source: 'auto_capture',
+        program: program.isEmpty ? null : program,
+        rawText: recognized.text,
+        parsedData: OcrParseLogService.parsedDataFrom(
+          departure: (parsed['start'] ?? '').trim(),
+          destination: (parsed['end'] ?? '').trim(),
+          waypoints: waypoint.isEmpty ? const <String>[] : [waypoint],
+          feeAmount: int.tryParse((parsed['income'] ?? '').replaceAll(RegExp(r'[^0-9]'), '')),
+          driveTime: (parsed['driveTime'] ?? '').trim(),
+        ),
+        recognized: program.isNotEmpty,
+      );
       if (!_isValidForAutoSave(parsed)) {
         await _markProcessed(captureKey);
         return;
       }
 
       final row = _buildRow(parsed, file.path);
-      await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+      final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+      if (ocrLogId != null && ocrLogId.isNotEmpty) {
+        await OcrParseLogService.attachSavedDriveLog(
+          ocrLogId,
+          {...row, 'id': insertedId},
+        );
+      }
       await _markProcessed(captureKey);
       await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     } catch (_) {

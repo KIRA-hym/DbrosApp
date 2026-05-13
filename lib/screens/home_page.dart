@@ -13,6 +13,7 @@ import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
 import '../expense_main_wrapper.dart';
+import '../widgets/waiting_fee_bottom_sheet.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -616,40 +617,64 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       ),
       clipBehavior: Clip.antiAlias,
       padding: EdgeInsets.all(outerPadding),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: _quickActionButton(
-              Icons.credit_card,
-              "콜카드\n단건등록",
-              summaryValueFontSize,
-              () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const SingleCallCardForm(),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _quickActionButton(
+                    Icons.credit_card,
+                    "콜카드\n단건등록",
+                    summaryValueFontSize,
+                    () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SingleCallCardForm(),
+                        ),
+                      );
+                      _loadHomeData();
+                    },
                   ),
-                );
-                _loadHomeData();
-              },
+                ),
+                SizedBox(width: spacing),
+                Expanded(
+                  child: _quickActionButton(
+                    Icons.credit_card,
+                    "콜카드\n다중등록",
+                    summaryValueFontSize,
+                    () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const MultiCallCardForm(),
+                        ),
+                      );
+                      _loadHomeData();
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
-          SizedBox(width: spacing),
-          Expanded(
-            child: _quickActionButton(
-              Icons.credit_card,
-              "콜카드\n다중등록",
-              summaryValueFontSize,
-              () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MultiCallCardForm(),
-                  ),
-                );
-                _loadHomeData();
-              },
+          SizedBox(height: spacing),
+          SizedBox(
+            height: isTablet ? 44.0 : 40.0,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC700),
+                side: const BorderSide(color: Color(0xFFFFC700)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: () => WaitingFeeBottomSheet.show(context),
+              icon: const Icon(Icons.hourglass_bottom, size: 18),
+              label: const Text(
+                '대기비용 계산',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
@@ -1034,42 +1059,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         color: const Color(0xFF16181D),
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
-          child: InkWell(
+        child: InkWell(
           onTap: onTap,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final m = math.min(constraints.maxWidth, constraints.maxHeight);
-              final pad = (m * 0.06).clamp(8.0, 16.0);
-              final gap = ((m * 0.01).clamp(1.0, 3.0) * 0.7).clamp(0.6, 2.1);
-              final reducedLabelFontSize = labelFontSize * 0.7;
-              final reducedIconSize = 96.0 * 0.7;
+              final w = constraints.maxWidth;
+              final h = constraints.maxHeight;
+              final m = math.min(w, h);
+              final pad = (m * 0.06).clamp(8.0, 14.0);
+              final gap = (h * 0.04).clamp(4.0, 8.0);
+              final iconSize = (h * 0.30).clamp(26.0, 48.0);
+              final labelSize = (labelFontSize * 0.56).clamp(12.0, 22.0);
 
               return Padding(
                 padding: EdgeInsets.all(pad),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    FittedBox(
-                      fit: BoxFit.contain,
-                      child: Icon(
-                        icon,
-                        color: const Color(0xFFFFC700),
-                        size: reducedIconSize,
-                      ),
+                    Icon(
+                      icon,
+                      color: const Color(0xFFFFC700),
+                      size: iconSize,
                     ),
                     SizedBox(height: gap),
-                    FittedBox(
-                      fit: BoxFit.contain,
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: reducedLabelFontSize,
-                          height: 1.15,
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: labelSize,
+                            height: 1.15,
+                          ),
                         ),
                       ),
                     ),

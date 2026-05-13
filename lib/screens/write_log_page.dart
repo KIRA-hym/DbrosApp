@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
-import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -16,6 +16,7 @@ import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
+import '../services/ocr_parse_log_service.dart';
 import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
@@ -23,6 +24,8 @@ import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
+import '../utils/ocr_failure_feedback.dart';
+import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
 import 'location_pick_map_page.dart';
@@ -295,9 +298,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     final detected = _detectProgramFromBlocks(blocks, recognizedText.text);
     if (detected == null) {
+      OcrParseLogService.record(
+        source: 'write_log',
+        rawText: recognizedText.text,
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("인식불가한 이미지입니다.")),
+        OcrFailureFeedback.showUnrecognizedSnackbar(
+          context,
+          fullText: recognizedText.text,
         );
       }
       return false;
@@ -323,7 +333,30 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
 
     _captureGrossAndApplyDeductions();
+    final waypoints = _waypointCon.text.trim().isEmpty
+        ? const <String>[]
+        : [_waypointCon.text.trim()];
+    OcrParseLogService.record(
+      source: 'write_log',
+      program: _selectedProgram,
+      rawText: recognizedText.text,
+      parsedData: OcrParseLogService.parsedDataFrom(
+        departure: _startLocCon.text.trim(),
+        destination: _endLocCon.text.trim(),
+        waypoints: waypoints,
+        feeAmount: _parseMoney(_incomeCon.text),
+        paymentMethod: _paymentMethodFromMemo(_memoCon.text),
+        driveTime: _timeCon.text.trim(),
+      ),
+    );
     return true;
+  }
+
+  String? _paymentMethodFromMemo(String memo) {
+    final m = RegExp(r'결제방식:([^\n]+)').firstMatch(memo);
+    if (m == null) return null;
+    final value = m.group(1)?.trim();
+    return (value == null || value.isEmpty) ? null : value;
   }
 
   void _parseKakaoCustom(List<TextBlock> blocks, {required String fullText}) {
@@ -554,7 +587,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (selected.isBefore(firstOfMonth)) selected = firstOfMonth;
     if (selected.isAfter(maxDate)) selected = maxDate;
 
-    final picked = await showModalBottomSheet<DateTime>(
+    final picked = await AppBottomSheet.show<DateTime>(
       context: context,
       backgroundColor: const Color(0xFF1F222A),
       shape: const RoundedRectangleBorder(
@@ -799,12 +832,27 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
   }
 
+  bool _validateRequiredManualEntryFields() {
+    final missing = <String>[];
+    if (_parseMoney(_incomeCon.text) <= 0) missing.add('요금');
+    if (_startLocCon.text.trim().isEmpty) missing.add('출발지');
+    if (_endLocCon.text.trim().isEmpty) missing.add('도착지');
+    if (missing.isEmpty) return true;
+
+    if (!mounted) return false;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${missing.join('·')}를 입력해 주세요.')),
+    );
+    return false;
+  }
+
   Future<void> _saveDriveLog() async {
     if (_workDateCon.text.trim().isEmpty || _dateCon.text.trim().isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("근무일자·운행 날짜를 확인해 주세요.")));
       return;
     }
+    if (!_validateRequiredManualEntryFields()) return;
     try {
       await _maybePromptNextDriveDateForEarlyMorning();
       if (!mounted) return;

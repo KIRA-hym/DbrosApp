@@ -7,12 +7,14 @@ import '../main_navigation.dart';
 import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
+import '../services/ocr_parse_log_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
+import '../utils/ocr_failure_feedback.dart';
 import 'log_list_page.dart';
 import '../widgets/drive_date_selector_bar.dart';
 
@@ -32,6 +34,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   final List<Map<String, dynamic>> _parsedLogs = [];
   bool _isSaving = false;
   int _programUnrecognizedCount = 0;
+  final List<String> _failedOcrTexts = [];
 
   late DateTime _driveDay;
 
@@ -53,6 +56,17 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
   String _driveDateStr() => DateFormat('yyyy-MM-dd').format(_driveDay);
 
+  String _formatFailedOcrTexts() {
+    if (_failedOcrTexts.isEmpty) return '';
+    final buffer = StringBuffer();
+    for (var i = 0; i < _failedOcrTexts.length; i++) {
+      if (i > 0) buffer.writeln();
+      buffer.writeln('--- 이미지 ${i + 1} ---');
+      buffer.write(_failedOcrTexts[i]);
+    }
+    return buffer.toString();
+  }
+
   Future<void> _pickMultipleImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
@@ -62,6 +76,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         _selectedImages.addAll(images.map((image) => File(image.path)));
         _parsedLogs.clear();
         _programUnrecognizedCount = 0;
+        _failedOcrTexts.clear();
       });
 
       _showProcessingDialog();
@@ -115,6 +130,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           });
         } else {
           _programUnrecognizedCount++;
+          _failedOcrTexts.add(recognizedText.text);
         }
       }
     } catch (e) {
@@ -133,8 +149,16 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       final message = _programUnrecognizedCount > 0
           ? "${_parsedLogs.length}개의 운행일지가 파싱되었습니다. 등록 실패 ${_programUnrecognizedCount}건(사유: 프로그램 인식불가)"
           : "${_parsedLogs.length}개의 운행일지가 파싱되었습니다.";
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      
+      if (_programUnrecognizedCount > 0) {
+        OcrFailureFeedback.showUnrecognizedSnackbar(
+          context,
+          message: message,
+          fullText: _formatFailedOcrTexts(),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+
       _saveAllLogs();
     }
   }
@@ -144,7 +168,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
     final rawProgram = _detectProgram(blocks, recognizedText.text);
-    if (rawProgram == null) return {};
+    if (rawProgram == null) {
+      OcrParseLogService.record(
+        source: 'multi_call_card',
+        rawText: recognizedText.text,
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
+      return {};
+    }
     final detectedProgram = _normalizeProgramForSave(rawProgram);
 
     final Map<String, dynamic> logData = {
@@ -179,6 +211,16 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
     logData['fee'] = fee;
     logData['net_income'] = netIncome;
+
+    final ocrLogId = await OcrParseLogService.record(
+      source: 'multi_call_card',
+      program: detectedProgram,
+      rawText: recognizedText.text,
+      parsedData: OcrParseLogService.parsedDataFromLogData(logData),
+    );
+    if (ocrLogId != null) {
+      logData['ocr_log_id'] = ocrLogId;
+    }
 
     return logData;
   }
@@ -343,7 +385,14 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           "updated_at": nowIso,
         };
 
-        await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+        final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+        final ocrLogId = logData['ocr_log_id']?.toString();
+        if (ocrLogId != null && ocrLogId.isNotEmpty) {
+          await OcrParseLogService.attachSavedDriveLog(
+            ocrLogId,
+            {...row, 'id': insertedId},
+          );
+        }
         successCount++;
       }
 

@@ -94,8 +94,8 @@ class TodayStatsNotificationService {
           visibility: NotificationVisibility.visibilityPublic,
           flag: OverlayFlag.focusPointer,
           enableDrag: false,
-          overlayTitle: "Dbros Quick Register",
-          overlayContent: "quick_register",
+          overlayTitle: 'Dbros Quick Register',
+          overlayContent: 'quick_register',
         );
         await FlutterOverlayWindow.shareData(today);
         final deadline = DateTime.now().add(const Duration(milliseconds: 900));
@@ -144,6 +144,22 @@ class TodayStatsNotificationService {
     AutoCaptureOcrService.instance.stop();
     try {
       await _androidChannel.invokeMethod<void>('cancel');
+    } catch (_) {}
+  }
+
+  Future<bool> isQuickRegisterOverlayActive() async {
+    if (!_isAndroid) return false;
+    try {
+      return await FlutterOverlayWindow.isActive();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> closeQuickRegisterOverlayIfActive() async {
+    if (!await isQuickRegisterOverlayActive()) return;
+    try {
+      await FlutterOverlayWindow.closeOverlay();
     } catch (_) {}
   }
 

@@ -77,6 +77,20 @@ class MainActivity : FlutterActivity() {
                     }
                     result.success(null)
                 }
+                "writeTextToPublicDownloads" -> {
+                    val fileName = call.argument<String>("fileName")?.trim().orEmpty()
+                    val content = call.argument<String>("content") ?: ""
+                    if (fileName.isEmpty()) {
+                        result.error("INVALID", "fileName is required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val path = PublicDownloadsWriter.writeText(this, fileName, content)
+                        result.success(path)
+                    } catch (e: Exception) {
+                        result.error("WRITE_FAILED", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

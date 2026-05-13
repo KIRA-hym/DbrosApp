@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../utils/app_bottom_sheet.dart';
+
 /// 운행 통계 화면 일간 날짜 선택과 동일 스타일(좌우 화살표 + yyyy-MM-dd).
 class DriveDateSelectorBar extends StatelessWidget {
   const DriveDateSelectorBar({
@@ -53,7 +55,7 @@ class DriveDateSelectorBar extends StatelessWidget {
     if (selected.isBefore(min)) selected = min;
     if (selected.isAfter(max)) selected = max;
 
-    final picked = await showModalBottomSheet<DateTime>(
+    final picked = await AppBottomSheet.show<DateTime>(
       context: context,
       backgroundColor: const Color(0xFF1F222A),
       shape: const RoundedRectangleBorder(

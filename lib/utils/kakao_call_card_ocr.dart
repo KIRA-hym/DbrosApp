@@ -1,6 +1,7 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'drive_time_format.dart';
+import 'logi_fare_parse.dart';
 
 /// 카카오 콜카드 OCR: 프로그램 구분(일반·프콜) + 일반 화면 필드(현금·카드 요금 포함).
 class KakaoCallCardOcr {
@@ -15,7 +16,23 @@ class KakaoCallCardOcr {
   static bool _assignmentComplete(String n) =>
       n.contains('배정완료') || (n.contains('배정') && n.contains('완료'));
 
-  static bool _tPhone(String n) => n.contains('T전화');
+  static bool _tPhone(String n) =>
+      n.contains('T전화') || RegExp(r'T.{0,3}전화').hasMatch(n);
+
+  /// 일반 2종 하단 UI·빨간 배정취소 배너 등. `상황실` OCR 누락 시에도 카카오 판별에 사용.
+  static bool _hasForm2UiMarkers(String n) {
+    if (n.contains('상황실')) return true;
+    if (n.contains('고객') && n.contains('메모')) return true;
+    if (n.contains('배정취소') && n.contains('잔여') && n.contains('시간')) return true;
+    if (n.contains('취소불가')) return true;
+    if (n.contains('고객과만날장소') || n.contains('만날장소길찾기')) return true;
+    if (n.contains('밀어서고객에게') || n.contains('도착알림')) return true;
+    if (n.contains('출발지에도착')) return true;
+    return false;
+  }
+
+  static bool _hasCorporateInsurance(String n) =>
+      n.contains('법인무료보험') || (n.contains('법인') && n.contains('무료보험'));
 
   /// 인식 순서: 일반 1종 → 프콜 1종 → 프콜 2종 → 일반 2종 → `고객과 통화` 단독.
   /// 해당 없으면 `null` (카카오 아님).
@@ -27,8 +44,8 @@ class KakaoCallCardOcr {
     final assignment = _assignmentComplete(n);
     final tPhone = _tPhone(n);
     final hasOpsCenter = n.contains('운영센터');
-    final hasSituation = n.contains('상황실');
-    final hasCorporate = n.contains('법인');
+    final form2Ui = _hasForm2UiMarkers(n);
+    final corporateInsurance = _hasCorporateInsurance(n);
 
     // 1. 카카오(일반) 1종: 배정 완료 + 고객과 통화
     if (hasCallCustomer && assignment) {
@@ -40,18 +57,29 @@ class KakaoCallCardOcr {
       return programPro;
     }
 
-    // 3. 카카오(프콜) 2종: T 전화 + 상황실 + 법인, 운영센터 없음
-    if (tPhone && hasSituation && hasCorporate && !hasOpsCenter) {
+    // 3. 카카오(프콜) 2종: T 전화 + 2종 UI + 법인 무료보험, 운영센터 없음
+    if (tPhone && form2Ui && corporateInsurance && !hasOpsCenter) {
       return programPro;
     }
 
-    // 4. 카카오(일반) 2종: T 전화 + 상황실 + 법인 없음
-    if (tPhone && hasSituation && !hasCorporate) {
+    // 4. 카카오(일반) 2종: T 전화 + (2종 UI 또는 배정 완료) + 법인 무료보험 없음
+    if (tPhone && !hasOpsCenter && !corporateInsurance && (form2Ui || assignment)) {
       return programGeneral;
     }
 
-    // 5. 배정 완료 OCR 누락 등 — 고객과 통화만으로 일반
+    // 5. T 전화 헤더 OCR 누락 — 2종 UI + 배정 완료만으로 일반 2종
+    if (!hasOpsCenter && !corporateInsurance && form2Ui && assignment) {
+      return programGeneral;
+    }
+
+    // 6. 배정 완료 OCR 누락 등 — 고객과 통화만으로 일반
     if (hasCallCustomer) {
+      return programGeneral;
+    }
+
+    // 7. 카카오 T 브랜드·콜카드 공통 문구
+    if ((n.contains('카카오T') || n.contains('카카오')) &&
+        (assignment || form2Ui || hasCallCustomer)) {
       return programGeneral;
     }
 
@@ -205,13 +233,53 @@ class KakaoCallCardOcr {
 
   static bool _excludeFromStartLocation(String text) {
     final t = text.trim();
+    if (_isDateTimeMetaLine(t)) return true;
     if (RegExp(r'배정|메뉴|완료|취소').hasMatch(t)) return true;
     return _excludePaymentOrActionStrip(t);
   }
 
   /// 도착지 밴드에 끼어드는 요금·버튼 줄 제외.
   static bool _excludeFromEndLocation(String text) {
+    final t = text.trim();
+    if (_looksLikeKakaoActionLine(t)) return true;
+    if (_looksLikeFareAmountLine(t)) return true;
+    if (t.contains('무료보험') || RegExp(r'^\d+\s*점$').hasMatch(t.replaceAll(',', ''))) {
+      return true;
+    }
     return _excludePaymentOrActionStrip(text);
+  }
+
+  static bool _looksLikeFareAmountLine(String line) {
+    final t = line.trim();
+    if (_looksLikeAddressFareTrap(t)) return false;
+    if (RegExp(r'^[\d,]+\s*원?$').hasMatch(t)) return true;
+    if (RegExp(r'^[\d,]+\s*P$').hasMatch(t)) return true;
+    return false;
+  }
+
+  static bool _looksLikeAddressFareTrap(String line) {
+    return RegExp(r'(번길|번지|로\d|동\s*\d|시\s+[가-힣]+구)').hasMatch(line);
+  }
+
+  static bool _shouldSkipFareLine(String line) {
+    if (_looksLikeAddressLine(line) && _looksLikeAddressFareTrap(line)) return true;
+    return false;
+  }
+
+  static bool _isPaymentConfirmationLine(String line) {
+    final t = line.trim();
+    final compact = _compact(t);
+    if ((t.contains('현금') || t.contains('카드')) && t.contains('확정')) return true;
+    if (compact.contains('현금|확정') || compact.contains('카드|확정')) return true;
+    if (t == '확정' || RegExp(r'^\|\s*확정').hasMatch(t)) return true;
+    return false;
+  }
+
+  static String _trimTrailingFareSuffix(String address) {
+    var t = address.trim();
+    t = t.replaceAll(RegExp(r'\s*[\d,]{3,}\s*원?\s*$'), '');
+    t = t.replaceAll(RegExp(r'\s*[\d,]{3,}\s*P\s*$', caseSensitive: false), '');
+    return t.trim();
   }
 
   static bool _excludePaymentOrActionStrip(String text) {
@@ -245,16 +313,96 @@ class KakaoCallCardOcr {
 
   static int _findPaymentLineIndex(List<String> lines) {
     for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      if ((line.contains('카드') || line.contains('현금')) && line.contains('확정')) return i;
+      if (_isPaymentConfirmationLine(lines[i])) return i;
+      if (i + 1 < lines.length) {
+        final cur = lines[i];
+        final next = lines[i + 1];
+        if ((cur.contains('현금') || cur.contains('카드')) && next.contains('확정')) return i;
+      }
+    }
+    for (var i = 0; i < lines.length; i++) {
+      if (_looksLikeFareAmountLine(lines[i])) return i;
     }
     return -1;
+  }
+
+  static String _normalizeOcrLine(String line) =>
+      line.trim().replaceAll('：', ':').replaceAll('．', '.').replaceAll(RegExp(r'\s+'), ' ');
+
+  static bool _hasLeadingClockToken(String line) {
+    final t = _normalizeOcrLine(line);
+    return RegExp(r'^\d{1,2}[:：.]').hasMatch(t) || RegExp(r'^\d{1,2}시').hasMatch(t);
+  }
+
+  /// 상단 운행시간·일자 줄(`19:32 5월 11일`, `19.32` 등). 출발지 후보에서 제외한다.
+  static bool _isDateTimeMetaLine(String line) {
+    final t = _normalizeOcrLine(line);
+    if (t.isEmpty) return false;
+    if (RegExp(r'^\d{1,2}[:：.]\d{1,2}(?:\s+\d{1,2}월\s*\d{1,2}일(?:\s+\S+)*)?').hasMatch(t)) {
+      return true;
+    }
+    if (RegExp(r'^\d{1,2}[:：.]\d{1,2}$').hasMatch(t)) return true;
+    if (RegExp(r'^\d{1,2}월\s*\d{1,2}일(?:\s+\S+)*$').hasMatch(t)) return true;
+    if (RegExp(r'^\d{4}[-./]\d{1,2}[-./]\d{1,2}').hasMatch(t)) return true;
+    if (RegExp(r'^\d{1,2}시\s*\d{0,2}분?(?:\s+\d{1,2}월\s*\d{1,2}일)?').hasMatch(t)) return true;
+    if (_hasLeadingClockToken(t) && !_looksRegionLike(t)) return true;
+    return false;
+  }
+
+  static (String?, String?) _extractDriveMetaFromLine(String line) {
+    final t = _normalizeOcrLine(line);
+    if (t.isEmpty) return (null, null);
+    if (!_isDateTimeMetaLine(line) && !_hasLeadingClockToken(line)) return (null, null);
+
+    String? date;
+    final iso = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(t);
+    if (iso != null) {
+      date =
+          '${iso.group(1)}-${iso.group(2)!.padLeft(2, '0')}-${iso.group(3)!.padLeft(2, '0')}';
+    }
+
+    String? time;
+    final colon = RegExp(r'(\d{1,2})[:：.](\d{1,2})').firstMatch(t);
+    if (colon != null) {
+      time = normalizeDriveTimeHm('${colon.group(1)}:${colon.group(2)}');
+    }
+    if (time == null) {
+      final ko = RegExp(r'(\d{1,2})시\s*(\d{1,2})분?').firstMatch(t);
+      if (ko != null) {
+        time = normalizeDriveTimeHm('${ko.group(1)}:${ko.group(2)}');
+      }
+    }
+
+    if (date == null && time == null) return (null, null);
+    return (date, time);
+  }
+
+  /// 요금·주소 구간 이전 상단에서 처음 나오는 시각·일자를 운행 메타로 쓴다.
+  static (String?, String?) _parseDriveMetaFromLines(List<String> lines) {
+    final payIdx = _findPaymentLineIndex(lines);
+    final bound = payIdx >= 0 ? payIdx : lines.length;
+    final scanLimit = bound < 12 ? bound : 12;
+
+    String? parsedDate;
+    String? parsedTime;
+    for (var i = 0; i < scanLimit; i++) {
+      final meta = _extractDriveMetaFromLine(lines[i]);
+      if (parsedDate == null && meta.$1 != null) parsedDate = meta.$1;
+      if (parsedTime == null && meta.$2 != null) {
+        parsedTime = meta.$2;
+        break;
+      }
+    }
+    return (parsedDate, parsedTime);
   }
 
   static bool _looksLikeAddressLine(String line) {
     final t = line.trim();
     if (t.length < 2) return false;
+    if (_isDateTimeMetaLine(t)) return false;
     if (_excludePaymentOrActionStrip(t)) return false;
+    if (_looksLikeFareAmountLine(t)) return false;
+    if (_looksLikeKakaoActionLine(t)) return false;
     if (RegExp(r'^\d+\s*점$').hasMatch(t.replaceAll(',', ''))) return false;
     if (RegExp(r'^[\d,]+\s*(P|원)?$').hasMatch(t)) return false;
     if (t.contains('배정취소') || t.contains('배정 완료') || t.contains('제휴콜')) return false;
@@ -262,6 +410,32 @@ class KakaoCallCardOcr {
     if (t.contains('고객센터') || t.contains('사고신고') || t.contains('운행중')) return false;
     if (t.contains('경유')) return false;
     return true;
+  }
+
+  static bool _looksLikeKakaoActionLine(String line) {
+    if (line.contains('고객과 통화')) return true;
+    if (line.contains('고객과 메시지')) return true;
+    if (line.contains('도착완료')) return true;
+    if (line.contains('도착하시면')) return true;
+    if (line.contains('출발지에 도착')) return true;
+    return false;
+  }
+
+  static String _sanitizeKakaoAddress(String address) {
+    var t = address.trim();
+    if (t.isEmpty) return '';
+    const phrases = [
+      '고객과 통화',
+      '고객과 메시지',
+      '출발지에 도착하시면 도착완료 해주세요.',
+      '도착완료 해주세요.',
+    ];
+    for (final phrase in phrases) {
+      t = t.replaceAll(phrase, ' ');
+    }
+    t = t.replaceAll(RegExp(r'고객과\s*통화'), ' ');
+    t = t.replaceAll(RegExp(r'출발지에\s*도착[^.]*'), ' ');
+    return t.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   static bool _looksRegionLike(String line) {
@@ -272,25 +446,35 @@ class KakaoCallCardOcr {
       parts.map((e) => e.trim()).where((e) => e.isNotEmpty).join(' ').trim();
 
   static (String, String) _parseAddressesFromLines(List<String> lines) {
-    final payIdx = _findPaymentLineIndex(lines);
-    final bound = payIdx >= 0 ? payIdx : lines.length;
     final addrCandidates = <String>[];
-    for (var i = 0; i < bound; i++) {
-      final line = lines[i];
+    for (final line in lines) {
+      if (_excludePaymentOrActionStrip(line)) continue;
+      if (_looksLikeFareAmountLine(line)) break;
       if (_looksLikeAddressLine(line)) addrCandidates.add(line);
     }
     if (addrCandidates.isEmpty) return ('', '');
     if (addrCandidates.length == 1) return (addrCandidates.first, '');
 
-    // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응
+    // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응 — 날짜 메타 줄은 후보에서 이미 제외됨
     if (addrCandidates.length >= 4) {
       final start = _joinAddressParts([addrCandidates[0], addrCandidates[1]]);
-      final end = _joinAddressParts(addrCandidates.skip(2));
+      final end = _trimTrailingFareSuffix(_joinAddressParts(addrCandidates.skip(2)));
+      return (start, end);
+    }
+
+    if (addrCandidates.length == 3) {
+      if (!_looksRegionLike(addrCandidates[1])) {
+        final start = _joinAddressParts([addrCandidates[0], addrCandidates[1]]);
+        final end = _trimTrailingFareSuffix(addrCandidates[2]);
+        return (start, end);
+      }
+      final start = addrCandidates.first;
+      final end = _trimTrailingFareSuffix(_joinAddressParts(addrCandidates.skip(1)));
       return (start, end);
     }
 
     final start = addrCandidates.first;
-    final end = _joinAddressParts(addrCandidates.skip(1));
+    final end = _trimTrailingFareSuffix(_joinAddressParts(addrCandidates.skip(1)));
     return (start, end);
   }
 
@@ -310,21 +494,34 @@ class KakaoCallCardOcr {
   static int? _parseCardFareFromLines(List<String> lines) {
     final payIdx = _findPaymentLineIndex(lines);
     if (payIdx >= 0) {
-      for (var i = payIdx; i < lines.length && i <= payIdx + 4; i++) {
+      for (var i = payIdx; i < lines.length; i++) {
         final line = lines[i];
+        if (_excludePaymentOrActionStrip(line)) continue;
+        if (_shouldSkipFareLine(line)) continue;
         final m = RegExp(r'([\d,]{4,})\s*P\b', caseSensitive: false).firstMatch(line);
         if (m != null) {
           final v = _parseCommaInt(m.group(1)!);
           if (v != null && v > 0) return v;
         }
+        final fromNoise = parseLogiFareFromOcrText(line);
+        if (fromNoise != null) return fromNoise;
+        if (_isPaymentConfirmationLine(line)) continue;
+        final plain = RegExp(r'^([\d,]{4,})\s*원?$').firstMatch(line.trim());
+        if (plain != null) {
+          final v = _parseCommaInt(plain.group(1)!);
+          if (v != null && v > 0) return v;
+        }
       }
     }
     for (final line in lines.reversed) {
+      if (_shouldSkipFareLine(line)) continue;
       final m = RegExp(r'([\d,]{4,})\s*P\b', caseSensitive: false).firstMatch(line);
       if (m != null) {
         final v = _parseCommaInt(m.group(1)!);
         if (v != null && v > 0) return v;
       }
+      final fromNoise = parseLogiFareFromOcrText(line);
+      if (fromNoise != null) return fromNoise;
     }
     return null;
   }
@@ -341,18 +538,25 @@ class KakaoCallCardOcr {
     final sorted = List<TextBlock>.from(blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    for (final b in sorted) {
+    for (var i = 0; i < sorted.length; i++) {
+      final b = sorted[i];
       final y = b.boundingBox.top;
       final text = b.text.trim();
 
+      if (i < 12) {
+        final meta = _extractDriveMetaFromLine(text);
+        if (parsedDate == null && meta.$1 != null) parsedDate = meta.$1;
+        if (parsedTime == null && meta.$2 != null) parsedTime = meta.$2;
+      }
+
       if (y < 200) {
         final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(text);
-        if (dateMatch != null) {
+        if (dateMatch != null && parsedDate == null) {
           parsedDate =
               '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
         }
         final timeMatch = RegExp(r'\d{1,2}:\d{1,2}').firstMatch(text);
-        if (timeMatch != null) {
+        if (timeMatch != null && parsedTime == null) {
           parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
         }
       }
@@ -366,6 +570,10 @@ class KakaoCallCardOcr {
     }
 
     final lines = _normalizedLines(fullText);
+    final driveMeta = _parseDriveMetaFromLines(lines);
+    if (driveMeta.$1 != null) parsedDate = driveMeta.$1;
+    if (driveMeta.$2 != null) parsedTime = driveMeta.$2;
+
     parsedWaypoint = _parseWaypointFromLines(lines);
     if (parsedWaypoint.isEmpty) {
       parsedWaypoint = _mergeWaypointFromBlocks(sorted);
@@ -374,11 +582,15 @@ class KakaoCallCardOcr {
     final fromLinesAddr = _parseAddressesFromLines(lines);
     if (fromLinesAddr.$1.isNotEmpty) {
       startBuf.clear();
-      startBuf.write(fromLinesAddr.$1);
+      startBuf.write(_sanitizeKakaoAddress(fromLinesAddr.$1));
     }
     if (fromLinesAddr.$2.isNotEmpty) {
       endBuf.clear();
-      endBuf.write(fromLinesAddr.$2);
+      endBuf.write(_sanitizeKakaoAddress(_trimTrailingFareSuffix(fromLinesAddr.$2)));
+    } else {
+      final trimmedEnd = _sanitizeKakaoAddress(_trimTrailingFareSuffix(endBuf.toString().trim()));
+      endBuf.clear();
+      endBuf.write(trimmedEnd);
     }
 
     if (looksLikeKakaoCashPayment(fullText)) {
@@ -392,6 +604,7 @@ class KakaoCallCardOcr {
         final y = b.boundingBox.top;
         final text = b.text.trim();
         if (y > 1400 && text.contains(RegExp(r'\d{3,}'))) {
+          if (_shouldSkipFareLine(text)) continue;
           if (RegExp(r'^\d{1,3}점$').hasMatch(text.replaceAll(',', ''))) continue;
           final cleanNum = text.replaceAll(RegExp(r'[^0-9]'), '');
           if (cleanNum.length >= 4) {
