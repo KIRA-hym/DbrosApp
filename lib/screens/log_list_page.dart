@@ -541,6 +541,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildDailyDetailDateHeaderForCapture(theme, captureWidth),
                   for (final log in _dailyLogs)
                     _buildLogTileContent(log, lay, memoMaxLines: 24),
                   Container(
@@ -604,18 +605,61 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     }
   }
 
+  /// [LogListPage] 의 `_buildMonthHeader` 와 동일 톤의 상단 바 — 근무일자.
+  Widget _buildDailyDetailDateHeader() {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isTablet = screenWidth > 600;
+    final padding = isTablet ? 12.0 : 8.0;
+    return Container(
+      color: const Color(0xFF1F222A),
+      padding: EdgeInsets.symmetric(vertical: padding),
+      alignment: Alignment.center,
+      child: Text(
+        widget.dateTitle,
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+      ),
+    );
+  }
+
+  Widget _buildDailyDetailDateHeaderForCapture(ThemeData theme, double captureWidth) {
+    final isTablet = captureWidth > 600;
+    final padding = isTablet ? 12.0 : 8.0;
+    return Container(
+      color: const Color(0xFF1F222A),
+      padding: EdgeInsets.symmetric(vertical: padding),
+      alignment: Alignment.center,
+      child: Text(
+        widget.dateTitle,
+        textAlign: TextAlign.center,
+        style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    final titleFontSize = isTablet ? 18.0 : 16.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1F222A),
         leading: IconButton(icon: const Icon(Icons.arrow_back_ios, color: Colors.white), onPressed: () => Navigator.pop(context)),
-        title: Text(widget.dateTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: titleFontSize)),
+        title: Text(
+          '운행 일지 상세',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFFFFC700),
+              ),
+        ),
         centerTitle: true,
         actions: [
           if (!_isLoading)
@@ -632,17 +676,25 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : ColoredBox(
-              color: const Color(0xFF121418),
-              child: Column(
-                children: [
-                  Expanded(child: _buildList()),
-                  _buildDailySummaryFooter(),
-                ],
-              ),
-            ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildDailyDetailDateHeader(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                : ColoredBox(
+                    color: const Color(0xFF121418),
+                    child: Column(
+                      children: [
+                        Expanded(child: _buildList()),
+                        _buildDailySummaryFooter(),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
