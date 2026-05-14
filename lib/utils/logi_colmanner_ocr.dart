@@ -25,18 +25,16 @@ class LogiColmannerOcr {
   static PartnerCallParsed parseLogi(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
     final time = _parseTime(lines, blocks: blocks);
-    final fare = _parseFare(lines, fullText: fullText, blocks: blocks);
+    final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: false);
+    final waypoint = _parseLogiWaypointFromJeoyo(lines);
 
-    final locations = _parseLogiLocations(lines);
-    final start = _normalizeAddressChunk(locations.start);
-    final end = _normalizeAddressChunk(locations.end);
-    const waypoint = '';
+    final locations = _parseLogiLocationsMerged(lines);
 
     return PartnerCallParsed(
       driveTimeHm: time,
       grossFare: fare,
-      startLocation: start,
-      endLocation: end,
+      startLocation: locations.start,
+      endLocation: locations.end,
       waypoint: waypoint,
     );
   }
@@ -44,9 +42,9 @@ class LogiColmannerOcr {
   static PartnerCallParsed parseColmanner(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
     final time = _parseTime(lines, blocks: blocks);
-    final fare = _parseFare(lines, fullText: fullText, blocks: blocks);
+    final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: true);
 
-    final locations = _parseColmannerLocations(lines);
+    final locations = _parseColmannerLocationsMerged(lines);
     final start = _normalizeAddressChunk(locations.start);
     final end = _stripColmannerRouteDistance(_normalizeAddressChunk(locations.end));
     final waypoint = _parseColmannerWaypoint(lines);
@@ -76,7 +74,7 @@ class LogiColmannerOcr {
       final sorted = List<TextBlock>.from(blocks)
         ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
       for (final block in sorted) {
-        if (block.boundingBox.top >= 250) break;
+        if (block.boundingBox.top >= 200) break;
         final m = RegExp(r'(\d{1,2})[:：\.](\d{1,2})').firstMatch(block.text);
         if (m != null) {
           final raw = '${m.group(1)}:${m.group(2)}';
@@ -85,7 +83,7 @@ class LogiColmannerOcr {
       }
     }
 
-    for (final l in lines.take(8)) {
+    for (final l in lines.take(3)) {
       final m = RegExp(r'(\d{1,2})[:：\.](\d{1,2})').firstMatch(l);
       if (m != null) {
         final raw = '${m.group(1)}:${m.group(2)}';
@@ -95,14 +93,61 @@ class LogiColmannerOcr {
     return '';
   }
 
+  /// 입금·정산 줄 — 총요금(요금) 스캔에서 제외한다.
+  static bool _isLogiDepositOrSettlementAmountLine(String line) {
+    final n = _normalizeKey(line);
+    if (n.startsWith('입금')) return true;
+    if (n.startsWith('차감합계') || n.startsWith('입금합계')) return true;
+    if (n.contains('예상수익금') || n.contains('예상수의금')) return true;
+    return false;
+  }
+
+  /// 폴백: 줄이 **4~6자리 총요금 숫자(콤마·공백·끝의 !·원만 허용)** 로만 이루어진 경우만 인정한다.
+  static bool _isStrictStandaloneFareDigitsLine(String line) {
+    var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
+    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL]+'), '');
+    return RegExp(r'^\d{4,6}$').hasMatch(t);
+  }
+
+  static int? _strictFareDigitsFromLine(String line) {
+    if (!_isStrictStandaloneFareDigitsLine(line)) return null;
+    var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
+    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL]+'), '');
+    return int.tryParse(t);
+  }
+
+  static int? _bestGrossFareFromAdjacentAmountLines(Iterable<String> lines) {
+    int? bestStrict;
+    for (final raw in lines) {
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) continue;
+      if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
+      if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
+      if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+      final v = _strictFareDigitsFromLine(trimmed);
+      if (v != null && v >= 1000 && v <= 999_999) {
+        if (bestStrict == null || v > bestStrict) bestStrict = v;
+      }
+    }
+    return bestStrict;
+  }
+
   static int _parseFare(
     List<String> lines, {
-    String? fullText,
     List<TextBlock>? blocks,
+    String? fullText,
+    bool colmanner = false,
   }) {
+    if (fullText != null && fullText.isNotEmpty) {
+      final fromRx = parseGrossFareRegexFromFullText(fullText, colmanner: colmanner);
+      if (fromRx != null && fromRx >= 1000 && fromRx <= 999_999) {
+        return fromRx;
+      }
+    }
     for (var i = 0; i < lines.length; i++) {
+      final row = lines[i].trim();
+      if (!row.startsWith('요금') && _normalizeKey(row) != '요금') continue;
       final l = lines[i];
-      if (!l.contains('요금')) continue;
 
       final m = RegExp(r'요금[^\d]{0,12}([\d,]{4,7})\s*원?').firstMatch(l);
       if (m != null) {
@@ -111,47 +156,55 @@ class LogiColmannerOcr {
       }
 
       final fromLine = parseLogiFareFromOcrText(l);
-      if (fromLine != null) return fromLine;
+      if (fromLine != null && fromLine >= 1000) return fromLine;
 
-      for (var j = i + 1; j < lines.length && j <= i + 25; j++) {
+      final window = <String>[];
+      for (var j = i + 1; j < lines.length && j <= i + 22; j++) {
         final trimmed = lines[j].trim();
+        if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
         if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
         if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
-        final fromNext = parseLogiFareFromOcrText(lines[j]);
-        if (fromNext != null && fromNext >= 1000 && fromNext <= 999_999) return fromNext;
-        final n = RegExp(r'^([\d,]{4,7})\s*[!원]*$').firstMatch(trimmed);
-        if (n != null) {
-          final v = int.tryParse((n.group(1) ?? '').replaceAll(',', ''));
-          if (v != null && v > 0) return v;
-        }
+        window.add(lines[j]);
       }
+      final best = _bestGrossFareFromAdjacentAmountLines(window);
+      if (best != null) return best;
     }
 
     if (blocks != null && blocks.isNotEmpty) {
       final sorted = List<TextBlock>.from(blocks)
         ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
       for (var i = 0; i < sorted.length; i++) {
-        if (!sorted[i].text.contains('요금')) continue;
-        int? fare = parseLogiFareFromOcrText(sorted[i].text);
-        for (final j in [i - 1, i + 1]) {
-          if (fare == null && j >= 0 && j < sorted.length) {
-            fare = parseLogiFareFromOcrText(sorted[j].text);
-          }
+        final t = sorted[i].text.trim();
+        if (!t.startsWith('요금') && _normalizeKey(t) != '요금') continue;
+        int? best;
+        final ti = sorted[i].text.trim();
+        best = _strictFareDigitsFromLine(ti);
+        for (var d = -2; d <= 2; d++) {
+          if (d == 0) continue;
+          final j = i + d;
+          if (j < 0 || j >= sorted.length) continue;
+          final tj = sorted[j].text.trim();
+          final cand = _strictFareDigitsFromLine(tj);
+          if (cand != null && cand >= 1000 && (best == null || cand > best)) best = cand;
         }
-        if (fare != null) return fare;
+        if (best != null && best >= 1000) return best;
       }
     }
 
-    if (fullText != null && fullText.isNotEmpty) {
-      for (var i = 0; i < lines.length; i++) {
-        if (!lines[i].contains('요금')) continue;
-        final window = <String>[];
-        for (var j = i; j <= i + 25 && j < lines.length; j++) {
-          window.add(lines[j]);
-        }
-        final fare = parseLogiFareFromOcrText(window.join('\n'));
-        if (fare != null) return fare;
+    for (var i = 0; i < lines.length; i++) {
+      if (!lines[i].contains('요금')) continue;
+      final row = lines[i].trim();
+      if (row.startsWith('요금') || _normalizeKey(row) == '요금') continue;
+      final window = <String>[];
+      for (var j = i; j <= i + 22 && j < lines.length; j++) {
+        final trimmed = lines[j].trim();
+        if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
+        if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
+        if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+        window.add(lines[j]);
       }
+      final best = _bestGrossFareFromAdjacentAmountLines(window);
+      if (best != null) return best;
     }
 
     return 0;
@@ -228,6 +281,35 @@ class LogiColmannerOcr {
     return false;
   }
 
+  /// 메뉴에 반복되는 출발지/도착지/지도 라벨 — 주소 블록 수집을 끊지 않는다.
+  static bool _isLogiSkippableAddressRelabelLine(String line) {
+    final n = _normalizeKey(line);
+    return n == '출발지' || n == '도착지' || n == '지도';
+  }
+
+  /// 주소 스캔을 종료하는 하단 UI(로지 운행 화면).
+  static bool _isLogiAddressBlockFooterLine(String line) {
+    final n = _normalizeKey(line);
+    const footers = {
+      '완료',
+      '처리',
+      '닫기',
+      '취소',
+      '갱신',
+      '서명',
+      '안내',
+      '배차',
+    };
+    if (footers.contains(n)) return true;
+    if (n == '||' || n.startsWith('||')) return true;
+    if (line.contains('운행시작연기')) return true;
+    if (_isLogiCountdownRemainLine(line)) return true;
+    if (_isLogiFareClassNoiseLine(line)) return true;
+    final t = line.trim();
+    if (RegExp(r'^\d{1,2}[:：.]\d{1,2}\s*$').hasMatch(t)) return true;
+    return false;
+  }
+
   /// "17분 31초 남음" 등 배차·남은시간 UI.
   static bool _isLogiCountdownRemainLine(String line) {
     if (!line.contains('남음')) return false;
@@ -256,21 +338,359 @@ class LogiColmannerOcr {
     return false;
   }
 
-  static bool _hasSubstantiveColmannerStart(String startLead) {
-    if (startLead.isEmpty) return false;
-    if (_looksRegionLike(startLead) || _looksLikeDestinationLead(startLead)) return true;
-    return startLead.length >= 6;
+  static String? _leadingMetroProvinceToken(String line) {
+    final t = line.trim();
+    final m = RegExp(
+      r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)(?=\s)',
+    ).firstMatch(t);
+    return m?.group(1);
+  }
+
+  /// 광역 + 첫 행정 단위(시·군·구·도) — 같은 광역 내 다른 시·구 구분용.
+  static String? _provincialCityKey(String line) {
+    final t = line.trim();
+    final m = RegExp(
+      r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+([가-힣\d]+(?:시|군|구|도)?)',
+    ).firstMatch(t);
+    if (m == null) return null;
+    return '${m.group(1)}:${m.group(2)}';
+  }
+
+  /// 적요·메모·고객 블록에서 경유만 추출한다.
+  static String _parseLogiWaypointFromJeoyo(List<String> lines) {
+    for (var i = 0; i < lines.length; i++) {
+      final nk = _normalizeKey(lines[i]);
+      if (!nk.startsWith('적요') && !nk.startsWith('메모') && !nk.startsWith('고객')) continue;
+
+      final buf = StringBuffer()..write(lines[i]);
+      for (var j = i + 1; j < lines.length && j < i + 5; j++) {
+        final n2 = _normalizeKey(lines[j]);
+        if (n2.startsWith('요금') || n2.startsWith('입금') || n2.startsWith('출발지')) break;
+        buf.write(' ');
+        buf.write(lines[j]);
+      }
+
+      final joined = buf.toString();
+      final w = RegExp(
+        r'경유\s*[:：]?\s*([^\n\]/}\]]+?)(?:\s*[/\]}]|$)',
+        caseSensitive: false,
+      ).firstMatch(joined);
+      if (w != null && w.group(1)!.trim().isNotEmpty) {
+        return w.group(1)!.trim();
+      }
+    }
+    return '';
+  }
+  /// OCR 붙음 `설렁탕경기` 등 → `설렁탕 경기` 로 보정해 광역 앵커가 잡히게 한다.
+  static String _injectSpaceBeforeProvinceToken(String s) {
+    return s.replaceAllMapped(
+      RegExp(
+        r'([가-힣0-9\)\]\}\.])(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)(?=\s)',
+      ),
+      (m) => '${m[1]} ${m[2]}',
+    );
+  }
+
+  static bool _colmannerHasAnchorBetweenStartEndLabels(List<String> lines) {
+    final si = _indexOfLabel(lines, '출발지');
+    final ei = _indexOfLabel(lines, '도착지');
+    if (si < 0 || ei < 0 || si >= ei) return false;
+    for (var k = si + 1; k < ei; k++) {
+      final nk = _normalizeKey(lines[k]);
+      if (nk == '출도' || nk.startsWith('적요')) return true;
+    }
+    return false;
+  }
+
+  /// Step B(로지): `상세:` 앞은 상호·경로로 유지하고, 뒤 행정 주소와 [_joinHeadAndTailAfterFirstSangse]로 합친다.
+  static String _normalizeAddressChunkPreserveSangse(String chunk) {
+    var s = chunk.trim();
+    if (s.isEmpty) return '';
+    return s.replaceAll(RegExp(r'\s+'), ' ').trim();
+  }
+
+  /// `상세:`(또는 `상세 :`)가 있으면, 그 **앞**은 출발 상호·경로 등으로 유지하고 **뒤**만 행정 주소로 이어 붙인다.
+  static String _joinHeadAndTailAfterFirstSangse(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return '';
+    final m = RegExp(r'상세\s*:', caseSensitive: false).firstMatch(t);
+    if (m == null) return t;
+    final head = t.substring(0, m.start).replaceFirst(RegExp(r'^\s*출발지\s*'), '').trim();
+    final tail = t.substring(m.end).trim();
+    if (head.isEmpty) return tail;
+    return '$head $tail'.trim();
+  }
+
+  /// Step C/D: 뭉친 주소 문자열에서 출발/도착 절취.
+  static ({String start, String end}) _splitFlattenedAddressJoined(
+    String joinedText, {
+    required bool isColmanner,
+  }) {
+    var t = joinedText.replaceAll(RegExp(r'\s+'), ' ').trim();
+    t = _injectSpaceBeforeProvinceToken(t);
+    var splitIndex = -1;
+
+    var labelMatch = RegExp(r'(^|\s)도\s*착\s*지\s').firstMatch(t);
+    labelMatch ??= RegExp(r'(^|\s)도\s*착\s*지(?=[가-힣0-9ⓓⓔⓕⓐⓑ])', caseSensitive: false).firstMatch(t);
+    labelMatch ??= RegExp(r'(?<![가-힣])도\s*착\s*지(?=\s|[가-힣0-9]|$)', caseSensitive: false).firstMatch(t);
+    if (labelMatch != null) {
+      final spaced = labelMatch.groupCount >= 1 ? labelMatch.group(1) : null;
+      splitIndex = spaced == ' ' ? labelMatch.start + 1 : labelMatch.start;
+    }
+
+    final flatKey = t.replaceAll(RegExp(r'\s'), '');
+    final hasDestLabel = flatKey.contains('도착지');
+
+    if (splitIndex < 0 && !hasDestLabel) {
+      final regionRe = RegExp(
+        r'\s(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+[가-힣]+(?:시|군|구)',
+      );
+      for (final m in regionRe.allMatches(t)) {
+        if (m.start < 4) continue;
+        final before = t.substring(0, m.start).trimRight();
+        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
+        if (RegExp(r'상세\s*:\s*$', caseSensitive: false).hasMatch(before)) continue;
+        splitIndex = m.start;
+        break;
+      }
+    }
+
+    if (splitIndex < 0 && !hasDestLabel) {
+      final cityRe = RegExp(
+        r'\s[가-힣]{2,5}(?:시|군|구)\s+[가-힣]{2,5}(?:동|읍|면|로|길)',
+      );
+      for (final m in cityRe.allMatches(t)) {
+        if (m.start < 8) continue;
+        final before = t.substring(0, m.start).trimRight();
+        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
+        splitIndex = m.start;
+        break;
+      }
+    }
+
+    // 3순위(콜마너): 광역 생략·붙은 본문 — `OO구` 뒤에 동/로/길 등 두 번째 행정 덩어리가 이어질 때
+    if (splitIndex < 0 && !hasDestLabel && isColmanner) {
+      final adminTailRe = RegExp(
+        r'\s([가-힣]{2,8}구)\s+([가-힣\d][가-힣\d\-]{0,22}(?:동|읍|면|로|길|가)\b)',
+      );
+      for (final m in adminTailRe.allMatches(t)) {
+        if (m.start < 10) continue;
+        final before = t.substring(0, m.start).trimRight();
+        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
+        if (RegExp(r'상세\s*:\s*$', caseSensitive: false).hasMatch(before)) continue;
+        splitIndex = m.start;
+        break;
+      }
+    }
+
+    if (splitIndex < 0 && hasDestLabel) {
+      return (start: '', end: '');
+    }
+
+    if (splitIndex < 0) {
+      return (start: t, end: '');
+    }
+
+    var startLoc = t.substring(0, splitIndex).replaceFirst(RegExp(r'^\s*출발지\s*'), '').trim();
+    var endLoc = t.substring(splitIndex).trim();
+    endLoc = endLoc.replaceFirst(RegExp(r'^\s*도\s*착\s*지\s*', caseSensitive: false), '').trim();
+
+    startLoc = startLoc.replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+    endLoc = endLoc.replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+
+    if (!isColmanner) {
+      startLoc = _joinHeadAndTailAfterFirstSangse(startLoc);
+      endLoc = _joinHeadAndTailAfterFirstSangse(endLoc);
+    } else {
+      endLoc = endLoc.replaceAll(RegExp(r'출\s*도\s*경로거리\s*[:：]?\s*[^\s]+'), '').trim();
+      endLoc = endLoc.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '').trim();
+      startLoc = startLoc
+          .replaceAll(RegExp(r'\s*(출발지|도착지|지도|상세:)\s*'), ' ')
+          .trim();
+      endLoc = endLoc
+          .replaceAll(RegExp(r'\s*(출발지|도착지|지도|상세:)\s*'), ' ')
+          .trim();
+    }
+
+    return (start: startLoc, end: endLoc);
+  }
+
+  /// 출발지 라벨 없이 중간에 두 번째 광역 블록이 끼어든 콜마너 UI 보정.
+  static ({String start, String end}) _colmannerAdjustDoubleMetroInDeparture(String start, String end) {
+    var s = start.trim();
+    final e = end.trim();
+    final probe = ' $s';
+    final re = RegExp(
+      r'\s(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+',
+    );
+    final matches = re.allMatches(probe).toList();
+    if (matches.length < 2) return (start: s, end: e);
+    final cut = matches[1].start;
+    if (cut <= 0 || cut > probe.length) return (start: s, end: e);
+    final tail = probe.substring(cut).trimLeft();
+    final firstTok = tail.split(RegExp(r'\s+')).firstWhere((a) => a.isNotEmpty, orElse: () => '');
+    if (!_looksLikeDestinationLead(firstTok)) return (start: s, end: e);
+    return (start: probe.substring(1, cut).trim(), end: '$tail $e'.trim());
+  }
+
+  static int _logiPipelineRegionStart(List<String> lines) {
+    var lastHead = -1;
+    for (var k = 0; k < lines.length; k++) {
+      final nk = _normalizeKey(lines[k]);
+      if (nk.startsWith('고객') || nk.startsWith('적요') || nk.startsWith('메모')) {
+        lastHead = k;
+      }
+    }
+    final startLbl = _indexOfLabel(lines, '출발지');
+    if (startLbl >= 0) {
+      return startLbl;
+    }
+    return lastHead >= 0 ? lastHead + 1 : 0;
+  }
+
+  static List<String> _collectLogiAddressLinesForPipeline(List<String> lines) {
+    final start = _logiPipelineRegionStart(lines);
+    final buf = <String>[];
+    for (var k = start; k < lines.length; k++) {
+      final line = lines[k];
+      final nk = _normalizeKey(line);
+      if (_isLogiAddressBlockFooterLine(line)) break;
+      if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
+      if (nk == '출발지' || nk == '도착지' || nk == '지도') {
+        buf.add(line);
+        continue;
+      }
+      if (_isLogiNoiseLine(line) && !line.contains('상세:')) continue;
+      if (_isLogiPickupArrivalStatusBanner(line)) continue;
+      if (_isLogiMemoLineForBody(line) && !line.contains('상세:')) continue;
+      if (_isLogiFareClassNoiseLine(line)) continue;
+      if (_isLogiCountdownRemainLine(line)) continue;
+      if (_isLogiUiNoiseLine(line)) continue;
+      buf.add(line);
+    }
+    return buf;
+  }
+
+  static List<String> _collectColmannerAddressLinesForPipeline(List<String> lines) {
+    final buffer = <String>[];
+    var inAddressBlock = false;
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final n = _normalizeKey(line);
+      final noSpace = line.replaceAll(RegExp(r'\s+'), '');
+
+      if (!inAddressBlock && n.startsWith('출발지')) {
+        inAddressBlock = true;
+      }
+      if (!inAddressBlock) continue;
+
+      if (noSpace.contains('경유지') ||
+          noSpace.contains('요금') ||
+          noSpace.contains('현금') ||
+          noSpace.contains('입금합계') ||
+          noSpace.contains('차감합계') ||
+          noSpace.contains('예상소요시간') ||
+          noSpace.contains('출도경로거리') ||
+          noSpace.contains('경로거리')) {
+        break;
+      }
+
+      if (noSpace == '출도' || noSpace == '적요') continue;
+      if (n.startsWith('적요')) continue;
+
+      if (_isColmannerNoiseLine(line)) continue;
+      if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
+
+      buffer.add(line);
+    }
+    return buffer;
+  }
+
+  static ({String start, String end}) _parseLogiLocationsMerged(List<String> lines) {
+    if (_countLabels(lines, '출발지') > 1 || _countLabels(lines, '도착지') > 1) {
+      return _parseLogiLocationsLegacy(lines);
+    }
+    final startLblIdx = _indexOfLabel(lines, '출발지');
+    final endLblIdx = _indexOfLabel(lines, '도착지');
+    if (startLblIdx >= 0 && endLblIdx == startLblIdx + 1) {
+      final sRem = _labelRemainder(lines[startLblIdx], '출발지');
+      final eRem = _labelRemainder(lines[endLblIdx], '도착지');
+      if (sRem.isEmpty && eRem.isEmpty) {
+        return _parseLogiLocationsLegacy(lines);
+      }
+    }
+    if (_indexOfLabel(lines, '도착지') < 0) {
+      final startChunk = _extractChunk(
+        lines,
+        startKeys: const ['출발지'],
+        endKeys: const ['도착지'],
+        hardStopKeys: _logiEndStops,
+      );
+      final endChunk = _resolveEndChunk(lines);
+      return _sanitizeLogiLocations(startChunk, endChunk);
+    }
+    final rawLines = _collectLogiAddressLinesForPipeline(lines);
+    final joined = rawLines.join(' ');
+    if (joined.trim().isEmpty) {
+      return _parseLogiLocationsLegacy(lines);
+    }
+    final split = _splitFlattenedAddressJoined(joined, isColmanner: false);
+    final flatKey = joined.replaceAll(RegExp(r'\s'), '');
+    final hasDestLabel = flatKey.contains('도착지');
+    if (split.end.isEmpty && hasDestLabel) {
+      return _parseLogiLocationsLegacy(lines);
+    }
+    if (split.start.isEmpty && split.end.isEmpty) {
+      return _parseLogiLocationsLegacy(lines);
+    }
+    return _sanitizeLogiLocations(split.start, split.end);
+  }
+
+  static ({String start, String end}) _parseColmannerLocationsMerged(List<String> lines) {
+    final startIdx = _indexOfLabel(lines, '출발지');
+    final endIdx = _indexOfLabel(lines, '도착지');
+    if (startIdx >= 0 && endIdx == startIdx + 1) {
+      final sRem = _labelRemainder(lines[startIdx], '출발지');
+      final eRem = _labelRemainder(lines[endIdx], '도착지');
+      if (sRem.isEmpty && eRem.isEmpty) {
+        return _parseColmannerLocationsLegacy(lines);
+      }
+    }
+    if (_colmannerHasAnchorBetweenStartEndLabels(lines)) {
+      return _parseColmannerLocationsLegacy(lines);
+    }
+    if (startIdx < 0 || endIdx < 0 || startIdx >= endIdx) {
+      final startChunk = _extractChunk(
+        lines,
+        startKeys: const ['출발지'],
+        endKeys: const ['도착지'],
+        hardStopKeys: _colmannerEndStops,
+      );
+      final endChunk = _resolveColmannerEndChunk(lines);
+      return (start: startChunk, end: endChunk);
+    }
+    final raw = _collectColmannerAddressLinesForPipeline(lines);
+    final joined = raw.join(' ');
+    if (joined.trim().isEmpty) {
+      return _parseColmannerLocationsLegacy(lines);
+    }
+    final split = _splitFlattenedAddressJoined(joined, isColmanner: true);
+    final flatKey = joined.replaceAll(RegExp(r'\s'), '');
+    final hasDestLabel = flatKey.contains('도착지');
+    if (split.end.isEmpty && hasDestLabel) {
+      return _parseColmannerLocationsLegacy(lines);
+    }
+    if (split.start.isEmpty && split.end.isEmpty) {
+      return _parseColmannerLocationsLegacy(lines);
+    }
+    final adjusted = _colmannerAdjustDoubleMetroInDeparture(split.start, split.end);
+    return (start: adjusted.start, end: adjusted.end);
   }
 
   static bool _isColmannerAnchorLine(String line) {
     final n = _normalizeKey(line);
     return n == '출도' || n == '적요';
-  }
-
-  static bool _isLogiDestinationLead(String line) {
-    if (_looksLikeDestinationLead(line)) return true;
-    if (line.contains(')')) return true;
-    return RegExp(r'[가-힣]+동\)?').hasMatch(line);
   }
 
   static String _stripLogiUiTokens(String value) {
@@ -300,7 +720,8 @@ class LogiColmannerOcr {
 
   static String _stripColmannerRouteDistance(String value) {
     return value
-        .replaceAll(RegExp(r'경로거리\s*[:：]\s*[^\s)]+'), '')
+        .replaceAll(RegExp(r'출\s*도\s*경로거리\s*[:：]?\s*[^\s]+'), '')
+        .replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
@@ -337,9 +758,26 @@ class LogiColmannerOcr {
   static ({List<String> start, List<String> end}) _splitLogiAddressBody(List<String> body) {
     if (body.isEmpty) return (start: const [], end: const []);
     if (body.length == 1) return (start: body, end: const []);
+
+    final idxs = <int>[];
+    for (var i = 0; i < body.length; i++) {
+      if (_leadingMetroProvinceToken(body[i]) != null) idxs.add(i);
+    }
+    if (idxs.length >= 2) {
+      for (var j = 1; j < idxs.length; j++) {
+        final a = body[idxs[j - 1]];
+        final b = body[idxs[j]];
+        final ka = _provincialCityKey(a);
+        final kb = _provincialCityKey(b);
+        if (ka != null && kb != null && ka != kb) {
+          return (start: body.sublist(0, idxs[j]), end: body.sublist(idxs[j]));
+        }
+      }
+    }
+
     var destStart = body.length;
     for (var i = 1; i < body.length; i++) {
-      if (_isLogiDestinationLead(body[i])) {
+      if (_looksLikeDestinationLead(body[i])) {
         destStart = i;
         break;
       }
@@ -380,7 +818,7 @@ class LogiColmannerOcr {
     return RegExp(r'^\d{3,8}$').hasMatch(line.trim());
   }
 
-  static ({String start, String end}) _parseLogiLocations(List<String> lines) {
+  static ({String start, String end}) _parseLogiLocationsLegacy(List<String> lines) {
     final endIdx = _indexOfLabel(lines, '도착지');
     if (endIdx < 0) {
       final startChunk = _extractChunk(
@@ -414,7 +852,8 @@ class LogiColmannerOcr {
     for (var i = endIdx + 1; i < lines.length; i++) {
       final line = lines[i];
       if (_isLogiPickupArrivalStatusBanner(line)) continue;
-      if (_isLogiUiNoiseLine(line)) break;
+      if (_isLogiSkippableAddressRelabelLine(line)) continue;
+      if (_isLogiAddressBlockFooterLine(line)) break;
       if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
       if (_isLogiNoiseLine(line) || _isLogiMemoLineForBody(line)) continue;
       if (!_looksLikeAddressLine(line) && !line.contains('상세:')) {
@@ -496,10 +935,8 @@ class LogiColmannerOcr {
       final inPostStart = lastStart >= 0 && i > lastStart;
       if (inPostStart) {
         if (_isLogiPickupArrivalStatusBanner(line)) continue;
-        if (_isLogiUiNoiseLine(line)) {
-          if (_normalizeKey(line) == '지도') continue;
-          break;
-        }
+        if (_isLogiSkippableAddressRelabelLine(line)) continue;
+        if (_isLogiAddressBlockFooterLine(line)) break;
         if (_isLogiStopLine(line)) continue;
         if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
         if (_isLogiNoiseLine(line) || _isLogiMemoLineForBody(line)) continue;
@@ -544,8 +981,10 @@ class LogiColmannerOcr {
   }
 
   static ({String start, String end}) _sanitizeLogiLocations(String start, String end) {
-    var cleanedStart = _stripLogiUiTokens(_normalizeAddressChunk(start));
-    var cleanedEnd = _stripLogiUiTokens(_normalizeAddressChunk(end));
+    var cleanedStart = _stripLogiUiTokens(_normalizeAddressChunkPreserveSangse(start));
+    var cleanedEnd = _stripLogiUiTokens(_normalizeAddressChunkPreserveSangse(end));
+    cleanedStart = _joinHeadAndTailAfterFirstSangse(cleanedStart);
+    cleanedEnd = _joinHeadAndTailAfterFirstSangse(cleanedEnd);
     cleanedStart = cleanedStart
         .replaceAll(RegExp(r'대기,?경유[^ ]*'), ' ')
         .replaceAll(RegExp(r'발생시\s*종료후\s*상황실연락'), ' ')
@@ -603,7 +1042,7 @@ class LogiColmannerOcr {
     return _looksLikeDestinationLead(tail);
   }
 
-  static ({String start, String end}) _parseColmannerLocations(List<String> lines) {
+  static ({String start, String end}) _parseColmannerLocationsLegacy(List<String> lines) {
     final startIdx = _indexOfLabel(lines, '출발지');
     final endIdx = _indexOfLabel(lines, '도착지');
     if (startIdx < 0 || endIdx < 0 || startIdx >= endIdx) {
@@ -630,13 +1069,16 @@ class LogiColmannerOcr {
     final afterEnd = <String>[];
     for (var i = endIdx + 1; i < lines.length; i++) {
       final line = lines[i];
-      if (_isColmannerStopLine(line)) {
-        // "출도" 단독 줄은 주소 블록 앞에 붙는 UI 구분선이라, 그 다음 줄의 출발·도착 텍스트를 잃지 않도록 건너뛴다.
-        if (_normalizeKey(line) == '출도') continue;
+      final nk = _normalizeKey(line);
+      if (nk == '출도') continue;
+      if (nk.contains('출도경로거리') ||
+          nk.contains('출도경로') ||
+          (nk.contains('출도') && nk.contains('경로거리'))) {
         break;
       }
       if (_isCustomerMetaLine(line) || _isOrphanCustomerNumber(line)) continue;
       if (_isColmannerNoiseLine(line)) continue;
+      if (_isColmannerStopLine(line)) break;
       afterEnd.add(line);
     }
 

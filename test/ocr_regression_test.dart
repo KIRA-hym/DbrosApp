@@ -840,6 +840,37 @@ tl34
       expect(parsed.grossFare, 30000);
     });
 
+    test('logi gross fare ignores 입금액 stack order (6000 before 30000)', () {
+      const rawText = '''
+요금
+입금액
+17분 31초 남음
+6000
+30000
+일반 일반
+출발지
+도착지
+''';
+      expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 30000);
+    });
+
+    test('logi collects address after mid-card 출발지 and 지도 labels', () {
+      const rawText = '''
+요금 30000원
+출발지
+도착지
+상세:경기 테스트시 출발동 1-1
+건축물명
+출발지
+지도
+경기 테스트시 도착동)도착빌딩
+완료
+''';
+      final p = LogiColmannerOcr.parseLogi(rawText);
+      expect(p.startLocation, contains('출발동'));
+      expect(p.endLocation, contains('도착동'));
+    });
+
     test('logi 상세+목동 후 마포 도착 (user repro 등촌→마포)', () {
       const rawText = r'''
 23:18 iT
@@ -952,6 +983,24 @@ R 고객전화
       expect(parsed.endLocation, contains('오정구'));
       expect(parsed.endLocation, contains('여월동'));
       expect(parsed.grossFare, 13000);
+    });
+
+    test('colmanner tolerates OCR spacing on 출도경로거리 stop line', () {
+      const rawText = '''
+출발지
+도착지
+서울 강남구 역삼동
+건물A
+경기 수원시 팔달구 행궁동
+행궁동 1-1
+출 도경로거리 : 40km
+요금 45,000원 (예상 수익금:35,000원)
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, contains('역삼'));
+      expect(parsed.endLocation, contains('수원'));
+      expect(parsed.endLocation, isNot(contains('40km')));
+      expect(parsed.grossFare, 45000);
     });
   });
 
