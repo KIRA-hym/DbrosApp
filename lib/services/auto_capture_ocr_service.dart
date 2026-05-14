@@ -11,6 +11,7 @@ import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/logi_colmanner_ocr.dart';
+import 'gemini_api_service.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
 import 'today_stats_notification_service.dart';
@@ -65,7 +66,7 @@ class AutoCaptureOcrService {
       if (!file.existsSync()) return;
 
       final recognized = await _runOcr(file.path);
-      final parsed = _parseRecognized(recognized);
+      final parsed = await _parseRecognized(recognized);
       final program = (parsed['program'] ?? '').trim();
       final waypoint = (parsed['waypoint'] ?? '').trim();
       final ocrLogId = await OcrParseLogService.record(
@@ -125,7 +126,8 @@ class AutoCaptureOcrService {
     }
   }
 
-  Map<String, String> _parseRecognized(RecognizedText recognizedText) {
+  // GEMINI_HYBRID_PARSE_BEGIN
+  Future<Map<String, String>> _parseRecognized(RecognizedText recognizedText) async {
     final blocks = List<TextBlock>.from(recognizedText.blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     final full = recognizedText.text;
@@ -133,14 +135,17 @@ class AutoCaptureOcrService {
     var program = _detectProgram(full) ?? '';
     program = KakaoCallCardOcr.refineProgramByAllianceHeuristic(full, blocks, program);
 
+    String nowHm() {
+      final n = DateTime.now();
+      return '${n.hour.toString().padLeft(2, '0')}:${n.minute.toString().padLeft(2, '0')}';
+    }
+
     if (program == '티맵') {
-      final r = TmapTripDetailOcr.tryParse(full, blocks: recognizedText.blocks);
+      final r = await TmapTripDetailOcr.tryParse(full, blocks: recognizedText.blocks);
       if (r != null) {
         var timeHm = r.driveStartTimeHm;
         if (timeHm.isEmpty) {
-          final now = DateTime.now();
-          timeHm =
-              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+          timeHm = nowHm();
         }
         return {
           'program': '티맵',
@@ -153,12 +158,10 @@ class AutoCaptureOcrService {
           'waypoint': '',
         };
       }
-      final now = DateTime.now();
       return {
         'program': '티맵',
         'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
-        'driveTime':
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+        'driveTime': nowHm(),
         'income': '',
         'start': '',
         'end': '',
@@ -167,14 +170,12 @@ class AutoCaptureOcrService {
     }
 
     if (program == KakaoCustomCallOcr.programCustom) {
-      final p = KakaoCustomCallOcr.parseScreen(blocks, full);
+      final p = await KakaoCustomCallOcr.parseScreen(blocks, full);
       final wd = WorkDateUtils.effectiveWorkDateYmd();
       var driveDate = p.driveDateYmd ?? wd;
       var timeHm = p.driveTimeHm ?? '';
       if (timeHm.isEmpty) {
-        final now = DateTime.now();
-        timeHm =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        timeHm = nowHm();
       }
       return {
         'program': program,
@@ -191,14 +192,12 @@ class AutoCaptureOcrService {
     if (program == KakaoCallCardOcr.programGeneral ||
         program == KakaoCallCardOcr.programPro ||
         program == KakaoCallCardOcr.programAlliance) {
-      final p = KakaoCallCardOcr.parseScreen(blocks, full);
+      final p = await KakaoCallCardOcr.parseScreen(blocks, full, program);
       final wd = WorkDateUtils.effectiveWorkDateYmd();
       var driveDate = p.driveDateYmd ?? wd;
       var timeHm = p.driveTimeHm ?? '';
       if (timeHm.isEmpty) {
-        final now = DateTime.now();
-        timeHm =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+        timeHm = nowHm();
       }
       return {
         'program': program,
@@ -212,11 +211,8 @@ class AutoCaptureOcrService {
     }
 
     if (program == '로지') {
-      final p = LogiColmannerOcr.parseLogi(full, blocks: blocks);
-      final now = DateTime.now();
-      final timeHm = p.driveTimeHm.isNotEmpty
-          ? p.driveTimeHm
-          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final p = await LogiColmannerOcr.parseLogi(full, blocks: blocks);
+      final timeHm = p.driveTimeHm.isNotEmpty ? p.driveTimeHm : nowHm();
       return {
         'program': '로지',
         'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
@@ -229,11 +225,8 @@ class AutoCaptureOcrService {
     }
 
     if (program == '콜마너') {
-      final p = LogiColmannerOcr.parseColmanner(full, blocks: blocks);
-      final now = DateTime.now();
-      final timeHm = p.driveTimeHm.isNotEmpty
-          ? p.driveTimeHm
-          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final p = await LogiColmannerOcr.parseColmanner(full, blocks: blocks);
+      final timeHm = p.driveTimeHm.isNotEmpty ? p.driveTimeHm : nowHm();
       return {
         'program': '콜마너',
         'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
@@ -245,74 +238,40 @@ class AutoCaptureOcrService {
       };
     }
 
-    String driveDate = WorkDateUtils.effectiveWorkDateYmd();
-    String driveTime = '';
-    String income = '';
-    String start = '';
-    String end = '';
-    String waypoint = '';
-
+    final gProg = program.isEmpty ? '미분류' : program;
+    final gem = await GeminiApiService.instance.parseCallCard(fullText: full, detectedProgram: gProg);
+    if (gem.usageExceeded || gem.fields == null) {
+      return {
+        'program': program,
+        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
+        'driveTime': nowHm(),
+        'income': '',
+        'start': '',
+        'end': '',
+        'waypoint': '',
+      };
+    }
+    final f = gem.fields!;
+    var driveDate = WorkDateUtils.effectiveWorkDateYmd();
     final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(full);
     if (dateMatch != null) {
       driveDate =
           '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
     }
-    final timeMatch = RegExp(r'(\d{1,2})[:：.](\d{1,2})').firstMatch(full);
-    if (timeMatch != null) {
-      driveTime = '${timeMatch.group(1)!.padLeft(2, '0')}:${timeMatch.group(2)!.padLeft(2, '0')}';
-    } else {
-      final now = DateTime.now();
-      driveTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    }
-
-    for (final b in blocks) {
-      final t = b.text.trim();
-      if (t.contains('경유') && waypoint.isEmpty) {
-        waypoint = t.replaceAll('경유', '').replaceAll(':', '').trim();
-      }
-      if ((t.contains('요금') || t.contains('입금')) && income.isEmpty) {
-        final n = t.replaceAll(RegExp(r'[^0-9]'), '');
-        if (n.length >= 4) income = n;
-      }
-      if (t.contains('출발지') && start.isEmpty) {
-        start = t.replaceAll('출발지', '').replaceAll(':', '').trim();
-      }
-      if (t.contains('도착지') && end.isEmpty) {
-        end = t.replaceAll('도착지', '').replaceAll(':', '').trim();
-      }
-    }
-
-    if (income.isEmpty) {
-      final allNums = RegExp(r'\d{4,6}').allMatches(full).map((m) => m.group(0)!).toList();
-      if (allNums.isNotEmpty) {
-        allNums.sort((a, b) => int.parse(b).compareTo(int.parse(a)));
-        income = allNums.first;
-      }
-    }
-
-    if (start.isEmpty || end.isEmpty) {
-      final lines = full
-          .split(RegExp(r'[\r\n]+'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i];
-        if (start.isEmpty && line == '출발지' && i + 1 < lines.length) start = lines[i + 1];
-        if (end.isEmpty && line == '도착지' && i + 1 < lines.length) end = lines[i + 1];
-      }
-    }
-
+    final driveTime = f.driveTimeHm.isEmpty
+        ? nowHm()
+        : (normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm);
     return {
-      'program': program,
+      'program': program.isEmpty ? gProg : program,
       'driveDate': driveDate,
       'driveTime': driveTime,
-      'income': income,
-      'start': start,
-      'end': end,
-      'waypoint': waypoint,
+      'income': f.grossFare > 0 ? f.grossFare.toString() : '',
+      'start': f.startLocation,
+      'end': f.endLocation,
+      'waypoint': f.waypoint,
     };
   }
+  // GEMINI_HYBRID_PARSE_END
 
   String? _detectProgram(String fullText) {
     final normalized = fullText.replaceAll(' ', '');

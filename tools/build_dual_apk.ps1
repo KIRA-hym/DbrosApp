@@ -1,6 +1,7 @@
 # 지도·개인지출(오너 전용) ON/OFF 2종 APK 빌드 스크립트
 # - owner: MAP_FEATURES_ENABLED=true (지도 + 개인지출관리)
 # - public: MAP_FEATURES_ENABLED=false (지도·개인지출관리 비활성)
+# 오너만 + _owner 파일명: .\tools\build_owner_apk.ps1
 #
 # 사용 예:
 #   .\tools\build_dual_apk.ps1                    # 릴리스 배포용: 깨끗한 워킹트리 + push 검사

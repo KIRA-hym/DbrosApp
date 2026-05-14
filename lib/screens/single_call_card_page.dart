@@ -8,8 +8,8 @@ import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/ocr_parse_log_service.dart';
+import '../services/gemini_api_service.dart';
 import '../utils/drive_time_format.dart';
-import '../utils/logi_colmanner_ocr.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
@@ -141,19 +141,31 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       'memo': '',
     };
 
-    if (rawProgram == KakaoCustomCallOcr.programCustom) {
-      await _parseKakaoCustom(blocks, logData, fullText: recognizedText.text);
-    } else if (rawProgram == KakaoCallCardOcr.programGeneral ||
-        rawProgram == KakaoCallCardOcr.programPro ||
-        rawProgram == KakaoCallCardOcr.programAlliance) {
-      await _parseKakao(blocks, logData, fullText: recognizedText.text);
-    } else if (rawProgram == "로지") {
-      await _parseLogi(blocks, logData);
-    } else if (rawProgram == "콜마너") {
-      await _parseColmanner(blocks, logData);
-    } else if (rawProgram == "티맵") {
-      await _parseTmapTripDetail(recognizedText, logData);
+    final r = await GeminiApiService.instance.parseCallCard(
+      fullText: recognizedText.text,
+      detectedProgram: rawProgram,
+    );
+    if (r.usageExceeded) {
+      _lastFailureReason = '일일 콜카드인식건수 한도가 초과되었습니다.';
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('알림'),
+            content: const Text('일일 콜카드인식건수 한도가 초과되었습니다.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인')),
+            ],
+          ),
+        );
+      }
+      return {};
     }
+    if (r.fields == null) {
+      _lastFailureReason = r.errorMessage ?? 'Gemini 파싱 실패';
+      return {};
+    }
+    _fillLogDataFromGeminiFields(logData, r.fields!, recognizedText.text, rawProgram);
 
     final int grossFare = logData['gross_fare'] as int;
     final int transportCost = logData['transport_cost'] as int;
@@ -223,71 +235,31 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     return program;
   }
 
-  Future<void> _parseKakaoCustom(List<TextBlock> blocks, Map<String, dynamic> logData, {required String fullText}) async {
-    final p = KakaoCustomCallOcr.parseScreen(blocks, fullText);
-
-    if (p.driveDateYmd != null) logData['drive_date'] = p.driveDateYmd;
-    if (p.driveTimeHm != null) logData['drive_time'] = p.driveTimeHm;
-    logData['waypoint'] = '';
-    logData['start_location'] = p.startLocation;
-    logData['end_location'] = p.endLocation;
-    if (p.grossFare != null) logData['gross_fare'] = p.grossFare;
-    if ((p.paymentMethod ?? '').isNotEmpty) {
-      final prev = (logData['memo'] ?? '').toString().trim();
-      final tag = '결제방식:${p.paymentMethod}';
-      logData['memo'] = prev.isEmpty ? tag : '$tag $prev';
-    }
-  }
-
-  Future<void> _parseKakao(List<TextBlock> blocks, Map<String, dynamic> logData, {required String fullText}) async {
-    final p = KakaoCallCardOcr.parseScreen(blocks, fullText);
-
-    if (p.driveDateYmd != null) logData['drive_date'] = p.driveDateYmd;
-    if (p.driveTimeHm != null) logData['drive_time'] = p.driveTimeHm;
-    logData['waypoint'] = p.waypoint;
-    logData['start_location'] = p.startLocation;
-    logData['end_location'] = p.endLocation;
-    if (p.grossFare != null) logData['gross_fare'] = p.grossFare;
-  }
-
-  Future<void> _parseLogi(List<TextBlock> blocks, Map<String, dynamic> logData) async {
-    final sortedBlocks = List<TextBlock>.from(blocks)
-      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sortedBlocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
-    final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
-    if (p.driveTimeHm.isNotEmpty) logData['drive_time'] = p.driveTimeHm;
-    if (p.grossFare > 0) logData['gross_fare'] = p.grossFare;
-    if (p.startLocation.isNotEmpty) logData['start_location'] = p.startLocation;
-    if (p.endLocation.isNotEmpty) logData['end_location'] = p.endLocation;
-    if (p.waypoint.isNotEmpty) logData['waypoint'] = p.waypoint;
-  }
-
-  Future<void> _parseColmanner(List<TextBlock> blocks, Map<String, dynamic> logData) async {
-    final sorted = List<TextBlock>.from(blocks)
-      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sorted.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
-    final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
-    if (p.driveTimeHm.isNotEmpty) logData['drive_time'] = p.driveTimeHm;
-    if (p.grossFare > 0) logData['gross_fare'] = p.grossFare;
-    if (p.startLocation.isNotEmpty) logData['start_location'] = p.startLocation;
-    if (p.endLocation.isNotEmpty) logData['end_location'] = p.endLocation;
-    if (p.waypoint.isNotEmpty) logData['waypoint'] = p.waypoint;
-  }
-
-  Future<void> _parseTmapTripDetail(
-    RecognizedText recognizedText,
+  void _fillLogDataFromGeminiFields(
     Map<String, dynamic> logData,
-  ) async {
-    final r = TmapTripDetailOcr.tryParse(
-      recognizedText.text,
-      blocks: recognizedText.blocks,
-    );
-    if (r == null) return;
-    if (r.driveDateYmd.isNotEmpty) logData['drive_date'] = r.driveDateYmd;
-    if (r.driveStartTimeHm.isNotEmpty) logData['drive_time'] = r.driveStartTimeHm;
-    if (r.grossFare > 0) logData['gross_fare'] = r.grossFare;
-    if (r.startAddress.isNotEmpty) logData['start_location'] = r.startAddress;
-    if (r.endAddress.isNotEmpty) logData['end_location'] = r.endAddress;
+    GeminiParsedFields f,
+    String fullText,
+    String rawProgram,
+  ) {
+    final dateM = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
+    if (dateM != null) {
+      logData['drive_date'] =
+          '${dateM.group(1)}-${dateM.group(2)!.padLeft(2, '0')}-${dateM.group(3)!.padLeft(2, '0')}';
+    }
+    logData['drive_time'] = f.driveTimeHm.isEmpty
+        ? DateFormat('HH:mm').format(DateTime.now())
+        : (normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm);
+    if (f.grossFare > 0) logData['gross_fare'] = f.grossFare;
+    logData['start_location'] = f.startLocation;
+    logData['end_location'] = f.endLocation;
+    logData['waypoint'] = f.waypoint;
+    if (rawProgram == KakaoCustomCallOcr.programCustom) {
+      if (fullText.contains('카드')) {
+        logData['memo'] = '결제방식:카드';
+      } else if (fullText.contains('현금')) {
+        logData['memo'] = '결제방식:현금';
+      }
+    }
   }
 
   int _calculateFee(String program, int grossFare) => SettingsService.deductionFeeFromGross(grossFare, program);

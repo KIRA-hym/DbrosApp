@@ -17,9 +17,9 @@ import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../services/ocr_parse_log_service.dart';
+import '../services/gemini_api_service.dart';
 import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
-import '../utils/logi_colmanner_ocr.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
@@ -169,7 +169,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       final recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
 
-      final parsed = _detectProgramAndParse(recognizedText);
+      final parsed = await _detectProgramAndParse(recognizedText);
       if (!parsed) return;
 
       final canAutoSave = _parseMoney(_incomeCon.text) > 0 &&
@@ -238,7 +238,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
     await textRecognizer.close();
     
-    _detectProgramAndParse(recognizedText);
+    await _detectProgramAndParse(recognizedText);
   }
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
@@ -260,7 +260,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       final recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
       if (!mounted) return;
-      _detectProgramAndParse(recognizedText);
+      await _detectProgramAndParse(recognizedText);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -306,7 +306,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return null;
   }
 
-  bool _detectProgramAndParse(RecognizedText recognizedText) {
+  Future<bool> _detectProgramAndParse(RecognizedText recognizedText) async {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     _useFormDriveTimeOnSave = false;
@@ -332,21 +332,70 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _selectedProgram = _coerceProgramForSelection(detected);
     });
 
-    _timeCon.clear(); _incomeCon.clear(); _transportCon.clear();
-    _startLocCon.clear(); _waypointCon.clear(); _endLocCon.clear(); _memoCon.clear();
+    _timeCon.clear();
+    _incomeCon.clear();
+    _transportCon.clear();
+    _startLocCon.clear();
+    _waypointCon.clear();
+    _endLocCon.clear();
+    _memoCon.clear();
 
-    if (detected == KakaoCustomCallOcr.programCustom) {
-      _parseKakaoCustom(blocks, fullText: recognizedText.text);
-    } else if (detected == KakaoCallCardOcr.programGeneral ||
-        detected == KakaoCallCardOcr.programPro ||
-        detected == KakaoCallCardOcr.programAlliance) {
-      _parseKakao(blocks, fullText: recognizedText.text);
-    } else if (detected == "로지") {
-      _parseLogi(blocks);
-    } else if (detected == "콜마너") {
-      _parseColmanner(blocks);
-    } else if (detected == "티맵") {
-      _parseTmapTripDetail(recognizedText);
+    if (!mounted) return false;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PopScope(
+        canPop: false,
+        child: Center(
+          child: Card(
+            color: const Color(0xFF2A2D35),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: const [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('콜카드 분석 중…', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final r = await GeminiApiService.instance.parseCallCard(
+        fullText: recognizedText.text,
+        detectedProgram: detected,
+      );
+      if (r.usageExceeded) {
+        if (mounted) {
+          await showDialog<void>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('알림'),
+              content: const Text('일일 콜카드인식건수 한도가 초과되었습니다.'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인')),
+              ],
+            ),
+          );
+        }
+        return false;
+      }
+      if (r.fields == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(r.errorMessage ?? '콜카드 분석에 실패했습니다.')),
+          );
+        }
+        return false;
+      }
+      _applyGeminiFields(r.fields!, fullText: recognizedText.text, detected: detected);
+    } finally {
+      if (mounted) Navigator.of(context).pop();
     }
 
     _captureGrossAndApplyDeductions();
@@ -369,132 +418,46 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return true;
   }
 
+  void _applyGeminiFields(
+    GeminiParsedFields f, {
+    required String fullText,
+    required String detected,
+  }) {
+    setState(() {
+      final dateM = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
+      if (dateM != null) {
+        _dateCon.text =
+            '${dateM.group(1)}-${dateM.group(2)!.padLeft(2, '0')}-${dateM.group(3)!.padLeft(2, '0')}';
+      }
+      if (f.driveTimeHm.isNotEmpty) {
+        _timeCon.text = normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm;
+        _useFormDriveTimeOnSave = true;
+      } else {
+        final now = DateTime.now();
+        _timeCon.text =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      }
+      if (f.grossFare > 0) {
+        _incomeCon.text = NumberFormat('#,###').format(f.grossFare);
+      }
+      _startLocCon.text = f.startLocation;
+      _endLocCon.text = f.endLocation;
+      _waypointCon.text = f.waypoint;
+      if (detected == KakaoCustomCallOcr.programCustom && _memoCon.text.trim().isEmpty) {
+        if (fullText.contains('카드')) {
+          _memoCon.text = '결제방식:카드';
+        } else if (fullText.contains('현금')) {
+          _memoCon.text = '결제방식:현금';
+        }
+      }
+    });
+  }
+
   String? _paymentMethodFromMemo(String memo) {
     final m = RegExp(r'결제방식:([^\n]+)').firstMatch(memo);
     if (m == null) return null;
     final value = m.group(1)?.trim();
     return (value == null || value.isEmpty) ? null : value;
-  }
-
-  void _parseKakaoCustom(List<TextBlock> blocks, {required String fullText}) {
-    final p = KakaoCustomCallOcr.parseScreen(blocks, fullText);
-    final parsedDate = p.driveDateYmd;
-    final parsedTime = p.driveTimeHm;
-    String? parsedIncome;
-    if (p.grossFare != null) {
-      parsedIncome = NumberFormat('#,###').format(p.grossFare!);
-    }
-
-    setState(() {
-      if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null && parsedTime.isNotEmpty) {
-        _timeCon.text = parsedTime;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
-      _waypointCon.text = '';
-      _startLocCon.text = p.startLocation;
-      _endLocCon.text = p.endLocation;
-      if (parsedIncome != null) _incomeCon.text = parsedIncome;
-      if ((p.paymentMethod ?? '').isNotEmpty && _memoCon.text.trim().isEmpty) {
-        _memoCon.text = '결제방식:${p.paymentMethod}';
-      }
-    });
-  }
-
-  void _parseKakao(List<TextBlock> blocks, {required String fullText}) {
-    final p = KakaoCallCardOcr.parseScreen(blocks, fullText);
-    final parsedDate = p.driveDateYmd;
-    final parsedTime = p.driveTimeHm;
-    final parsedWaypoint = p.waypoint;
-    final startLocBuffer = p.startLocation;
-    final endLocBuffer = p.endLocation;
-    String? parsedIncome;
-    if (p.grossFare != null) {
-      parsedIncome = NumberFormat('#,###').format(p.grossFare!);
-    }
-
-    setState(() {
-      if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null && parsedTime.isNotEmpty) {
-        _timeCon.text = parsedTime;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
-      _waypointCon.text = parsedWaypoint;
-      _startLocCon.text = startLocBuffer;
-      _endLocCon.text = endLocBuffer;
-      if (parsedIncome != null) _incomeCon.text = parsedIncome;
-    });
-  }
-
-  void _parseLogi(List<TextBlock> blocks) {
-    final sortedBlocks = List<TextBlock>.from(blocks)
-      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sortedBlocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
-    final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
-
-    setState(() {
-      if (p.driveTimeHm.isNotEmpty) {
-        _timeCon.text = p.driveTimeHm;
-        _useFormDriveTimeOnSave = true;
-      }
-      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
-      if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
-      if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
-      if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
-    });
-  }
-
-  void _parseColmanner(List<TextBlock> blocks) {
-    final sorted = List<TextBlock>.from(blocks)
-      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sorted.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
-    final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
-
-    setState(() {
-      if (p.driveTimeHm.isNotEmpty) {
-        _timeCon.text = p.driveTimeHm;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
-      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
-      if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
-      if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
-      if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
-    });
-  }
-
-  void _parseTmapTripDetail(RecognizedText recognizedText) {
-    final r = TmapTripDetailOcr.tryParse(
-      recognizedText.text,
-      blocks: recognizedText.blocks,
-    );
-    if (r == null) return;
-    setState(() {
-      if (r.driveDateYmd.isNotEmpty) {
-        _dateCon.text = r.driveDateYmd;
-      }
-      if (r.driveStartTimeHm.isNotEmpty) {
-        _timeCon.text = r.driveStartTimeHm;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text =
-            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
-      if (r.grossFare > 0) {
-        _incomeCon.text = NumberFormat('#,###').format(r.grossFare);
-      }
-      if (r.startAddress.isNotEmpty) _startLocCon.text = r.startAddress;
-      if (r.endAddress.isNotEmpty) _endLocCon.text = r.endAddress;
-    });
   }
 
   Future<void> _showWorkDateQuickPicker() async {
