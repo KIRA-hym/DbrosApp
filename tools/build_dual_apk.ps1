@@ -1,6 +1,14 @@
 # 지도·개인지출(오너 전용) ON/OFF 2종 APK 빌드 스크립트
 # - owner: MAP_FEATURES_ENABLED=true (지도 + 개인지출관리)
 # - public: MAP_FEATURES_ENABLED=false (지도·개인지출관리 비활성)
+#
+# 사용 예:
+#   .\tools\build_dual_apk.ps1                    # 릴리스 배포용: 깨끗한 워킹트리 + push 검사
+#   .\tools\build_dual_apk.ps1 -SkipGitCheck      # 단말기 로컬 설치 테스트만 할 때
+param(
+    [switch] $SkipGitCheck
+)
+
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -37,7 +45,11 @@ function Assert-GitCommittedAndPushedForReleaseBuild {
     }
 }
 
-Assert-GitCommittedAndPushedForReleaseBuild
+if (-not $SkipGitCheck) {
+    Assert-GitCommittedAndPushedForReleaseBuild
+} else {
+    Write-Host ">>> SkipGitCheck: skip commit/push gate (local device install only)" -ForegroundColor Yellow
+}
 
 function Get-VersionSuffix {
     $pubspec = Get-Content "$root\pubspec.yaml" -Raw

@@ -470,7 +470,7 @@ T 전화 배정 완료
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.grossFare, 40000);
       expect(parsed.startLocation, '금촌동 시청로240 경기 파주시 금촌동 425-0 시청로 240');
-      expect(parsed.endLocation, '서울 노원구 공릉동)공릉동(동일로184길63-14');
+      expect(parsed.endLocation, '서울 노원구 공릉동 공릉동 동일로184길63-14');
     });
 
     test('colmanner with waypoint label', () {
@@ -489,7 +489,7 @@ T 전화 배정 완료
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 55000);
-      expect(parsed.startLocation, '서울 노원구 공릉동 동일로 1000{공릉동 617-3} 즉후)경유)카드/공릉동동일로1000/ 문정동639-5번지');
+      expect(parsed.startLocation, '서울 노원구 공릉동 동일로 1000 공릉동 617-3 즉후 경유 카드 공릉동동일로1000 문정동639-5번지');
       expect(parsed.endLocation, '경기 용인시수지구 상현동 상현마을현대성우2차아파트 상현마을현대성우5차');
       expect(parsed.waypoint, '문정동 문정동 639-5');
     });
@@ -513,8 +513,8 @@ T 전화 배정 완료
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, 'ⓓ법/\$청라동마당호프 2/2 인천 서구 연희동 763-4 마당');
-      expect(parsed.endLocation, '인천 부평구 삼산동)삼산동삼산타운7단지아파트');
+      expect(parsed.startLocation, r'ⓓ법 $청라동마당호프 2 2 인천 서구 연희동 763-4 마당');
+      expect(parsed.endLocation, '인천 부평구 삼산동 삼산동삼산타운7단지아파트');
     });
 
     test('logi destination ignores customer id and keeps address lines', () {
@@ -615,7 +615,7 @@ T 전화 배정 완료
       );
       expect(
         parsed.endLocation,
-        '경기 부천시오정구 여월동 7-50 여월동경기부천시오정구여월동7-50 법]부천여월.여월동7-50',
+        '경기 부천시오정구 여월동 7-50 여월동경기부천시오정구여월동7-50 법 부천여월.여월동7-50',
       );
     });
 
@@ -635,11 +635,11 @@ T 전화 배정 완료
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(
         parsed.startLocation,
-        '경기 수원시장안구 영화동 킥보드x)즉후)카드/영화동 392-4예전각설렁탕',
+        '경기 수원시장안구 영화동 즉후 카드 영화동 392-4예전각설렁탕',
       );
       expect(
         parsed.endLocation,
-        '경기 광명시 소하동 1289 소하동휴먼시아304동 법]광명소하.휴먼시아304동',
+        '경기 광명시 소하동 1289 소하동휴먼시아304동 법 광명소하.휴먼시아304동',
       );
     });
 
@@ -660,7 +660,7 @@ T 전화 배정 완료
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 50000);
       expect(parsed.startLocation, '서울 강서구 마곡동 LG사이언스파크 ISC ⊙스타 마곡.LG사이언스파크ISC');
-      expect(parsed.endLocation, '경기 용인시기흥구 중동 성산마을신영지웰아파트 3005동 법]용인중동.동백신영지웰3005동');
+      expect(parsed.endLocation, '경기 용인시기흥구 중동 성산마을신영지웰아파트 3005동 법 용인중동.동백신영지웰3005동');
     });
 
     test('colmanner cash call keeps fare from 요금 line', () {
@@ -703,8 +703,8 @@ T 전화 배정 완료
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 영등포구 여의도동 CCMM빌딩 🌟천사 정장)비흡연)여의도.CCMM 지하5층');
-      expect(parsed.endLocation, '경기 용인시수지구 신봉동 신봉마을LG자이1차아파트 법]용인신봉.신봉마을자이1차');
+      expect(parsed.startLocation, '서울 영등포구 여의도동 CCMM빌딩 🌟천사 정장 비흡연 여의도.CCMM 지하5층');
+      expect(parsed.endLocation, '경기 용인시수지구 신봉동 신봉마을LG자이1차아파트 법 용인신봉.신봉마을자이1차');
     });
 
     test('colmanner destination ignores customer meta and keeps address lines', () {
@@ -1001,6 +1001,43 @@ R 고객전화
       expect(parsed.endLocation, contains('수원'));
       expect(parsed.endLocation, isNot(contains('40km')));
       expect(parsed.grossFare, 45000);
+    });
+
+    test('colmanner 메트릭스전자담배: no 출발지 label, keep 원미구 head and full 여월 destination', () {
+      const rawText = '''
+지사명 메트릭스전자담배(테스트)
+고객명 ***
+경기 부천시원미구 중동 즉후)후불)메트릭스전자담배입구
+도착지 경기 부천시오정구 여월동 여월동 7-50
+출도 경로거리 : 20.5km
+요금 13,000원 (예상 수익금:10,276원)
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, contains('부천시원미구'));
+      expect(parsed.startLocation, contains('후불'));
+      expect(parsed.startLocation.startsWith('후불'), isFalse);
+      expect(parsed.endLocation, contains('오정구'));
+      expect(parsed.endLocation, contains('여월'));
+      expect(parsed.endLocation.endsWith('/0'), isFalse);
+      expect(parsed.grossFare, 13000);
+    });
+
+    test('colmanner 금정동: no 도착지 label, second 경기+군포시 splits after 킥보드 noise', () {
+      const rawText = '''
+지사명 테스트
+고객명 ***
+출발지 경기 의왕시 장항동 710-1 킥보드x)카/즉후)경기 군포시 금정동 710-2
+출도 경로거리 : 12km
+요금 15,000원 (예상 수익금:11,800원)
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, contains('의왕시'));
+      expect(parsed.startLocation, contains('장항동'));
+      expect(parsed.startLocation, isNot(contains('군포시')));
+      expect(parsed.startLocation, isNot(contains('금정동')));
+      expect(parsed.endLocation, contains('군포시'));
+      expect(parsed.endLocation, contains('금정동'));
+      expect(parsed.endLocation, contains('710-2'));
     });
   });
 

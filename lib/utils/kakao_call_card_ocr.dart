@@ -171,52 +171,27 @@ class KakaoCallCardOcr {
     return null;
   }
 
-  /// OCR 블록 기준: 화면 **아래쪽**(큰 `top`) `수익` 줄 우선, 같은 줄·다음 줄 숫자 인식.
+  /// 현금 요금: 주소 블록(상단) 숫자를 피하기 위해 **하단**(`top` 큰 구역) 블록만 본다.
   static int? parseKakaoCashGrossFareFromBlocks(List<TextBlock> sorted) {
     final byDescTop = List<TextBlock>.from(sorted)
       ..sort((a, b) => b.boundingBox.top.compareTo(a.boundingBox.top));
 
     for (final b in byDescTop) {
+      if (b.boundingBox.top < 700) continue;
+
       final text = b.text.trim();
-      if (!text.contains('수익')) continue;
+      if (!text.contains('수익') && !text.contains('P') && !text.contains('원')) continue;
 
-      final sumPatterns = <RegExp>[
-        RegExp(r'수익\s*([\d,]+)\s*P?\s*\+\s*지원금\s*([\d,]+)\s*P?', caseSensitive: false),
-        RegExp(r'수익\s*([\d,]+)\s*\+\s*지원금\s*([\d,]+)', caseSensitive: false),
-      ];
-      for (final re in sumPatterns) {
-        final m = re.firstMatch(text);
-        if (m != null) {
-          final a = _parseCommaInt(m.group(1)!);
-          final bAmt = _parseCommaInt(m.group(2)!);
-          if (a != null && bAmt != null && a + bAmt > 0) return a + bAmt;
-        }
+      final sumMatch = RegExp(r'수익\s*([\d,]+)\s*P?\s*\+\s*지원금\s*([\d,]+)').firstMatch(text);
+      if (sumMatch != null) {
+        return _toInt(sumMatch.group(1)!) + _toInt(sumMatch.group(2)!);
       }
-      final withP = RegExp(r'수익\s*([\d,]+)\s*P', caseSensitive: false).firstMatch(text);
+      final withP = RegExp(r'([\d,]+)\s*(?:P|원)').firstMatch(text);
       if (withP != null) {
-        final v = _parseCommaInt(withP.group(1)!);
-        if (v != null && v > 0) return v;
-      }
-      final loose = RegExp(r'수익\s*([\d,]+)(?:\s|$|원|P)', caseSensitive: false).firstMatch(text);
-      if (loose != null) {
-        final v = _parseCommaInt(loose.group(1)!);
-        if (v != null && v > 0) return v;
+        final v = _toInt(withP.group(1)!);
+        if (v > 0) return v;
       }
     }
-
-    for (var i = 0; i < sorted.length; i++) {
-      final t = sorted[i].text.trim();
-      if (!t.contains('수익')) continue;
-      if (RegExp(r'수익\s*[\d,]').hasMatch(t)) continue;
-      if (i + 1 >= sorted.length) continue;
-      final next = sorted[i + 1].text.trim();
-      final m = RegExp(r'^([\d,]+)\s*P?$').firstMatch(next);
-      if (m != null) {
-        final v = _parseCommaInt(m.group(1)!);
-        if (v != null && v > 0) return v;
-      }
-    }
-
     return null;
   }
 
@@ -342,6 +317,69 @@ class KakaoCallCardOcr {
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
+  }
+
+  static int _toInt(String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) return 0;
+    return int.tryParse(digits) ?? 0;
+  }
+
+  /// 카카오T 통합 파이프라인 (마스터 구현).
+  ///
+  /// 요금은 마스터 정규식 그대로. 주소는 동일 화면에서 `확정`만으로는 잘리지 않도록
+  /// [수익·실제수익·순수 요금 줄] 이전 구간만 잘라 `_parseAddressesFromLines`로 출발/도착을
+  /// 복원한 뒤 [_cleanAddr]로 정제한다.
+  static ({String start, String end, int fare, String waypoint}) _parseKakaoT(List<String> lines, String fullText) {
+    var fare = 0;
+
+    final cashMatch = RegExp(r'수익\s*([\d,]+)\s*P\s*\+\s*지원금\s*([\d,]+)P').firstMatch(fullText);
+    if (cashMatch != null) {
+      fare = _toInt(cashMatch.group(1)!) + _toInt(cashMatch.group(2)!);
+    } else {
+      final pMatch = RegExp(r'([\d,]+)\s*(?:P|원)').firstMatch(fullText);
+      if (pMatch != null) fare = _toInt(pMatch.group(1)!);
+    }
+
+    var endIdx = lines.length;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.contains('수익') || line.contains('실제수익')) {
+        endIdx = i;
+        break;
+      }
+      if (_looksLikeFareAmountLine(line)) {
+        endIdx = i;
+        break;
+      }
+    }
+    final slice = lines.sublist(0, endIdx);
+    final waypoint = _parseWaypointFromLines(slice);
+    final fromLines = _parseAddressesFromLines(slice);
+
+    return (
+      start: _cleanAddr(fromLines.$1),
+      end: _cleanAddr(fromLines.$2),
+      fare: fare,
+      waypoint: waypoint,
+    );
+  }
+
+  /// 공통 주소 정제 — 카카오T 아이콘·Q 노이즈·하단 UI.
+  static String _cleanAddr(String s) {
+    var res = s.replaceAll(RegExp(r'(?:♨청방♨|🌟천사|⊙스타|⊙|🌟|♨|🤍|⊙스타마곡|Q)'), '').trim();
+
+    res = res.replaceAllMapped(RegExp(r'([가-힣\s])나(\d)'), (m) => '${m.group(1)}4${m.group(2)}');
+
+    res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지|출발|도착|추천가)\s*'), '').trim();
+    if (res.contains('상세:')) {
+      res = res.split('상세:').last.trim();
+    }
+
+    return res
+        .replaceAll(RegExp(r'(?:출\s*도\s*경로거리|지도|서명|길안내|배정취소|맞춤콜|약\s*\d+\s*분\s*운행).*$'), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   static int _findPaymentLineIndex(List<String> lines) {
@@ -584,6 +622,9 @@ class KakaoCallCardOcr {
     final sorted = List<TextBlock>.from(blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
+    final lines = _normalizedLines(fullText);
+    final useKakaoT = detectKakaoProgram(fullText) != null;
+
     for (var i = 0; i < sorted.length; i++) {
       final b = sorted[i];
       final y = b.boundingBox.top;
@@ -607,42 +648,65 @@ class KakaoCallCardOcr {
         }
       }
 
-      if (y > 500 && y < 900 && !_excludeFromStartLocation(text)) {
-        startBuf.write('$text ');
-      }
-      if (y > 900 && y < 1400 && !_excludeFromEndLocation(text)) {
-        endBuf.write('$text ');
+      if (!useKakaoT) {
+        if (y > 500 && y < 900 && !_excludeFromStartLocation(text)) {
+          startBuf.write('$text ');
+        }
+        if (y > 900 && y < 1400 && !_excludeFromEndLocation(text)) {
+          endBuf.write('$text ');
+        }
       }
     }
 
-    final lines = _normalizedLines(fullText);
     final driveMeta = _parseDriveMetaFromLines(lines);
     if (driveMeta.$1 != null) parsedDate = driveMeta.$1;
     if (driveMeta.$2 != null) parsedTime = driveMeta.$2;
 
-    parsedWaypoint = _parseWaypointFromLines(lines);
-    if (parsedWaypoint.isEmpty) {
-      parsedWaypoint = _mergeWaypointFromBlocks(sorted);
-    }
-
-    final fromLinesAddr = _parseAddressesFromLines(lines);
-    if (fromLinesAddr.$1.isNotEmpty) {
-      startBuf.clear();
-      startBuf.write(_sanitizeKakaoAddress(fromLinesAddr.$1));
-    }
-    if (fromLinesAddr.$2.isNotEmpty) {
-      endBuf.clear();
-      endBuf.write(_sanitizeKakaoAddress(_trimTrailingFareSuffix(fromLinesAddr.$2)));
+    if (useKakaoT) {
+      final kt = _parseKakaoT(lines, fullText);
+      parsedWaypoint = kt.waypoint;
+      if (parsedWaypoint.isEmpty) {
+        parsedWaypoint = _mergeWaypointFromBlocks(sorted);
+      }
+      startBuf
+        ..clear()
+        ..write(_sanitizeKakaoAddress(kt.start));
+      endBuf
+        ..clear()
+        ..write(_sanitizeKakaoAddress(_trimTrailingFareSuffix(kt.end)));
+      parsedIncome = kt.fare > 0 ? kt.fare : null;
+      if (parsedIncome == null) {
+        if (looksLikeKakaoCashPayment(fullText)) {
+          parsedIncome = parseKakaoCashGrossFareFromBlocks(sorted) ?? parseKakaoCashGrossFare(fullText);
+        } else {
+          parsedIncome = _parseCardFareFromLines(lines);
+        }
+      }
     } else {
-      final trimmedEnd = _sanitizeKakaoAddress(_trimTrailingFareSuffix(endBuf.toString().trim()));
-      endBuf.clear();
-      endBuf.write(trimmedEnd);
-    }
+      parsedWaypoint = _parseWaypointFromLines(lines);
+      if (parsedWaypoint.isEmpty) {
+        parsedWaypoint = _mergeWaypointFromBlocks(sorted);
+      }
 
-    if (looksLikeKakaoCashPayment(fullText)) {
-      parsedIncome = parseKakaoCashGrossFareFromBlocks(sorted) ?? parseKakaoCashGrossFare(fullText);
-    } else {
-      parsedIncome = _parseCardFareFromLines(lines);
+      final fromLinesAddr = _parseAddressesFromLines(lines);
+      if (fromLinesAddr.$1.isNotEmpty) {
+        startBuf.clear();
+        startBuf.write(_sanitizeKakaoAddress(fromLinesAddr.$1));
+      }
+      if (fromLinesAddr.$2.isNotEmpty) {
+        endBuf.clear();
+        endBuf.write(_sanitizeKakaoAddress(_trimTrailingFareSuffix(fromLinesAddr.$2)));
+      } else {
+        final trimmedEnd = _sanitizeKakaoAddress(_trimTrailingFareSuffix(endBuf.toString().trim()));
+        endBuf.clear();
+        endBuf.write(trimmedEnd);
+      }
+
+      if (looksLikeKakaoCashPayment(fullText)) {
+        parsedIncome = parseKakaoCashGrossFareFromBlocks(sorted) ?? parseKakaoCashGrossFare(fullText);
+      } else {
+        parsedIncome = _parseCardFareFromLines(lines);
+      }
     }
 
     if (parsedIncome == null) {
