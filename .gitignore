@@ -48,6 +48,12 @@ app.*.map.json
 # Google Maps API 키 (로컬만 보관)
 /android/secret.properties
 
+# Gemini 등 로컬 키 (dart-define으로 주입; 이 파일들은 커밋하지 않음)
+.env
+.env.local
+# Flutter --dart-define-from-file (예시는 defines.local.example.json 만 커밋)
+defines.local.json
+
 # 로컬 배포/백업 바이너리 (용량·민감도)
 *.apk
 *.zip

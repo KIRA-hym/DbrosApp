@@ -67,11 +67,8 @@ flutter {
     source = "../.."
 }
 
-// --- [여기에 추가됨] ML Kit 한국어 OCR 라이브러리 엔진 ---
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // 이 한 줄이 있어야 한국어 인식 도중 강제 종료되지 않습니다.
-    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
 }
 
 // release APK 복사: 날짜 + pubspec 버전 (bump 는 tools/build_release_apk.ps1 로 선행)

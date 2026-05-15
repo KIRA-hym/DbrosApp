@@ -1,31 +1,16 @@
 // GEMINI_HYBRID_PARSE_BEGIN
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'dart:io';
 
 import 'kakao_call_card_ocr.dart';
 
-/// 카카오 **맞춤콜** 배차 화면 — 프로그램 판별 + Gemini 파싱.
+/// 카카오 맞춤콜 — Gemini 멀티모달 파싱 (결제 힌트는 이미지 단독 추론 생략).
 class KakaoCustomCallOcr {
   KakaoCustomCallOcr._();
 
   static const String programCustom = '카카오(맞춤)';
 
-  static String _compact(String s) => s.replaceAll(RegExp(r'\s+'), '');
-
-  static bool isCustomCallScreen(String fullText) => _compact(fullText).contains('맞춤콜');
-
-  static Future<KakaoScreenParsed> parseScreen(List<TextBlock> blocks, String fullText) async {
-    String? pay;
-    if (fullText.contains('카드')) {
-      pay = '카드';
-    } else if (fullText.contains('현금')) {
-      pay = '현금';
-    }
-    return KakaoCallCardOcr.parseScreen(
-      blocks,
-      fullText,
-      programCustom,
-      paymentMethodHint: pay,
-    );
+  static Future<KakaoScreenParsed> parseScreen(File imageFile) async {
+    return KakaoCallCardOcr.parseScreen(imageFile);
   }
 }
 // GEMINI_HYBRID_PARSE_END

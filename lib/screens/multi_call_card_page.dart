@@ -1,8 +1,9 @@
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
 import '../main_navigation.dart';
 import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
@@ -11,7 +12,6 @@ import '../services/ocr_parse_log_service.dart';
 import '../services/gemini_api_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/work_date_utils.dart';
-import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
@@ -113,24 +113,19 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Future<void> _processAllImages() async {
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-    
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
         final File imageFile = _selectedImages[i];
-        
-        final inputImage = InputImage.fromFilePath(imageFile.path);
-        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
 
-        final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, imageFile);
-        
+        final Map<String, dynamic> logData = await _parseImageToLog(imageFile);
+
         if (logData.isNotEmpty) {
           setState(() {
             _parsedLogs.add(logData);
           });
         } else {
           _programUnrecognizedCount++;
-          _failedOcrTexts.add(recognizedText.text);
+          _failedOcrTexts.add(p.basename(imageFile.path));
         }
       }
     } catch (e) {
@@ -139,8 +134,6 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("이미지 처리 중 오류: $e")),
       );
-    } finally {
-      await textRecognizer.close();
     }
 
     if (mounted) Navigator.pop(context);
@@ -163,15 +156,38 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     }
   }
 
-  Future<Map<String, dynamic>> _parseImageToLog(RecognizedText recognizedText, File imageFile) async {
-    List<TextBlock> blocks = List.from(recognizedText.blocks);
-    blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-
-    final rawProgram = _detectProgram(blocks, recognizedText.text);
-    if (rawProgram == null) {
+  Future<Map<String, dynamic>> _parseImageToLog(File imageFile) async {
+    final r = await GeminiApiService.instance.parseCallCardImage(imageFile);
+    if (r.usageExceeded) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('알림'),
+            content: const Text('일일 콜카드인식건수 한도가 초과되었습니다.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인')),
+            ],
+          ),
+        );
+      }
+      return {};
+    }
+    if (r.fields == null) {
       OcrParseLogService.record(
         source: 'multi_call_card',
-        rawText: recognizedText.text,
+        rawText: '(multimodal)',
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
+      return {};
+    }
+    final f = r.fields!;
+    final rawProgram = f.program.trim();
+    if (rawProgram.isEmpty) {
+      OcrParseLogService.record(
+        source: 'multi_call_card',
+        rawText: '(multimodal)',
         parsedData: OcrParseLogService.parsedDataFrom(),
         recognized: false,
       );
@@ -192,29 +208,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       'memo': '',
     };
 
-    final r = await GeminiApiService.instance.parseCallCard(
-      fullText: recognizedText.text,
-      detectedProgram: rawProgram,
-    );
-    if (r.usageExceeded) {
-      if (mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('알림'),
-            content: const Text('일일 콜카드인식건수 한도가 초과되었습니다.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('확인')),
-            ],
-          ),
-        );
-      }
-      return {};
-    }
-    if (r.fields == null) {
-      return {};
-    }
-    _fillLogDataFromGeminiFields(logData, r.fields!, recognizedText.text, rawProgram);
+    _fillLogDataFromGeminiFields(logData, f, detectedProgram);
 
     final int grossFare = logData['gross_fare'] as int;
     final int transportCost = logData['transport_cost'] as int;
@@ -227,7 +221,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     final ocrLogId = await OcrParseLogService.record(
       source: 'multi_call_card',
       program: detectedProgram,
-      rawText: recognizedText.text,
+      rawText: '(multimodal)',
       parsedData: OcrParseLogService.parsedDataFromLogData(logData),
     );
     if (ocrLogId != null) {
@@ -235,42 +229,6 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     }
 
     return logData;
-  }
-
-  String? _detectProgram(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final block in blocks) {
-      if (block.text.contains("갱신")) return "로지";
-      if (block.text.contains("출도")) return "콜마너";
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return "로지";
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return "콜마너";
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-    }
-    for (final block in blocks) {
-      if (block.text.contains("고객과 통화")) {
-        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-      }
-    }
-    return null;
   }
 
   String _normalizeProgramForSave(String program) {
@@ -287,14 +245,8 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   void _fillLogDataFromGeminiFields(
     Map<String, dynamic> logData,
     GeminiParsedFields f,
-    String fullText,
-    String rawProgram,
+    String detectedProgram,
   ) {
-    final dateM = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
-    if (dateM != null) {
-      logData['drive_date'] =
-          '${dateM.group(1)}-${dateM.group(2)!.padLeft(2, '0')}-${dateM.group(3)!.padLeft(2, '0')}';
-    }
     logData['drive_time'] = f.driveTimeHm.isEmpty
         ? DateFormat('HH:mm').format(DateTime.now())
         : (normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm);
@@ -302,12 +254,8 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     logData['start_location'] = f.startLocation;
     logData['end_location'] = f.endLocation;
     logData['waypoint'] = f.waypoint;
-    if (rawProgram == KakaoCustomCallOcr.programCustom) {
-      if (fullText.contains('카드')) {
-        logData['memo'] = '결제방식:카드';
-      } else if (fullText.contains('현금')) {
-        logData['memo'] = '결제방식:현금';
-      }
+    if (detectedProgram == KakaoCustomCallOcr.programCustom) {
+      logData['memo'] = '';
     }
   }
 

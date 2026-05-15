@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import '../main_navigation.dart';
 import '../services/db_helper.dart';
@@ -11,7 +10,6 @@ import '../services/ocr_parse_log_service.dart';
 import '../services/gemini_api_service.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/work_date_utils.dart';
-import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
@@ -34,7 +32,6 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _lastFailureReason;
-  String _lastOcrFullText = '';
 
   late DateTime _driveDay;
 
@@ -80,13 +77,8 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     setState(() => _isProcessing = true);
 
     try {
-      final inputImage = InputImage.fromFilePath(_selectedImage!.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
+      final Map<String, dynamic> logData = await _parseImageToLog(_selectedImage!);
 
-      final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, _selectedImage!);
-      
       if (logData.isNotEmpty) {
         await _saveLogData(logData);
       } else {
@@ -95,7 +87,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
           context,
           message:
               "등록에 실패했습니다. 사유: ${_lastFailureReason ?? "콜카드 정보를 파싱할 수 없습니다."}",
-          fullText: _lastOcrFullText,
+          fullText: '',
         );
       }
     } catch (e) {
@@ -108,43 +100,8 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     }
   }
 
-  Future<Map<String, dynamic>> _parseImageToLog(RecognizedText recognizedText, File imageFile) async {
-    List<TextBlock> blocks = List.from(recognizedText.blocks);
-    blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-
-    final rawProgram = _detectProgram(blocks, recognizedText.text);
-    if (rawProgram == null) {
-      _lastFailureReason = "프로그램 인식불가";
-      _lastOcrFullText = recognizedText.text;
-      OcrParseLogService.record(
-        source: 'single_call_card',
-        rawText: recognizedText.text,
-        parsedData: OcrParseLogService.parsedDataFrom(),
-        recognized: false,
-      );
-      return {};
-    }
-    _lastFailureReason = null;
-    _lastOcrFullText = '';
-    final detectedProgram = _normalizeProgramForSave(rawProgram);
-
-    final Map<String, dynamic> logData = {
-      'program': detectedProgram,
-      'image_path': imageFile.path,
-      'drive_date': _driveDateStr(),
-      'drive_time': '',
-      'gross_fare': 0,
-      'transport_cost': 0,
-      'start_location': '',
-      'waypoint': '',
-      'end_location': '',
-      'memo': '',
-    };
-
-    final r = await GeminiApiService.instance.parseCallCard(
-      fullText: recognizedText.text,
-      detectedProgram: rawProgram,
-    );
+  Future<Map<String, dynamic>> _parseImageToLog(File imageFile) async {
+    final r = await GeminiApiService.instance.parseCallCardImage(imageFile);
     if (r.usageExceeded) {
       _lastFailureReason = '일일 콜카드인식건수 한도가 초과되었습니다.';
       if (mounted) {
@@ -163,9 +120,43 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     }
     if (r.fields == null) {
       _lastFailureReason = r.errorMessage ?? 'Gemini 파싱 실패';
+      OcrParseLogService.record(
+        source: 'single_call_card',
+        rawText: '(multimodal)',
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
       return {};
     }
-    _fillLogDataFromGeminiFields(logData, r.fields!, recognizedText.text, rawProgram);
+    final f = r.fields!;
+    final rawProgram = f.program.trim();
+    if (rawProgram.isEmpty) {
+      _lastFailureReason = '프로그램 인식불가';
+      OcrParseLogService.record(
+        source: 'single_call_card',
+        rawText: '(multimodal)',
+        parsedData: OcrParseLogService.parsedDataFrom(),
+        recognized: false,
+      );
+      return {};
+    }
+    final detectedProgram = _normalizeProgramForSave(rawProgram);
+    _lastFailureReason = null;
+
+    final Map<String, dynamic> logData = {
+      'program': detectedProgram,
+      'image_path': imageFile.path,
+      'drive_date': _driveDateStr(),
+      'drive_time': '',
+      'gross_fare': 0,
+      'transport_cost': 0,
+      'start_location': '',
+      'waypoint': '',
+      'end_location': '',
+      'memo': '',
+    };
+
+    _fillLogDataFromGeminiFields(logData, f, detectedProgram);
 
     final int grossFare = logData['gross_fare'] as int;
     final int transportCost = logData['transport_cost'] as int;
@@ -178,7 +169,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     final ocrLogId = await OcrParseLogService.record(
       source: 'single_call_card',
       program: detectedProgram,
-      rawText: recognizedText.text,
+      rawText: '(multimodal)',
       parsedData: OcrParseLogService.parsedDataFromLogData(logData),
     );
     if (ocrLogId != null) {
@@ -186,42 +177,6 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     }
 
     return logData;
-  }
-
-  String? _detectProgram(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final block in blocks) {
-      if (block.text.contains("갱신")) return "로지";
-      if (block.text.contains("출도")) return "콜마너";
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return "로지";
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return "콜마너";
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-    }
-    for (final block in blocks) {
-      if (block.text.contains("고객과 통화")) {
-        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-      }
-    }
-    return null;
   }
 
   String _normalizeProgramForSave(String program) {
@@ -238,14 +193,8 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   void _fillLogDataFromGeminiFields(
     Map<String, dynamic> logData,
     GeminiParsedFields f,
-    String fullText,
-    String rawProgram,
+    String detectedProgram,
   ) {
-    final dateM = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
-    if (dateM != null) {
-      logData['drive_date'] =
-          '${dateM.group(1)}-${dateM.group(2)!.padLeft(2, '0')}-${dateM.group(3)!.padLeft(2, '0')}';
-    }
     logData['drive_time'] = f.driveTimeHm.isEmpty
         ? DateFormat('HH:mm').format(DateTime.now())
         : (normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm);
@@ -253,12 +202,8 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     logData['start_location'] = f.startLocation;
     logData['end_location'] = f.endLocation;
     logData['waypoint'] = f.waypoint;
-    if (rawProgram == KakaoCustomCallOcr.programCustom) {
-      if (fullText.contains('카드')) {
-        logData['memo'] = '결제방식:카드';
-      } else if (fullText.contains('현금')) {
-        logData['memo'] = '결제방식:현금';
-      }
+    if (detectedProgram == KakaoCustomCallOcr.programCustom) {
+      logData['memo'] = '';
     }
   }
 

@@ -57,9 +57,6 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="@string/google_maps_api_key"/>
-        <meta-data
-            android:name="com.google.mlkit.vision.dependencies"
-            android:value="ocr" />
         <service
             android:name="flutter.overlay.window.flutter_overlay_window.OverlayService"
             android:exported="false"

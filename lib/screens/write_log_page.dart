@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,7 +20,6 @@ import '../services/gemini_api_service.dart';
 import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/work_date_utils.dart';
-import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
@@ -164,12 +162,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
       setState(() => _capturedImage = file);
 
-      final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
-
-      final parsed = await _detectProgramAndParse(recognizedText);
+      final parsed = await _parseCallCardImage(file);
       if (!parsed) return;
 
       final canAutoSave = _parseMoney(_incomeCon.text) > 0 &&
@@ -232,13 +225,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image == null) return;
     setState(() => _capturedImage = File(image.path));
-    
-    final inputImage = InputImage.fromFilePath(image.path);
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-    await textRecognizer.close();
-    
-    await _detectProgramAndParse(recognizedText);
+
+    await _parseCallCardImage(File(image.path));
   }
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
@@ -255,12 +243,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
       if (!mounted) return;
       setState(() => _capturedImage = file);
-      final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-      await textRecognizer.close();
       if (!mounted) return;
-      await _detectProgramAndParse(recognizedText);
+      await _parseCallCardImage(file);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -270,75 +254,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
   }
 
-  String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final b in blocks) {
-      if (b.text.contains("갱신")) return "로지";
-      if (b.text.contains("출도")) return "콜마너";
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return "로지";
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return "콜마너";
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-    }
-    for (final b in blocks) {
-      if (b.text.contains("고객과 통화")) {
-        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-      }
-    }
-    return null;
-  }
-
-  Future<bool> _detectProgramAndParse(RecognizedText recognizedText) async {
-    List<TextBlock> blocks = List.from(recognizedText.blocks);
-    blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+  Future<bool> _parseCallCardImage(File imageFile) async {
     _useFormDriveTimeOnSave = false;
-
-    final detected = _detectProgramFromBlocks(blocks, recognizedText.text);
-    if (detected == null) {
-      OcrParseLogService.record(
-        source: 'write_log',
-        rawText: recognizedText.text,
-        parsedData: OcrParseLogService.parsedDataFrom(),
-        recognized: false,
-      );
-      if (mounted) {
-        OcrFailureFeedback.showUnrecognizedSnackbar(
-          context,
-          fullText: recognizedText.text,
-        );
-      }
-      return false;
-    }
-
-    setState(() {
-      _selectedProgram = _coerceProgramForSelection(detected);
-    });
-
-    _timeCon.clear();
-    _incomeCon.clear();
-    _transportCon.clear();
-    _startLocCon.clear();
-    _waypointCon.clear();
-    _endLocCon.clear();
-    _memoCon.clear();
 
     if (!mounted) return false;
     showDialog<void>(
@@ -366,10 +283,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
 
     try {
-      final r = await GeminiApiService.instance.parseCallCard(
-        fullText: recognizedText.text,
-        detectedProgram: detected,
-      );
+      final r = await GeminiApiService.instance.parseCallCardImage(imageFile);
       if (r.usageExceeded) {
         if (mounted) {
           await showDialog<void>(
@@ -393,7 +307,38 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         }
         return false;
       }
-      _applyGeminiFields(r.fields!, fullText: recognizedText.text, detected: detected);
+      final f = r.fields!;
+      final detected = f.program.trim();
+      if (detected.isEmpty) {
+        OcrParseLogService.record(
+          source: 'write_log',
+          rawText: '(multimodal)',
+          parsedData: OcrParseLogService.parsedDataFrom(),
+          recognized: false,
+        );
+        if (mounted) {
+          OcrFailureFeedback.showUnrecognizedSnackbar(
+            context,
+            fullText: '',
+          );
+        }
+        return false;
+      }
+
+      if (!mounted) return false;
+      setState(() {
+        _selectedProgram = _coerceProgramForSelection(detected);
+      });
+
+      _timeCon.clear();
+      _incomeCon.clear();
+      _transportCon.clear();
+      _startLocCon.clear();
+      _waypointCon.clear();
+      _endLocCon.clear();
+      _memoCon.clear();
+
+      _applyGeminiFields(f, detected: detected);
     } finally {
       if (mounted) Navigator.of(context).pop();
     }
@@ -405,7 +350,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     OcrParseLogService.record(
       source: 'write_log',
       program: _selectedProgram,
-      rawText: recognizedText.text,
+      rawText: '(multimodal)',
       parsedData: OcrParseLogService.parsedDataFrom(
         departure: _startLocCon.text.trim(),
         destination: _endLocCon.text.trim(),
@@ -420,15 +365,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   void _applyGeminiFields(
     GeminiParsedFields f, {
-    required String fullText,
     required String detected,
   }) {
     setState(() {
-      final dateM = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
-      if (dateM != null) {
-        _dateCon.text =
-            '${dateM.group(1)}-${dateM.group(2)!.padLeft(2, '0')}-${dateM.group(3)!.padLeft(2, '0')}';
-      }
       if (f.driveTimeHm.isNotEmpty) {
         _timeCon.text = normalizeDriveTimeHm(f.driveTimeHm) ?? f.driveTimeHm;
         _useFormDriveTimeOnSave = true;
@@ -444,11 +383,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _endLocCon.text = f.endLocation;
       _waypointCon.text = f.waypoint;
       if (detected == KakaoCustomCallOcr.programCustom && _memoCon.text.trim().isEmpty) {
-        if (fullText.contains('카드')) {
-          _memoCon.text = '결제방식:카드';
-        } else if (fullText.contains('현금')) {
-          _memoCon.text = '결제방식:현금';
-        }
+        _memoCon.text = '';
       }
     });
   }
