@@ -9,7 +9,6 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../app_navigator.dart';
 import '../screens/write_log_page.dart';
 import '../utils/work_date_utils.dart';
-import 'auto_capture_ocr_service.dart';
 import 'db_helper.dart';
 import 'settings_service.dart';
 
@@ -29,10 +28,10 @@ class TodayStatsNotificationService {
 
   bool get _isAndroid => !kIsWeb && Platform.isAndroid;
 
-  /// [enableAutoCapturePolling]: 메인 앱만 true. 오버레이 엔진에서는 false(중복 폴링·DB 접근 방지).
+  /// [applyStatusBarQuickState]: 메인 앱만 true. 오버레이 isolate에서는 false(알림 채널 핸들러만 등록).
   Future<void> initialize({
     bool triggerInitialRefresh = true,
-    bool enableAutoCapturePolling = true,
+    bool applyStatusBarQuickState = true,
   }) async {
     if (!_isAndroid) return;
     if (_initialized) return;
@@ -40,12 +39,11 @@ class TodayStatsNotificationService {
     _androidChannel.setMethodCallHandler(_onNativeMethod);
     _initialized = true;
 
-    if (enableAutoCapturePolling) {
+    if (applyStatusBarQuickState) {
       if (!SettingsService.statusBarQuickEnabled) {
         await cancel();
       } else {
         if (triggerInitialRefresh) await refreshFromDbIfEnabled();
-        AutoCaptureOcrService.instance.start();
       }
     }
   }
@@ -60,10 +58,6 @@ class TodayStatsNotificationService {
       } else {
         _openFullWriteScreen();
       }
-      return null;
-    }
-    if (call.method == 'onScreenshotMediaStoreChanged') {
-      AutoCaptureOcrService.instance.onMediaStoreImagesChanged();
       return null;
     }
     return null;
@@ -141,7 +135,6 @@ class TodayStatsNotificationService {
 
   Future<void> cancel() async {
     if (!_isAndroid || !_initialized) return;
-    AutoCaptureOcrService.instance.stop();
     try {
       await _androidChannel.invokeMethod<void>('cancel');
     } catch (_) {}

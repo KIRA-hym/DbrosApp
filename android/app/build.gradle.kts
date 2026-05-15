@@ -69,6 +69,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // google_mlkit_text_recognition: Korean script (TextRecognitionScript.korean)
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
 }
 
 // release APK 복사: 날짜 + pubspec 버전 (bump 는 tools/build_release_apk.ps1 로 선행)

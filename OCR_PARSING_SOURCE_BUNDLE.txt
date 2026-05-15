@@ -1,11 +1,16 @@
-OCR/파싱 관련 소스 번들 (파일 순서대로 연결). UTF-8. 전체 선택 후 복사하면 됩니다.
+﻿================================================================================
+ DBROS APP - 콜카드 OCR 파싱 소스 번들
+ 생성: 2026-05-15 16:48
+ 아키텍처: 이미지 -> ML Kit OCR -> 로컬 프로그램 판별 -> 프로그램별 파서 -> 일지 필드
+================================================================================
 
-생성: 2026-05-14 13:35:50 +09:00
 
 
 ================================================================================
 FILE: lib/utils/drive_time_format.dart
+DESC: 운행시각 HH:mm 정규화
 ================================================================================
+
 
 /// [normalizeDriveTimeHm] 기준으로 저장 가능한 운행시간이면 true (OCR 인식 성공 등).
 bool hasValidDriveTimeHm(Object? raw) => normalizeDriveTimeHm(raw?.toString()) != null;
@@ -40,19 +45,22 @@ String resolveDriveTimeForStorage(String? raw, {DateTime? fallback}) {
 
 ================================================================================
 FILE: lib/utils/logi_fare_parse.dart
+DESC: 로지/콜마너/카카오 요금 보조
 ================================================================================
 
+
 /// 로지 콜카드 OCR에서 요금만 안정적으로 추출합니다.
-/// `replaceAll('l','1')`를 먼저 하면 '원' 오인식 `l`이 붙어 20000 → 200001이 되는 문제를 피합니다.
 int? parseLogiFareFromOcrText(String raw) {
   if (raw.trim().isEmpty) return null;
 
   String prepare(String r) {
     var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
-    s = s.replaceAll(RegExp(r'원|₩'), '');
+    s = s.replaceAll(RegExp(r'원|₩|P'), '');
     s = s.replaceAll(RegExp(r'[!]+'), '');
+    // OCR 오인식 (한글 일괄 제거 전에 혼입 문자만 보정)
+    s = s.replaceAll('그', '7').replaceAll('기', '7').replaceAll('o', '0').replaceAll('O', '0');
+    s = s.replaceAll('l', '1').replaceAll('L', '1').replaceAll('I', '1').replaceAll('i', '1');
     s = s.replaceAll(RegExp(r'[\uAC00-\uD7A3]'), '');
-    s = s.replaceAll('그', '7').replaceAll('o', '0').replaceAll('O', '0');
     return s;
   }
 
@@ -61,100 +69,110 @@ int? parseLogiFareFromOcrText(String raw) {
     if (matches.isEmpty) return null;
     final candidates = matches.map((m) => m.group(0)!).toList()
       ..sort((a, b) => int.parse(b).compareTo(int.parse(a)));
+
     var val = candidates.first;
-    if (val.length == 6 && val.endsWith('2')) {
+    // 140002 -> 14000 처리 (끝에 붙은 오인식 숫자 제거)
+    if (val.length == 6 && (val.endsWith('1') || val.endsWith('2'))) {
       val = val.substring(0, 5);
     }
     final n = int.tryParse(val);
-    if (n == null || n < 100 || n > 999_999) return null;
+    if (n == null || n < 1000 || n > 999999) return null;
     return n;
   }
 
-  final String prepared = prepare(raw);
-  final int? withoutL = bestFrom(prepared);
-  if (withoutL != null) return withoutL;
-
-  final String withL = prepared.replaceAll('l', '1').replaceAll('L', '1');
-  return bestFrom(withL);
-}
-
-int? _fareDigitGroupToInt(String raw) {
-  var s = raw.replaceAll(RegExp(r'[\s,]'), '');
-  s = s.replaceAll('.', '');
-  s = s.replaceAll(RegExp(r'[!]+'), '');
-  s = s.replaceAll('l', '1').replaceAll('L', '1').replaceAll('I', '1').replaceAll('i', '1');
-  s = s.replaceAll('o', '0').replaceAll('O', '0');
-  return int.tryParse(s);
+  return bestFrom(prepare(raw));
 }
 
 /// 전체 OCR 텍스트에서 **총요금(요금 라벨 기준)** 만 추출한다.
-/// [colmanner]이 true이면 콜마너용 패턴(無「원」·예상 수익 앵커)을 우선한다.
-/// 실패 시 null → 줄 단위 폴백(엄격한 독립 숫자만)으로 넘긴다.
+/// [colmanner]이 true이면 콜마너용 패턴을 우선한다.
 int? parseGrossFareRegexFromFullText(String fullText, {bool colmanner = false}) {
   if (fullText.trim().isEmpty) return null;
-  final flat = fullText.replaceAll(RegExp(r'[\r\n]+'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+  // 입금액, 차감 등 수수료 관련 줄을 원천 제거하여 오인식 방지
+  final validLines = fullText.split(RegExp(r'[\r\n]+')).where((l) {
+    final t = l.replaceAll(' ', '');
+    return !t.contains('입금') && !t.contains('차감') && !t.contains('수익') && !t.contains('잔액');
+  }).join(' ');
 
-  int? tryGroup1(String g) {
-    final v = _fareDigitGroupToInt(g);
-    if (v != null && v >= 1000 && v <= 999_999) return v;
-    return null;
-  }
+  final flat = validLines.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   if (colmanner) {
-    // 괄호 직전 숫자만 — "(예상 수익금:…)" 등 괄호 안 수익금 배제
-    final beforeParen = RegExp(
-      r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.]+)(?:원|\s)*(?=\()',
-      caseSensitive: false,
-    );
-    final mParen = beforeParen.firstMatch(flat);
-    if (mParen != null) {
-      final v = tryGroup1(mParen.group(1)!);
-      if (v != null) return v;
-    }
-    for (final m in RegExp(
-      r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.]+)(?:원|\s)*(?:\(|\s*예상)',
-      caseSensitive: false,
-    ).allMatches(flat)) {
-      final v = tryGroup1(m.group(1)!);
-      if (v != null) return v;
-    }
+    final m = RegExp(r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.그기]+)(?:원|\s)*(?=\()').firstMatch(flat);
+    if (m != null) return parseLogiFareFromOcrText(m.group(1)!);
+
+    final m2 = RegExp(r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.그기]+)').firstMatch(flat);
+    if (m2 != null) return parseLogiFareFromOcrText(m2.group(1)!);
   } else {
-    for (final m in RegExp(
-      r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.!]+?)(?=\s*(?:원|입금|고객|오더|차량|$|!))',
-      caseSensitive: false,
-    ).allMatches(flat)) {
-      final v = tryGroup1(m.group(1)!);
-      if (v != null) return v;
-    }
+    final m = RegExp(r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.그기!]+)').firstMatch(flat);
+    if (m != null) return parseLogiFareFromOcrText(m.group(1)!);
   }
-
-  for (final m in RegExp(
-    r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.]+?)\s*원\s*\(',
-    caseSensitive: false,
-  ).allMatches(flat)) {
-    final v = tryGroup1(m.group(1)!);
-    if (v != null) return v;
-  }
-
-  for (final m in RegExp(
-    r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.]+?)\s*원',
-    caseSensitive: false,
-  ).allMatches(flat)) {
-    final tail = flat.substring(m.end).trimLeft();
-    if (tail.startsWith('(') && RegExp(r'^\(\s*예상', caseSensitive: false).hasMatch(tail)) {
-      continue;
-    }
-    final v = tryGroup1(m.group(1)!);
-    if (v != null) return v;
-  }
-
   return null;
 }
 
 
 ================================================================================
-FILE: lib/utils/kakao_call_card_ocr.dart
+FILE: lib/utils/ocr_failure_feedback.dart
+DESC: OCR 실패 스낵바
 ================================================================================
+
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+/// OCR 프로그램 인식 실패 시 전체 텍스트를 클립보드로 복사할 수 있게 안내한다.
+class OcrFailureFeedback {
+  OcrFailureFeedback._();
+
+  static Future<bool> copyFullText(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    await Clipboard.setData(ClipboardData(text: trimmed));
+    return true;
+  }
+
+  static void showUnrecognizedSnackbar(
+    BuildContext context, {
+    String message = '인식불가한 이미지입니다.',
+    required String fullText,
+    String actionLabel = 'OCR 복사',
+  }) {
+    if (!context.mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    final hasText = fullText.trim().isNotEmpty;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 6),
+        action: hasText
+            ? SnackBarAction(
+                label: actionLabel,
+                onPressed: () {
+                  copyFullText(fullText).then((ok) {
+                    if (!context.mounted) return;
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          ok ? 'OCR 텍스트를 복사했습니다.' : '복사할 OCR 텍스트가 없습니다.',
+                        ),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  });
+                },
+              )
+            : null,
+      ),
+    );
+  }
+}
+
+
+================================================================================
+FILE: lib/utils/kakao_call_card_ocr.dart
+DESC: 카카오 일반/프콜/제휴 판별+파싱
+================================================================================
+
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -329,52 +347,27 @@ class KakaoCallCardOcr {
     return null;
   }
 
-  /// OCR 블록 기준: 화면 **아래쪽**(큰 `top`) `수익` 줄 우선, 같은 줄·다음 줄 숫자 인식.
+  /// 현금 요금: 주소 블록(상단) 숫자를 피하기 위해 **하단**(`top` 큰 구역) 블록만 본다.
   static int? parseKakaoCashGrossFareFromBlocks(List<TextBlock> sorted) {
     final byDescTop = List<TextBlock>.from(sorted)
       ..sort((a, b) => b.boundingBox.top.compareTo(a.boundingBox.top));
 
     for (final b in byDescTop) {
+      if (b.boundingBox.top < 700) continue;
+
       final text = b.text.trim();
-      if (!text.contains('수익')) continue;
+      if (!text.contains('수익') && !text.contains('P') && !text.contains('원')) continue;
 
-      final sumPatterns = <RegExp>[
-        RegExp(r'수익\s*([\d,]+)\s*P?\s*\+\s*지원금\s*([\d,]+)\s*P?', caseSensitive: false),
-        RegExp(r'수익\s*([\d,]+)\s*\+\s*지원금\s*([\d,]+)', caseSensitive: false),
-      ];
-      for (final re in sumPatterns) {
-        final m = re.firstMatch(text);
-        if (m != null) {
-          final a = _parseCommaInt(m.group(1)!);
-          final bAmt = _parseCommaInt(m.group(2)!);
-          if (a != null && bAmt != null && a + bAmt > 0) return a + bAmt;
-        }
+      final sumMatch = RegExp(r'수익\s*([\d,]+)\s*P?\s*\+\s*지원금\s*([\d,]+)').firstMatch(text);
+      if (sumMatch != null) {
+        return _toInt(sumMatch.group(1)!) + _toInt(sumMatch.group(2)!);
       }
-      final withP = RegExp(r'수익\s*([\d,]+)\s*P', caseSensitive: false).firstMatch(text);
+      final withP = RegExp(r'([\d,]+)\s*(?:P|원)').firstMatch(text);
       if (withP != null) {
-        final v = _parseCommaInt(withP.group(1)!);
-        if (v != null && v > 0) return v;
-      }
-      final loose = RegExp(r'수익\s*([\d,]+)(?:\s|$|원|P)', caseSensitive: false).firstMatch(text);
-      if (loose != null) {
-        final v = _parseCommaInt(loose.group(1)!);
-        if (v != null && v > 0) return v;
+        final v = _toInt(withP.group(1)!);
+        if (v > 0) return v;
       }
     }
-
-    for (var i = 0; i < sorted.length; i++) {
-      final t = sorted[i].text.trim();
-      if (!t.contains('수익')) continue;
-      if (RegExp(r'수익\s*[\d,]').hasMatch(t)) continue;
-      if (i + 1 >= sorted.length) continue;
-      final next = sorted[i + 1].text.trim();
-      final m = RegExp(r'^([\d,]+)\s*P?$').firstMatch(next);
-      if (m != null) {
-        final v = _parseCommaInt(m.group(1)!);
-        if (v != null && v > 0) return v;
-      }
-    }
-
     return null;
   }
 
@@ -548,12 +541,13 @@ class KakaoCallCardOcr {
     );
   }
 
-  /// 공통 주소 정제 — 카카오T 아이콘·태그·하단 UI (마스터 구현).
+  /// 공통 주소 정제 — 카카오T 아이콘·Q 노이즈·하단 UI.
   static String _cleanAddr(String s) {
-    var res = s.replaceAll(RegExp(r'(?:♨청방♨|🌟천사|⊙스타|⊙|🌟|♨|🤍|⊙스타마곡)'), '').trim();
+    var res = s.replaceAll(RegExp(r'(?:♨청방♨|🌟천사|⊙스타|⊙|🌟|♨|🤍|⊙스타마곡|Q)'), '').trim();
+
+    res = res.replaceAllMapped(RegExp(r'([가-힣\s])나(\d)'), (m) => '${m.group(1)}4${m.group(2)}');
 
     res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지|출발|도착|추천가)\s*'), '').trim();
-
     if (res.contains('상세:')) {
       res = res.split('상세:').last.trim();
     }
@@ -941,7 +935,9 @@ class KakaoScreenParsed {
 
 ================================================================================
 FILE: lib/utils/kakao_custom_call_ocr.dart
+DESC: 카카오 맞춤콜 판별+파싱
 ================================================================================
+
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -1145,7 +1141,9 @@ class KakaoCustomCallOcr {
 
 ================================================================================
 FILE: lib/utils/logi_colmanner_ocr.dart
+DESC: 로지/콜마너 주소·요금 파싱
 ================================================================================
+
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -1511,22 +1509,13 @@ class LogiColmannerOcr {
     for (var i = 0; i < lines.length; i++) {
       final nk = _normalizeKey(lines[i]);
       if (!nk.startsWith('적요') && !nk.startsWith('메모') && !nk.startsWith('고객')) continue;
-
-      final buf = StringBuffer()..write(lines[i]);
-      for (var j = i + 1; j < lines.length && j < i + 5; j++) {
-        final n2 = _normalizeKey(lines[j]);
-        if (n2.startsWith('요금') || n2.startsWith('입금') || n2.startsWith('출발지')) break;
-        buf.write(' ');
-        buf.write(lines[j]);
-      }
-
-      final joined = buf.toString();
-      final w = RegExp(
-        r'경유\s*[:：]?\s*([^\n\]/}\]]+?)(?:\s*[/\]}]|$)',
-        caseSensitive: false,
-      ).firstMatch(joined);
-      if (w != null && w.group(1)!.trim().isNotEmpty) {
-        return w.group(1)!.trim();
+      final joined = lines.sublist(i, (i + 5 > lines.length) ? lines.length : i + 5).join(' ');
+      final w = RegExp(r'경유\s*[:：]?\s*([^\n\]/}\]]+?)(?:\s*[/\]}]|$)', caseSensitive: false).firstMatch(joined);
+      if (w != null) {
+        var wp = w.group(1)!.trim();
+        // 모수서울 케이스 (747 -> 그47 오인식 보정)
+        wp = wp.replaceAllMapped(RegExp(r'([그기])(\d{2,})'), (m) => '7${m.group(2)}');
+        return wp;
       }
     }
     return '';
@@ -1573,157 +1562,74 @@ class LogiColmannerOcr {
 
   /// 뭉친 OCR 한 줄에서 출발/도착을 분할한다. [isLogi]==true 이면 로지(상세: head+tail), false 이면 콜마너(상세: tail 우선).
   static ({String start, String end}) _splitAddressText(String rawText, {required bool isLogi}) {
-    final isColmanner = !isLogi;
-    var joined = rawText
-        .replaceAll(RegExp(r'[\x00-\x1F\x7F-\x9F]'), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
+    var joined = rawText.replaceAll(RegExp(r'[\x00-\x1F\x7F-\x9F]'), '').replaceAll(RegExp(r'\s+'), ' ').trim();
     joined = _injectSpaceBeforeProvinceToken(joined);
 
     var splitIdx = -1;
     var label = '';
 
-    if (isColmanner) {
-      final primaryDest = RegExp(r'(?:^|\s)도\s*착\s*지').firstMatch(joined);
-      if (primaryDest != null) {
-        splitIdx = primaryDest.start;
-        if (primaryDest.group(0)!.startsWith(' ')) splitIdx++;
-      }
+    final labelMatch = RegExp(r'(^|\s)도\s*착\s*지').firstMatch(joined);
+    if (labelMatch != null) {
+      splitIdx = labelMatch.start;
+      label = labelMatch.group(0)!;
     }
 
-    if (splitIdx < 0) {
-      var labelMatch = RegExp(r'(^|\s)도\s*착\s*지\s').firstMatch(joined);
-      labelMatch ??= RegExp(r'(^|\s)도\s*착\s*지(?=[가-힣0-9ⓓⓔⓕⓐⓑ])', caseSensitive: false).firstMatch(joined);
-      labelMatch ??= RegExp(r'(?<![가-힣])도\s*착\s*지(?=\s|[가-힣0-9]|$)', caseSensitive: false).firstMatch(joined);
-      labelMatch ??= RegExp(r'도\s*착\s*지').firstMatch(joined);
-      if (labelMatch != null) {
-        final spaced = labelMatch.groupCount >= 1 ? labelMatch.group(1) : null;
-        splitIdx = spaced == ' ' ? labelMatch.start + 1 : labelMatch.start;
-        label = labelMatch.group(0)!;
-        if (spaced == ' ') {
-          label = labelMatch.group(0)!.trimLeft();
-        }
-      }
-    }
-
-    final flatKey = joined.replaceAll(RegExp(r'\s'), '');
-    final hasDestLabel = flatKey.contains('도착지');
-
-    if (splitIdx < 0 && !hasDestLabel && isColmanner) {
-      final regionTok = RegExp(
-        r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
-      );
-      final metros = regionTok.allMatches(joined).toList();
-      if (metros.length >= 2) {
-        for (var i = 1; i < metros.length; i++) {
-          final m = metros[i];
-          final preText = joined.substring(0, m.start);
-          final postText = joined.substring(m.end);
-          final isDefiniteAddress = RegExp(
-            r'^\s*[가-힣]{2,10}(?:시|군|구)(?:\s|$|[\d가-힣])',
-          ).hasMatch(postText);
-          if (!preText.trimRight().endsWith('상세:') && (m.start > 10 || isDefiniteAddress)) {
-            splitIdx = m.start;
-            break;
-          }
-        }
-      }
-    }
-
-    if (splitIdx < 0) {
-      final regionRx = RegExp(
-        r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
-      );
+    // 도착지 라벨이 없으면 지명 기반 강력 분할
+    if (splitIdx == -1) {
+      final regionRx = RegExp(r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)');
       final matches = regionRx.allMatches(joined).toList();
+
       if (matches.length >= 2) {
         for (var i = 1; i < matches.length; i++) {
-          final m = matches[i];
-          final preText = joined.substring(0, m.start);
-          if (m.start > 12 && !preText.trimRight().endsWith('상세:')) {
-            splitIdx = m.start;
+          // 출발지 상세주소(번지 등)와 분리하기 위해 15자 이상 이격된 2번째 지명 탐색
+          if (matches[i].start > 15) {
+            splitIdx = matches[i].start;
             break;
           }
         }
-      } else if (matches.length == 1 && matches[0].start > 15) {
-        splitIdx = matches[0].start;
       }
     }
 
-    final int regionMinStart = isColmanner ? 10 : 4;
-    if (splitIdx < 0 && !hasDestLabel) {
-      final regionRe = RegExp(
-        r'\s(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+[가-힣]+(?:시|군|구)',
-      );
-      for (final m in regionRe.allMatches(joined)) {
-        if (m.start < regionMinStart) continue;
-        final before = joined.substring(0, m.start).trimRight();
-        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
-        if (RegExp(r'상세\s*:\s*$', caseSensitive: false).hasMatch(before)) continue;
-        splitIdx = m.start;
-        break;
-      }
-    }
-
-    final int cityMinStart = isColmanner ? 10 : 8;
-    if (splitIdx < 0 && !hasDestLabel) {
-      final cityRe = RegExp(
-        r'\s[가-힣]{2,5}(?:시|군|구)\s+[가-힣]{2,5}(?:동|읍|면|로|길)',
-      );
-      for (final m in cityRe.allMatches(joined)) {
-        if (m.start < cityMinStart) continue;
-        final before = joined.substring(0, m.start).trimRight();
-        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
-        splitIdx = m.start;
-        break;
-      }
-    }
-
-    if (splitIdx < 0 && !hasDestLabel && isColmanner) {
-      final adminTailRe = RegExp(
-        r'\s([가-힣]{2,8}구)\s+([가-힣\d][가-힣\d\-]{0,22}(?:동|읍|면|로|길|가)\b)',
-      );
-      for (final m in adminTailRe.allMatches(joined)) {
-        if (m.start < 12) continue;
-        final before = joined.substring(0, m.start).trimRight();
-        if (RegExp(r'출발지\s*$', caseSensitive: false).hasMatch(before)) continue;
-        if (RegExp(r'상세\s*:\s*$', caseSensitive: false).hasMatch(before)) continue;
-        splitIdx = m.start;
-        break;
-      }
-    }
-
-    if (splitIdx < 0 && hasDestLabel) {
-      return (start: '', end: '');
-    }
-
-    var start = joined;
-    var end = '';
-    if (splitIdx >= 0) {
-      start = joined.substring(0, splitIdx).trim();
-      end = joined.substring(splitIdx).trim();
+    if (splitIdx != -1) {
+      var s = joined.substring(0, splitIdx).trim();
+      var e = joined.substring(splitIdx).trim();
       if (label.isNotEmpty) {
-        end = end.replaceFirst(RegExp(RegExp.escape(label)), '').trim();
+        e = e.replaceFirst(label, '').trim();
       }
-      end = end.replaceFirst(RegExp(r'^\s*도\s*착\s*지\s*', caseSensitive: false), '').trim();
-      start = start.replaceFirst(RegExp(r'^\s*출발지\s*'), '').trim();
-      start = start.replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
-      end = end.replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+
+      s = s.replaceFirst(RegExp(r'^\s*출발지\s*'), '').replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+      e = e.replaceFirst(RegExp(r'^\s*도\s*착\s*지\s*'), '').replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+
+      return (
+        start: _cleanAddr(s, isLogi: isLogi, isStart: true),
+        end: _cleanAddr(e, isLogi: isLogi, isStart: false),
+      );
     }
 
     return (
-      start: _cleanAddr(start, isLogi: isLogi, isStart: true),
-      end: _cleanAddr(end, isLogi: isLogi, isStart: false),
+      start: _cleanAddr(joined, isLogi: isLogi, isStart: true),
+      end: '',
     );
   }
 
   static String _cleanAddr(String s, {required bool isLogi, required bool isStart}) {
     var res = s.trim();
     if (res.isEmpty) return '';
+
+    // 1. 공통 기호 및 노이즈 제거 (Q, 슬래시, 괄호 등)
+    res = res.replaceAll(RegExp(r'[Q|/\\(){}\[\]]'), ' ');
+    res = res.replaceAll(RegExp(r'(고객전화|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화|메모)'), ' ');
+
+    // 2. OCR 오인식 글자 보정 (그/기->7, 나->4)
+    res = res.replaceAllMapped(RegExp(r'([가-힣\s])[그기](\d)'), (m) => '${m.group(1)}7${m.group(2)}');
+    res = res.replaceAllMapped(RegExp(r'([가-힣\s])나(\d)'), (m) => '${m.group(1)}4${m.group(2)}');
+
     res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지)\s*', caseSensitive: false), '');
-    res = res.replaceAll(
-      RegExp(r'\s+(출발지|도착지|지도|서명|길안내|고객위치)$', caseSensitive: false),
-      '',
-    );
+    res = res.replaceAll(RegExp(r'\s+(출발지|도착지|지도|서명|길안내|고객위치|고객과의\s*거리\s*[:：]?\s*.*)$', caseSensitive: false), '');
+    res = res.replaceAll(RegExp(r'출\s*도\s*경로거리.*$', caseSensitive: false), '');
+    res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
+    res = res.replaceAll(RegExp(r'킥보드\s*[xX]\)?', caseSensitive: false), ' ');
+
     if (res.contains('상세:')) {
       if (isLogi) {
         res = _joinHeadAndTailAfterFirstSangse(res);
@@ -1731,16 +1637,12 @@ class LogiColmannerOcr {
         res = res.split(RegExp(r'상세\s*:', caseSensitive: false)).last.trim();
       }
     }
-    if (isLogi) {
-      res = res.replaceAll(RegExp(r'킥보드\s*[xX]\)?', caseSensitive: false), ' ');
-    }
-    res = res.replaceAll(RegExp(r'출\s*도\s*경로거리.*$', caseSensitive: false), '');
-    res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
+
     if (!isLogi && !isStart) {
       res = res.replaceFirst(RegExp(r'/\s*0\s*$'), '').trim();
     }
-    res = res.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return res;
+
+    return res.replaceAll(RegExp(r'\s+'), ' ').trim();
   }
 
   /// 로지: 출발지·고객·적요 이후 한 덩어리 → [_splitAddressText].
@@ -2598,7 +2500,9 @@ class LogiColmannerOcr {
 
 ================================================================================
 FILE: lib/utils/tmap_trip_detail_ocr.dart
+DESC: 티맵 운행상세 파싱
 ================================================================================
+
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
@@ -2849,473 +2753,10 @@ class TmapTripDetailOcr {
 
 
 ================================================================================
-FILE: lib/utils/ocr_failure_feedback.dart
-================================================================================
-
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-/// OCR 프로그램 인식 실패 시 전체 텍스트를 클립보드로 복사할 수 있게 안내한다.
-class OcrFailureFeedback {
-  OcrFailureFeedback._();
-
-  static Future<bool> copyFullText(String text) async {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return false;
-    await Clipboard.setData(ClipboardData(text: trimmed));
-    return true;
-  }
-
-  static void showUnrecognizedSnackbar(
-    BuildContext context, {
-    String message = '인식불가한 이미지입니다.',
-    required String fullText,
-    String actionLabel = 'OCR 복사',
-  }) {
-    if (!context.mounted) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
-
-    final hasText = fullText.trim().isNotEmpty;
-    messenger.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 6),
-        action: hasText
-            ? SnackBarAction(
-                label: actionLabel,
-                onPressed: () {
-                  copyFullText(fullText).then((ok) {
-                    if (!context.mounted) return;
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          ok ? 'OCR 텍스트를 복사했습니다.' : '복사할 OCR 텍스트가 없습니다.',
-                        ),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  });
-                },
-              )
-            : null,
-      ),
-    );
-  }
-}
-
-
-================================================================================
-FILE: lib/services/auto_capture_ocr_service.dart
-================================================================================
-
-import 'dart:io';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/services.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import '../utils/drive_time_format.dart';
-import '../utils/work_date_utils.dart';
-import '../utils/tmap_trip_detail_ocr.dart';
-import '../utils/kakao_call_card_ocr.dart';
-import '../utils/kakao_custom_call_ocr.dart';
-import '../utils/logi_colmanner_ocr.dart';
-import 'db_helper.dart';
-import 'settings_service.dart';
-import 'today_stats_notification_service.dart';
-import 'ocr_parse_log_service.dart';
-
-class AutoCaptureOcrService {
-  AutoCaptureOcrService._();
-  static final AutoCaptureOcrService instance = AutoCaptureOcrService._();
-
-  static const MethodChannel _androidChannel = MethodChannel('dbros.app/today_summary');
-
-  bool _busy = false;
-  bool _stateLoaded = false;
-  String _lastProcessedCaptureKey = '';
-
-  static const String _prefsKeyLastProcessedCapture = 'auto_ocr_last_processed_capture_key';
-
-  bool get _isAndroid => !kIsWeb && Platform.isAndroid;
-
-  /// 기능 켤 때 최신 스크린샷 1회 확인. 이후에는 [onMediaStoreImagesChanged]만 사용.
-  void start() {
-    if (!_isAndroid) return;
-    Future<void>.microtask(() => _pollLatestScreenshot());
-  }
-
-  void stop() {}
-
-  /// Android [MediaStore] 이미지 변경 시 네이티브 [ContentObserver]에서 호출.
-  void onMediaStoreImagesChanged() {
-    if (!_isAndroid) return;
-    Future<void>.microtask(() => _pollLatestScreenshot());
-  }
-
-  Future<void> _pollLatestScreenshot() async {
-    if (_busy || !SettingsService.statusBarQuickEnabled) return;
-    _busy = true;
-    try {
-      await _ensureStateLoaded();
-
-      final raw = await _androidChannel.invokeMethod<dynamic>('getLatestScreenshot');
-      if (raw is! Map) return;
-      final map = Map<String, dynamic>.from(raw);
-      final path = (map['path'] as String?)?.trim() ?? '';
-      final dateAdded = (map['dateAdded'] as num?)?.toInt() ?? 0;
-      final imageId = (map['imageId'] as num?)?.toInt() ?? 0;
-      // imageId는 항상 > 0. dateAdded는 기기/API에 따라 0일 수 있어 imageId만으로 중복 방지.
-      if (path.isEmpty || imageId <= 0) return;
-      final captureKey = '${dateAdded}_$imageId';
-      if (captureKey == _lastProcessedCaptureKey) return;
-
-      final file = File(path);
-      if (!file.existsSync()) return;
-
-      final recognized = await _runOcr(file.path);
-      final parsed = _parseRecognized(recognized);
-      final program = (parsed['program'] ?? '').trim();
-      final waypoint = (parsed['waypoint'] ?? '').trim();
-      final ocrLogId = await OcrParseLogService.record(
-        source: 'auto_capture',
-        program: program.isEmpty ? null : program,
-        rawText: recognized.text,
-        parsedData: OcrParseLogService.parsedDataFrom(
-          departure: (parsed['start'] ?? '').trim(),
-          destination: (parsed['end'] ?? '').trim(),
-          waypoints: waypoint.isEmpty ? const <String>[] : [waypoint],
-          feeAmount: int.tryParse((parsed['income'] ?? '').replaceAll(RegExp(r'[^0-9]'), '')),
-          driveTime: (parsed['driveTime'] ?? '').trim(),
-        ),
-        recognized: program.isNotEmpty,
-      );
-      if (!_isValidForAutoSave(parsed)) {
-        await _markProcessed(captureKey);
-        return;
-      }
-
-      final row = _buildRow(parsed, file.path);
-      final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
-      if (ocrLogId != null && ocrLogId.isNotEmpty) {
-        await OcrParseLogService.attachSavedDriveLog(
-          ocrLogId,
-          {...row, 'id': insertedId},
-        );
-      }
-      await _markProcessed(captureKey);
-      await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
-    } catch (_) {
-    } finally {
-      _busy = false;
-    }
-  }
-
-  Future<void> _ensureStateLoaded() async {
-    if (_stateLoaded) return;
-    final prefs = await SharedPreferences.getInstance();
-    _lastProcessedCaptureKey = prefs.getString(_prefsKeyLastProcessedCapture) ?? '';
-    _stateLoaded = true;
-  }
-
-  Future<void> _markProcessed(String captureKey) async {
-    _lastProcessedCaptureKey = captureKey;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKeyLastProcessedCapture, captureKey);
-  }
-
-  Future<RecognizedText> _runOcr(String path) async {
-    final inputImage = InputImage.fromFilePath(path);
-    final recognizer = TextRecognizer(script: TextRecognitionScript.korean);
-    try {
-      return await recognizer.processImage(inputImage);
-    } finally {
-      await recognizer.close();
-    }
-  }
-
-  Map<String, String> _parseRecognized(RecognizedText recognizedText) {
-    final blocks = List<TextBlock>.from(recognizedText.blocks)
-      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = recognizedText.text;
-
-    var program = _detectProgram(full) ?? '';
-    program = KakaoCallCardOcr.refineProgramByAllianceHeuristic(full, blocks, program);
-
-    if (program == '티맵') {
-      final r = TmapTripDetailOcr.tryParse(full, blocks: recognizedText.blocks);
-      if (r != null) {
-        var timeHm = r.driveStartTimeHm;
-        if (timeHm.isEmpty) {
-          final now = DateTime.now();
-          timeHm =
-              '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-        }
-        return {
-          'program': '티맵',
-          'driveDate':
-              r.driveDateYmd.isNotEmpty ? r.driveDateYmd : WorkDateUtils.effectiveWorkDateYmd(),
-          'driveTime': timeHm,
-          'income': r.grossFare > 0 ? r.grossFare.toString() : '',
-          'start': r.startAddress,
-          'end': r.endAddress,
-          'waypoint': '',
-        };
-      }
-      final now = DateTime.now();
-      return {
-        'program': '티맵',
-        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
-        'driveTime':
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
-        'income': '',
-        'start': '',
-        'end': '',
-        'waypoint': '',
-      };
-    }
-
-    if (program == KakaoCustomCallOcr.programCustom) {
-      final p = KakaoCustomCallOcr.parseScreen(blocks, full);
-      final wd = WorkDateUtils.effectiveWorkDateYmd();
-      var driveDate = p.driveDateYmd ?? wd;
-      var timeHm = p.driveTimeHm ?? '';
-      if (timeHm.isEmpty) {
-        final now = DateTime.now();
-        timeHm =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      }
-      return {
-        'program': program,
-        'driveDate': driveDate,
-        'driveTime': timeHm,
-        'income': p.grossFare != null && p.grossFare! > 0 ? p.grossFare!.toString() : '',
-        'start': p.startLocation,
-        'end': p.endLocation,
-        'waypoint': '',
-        'paymentMethod': p.paymentMethod ?? '',
-      };
-    }
-
-    if (program == KakaoCallCardOcr.programGeneral ||
-        program == KakaoCallCardOcr.programPro ||
-        program == KakaoCallCardOcr.programAlliance) {
-      final p = KakaoCallCardOcr.parseScreen(blocks, full);
-      final wd = WorkDateUtils.effectiveWorkDateYmd();
-      var driveDate = p.driveDateYmd ?? wd;
-      var timeHm = p.driveTimeHm ?? '';
-      if (timeHm.isEmpty) {
-        final now = DateTime.now();
-        timeHm =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      }
-      return {
-        'program': program,
-        'driveDate': driveDate,
-        'driveTime': timeHm,
-        'income': p.grossFare != null && p.grossFare! > 0 ? p.grossFare!.toString() : '',
-        'start': p.startLocation,
-        'end': p.endLocation,
-        'waypoint': p.waypoint,
-      };
-    }
-
-    if (program == '로지') {
-      final p = LogiColmannerOcr.parseLogi(full, blocks: blocks);
-      final now = DateTime.now();
-      final timeHm = p.driveTimeHm.isNotEmpty
-          ? p.driveTimeHm
-          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      return {
-        'program': '로지',
-        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
-        'driveTime': timeHm,
-        'income': p.grossFare > 0 ? p.grossFare.toString() : '',
-        'start': p.startLocation,
-        'end': p.endLocation,
-        'waypoint': p.waypoint,
-      };
-    }
-
-    if (program == '콜마너') {
-      final p = LogiColmannerOcr.parseColmanner(full, blocks: blocks);
-      final now = DateTime.now();
-      final timeHm = p.driveTimeHm.isNotEmpty
-          ? p.driveTimeHm
-          : '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      return {
-        'program': '콜마너',
-        'driveDate': WorkDateUtils.effectiveWorkDateYmd(),
-        'driveTime': timeHm,
-        'income': p.grossFare > 0 ? p.grossFare.toString() : '',
-        'start': p.startLocation,
-        'end': p.endLocation,
-        'waypoint': p.waypoint,
-      };
-    }
-
-    String driveDate = WorkDateUtils.effectiveWorkDateYmd();
-    String driveTime = '';
-    String income = '';
-    String start = '';
-    String end = '';
-    String waypoint = '';
-
-    final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(full);
-    if (dateMatch != null) {
-      driveDate =
-          '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
-    }
-    final timeMatch = RegExp(r'(\d{1,2})[:：.](\d{1,2})').firstMatch(full);
-    if (timeMatch != null) {
-      driveTime = '${timeMatch.group(1)!.padLeft(2, '0')}:${timeMatch.group(2)!.padLeft(2, '0')}';
-    } else {
-      final now = DateTime.now();
-      driveTime = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-    }
-
-    for (final b in blocks) {
-      final t = b.text.trim();
-      if (t.contains('경유') && waypoint.isEmpty) {
-        waypoint = t.replaceAll('경유', '').replaceAll(':', '').trim();
-      }
-      if ((t.contains('요금') || t.contains('입금')) && income.isEmpty) {
-        final n = t.replaceAll(RegExp(r'[^0-9]'), '');
-        if (n.length >= 4) income = n;
-      }
-      if (t.contains('출발지') && start.isEmpty) {
-        start = t.replaceAll('출발지', '').replaceAll(':', '').trim();
-      }
-      if (t.contains('도착지') && end.isEmpty) {
-        end = t.replaceAll('도착지', '').replaceAll(':', '').trim();
-      }
-    }
-
-    if (income.isEmpty) {
-      final allNums = RegExp(r'\d{4,6}').allMatches(full).map((m) => m.group(0)!).toList();
-      if (allNums.isNotEmpty) {
-        allNums.sort((a, b) => int.parse(b).compareTo(int.parse(a)));
-        income = allNums.first;
-      }
-    }
-
-    if (start.isEmpty || end.isEmpty) {
-      final lines = full
-          .split(RegExp(r'[\r\n]+'))
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-      for (var i = 0; i < lines.length; i++) {
-        final line = lines[i];
-        if (start.isEmpty && line == '출발지' && i + 1 < lines.length) start = lines[i + 1];
-        if (end.isEmpty && line == '도착지' && i + 1 < lines.length) end = lines[i + 1];
-      }
-    }
-
-    return {
-      'program': program,
-      'driveDate': driveDate,
-      'driveTime': driveTime,
-      'income': income,
-      'start': start,
-      'end': end,
-      'waypoint': waypoint,
-    };
-  }
-
-  String? _detectProgram(String fullText) {
-    final normalized = fullText.replaceAll(' ', '');
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) {
-      return KakaoCustomCallOcr.programCustom;
-    }
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) return kakao;
-    if (normalized.contains('고객과통화') ||
-        normalized.contains('카카오T') ||
-        normalized.contains('카카오')) {
-      return KakaoCallCardOcr.programGeneral;
-    }
-    if (normalized.contains('오더번호') ||
-        normalized.contains('고객ID') ||
-        normalized.contains('로지')) {
-      return '로지';
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return '로지';
-    }
-    if (normalized.contains('출도') ||
-        normalized.contains('콜마너') ||
-        normalized.contains('콜매니저')) {
-      return '콜마너';
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return '콜마너';
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
-    return null;
-  }
-
-  bool _isValidForAutoSave(Map<String, String> parsed) {
-    final income = int.tryParse(parsed['income'] ?? '') ?? 0;
-    final program = (parsed['program'] ?? '').trim();
-    final programDetected = program.contains('카카오') ||
-        program == '로지' ||
-        program == '콜마너' ||
-        program == '티맵';
-    return programDetected &&
-        income > 0 &&
-        (parsed['start'] ?? '').trim().isNotEmpty &&
-        (parsed['end'] ?? '').trim().isNotEmpty;
-  }
-
-  Map<String, dynamic> _buildRow(Map<String, String> parsed, String imagePath) {
-    final nowIso = DateTime.now().toIso8601String();
-    /// 콜카드 단건·다중과 동일: 근무일 = 효과 근무일, 운행일 = 새벽 규칙 반영.
-    final workDate = WorkDateUtils.effectiveWorkDateYmd();
-    final timeStr = resolveDriveTimeForStorage(parsed['driveTime']);
-    final driveDate = WorkDateUtils.resolveDriveDateForNightShift(workDate, timeStr);
-    final income = int.tryParse(parsed['income'] ?? '') ?? 0;
-    final program = parsed['program'] ?? KakaoCallCardOcr.programGeneral;
-    final fee = SettingsService.deductionFeeFromGross(income, program);
-    final net = (income - fee).clamp(0, 999999999);
-
-    return {
-      'work_date': workDate,
-      'drive_date': driveDate,
-      'drive_time': timeStr,
-      'program': program,
-      'gross_fare': income,
-      'fee': fee,
-      'transport_cost': 0,
-      'waypoint_tip': 0,
-      'net_income': net,
-      'start_location': (parsed['start'] ?? '').trim(),
-      'waypoint': (parsed['waypoint'] ?? '').trim(),
-      'end_location': (parsed['end'] ?? '').trim(),
-      'memo': (() {
-        final pm = (parsed['paymentMethod'] ?? '').trim();
-        if (pm.isEmpty) return '자동등록(OCR)';
-        return '자동등록(OCR) 결제:$pm';
-      })(),
-      'image_path': imagePath,
-      'updated_at': nowIso,
-      'created_at': nowIso,
-    };
-  }
-}
-
-
-================================================================================
 FILE: lib/services/ocr_parse_log_service.dart
+DESC: OCR 파싱 로그 DB
 ================================================================================
+
 
 import 'dart:convert';
 import 'dart:io';
@@ -3661,7 +3102,9 @@ class OcrParseLogService {
 
 ================================================================================
 FILE: lib/screens/single_call_card_page.dart
+DESC: 단일 콜카드: OCR~저장 파이프
 ================================================================================
+
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -4189,7 +3632,9 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
 ================================================================================
 FILE: lib/screens/multi_call_card_page.dart
+DESC: 다중 콜카드: OCR~저장 파이프
 ================================================================================
+
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -4832,7 +4277,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
 ================================================================================
 FILE: lib/screens/write_log_page.dart
+DESC: 일지 작성: 갤러리 OCR~폼 반영
 ================================================================================
+
 
 import 'dart:async';
 import 'dart:io';
@@ -6395,1324 +5842,3 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return options.first;
   }
 }
-
-
-================================================================================
-FILE: test/ocr_regression_test.dart
-================================================================================
-
-import 'package:flutter_test/flutter_test.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-
-import 'package:dbros_app/utils/kakao_call_card_ocr.dart';
-import 'package:dbros_app/utils/kakao_custom_call_ocr.dart';
-import 'package:dbros_app/utils/logi_colmanner_ocr.dart';
-import 'package:dbros_app/utils/tmap_trip_detail_ocr.dart';
-
-void main() {
-  group('Kakao custom OCR regression', () {
-    test('extracts labeled start/end and payment split', () {
-      const rawText = '''
-맞춤콜 프로 단독배정
-출발 도보 759m(약11분)
-도착 약 44분 운행
-출발 상봉동 디즈니골프 상봉역점
-도착 🤍 경기 성남시 분당구 분당로 17
-약 44분 운행
-실제 수익 카드 | 확정 | 36,000 P
-추천가 콜밭도착 10점
-거절 2 초 뒤 자동수락
-''';
-
-      final parsed = KakaoCustomCallOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '상봉동 디즈니골프 상봉역점');
-      expect(parsed.endLocation, '경기 성남시 분당구 분당로 17');
-      expect(parsed.grossFare, 36000);
-      expect(parsed.paymentMethod, '카드');
-    });
-
-    test('extracts destination with emoji and card fare', () {
-      const rawText = '''
-맞춤콜 프로 단독배정
-출발 도보 2.6km(약44분)
-도착 약 15분 운행
-출발 정자동 푸른청과
-도착 🤍 경기 용인 수지구 동천동 경기도 용인시 수지구 고기로 89
-약 15분 운행
-실제 수익 카드 | 확정 | 23,200 P
-추천가 10점
-거절 1 초 뒤 자동수락
-''';
-
-      final parsed = KakaoCustomCallOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '정자동 푸른청과');
-      expect(parsed.endLocation, '경기 용인 수지구 동천동 경기도 용인시 수지구 고기로 89');
-      expect(parsed.grossFare, 23200);
-      expect(parsed.paymentMethod, '카드');
-    });
-
-    test('multiline labeled departure and destination', () {
-      const rawText = '''
-맞춤콜 프로 단독배정
-출발 도보 759m(약11분)
-도착 약 44분 운행
-출발 상봉동 디즈니골프
-상봉역점 2층
-도착 🤍 경기 성남시 분당구 분당로 17
-분당타워 1201호
-약 44분 운행
-실제 수익 카드 | 확정 | 36,000 P
-''';
-      final parsed = KakaoCustomCallOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '상봉동 디즈니골프 상봉역점 2층');
-      expect(parsed.endLocation, '경기 성남시 분당구 분당로 17 분당타워 1201호');
-      expect(parsed.grossFare, 36000);
-    });
-  });
-
-  group('Kakao card OCR regression', () {
-    test('general type1 with waypoint and card fare', () {
-      const rawText = '''
-배정 완료
-배정취소 메뉴
-중동
-이치화로 용인동백점
-죽전동 경유
-경기 성남 분당구 수내동
-파크타운대림아파트
-100점
-카드 | 확정
-29,600 P
-고객과 통화
-고객과 메시지
-고객과 만날 장소 길찾기
-고객에게 위치정보가 공유됩니다.
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '중동 이치화로 용인동백점');
-      expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
-      expect(parsed.waypoint, '죽전동 경유');
-      expect(parsed.grossFare, 29600);
-    });
-
-    test('general type1 uses top datetime for drive time not departure', () {
-      const rawText = '''
-19:32 5월 11일
-배정 완료
-배정취소 메뉴
-중동
-이치화로 용인동백점
-죽전동 경유
-경기 성남 분당구 수내동
-파크타운대림아파트
-100점
-카드 | 확정
-29,600 P
-고객과 통화
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.driveTimeHm, '19:32');
-      expect(parsed.startLocation, '중동 이치화로 용인동백점');
-      expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
-    });
-
-    test('general type1 ignores dotted OCR clock before addresses', () {
-      const rawText = '''
-19.32 5월 11일
-배정 완료
-배정취소 메뉴
-중동
-이치화로 용인동백점
-경기 성남 분당구 수내동
-파크타운대림아파트
-카드 | 확정
-29,600 P
-고객과 통화
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.driveTimeHm, '19:32');
-      expect(parsed.startLocation, '중동 이치화로 용인동백점');
-      expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
-    });
-
-    test('general type1 drops D1 parking label and merges two-line departure', () {
-      const rawText = '''
-22:49 ㅠ
-배정 완료
-카드 | 확정
-D1
-여의도동
-신한은행 서여의도금융센터
-서울 강동구 성내동
-고객과 통화
-강동구청
-고객과 만날 장소 길찾기
-배정취소
-29,600
-고객과 메시지
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '여의도동 신한은행 서여의도금융센터');
-      expect(parsed.endLocation, '서울 강동구 성내동 강동구청');
-      expect(parsed.grossFare, 29600);
-    });
-
-    test('general type1 strips OCR-split 위치정보 footer from destination', () {
-      const rawText = '''
-1:19 % TT
-배정 완료
-카드 | 확정
-문래동3가
-스트롱무브
-서울 양천구 신월동
-강서성결행복한홈스쿨 지역아동센터
-고객과 통화
-고객과 만날 장소 길찾기
-배정취소
-고객에게 위치정 보가 공유됩니다
-11,600
-고객과 메시지
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '문래동3가 스트롱무브');
-      expect(parsed.endLocation, '서울 양천구 신월동 강서성결행복한홈스쿨 지역아동센터');
-      expect(parsed.grossFare, 11600);
-    });
-
-    test('pro type2 with red banner and card fare', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-배정취소 가능 잔여 시간 : 12초
-동작구 노량진동 노량진수산시장
-부천시원미구 상동 꿈동산신안아파트
-법인 무료보험 200점
-카드 | 확정
-24,000 P
-고객 상황실 메모
-고객과 만날 장소 길찾기
-출발지에 도착하시면 도착완료 해주세요.
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '동작구 노량진동 노량진수산시장');
-      expect(parsed.endLocation, '부천시원미구 상동 꿈동산신안아파트');
-      expect(parsed.grossFare, 24000);
-    });
-
-    test('general type2 cash fare with subsidy', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-배정취소 가능 잔여 시간 : 15초
-미추홀구 학익동 일동수산회직판장
-연수구 송도동 송도글로벌파크베르디움아파트
-무료보험 100점
-현금 | 확정
-25,000원
-수익 20,000 P + 지원금 3,000P
-고객 상황실 메모
-고객과 만날 장소 길찾기
-출발지에 도착하시면 도착완료 해주세요.
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '미추홀구 학익동 일동수산회직판장');
-      expect(parsed.endLocation, '연수구 송도동 송도글로벌파크베르디움아파트');
-      expect(parsed.grossFare, 23000);
-    });
-
-    test('general type2 destination stops before cash confirmation', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-미추홀구 학익동 일동수산회직판장
-연수구 송도동 송도글로벌파크베르디움아파트
-25,000원
-무료보험
-100점
-현금
-| 확정
-수익 20,000 P + 지원금 3,000P
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.endLocation, '연수구 송도동 송도글로벌파크베르디움아파트');
-      expect(parsed.grossFare, 23000);
-    });
-
-    test('general type2 strips fare suffix merged into destination line', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-미추홀구 학익동 일동수산회직판장
-연수구 송도동 송도글로벌파크베르디움아파트 25,000원
-현금 | 확정
-25,000원
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.endLocation, '연수구 송도동 송도글로벌파크베르디움아파트');
-    });
-
-    test('general type2 ignores datetime meta before addresses', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-19:32 5월 11일
-경기 김포시 구래동 김포한강신도시
-서울 강서구 방화동 서울 방화동
-무료보험 100점
-카드 | 확정
-16,800 P
-고객 상황실 메모
-고객과 만날 장소 길찾기
-출발지에 도착하시면 도착완료 해주세요.
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '경기 김포시 구래동 김포한강신도시');
-      expect(parsed.endLocation, '서울 강서구 방화동 서울 방화동');
-      expect(parsed.grossFare, 16800);
-    });
-
-    test('general type2 keeps POI-only departure line', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-하성 국수랑막창이랑
-김포시 장기동 장기동 19
-무료보험 100점
-카드 | 확정
-20,000 P
-고객 상황실 메모
-고객과 만날 장소 길찾기
-출발지에 도착하시면 도착완료 해주세요.
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '하성 국수랑막창이랑');
-      expect(parsed.endLocation, '김포시 장기동 장기동 19');
-      expect(parsed.grossFare, 20000);
-    });
-
-    test('detects general type2 when situation room OCR is split', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소
-메뉴
-배정취소 가능 잔여 시간 : 15초
-미추홀구 학익동 일동수산회직판장
-연수구 송도동 송도글로벌파크베르디움아파트
-무료보험
-100점
-현금 | 확정
-25,000원
-고객
-상황실
-메모
-고객과 만날 장소 길찾기
-''';
-      expect(
-        KakaoCallCardOcr.detectKakaoProgram(rawText),
-        KakaoCallCardOcr.programGeneral,
-      );
-    });
-
-    test('detects general type2 without situation room when assignment header remains', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-배정취소 가능 잔여 시간 : 12초
-경기 김포시 구래동 김포한강신도시
-서울 강서구 방화동 서울 방화동
-무료보험 100점
-카드 | 확정
-16,800 P
-고객과 만날 장소 길찾기
-출발지에 도착하시면 도착완료 해주세요.
-''';
-      expect(
-        KakaoCallCardOcr.detectKakaoProgram(rawText),
-        KakaoCallCardOcr.programGeneral,
-      );
-    });
-
-    test('detects pro type2 with corporate insurance', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소 메뉴
-동작구 노량진동 노량진수산시장
-부천시원미구 상동 꿈동산신안아파트
-법인 무료보험 200점
-카드 | 확정
-24,000 P
-고객 상황실 메모
-''';
-      expect(
-        KakaoCallCardOcr.detectKakaoProgram(rawText),
-        KakaoCallCardOcr.programPro,
-      );
-    });
-
-    test('alliance heuristic: score line keeps general', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소
-100점
-카드 | 확정
-24,000 P
-고객 상황실
-''';
-      expect(
-        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          rawText,
-          const <TextBlock>[],
-          KakaoCallCardOcr.programGeneral,
-        ),
-        KakaoCallCardOcr.programGeneral,
-      );
-    });
-
-    test('alliance heuristic: no score marker becomes alliance', () {
-      const rawText = '''
-T 전화 배정 완료
-배정취소
-카드 | 확정
-24,000 P
-고객 상황실
-제휴콜
-''';
-      expect(
-        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          rawText,
-          const <TextBlock>[],
-          KakaoCallCardOcr.programGeneral,
-        ),
-        KakaoCallCardOcr.programAlliance,
-      );
-    });
-
-    test('alliance heuristic: pro unchanged', () {
-      expect(
-        KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          '법인 무료보험 200점',
-          const <TextBlock>[],
-          KakaoCallCardOcr.programPro,
-        ),
-        KakaoCallCardOcr.programPro,
-      );
-    });
-
-    test('general type1 basic two-line addresses and card fare', () {
-      const rawText = '''
-배정 완료
-배정취소 메뉴
-신원동
-역전할머니맥주 고양신원점
-경기 과천시 원문동
-래미안슈르아파트 325동
-100점
-카드 | 확정
-40,800 P
-고객과 통화
-고객과 메시지
-고객과 만날 장소 길찾기
-밀어서 고객에게 도착알림
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '신원동 역전할머니맥주 고양신원점');
-      expect(parsed.endLocation, '경기 과천시 원문동 래미안슈르아파트 325동');
-      expect(parsed.grossFare, 40800);
-    });
-
-    test('card fare without P suffix after confirmation', () {
-      const rawText = '''
-배정 완료
-배정취소 메뉴
-신원동
-역전할머니맥주 고양신원점
-경기 과천시 원문동
-래미안슈르아파트 325동
-100점
-카드 | 확정
-40,800
-고객과 통화
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.grossFare, 40800);
-    });
-
-    test('card fare from noisy amount line', () {
-      const rawText = '''
-배정 완료
-배정취소 메뉴
-신원동
-역전할머니맥주 고양신원점
-경기 과천시 원문동
-래미안슈르아파트 325동
-카드 | 확정
-40,8oo P
-고객과 통화
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.grossFare, 40800);
-    });
-  });
-
-  group('Logi/Colmanner OCR regression', () {
-    test('logi multiline address with detail', () {
-      const rawText = '''
-요금 40000원
-고객 일반 일반
-출발지 금촌동
-시청로240
-상세:경기 파주시 금촌동 425-0 시청로 240
-도착지 서울 노원구
-공릉동)공릉동(동일로184길63-14
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.grossFare, 40000);
-      expect(parsed.startLocation, '금촌동 시청로240 경기 파주시 금촌동 425-0 시청로 240');
-      expect(parsed.endLocation, '서울 노원구 공릉동)공릉동(동일로184길63-14');
-    });
-
-    test('colmanner with waypoint label', () {
-      const rawText = '''
-지사명 바로콜카드대리(전국대리)
-고객명 ***
-출발지 서울 노원구 공릉동 동일로 1000{공릉동 617-3}
-즉후)경유)카드/공릉동동일로1000/
-문정동639-5번지
-도착지 경기 용인시수지구 상현동
-상현마을현대성우2차아파트
-상현마을현대성우5차
-경유지 문정동 문정동 639-5
-출도 경로거리 : 51.9km
-요금 55,000원 (예상 수익금:43,479원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.grossFare, 55000);
-      expect(parsed.startLocation, '서울 노원구 공릉동 동일로 1000{공릉동 617-3} 즉후)경유)카드/공릉동동일로1000/ 문정동639-5번지');
-      expect(parsed.endLocation, '경기 용인시수지구 상현동 상현마을현대성우2차아파트 상현마을현대성우5차');
-      expect(parsed.waypoint, '문정동 문정동 639-5');
-    });
-
-    test('logi legal call with special markers', () {
-      const rawText = r'''
-운행 시작
-요금
-25000원
-입금액
-5000원
-고객
-법인
-법인명:$$(주)우리은행(별) 인천지점/지점장/조소영
-출발지
-ⓓ법/$청라동마당호프 2/2
-상세:인천 서구 연희동 763-4 마당
-도착지
-인천 부평구
-삼산동)삼산동삼산타운7단지아파트
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, 'ⓓ법/\$청라동마당호프 2/2 인천 서구 연희동 763-4 마당');
-      expect(parsed.endLocation, '인천 부평구 삼산동)삼산동삼산타운7단지아파트');
-    });
-
-    test('logi destination ignores customer id and keeps address lines', () {
-      const rawText = '''
-요금 25000원
-출발지 테스트출발
-상세:경기 파주시
-도착지
-고객 D 8111
-인천 부평구
-삼산동)삼산동삼산타운7단지아파트
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, '테스트출발 경기 파주시');
-      expect(parsed.endLocation, '인천 부평구 삼산동)삼산동삼산타운7단지아파트');
-    });
-
-    test('logi fare from noisy amount line', () {
-      const rawText = '''
-요금
-25ooo원
-출발지 A
-도착지 B
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.grossFare, 25000);
-    });
-
-    test('logi three-line departure with one-line destination after label', () {
-      const rawText = '''
-요금 25000원
-출발지 서울 강남구 역삼동
-역삼역 2번 출구
-상세:서울 강남구 역삼동 123-4
-도착지
-경기 성남시 분당구 정자동
-고객 D 8111
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(
-        parsed.startLocation,
-        '서울 강남구 역삼동 역삼역 2번 출구 서울 강남구 역삼동 123-4',
-      );
-      expect(parsed.endLocation, '경기 성남시 분당구 정자동');
-    });
-
-    test('logi two-line departure with destination before label', () {
-      const rawText = '''
-요금 25000원
-출발지 서울 강남구 역삼동
-역삼역 2번 출구
-경기 성남시 분당구 정자동
-도착지
-고객 D 8111
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, '서울 강남구 역삼동 역삼역 2번 출구');
-      expect(parsed.endLocation, '경기 성남시 분당구 정자동');
-    });
-
-    test('logi departure only after labels with trailing destination line', () {
-      const rawText = '''
-요금 25000원
-출발지
-도착지
-서울 강남구 역삼동
-역삼역 2번 출구
-상세:서울 강남구 역삼동 123-4
-경기 성남시 분당구 정자동
-고객 D 8111
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(
-        parsed.startLocation,
-        '서울 강남구 역삼동 역삼역 2번 출구 서울 강남구 역삼동 123-4',
-      );
-      expect(parsed.endLocation, '경기 성남시 분당구 정자동');
-    });
-
-    test('colmanner two-line departure with three-line destination', () {
-      const rawText = '''
-지사명 테스트지사
-고객명 ***
-출발지 경기 부천시원미구 중동 1134-5
-굿모닝로얄프라자
-도착지 경기 부천시오정구 여월동 7-50
-여월동경기부천시오정구여월동7-50
-법]부천여월.여월동7-50
-출도 경로거리 : 20.5km
-(예상소요시간 : 31분)
-요금 35,000원 (예상 수익금:27,667원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(
-        parsed.startLocation,
-        '경기 부천시원미구 중동 1134-5 굿모닝로얄프라자',
-      );
-      expect(
-        parsed.endLocation,
-        '경기 부천시오정구 여월동 7-50 여월동경기부천시오정구여월동7-50 법]부천여월.여월동7-50',
-      );
-    });
-
-    test('colmanner three-line departure with two-line destination', () {
-      const rawText = '''
-지사명 테스트지사
-고객명 ***
-출발지 경기 수원시장안구 영화동
-킥보드x)즉후)카드/영화동
-392-4예전각설렁탕
-경기 광명시 소하동 1289
-도착지 소하동휴먼시아304동
-법]광명소하.휴먼시아304동
-출도 경로거리 : 20.5km
-요금 35,000원 (예상 수익금:27,667원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(
-        parsed.startLocation,
-        '경기 수원시장안구 영화동 킥보드x)즉후)카드/영화동 392-4예전각설렁탕',
-      );
-      expect(
-        parsed.endLocation,
-        '경기 광명시 소하동 1289 소하동휴먼시아304동 법]광명소하.휴먼시아304동',
-      );
-    });
-
-    test('colmanner long multiline with special symbols', () {
-      const rawText = '''
-지사명 드라이버인스타법인(AG콜센터)
-고객명 LG전자마곡[여환국]연구위원
-출발지 서울 강서구 마곡동 LG사이언스파크 ISC
-⊙스타
-마곡.LG사이언스파크ISC
-도착지 경기 용인시기흥구 중동
-성산마을신영지웰아파트 3005동
-법]용인중동.동백신영지웰3005동
-출도 경로거리 : 59.9km
-요금 50,000원 (예상 수익금:39,526원)
-현금 0원
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 강서구 마곡동 LG사이언스파크 ISC ⊙스타 마곡.LG사이언스파크ISC');
-      expect(parsed.endLocation, '경기 용인시기흥구 중동 성산마을신영지웰아파트 3005동 법]용인중동.동백신영지웰3005동');
-    });
-
-    test('colmanner cash call keeps fare from 요금 line', () {
-      const rawText = '''
-지사명 주)영암.스마트쌍둥이(네트워크)
-고객명 ***
-출발지 경기 부천시원미구 중동 중동 1134-5
-굿모닝로얄프라자
-도착지 경기 부천시오정구 여월동 여월동 7-50
-여월동경기부천시오정구여월동7-50
-출도 경로거리 : 0km
-(예상소요시간 : 13분)
-적요 앱콜고객/
-요금 13,000원 (예상 수익금:10,276원)
-현금 13000원
-입금합계 합계 : 0원
-차감합계 합계 : 3,624원
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.grossFare, 13000);
-      expect(parsed.startLocation, '경기 부천시원미구 중동 중동 1134-5 굿모닝로얄프라자');
-      expect(parsed.endLocation, '경기 부천시오정구 여월동 여월동 7-50 여월동경기부천시오정구여월동7-50');
-    });
-
-    test('colmanner multiline with emoji and special symbols', () {
-      const rawText = '''
-지사명 천사프리미엄2(AG콜센터)
-고객명 김성철 상무
-출발지 서울 영등포구 여의도동 CCMM빌딩
-🌟천사
-정장)비흡연)여의도.CCMM 지하5층
-도착지 경기 용인시수지구 신봉동
-신봉마을LG자이1차아파트
-법]용인신봉.신봉마을자이1차
-출도 경로거리 : 36.3km
-요금 50,000원 (예상 수익금:39,526원)
-현금 0원
-입금합계 합계 : 50,000원
-예상 후불요금 : 50,000원
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 영등포구 여의도동 CCMM빌딩 🌟천사 정장)비흡연)여의도.CCMM 지하5층');
-      expect(parsed.endLocation, '경기 용인시수지구 신봉동 신봉마을LG자이1차아파트 법]용인신봉.신봉마을자이1차');
-    });
-
-    test('colmanner destination ignores customer meta and keeps address lines', () {
-      const rawText = '''
-요금 35000원
-출발지 테스트출발
-도착지
-고객 D 8111
-경기 광명시 소하동
-소하동휴먼시아304동
-출도 경로거리 : 20.5km
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.grossFare, 35000);
-      expect(parsed.startLocation, '테스트출발');
-      expect(parsed.endLocation, '경기 광명시 소하동 소하동휴먼시아304동');
-    });
-
-    test('logi ignores 적요 경유 and strips ui tokens', () {
-      const rawText = '''
-요금 50000원
-출발지
-도착지
-대기,경유 발생시 종료후 상황실연락
-상세:서울 영등포구 여의도동 20-0
-LG트윈타워
-인천 연수구
-출발지
-송도동)인천송도동.더샵마스터뷰1단지
-지도
-완료
-배차
-취소
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.waypoint, '');
-      expect(parsed.startLocation, '서울 영등포구 여의도동 20-0 LG트윈타워');
-      expect(parsed.endLocation, '인천 연수구 송도동)인천송도동.더샵마스터뷰1단지');
-    });
-
-    test('logi ignores 출발지 도착 pickup banner between 인천 and trailing 송도', () {
-      const rawText = '''
-요금 50000원
-출발지
-도착지
-상세:서울 영등포구 여의도동 20-0
-LG트윈타워
-인천 연수구
-출발지 도착(19분 35초)
-출발지
-송도동)인천송도동.더샵마스터뷰1단지
-지도
-완료
-배차
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, contains('여의도'));
-      expect(parsed.startLocation, contains('LG트윈'));
-      expect(parsed.endLocation, contains('송도'));
-    });
-
-    test('logi splits detail departure and destination before ui', () {
-      const rawText = '''
-요금 50000원
-출발지
-도착지
-상세:서울 영등포구 여의도동 23-5
-한화투자증권 본사
-출발지
-지도
-인천 서구 청라동)인천청라동+청라한양수자 인레이크블루A
-완료
-배차
-취소
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, '서울 영등포구 여의도동 23-5 한화투자증권 본사');
-      expect(parsed.endLocation, '인천 서구 청라동)인천청라동+청라한양수자 인레이크블루A');
-    });
-
-    test('logi menu header 도착지 + trailing block (user repro 광명→부천)', () {
-      const rawText = r'''
-00:05 00:49)
-운행 시작
-이용개시번호
-요금
-입금액
-고객
-메모
-적요
-전화
-전화2
-출발지
-도착지
-고객ID
-오더번호
-차량번호
-경로
-안내
-92500093291
-17분 31초 남음
-30000
-6000
-일반 일반
-0508-5068-8499
-광명KTX역
-[대표연합대리 010-4519-4599 00:02]
-고객과의 거리: 216미터
-상세:경기 광명시 일직동 276-8
-광명역(15447788)
-0118
-1334363576
-출발지
-지도
-경기 부천시 중동)부천신중동역푸르지오시티
-완료
-처리
-운행시작연기
-배차
-취소
-tl34
-갱신
-서명
-|||
-전화
-전화
-닫기''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, contains('광명시'));
-      expect(parsed.startLocation, anyOf(contains('광명역'), contains('광명KTX')));
-      expect(parsed.endLocation, contains('부천시'));
-      expect(parsed.endLocation, contains('푸르지오'));
-      expect(parsed.grossFare, 30000);
-    });
-
-    test('logi gross fare ignores 입금액 stack order (6000 before 30000)', () {
-      const rawText = '''
-요금
-입금액
-17분 31초 남음
-6000
-30000
-일반 일반
-출발지
-도착지
-''';
-      expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 30000);
-    });
-
-    test('logi collects address after mid-card 출발지 and 지도 labels', () {
-      const rawText = '''
-요금 30000원
-출발지
-도착지
-상세:경기 테스트시 출발동 1-1
-건축물명
-출발지
-지도
-경기 테스트시 도착동)도착빌딩
-완료
-''';
-      final p = LogiColmannerOcr.parseLogi(rawText);
-      expect(p.startLocation, contains('출발동'));
-      expect(p.endLocation, contains('도착동'));
-    });
-
-    test('logi 상세+목동 후 마포 도착 (user repro 등촌→마포)', () {
-      const rawText = r'''
-23:18 iT
-운행 시작
-요금
-입금액
-고객
-메모
-적요
-전화
-전화2
-출발지
-도착지
-고객D
-오더번호
-차량번호
-경로
-안내
-30000!
-19분 20초 남음
-6000
-일반 40
-[UE하나로(주)HnH 02-3706-1004
-0508-5067-6088
-23:09] 현금0.5 마일후불2.5 경유:등촌초교
-고객과의 거리: 264미터
-등존역 금별맥주>등존초교
-6512
-13344304049
-출발지
-지도
-상세:서울 양천구 목동 609-24 금별맥주
-등촌역점
-서울 마포구 중동)마포중동 건영월드컵@
-완료
-운행시작연기
-처리
-서명
-배차
-취소
-갱신
-전화
-전화
-닫기''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, contains('양천구'));
-      expect(parsed.startLocation, contains('목동'));
-      expect(parsed.endLocation, contains('마포구'));
-      expect(parsed.endLocation, contains('건영'));
-      expect(parsed.grossFare, 30000);
-    });
-
-    test('colmanner keeps first admin departure line after label', () {
-      const rawText = '''
-출발지 천사
-출도
-적요
-도착지 후곡마을14단지아파트
-경기 수원시팔달구 인계동 경기아트센터
-정장)수원인계.경기아트센터게이트1
-경기 고양시일산서구 일산동
-법]일산후곡마을14단지
-출도 경로거리 : 73.나km
-요금 75,000원
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(
-        parsed.startLocation,
-        '천사 경기 수원시팔달구 인계동 경기아트센터',
-      );
-      expect(parsed.endLocation, '후곡마을14단지아파트 경기 고양시일산서구 일산동 법]일산후곡마을14단지');
-    });
-
-    test('colmanner strips route distance from destination', () {
-      const rawText = '''
-출발지
-도착지
-인천 연수구 송도동
-즉후)워시갤럭시
-경기 화성시 병점동
-화성시 병점동 105-1
-출도 경로거리 : Okm
-요금 50,000원
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, '인천 연수구 송도동');
-      expect(parsed.endLocation, '경기 화성시 병점동 화성시 병점동 105-1');
-    });
-
-    test('colmanner 출도 only row after 도착지 label still collects 주소 블록', () {
-      const rawText = '''
-1:33
-위치: 중3동/ 계남고가사거리 잔액 : 312,047원
-R 고객전화
-지사명 주)영암.스마트쌍둥이(L네트워크)
-고객명 ***
-출발지
-도착지
-출도
-경기 부천시원미구 중동 중동 1134-5
-굿모닝로얄프라자
-경기 부천시오정구 여월동 여월동 7-50
-차감합계
-경로거리 : ㅇkm
-요금 13,000원 (예상 수익금:10,276원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, contains('원미구'));
-      expect(parsed.startLocation, contains('굿모닝'));
-      expect(parsed.endLocation, contains('오정구'));
-      expect(parsed.endLocation, contains('여월동'));
-      expect(parsed.grossFare, 13000);
-    });
-
-    test('colmanner tolerates OCR spacing on 출도경로거리 stop line', () {
-      const rawText = '''
-출발지
-도착지
-서울 강남구 역삼동
-건물A
-경기 수원시 팔달구 행궁동
-행궁동 1-1
-출 도경로거리 : 40km
-요금 45,000원 (예상 수익금:35,000원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, contains('역삼'));
-      expect(parsed.endLocation, contains('수원'));
-      expect(parsed.endLocation, isNot(contains('40km')));
-      expect(parsed.grossFare, 45000);
-    });
-
-    test('colmanner 메트릭스전자담배: no 출발지 label, keep 원미구 head and full 여월 destination', () {
-      const rawText = '''
-지사명 메트릭스전자담배(테스트)
-고객명 ***
-경기 부천시원미구 중동 즉후)후불)메트릭스전자담배입구
-도착지 경기 부천시오정구 여월동 여월동 7-50
-출도 경로거리 : 20.5km
-요금 13,000원 (예상 수익금:10,276원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, contains('부천시원미구'));
-      expect(parsed.startLocation, contains('후불'));
-      expect(parsed.startLocation.startsWith('후불'), isFalse);
-      expect(parsed.endLocation, contains('오정구'));
-      expect(parsed.endLocation, contains('여월'));
-      expect(parsed.endLocation.endsWith('/0'), isFalse);
-      expect(parsed.grossFare, 13000);
-    });
-
-    test('colmanner 금정동: no 도착지 label, second 경기+군포시 splits after 킥보드 noise', () {
-      const rawText = '''
-지사명 테스트
-고객명 ***
-출발지 경기 의왕시 장항동 710-1 킥보드x)카/즉후)경기 군포시 금정동 710-2
-출도 경로거리 : 12km
-요금 15,000원 (예상 수익금:11,800원)
-''';
-      final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, contains('의왕시'));
-      expect(parsed.startLocation, contains('장항동'));
-      expect(parsed.startLocation, isNot(contains('군포시')));
-      expect(parsed.startLocation, isNot(contains('금정동')));
-      expect(parsed.endLocation, contains('군포시'));
-      expect(parsed.endLocation, contains('금정동'));
-      expect(parsed.endLocation, contains('710-2'));
-    });
-  });
-
-  group('Kakao pro OCR regression', () {
-    test('pro keeps second departure line with destination', () {
-      const rawText = '''
-배정 완료
-카드 | 확정
-고객
-여의도동
-백원
-인천 중구 중산동
-스카이시티자이아파트
-55,800
-200점
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '여의도동 백원');
-      expect(parsed.endLocation, '인천 중구 중산동 스카이시티자이아파트');
-      expect(parsed.grossFare, 55800);
-    });
-
-    test('pro fare ignores embedded address digits', () {
-      const rawText = '''
-배정 완료
-카드 | 확정
-고객
-광주시 능평로156번길 27
-서울 강남구 신사동
-쉐이크섹 청담점
-60,800
-200점
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '광주시 능평로156번길 27');
-      expect(parsed.endLocation, '서울 강남구 신사동 쉐이크섹 청담점');
-      expect(parsed.grossFare, 60800);
-    });
-  });
-
-  group('Kakao general OCR regression', () {
-    test('strips customer call guidance from destination', () {
-      const rawText = '''
-배정 완료
-카드 | 확정
-서대문구 남가좌동 210-1
-김포시 풍무동 당곡마을 3단지월드메르디앙아파
-출발지에 도착하시면 도착완료 해주세요.
-28,000
-''';
-      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.startLocation, '서대문구 남가좌동 210-1');
-      expect(parsed.endLocation, '김포시 풍무동 당곡마을 3단지월드메르디앙아파');
-    });
-  });
-
-  group('Logi export regression', () {
-    test('keeps detail block after customer meta between empty labels', () {
-      const rawText = '''
-요금 30000원
-출발지
-도착지
-고객ID
-오더번호
-상세:경기 광명시 일직동 276-8
-광명역(15447788)
-출발지
-지도
-경기 부천시 중동)부천신중동역푸르지오시티
-''';
-      final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, '경기 광명시 일직동 276-8 광명역(15447788)');
-      expect(parsed.endLocation, '경기 부천시 중동)부천신중동역푸르지오시티');
-    });
-  });
-
-  group('Tmap OCR regression', () {
-    test('in-progress card screen parsing', () {
-      const rawText = '''
-고객센터
-운행중
-사고신고
-안양시 동안구 평촌동 932 토니치킨
-화성시 효행구 봉담읍 674 우방아이유쉘1단지 상가동
-T 티맵으로 길안내
-96%의 티맵 고객이 선호!
-실수익 24,800P
-운행완료
-''';
-      final parsed = TmapTripDetailOcr.tryParse(rawText);
-      expect(parsed, isNotNull);
-      expect(parsed!.startAddress, '안양시 동안구 평촌동 932 토니치킨');
-      expect(parsed.endAddress, '화성시 효행구 봉담읍 674 우방아이유쉘1단지 상가동');
-      expect(parsed.grossFare, 24800);
-    });
-  });
-}
-
-
-
-================================================================================
-FILE: test/analyze_ocr_export_test.dart
-================================================================================
-
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:dbros_app/utils/kakao_call_card_ocr.dart';
-import 'package:dbros_app/utils/logi_colmanner_ocr.dart';
-import 'package:flutter_test/flutter_test.dart';
-
-void main() {
-  test('analyze OCR export parsed vs saved and reparsed', () {
-    const path = r'c:\Users\HYM\Documents\카카오톡 받은 파일\ocr_parse_export_20260512.json';
-    final file = File(path);
-    if (!file.existsSync()) {
-      return;
-    }
-
-    final root = jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
-    final entries = (root['entries'] as List<dynamic>).cast<Map<String, dynamic>>();
-
-    var parsedSavedMismatch = 0;
-    var reparsedDiff = 0;
-    final flagged = <Map<String, dynamic>>[];
-
-    for (final entry in entries) {
-      final program = entry['program']?.toString() ?? '';
-      final rawText = entry['raw_text']?.toString() ?? '';
-      final parsed = (entry['parsed_data'] as Map<String, dynamic>?) ?? {};
-      final saved = (entry['saved_drive_log'] as Map<String, dynamic>?) ?? {};
-
-      final parsedDep = parsed['departure']?.toString() ?? '';
-      final parsedDest = parsed['destination']?.toString() ?? '';
-      final parsedFare = parsed['fee_amount'];
-      final parsedTime = parsed['drive_time']?.toString() ?? '';
-      final parsedWaypoints = (parsed['waypoints'] as List<dynamic>?) ?? const [];
-
-      final savedDep = saved['departure']?.toString() ?? '';
-      final savedDest = saved['destination']?.toString() ?? '';
-      final savedFare = saved['gross_fare'];
-      final savedTime = saved['drive_time']?.toString() ?? '';
-      final savedWaypoints = (saved['waypoints'] as List<dynamic>?) ?? const [];
-
-      if (parsedDep != savedDep ||
-          parsedDest != savedDest ||
-          parsedFare != savedFare ||
-          parsedTime != savedTime ||
-          parsedWaypoints.join('|') != savedWaypoints.join('|')) {
-        parsedSavedMismatch++;
-        // ignore: avoid_print
-        print(
-          'MISMATCH saved_id=${saved['id']} program=$program '
-          'parsed_dep=${jsonEncode(parsedDep)} saved_dep=${jsonEncode(savedDep)} '
-          'parsed_dest=${jsonEncode(parsedDest)} saved_dest=${jsonEncode(savedDest)} '
-          'parsed_fare=$parsedFare saved_fare=$savedFare',
-        );
-      }
-
-      final reparsed = _reparse(program, rawText);
-      final changed = reparsed.$1 != parsedDep ||
-          reparsed.$2 != parsedDest ||
-          reparsed.$3 != parsedFare ||
-          reparsed.$4 != parsedTime ||
-          reparsed.$5 != parsedWaypoints.join(' ');
-      if (changed) {
-        reparsedDiff++;
-      }
-
-      final flags = <String>{};
-      for (final field in [parsedDep, parsedDest, savedDep, savedDest]) {
-        if (_hasUiNoise(field)) flags.add('ui_noise');
-        if (field.contains('경로거리')) flags.add('route_distance');
-        if (field == '지도' || field.contains('경로 ||')) flags.add('map_route_token');
-        if (field.contains('상세:')) flags.add('detail_prefix');
-      }
-      if (parsedDep.isEmpty) flags.add('empty_departure');
-      if (parsedDest.isEmpty) flags.add('empty_destination');
-      if (parsedDep.isNotEmpty && parsedDest.isNotEmpty && parsedDep == parsedDest) {
-        flags.add('same_dep_dest');
-      }
-      if (parsedDep.isNotEmpty &&
-          parsedDest.isNotEmpty &&
-          (parsedDep.contains(parsedDest) || parsedDest.contains(parsedDep))) {
-        flags.add('overlap_dep_dest');
-      }
-      if (program.startsWith('로지') && parsedWaypoints.isNotEmpty) {
-        flags.add('logi_waypoint');
-      }
-
-      if (flags.isNotEmpty || changed) {
-        flagged.add({
-          'id': entry['id'],
-          'saved_id': saved['id'],
-          'program': program,
-          'flags': flags.toList()..sort(),
-          'parsed_dep': parsedDep,
-          'parsed_dest': parsedDest,
-          'reparsed_dep': reparsed.$1,
-          'reparsed_dest': reparsed.$2,
-          'parsed_fare': parsedFare,
-          'reparsed_fare': reparsed.$3,
-          'changed': changed,
-        });
-      }
-    }
-
-    // ignore: avoid_print
-  print('entries=${entries.length}');
-    // ignore: avoid_print
-  print('parsed_saved_mismatch=$parsedSavedMismatch');
-    // ignore: avoid_print
-  print('reparsed_vs_export_parsed_diff=$reparsedDiff');
-    // ignore: avoid_print
-  print('flagged=${flagged.length}');
-    for (final issue in flagged) {
-      // ignore: avoid_print
-      print(jsonEncode(issue));
-    }
-  });
-}
-
-(String, String, int, String, String) _reparse(String program, String rawText) {
-  if (program.startsWith('카카오')) {
-    final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-    return (
-      parsed.startLocation,
-      parsed.endLocation,
-      parsed.grossFare ?? 0,
-      parsed.driveTimeHm ?? '',
-      parsed.waypoint,
-    );
-  }
-  if (program == '콜마너') {
-    final parsed = LogiColmannerOcr.parseColmanner(rawText);
-    return (
-      parsed.startLocation,
-      parsed.endLocation,
-      parsed.grossFare,
-      parsed.driveTimeHm,
-      parsed.waypoint,
-    );
-  }
-  final parsed = LogiColmannerOcr.parseLogi(rawText);
-  return (
-    parsed.startLocation,
-    parsed.endLocation,
-    parsed.grossFare,
-    parsed.driveTimeHm,
-    parsed.waypoint,
-  );
-}
-
-bool _hasUiNoise(String value) {
-  const tokens = [
-    '완료',
-    '배차',
-    '안내',
-    '갱신',
-    '닫기',
-    '처리',
-    '취소',
-    '지도',
-    '경로',
-    '출발지',
-    '도착지',
-    '운행시작연기',
-    '서명',
-  ];
-  for (final token in tokens) {
-    if (value.contains(token)) return true;
-  }
-  return false;
-}
-

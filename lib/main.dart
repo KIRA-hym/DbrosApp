@@ -53,7 +53,7 @@ void overlayMain() async {
   await initializeDateFormatting('ko_KR', null);
   await TodayStatsNotificationService.instance.initialize(
     triggerInitialRefresh: false,
-    enableAutoCapturePolling: false,
+    applyStatusBarQuickState: false,
   );
   runApp(const _QuickRegisterOverlayApp());
 }

@@ -8,7 +8,6 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/backup_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../services/settings_service.dart';
-import '../services/auto_capture_ocr_service.dart';
 import '../services/today_stats_notification_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -592,8 +591,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
             subtitle: Text(
               "알림 패널에 오늘 순익을 표시합니다. 일지 등록·수정 시 갱신됩니다.\n"
-              "본문 탭: 일반 작성 화면 · ⚡ 퀵등록: 반투명 퀵 입력.\n"
-              "켜 두면 다른 앱에서 저장한 스크린샷을 감지해, 인식 가능한 콜카드·티맵 화면은 일지에 자동 저장을 시도합니다(사진·알림 권한 필요).",
+              "본문 탭: 일반 작성 화면 · ⚡ 퀵등록: 반투명 퀵 입력.",
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
             ),
             value: _statusBarQuickEnabled,
@@ -608,28 +606,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                   return;
                 }
-                if (Platform.isAndroid) {
-                  var mediaOk = await Permission.photos.isGranted;
-                  if (!mediaOk) {
-                    mediaOk = (await Permission.photos.request()).isGranted;
-                  }
-                  if (!mediaOk) {
-                    mediaOk = (await Permission.storage.request()).isGranted;
-                  }
-                  if (!mediaOk) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          "스크린샷 자동 인식에는 사진·저장소 권한이 필요합니다. 설정 앱에서 허용해 주세요.",
-                        ),
-                      ),
-                    );
-                  }
-                }
                 await SettingsService.setStatusBarQuickEnabled(true);
                 await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
-                AutoCaptureOcrService.instance.start();
               } else {
                 await SettingsService.setStatusBarQuickEnabled(false);
                 await TodayStatsNotificationService.instance.cancel();

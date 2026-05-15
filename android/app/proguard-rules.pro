@@ -5,3 +5,8 @@
 -keep class com.google.android.gms.common.** { *; }
 -keep class com.google.android.gms.auth.api.signin.** { *; }
 -dontwarn com.google.android.gms.**
+
+# ML Kit text recognition — unused script packs (Korean only in app)
+-dontwarn com.google.mlkit.vision.text.chinese.**
+-dontwarn com.google.mlkit.vision.text.devanagari.**
+-dontwarn com.google.mlkit.vision.text.japanese.**
