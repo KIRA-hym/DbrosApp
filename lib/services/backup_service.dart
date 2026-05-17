@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'db_helper.dart';
@@ -234,39 +235,27 @@ class BackupService {
     try {
       backupFile = await _writeTempBackupZipFile();
 
-      final savedPath = await FlutterFileDialog.saveFile(
-        params: SaveFileDialogParams(
-          sourceFilePath: backupFile.path,
-          mimeTypesFilter: const <String>['application/zip', 'application/octet-stream'],
-          localOnly: false,
-        ),
+      await Share.shareXFiles(
+        [XFile(backupFile.path, mimeType: 'application/zip')],
+        subject: '디브로스 백업 파일',
       );
 
-      if (savedPath == null) {
-        if (!context.mounted) return false;
-        _maybeShowSnackBar(context, '백업 저장이 취소되었습니다.');
-        return false;
-      }
-
-      final fileName = _safeFileNameFromPath(savedPath);
-      if (!context.mounted) return false;
-      _maybeShowSnackBar(
-        context,
-        fileName.isEmpty
-            ? '백업 파일을 저장했습니다.'
-            : '백업 파일을 저장했습니다: $fileName',
-      );
+      if (!context.mounted) return true;
+      _maybeShowSnackBar(context, '백업 파일 공유를 열었습니다.');
       return true;
     } catch (e) {
       if (!context.mounted) return false;
       _maybeShowSnackBar(context, '파일 백업 중 오류: $e');
       return false;
     } finally {
-      try {
-        if (backupFile != null && await backupFile.exists()) {
-          await backupFile.delete();
-        }
-      } catch (_) {}
+      // Delay the deletion slightly to allow the OS and target app to finish reading from temp file
+      Future.delayed(const Duration(seconds: 15), () async {
+        try {
+          if (backupFile != null && await backupFile.exists()) {
+            await backupFile.delete();
+          }
+        } catch (_) {}
+      });
     }
   }
 
