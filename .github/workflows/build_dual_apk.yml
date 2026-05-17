@@ -1,0 +1,62 @@
+name: Build Dual APKs
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Owner and Public APKs
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Extract Version and Date
+        id: vars
+        run: |
+          DATE=$(date +'%Y%m%d')
+          # Extract version like 1.0.0+1 and convert to 1_0_0_1
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          FORMATTED_VER=$(echo $VERSION | sed 's/\./_/g; s/\+/_/g')
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+          echo "ver=v$FORMATTED_VER" >> $GITHUB_OUTPUT
+
+      - name: Build Owner APK (Maps ON)
+        run: flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=true --no-tree-shake-icons
+
+      - name: Move and Rename Owner APK
+        run: |
+          mkdir -p build/outputs
+          cp build/app/outputs/flutter-apk/app-release.apk build/outputs/DbrosInstall_${{ steps.vars.outputs.date }}_${{ steps.vars.outputs.ver }}_owner.apk
+
+      - name: Build Public APK (Maps OFF)
+        run: flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=false
+
+      - name: Move and Rename Public APK
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk build/outputs/DbrosInstall_${{ steps.vars.outputs.date }}_${{ steps.vars.outputs.ver }}_public.apk
+
+      - name: Upload APKs to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dbros-Release-APKs
+          path: build/outputs/*.apk
+          retention-days: 7
