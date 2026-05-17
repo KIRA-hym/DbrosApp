@@ -503,6 +503,7 @@ class KakaoCallCardOcr {
       '도착완료 해주세요.',
       '고객에게 위치정보가 공유됩니다.',
       '고객에게 위치정 보가 공유됩니다',
+      '위치정보가 공유됩니다.',
     ];
     for (final phrase in phrases) {
       t = t.replaceAll(phrase, ' ');
@@ -511,6 +512,8 @@ class KakaoCallCardOcr {
     t = t.replaceAll(RegExp(r'고객에게\s*위치정보가\s*공유[^\s]*'), ' ');
     t = t.replaceAll(RegExp(r'고객과\s*통화'), ' ');
     t = t.replaceAll(RegExp(r'출발지에\s*도착[^.]*'), ' ');
+    t = t.replaceAll(RegExp(r'\s+경유\s+Q\s*', caseSensitive: false), ' ');
+    t = t.replaceAll(RegExp(r'\s+Q\s*', caseSensitive: false), ' ');
     t = stripCallCardUiNoiseTokens(t);
     return normalizeCallCardAddressOcr(t);
   }

@@ -494,7 +494,7 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'[Q|/\\(){}\[\]]'), ' ');
     res = res.replaceAll(
       RegExp(
-        r'(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착)',
+        r'(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료|배차|안내|갱신|닫기|처리|취소|지도|출발지 도착 연기|출발지 도착|서명)',
       ),
       ' ',
     );
@@ -510,6 +510,7 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지)\s*', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'\s+(출발지|도착지|지도|서명|길안내|고객위치|고객과의\s*거리\s*[:：]?\s*.*)$', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'출\s*도\s*경로거리.*$', caseSensitive: false), '');
+    res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[a-zA-Z0-9\.]+(?:km)?', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
     res = res.replaceAll(RegExp(r'킥보드\s*[xX]\)?', caseSensitive: false), ' ');
 
