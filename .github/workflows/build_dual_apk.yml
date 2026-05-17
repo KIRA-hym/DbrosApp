@@ -29,10 +29,14 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Fix hardcoded Gradle Java Home
+      - name: Optimize Gradle Properties for Cloud
         run: |
           if [ -f android/gradle.properties ]; then
             sed -i '/org.gradle.java.home/d' android/gradle.properties
+            sed -i '/org.gradle.daemon=false/d' android/gradle.properties
+            sed -i '/org.gradle.parallel=false/d' android/gradle.properties
+            sed -i '/org.gradle.workers.max=1/d' android/gradle.properties
+            sed -i '/UseSerialGC/d' android/gradle.properties
           fi
 
       - name: Extract Version and Date
