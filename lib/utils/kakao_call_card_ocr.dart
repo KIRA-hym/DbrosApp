@@ -256,11 +256,18 @@ class KakaoCallCardOcr {
     return _excludePaymentOrActionStrip(text);
   }
 
-  static bool _looksLikeFareAmountLine(String line) {
-    final t = line.trim();
-    if (_looksLikeAddressFareTrap(t)) return false;
-    if (RegExp(r'^[\d,]+\s*원?$').hasMatch(t)) return true;
-    if (RegExp(r'^[\d,]+\s*P$').hasMatch(t)) return true;
+  static bool _looksLikeFareAmountLine(String t) {
+    final clean = t.trim();
+    if (_looksLikeAddressFareTrap(clean)) return false;
+    
+    // 30,000 원, 30000원, 30,000 P, 30000P
+    if (RegExp(r'^[\d,]+\s*(원|P|p)$').hasMatch(clean)) return true;
+    if (clean.contains('예상') && clean.contains('수익')) return true;
+    
+    // 카드 | 확정 20,800 P 등과 같은 패턴 대응 (숫자와 P로 끝나는 경우)
+    if (RegExp(r'[\d,]+\s*(P|p)$').hasMatch(clean)) return true;
+    if (clean.contains('카드') && clean.contains('확정')) return true;
+    
     return false;
   }
 
