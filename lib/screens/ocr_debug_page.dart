@@ -185,7 +185,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     final dir = await getTemporaryDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final file = File('${dir.path}/ocr_debug_$timestamp.txt');
-    await file.writeAsString(logText, encoding: const Utf8Codec());
+    await file.writeAsString(logText, encoding: Utf8Codec());
 
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'text/plain')],
