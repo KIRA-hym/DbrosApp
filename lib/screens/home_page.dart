@@ -675,6 +675,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               label: const Text(
                 '대기비용 계산',
                 style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
           ),
         ],
