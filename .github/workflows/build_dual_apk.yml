@@ -29,6 +29,12 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Fix hardcoded Gradle Java Home
+        run: |
+          if [ -f android/gradle.properties ]; then
+            sed -i '/org.gradle.java.home/d' android/gradle.properties
+          fi
+
       - name: Extract Version and Date
         id: vars
         run: |
