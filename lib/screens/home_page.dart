@@ -675,27 +675,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               label: const Text(
                 '대기비용 계산',
                 style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
-          SizedBox(height: spacing / 2),
-          SizedBox(
-            height: isTablet ? 36.0 : 32.0,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF6E717C),
-                side: const BorderSide(color: Color(0xFF3A3D46)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const OcrDebugPage()),
-              ),
-              icon: const Icon(Icons.bug_report_outlined, size: 15),
-              label: const Text(
-                'OCR 디버그 (개발자용)',
-                style: TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-              ),
             ),
           ),
         ],

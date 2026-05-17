@@ -457,6 +457,51 @@ T 전화 배정 완료
   });
 
   group('Logi/Colmanner OCR regression', () {
+    test('colmanner consecutive empty headers and tabular headers (천천동 531)', () {
+      const rawText = '''
+8:38
+위치 : 여의동/ 여의도CGV 잔액 : 51,015원
+고객전화
+지사명 청방(청방)
+고객명 윤상혁/부문장님
+출발지
+도착지
+출도
+적요
+TALK
+입금합계
+차감합계
+고객정보
+서울 영등포구 여의도동
+여의도동 34-8
+경기 수원시장안구 천천동
+천천동 531
+경로거리 : 33.8km
+현금 0원
+(예상소요시간 : 51분)
+요금 50,000원 (예상 수익금:39,526원)
+//[자택:수원천천동
+상황실
+비단마을현대우방아파트기15동1703호]
+합계 : 50,000원
+예상 후물요금: 50,000원
+합계 : 11,374원
+예상 운행수수료 : 10,000원
+예상 고용보험료 : 219원
+예상 산재보험료 : 255원
+/[자택:수원천천동
+비단마을현대우방아파트115동1103호]
+서명
+고객위치 90 출도경로
+킬안내
+운행 시작
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.grossFare, 50000);
+      expect(parsed.startLocation, '서울 영등포구 여의도동 여의도동 34-8');
+      expect(parsed.endLocation, '경기 수원시장안구 천천동 천천동 531');
+    });
+
     test('logi multiline address with detail', () {
       const rawText = '''
 요금 40000원
@@ -635,11 +680,11 @@ T 전화 배정 완료
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(
         parsed.startLocation,
-        '경기 수원시장안구 영화동 즉후 카드 영화동 392-4예전각설렁탕',
+        '경기 수원시장안구 영화동 392-4예전각설렁탕',
       );
       expect(
         parsed.endLocation,
-        '경기 광명시 소하동 1289 소하동휴먼시아304동 법 광명소하.휴먼시아304동',
+        '경기 광명시 소하동 1289 소하동휴먼시아304동',
       );
     });
 
@@ -939,9 +984,9 @@ tl34
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(
         parsed.startLocation,
-        '천사 경기 수원시팔달구 인계동 경기아트센터',
+        '천사 경기 수원시팔달구 인계동 경기아트센터 수원인계.경기아트센터게이트1',
       );
-      expect(parsed.endLocation, '후곡마을14단지아파트 경기 고양시일산서구 일산동 법]일산후곡마을14단지');
+      expect(parsed.endLocation, '후곡마을14단지아파트 경기 고양시일산서구 일산동');
     });
 
     test('colmanner strips route distance from destination', () {
@@ -983,6 +1028,60 @@ R 고객전화
       expect(parsed.endLocation, contains('오정구'));
       expect(parsed.endLocation, contains('여월동'));
       expect(parsed.grossFare, 13000);
+    });
+
+    test('colmanner Case 12: 도화동1009 removes memo lines and processes correctly', () {
+      const rawText = '''
+위치 : 도화동/ 도화동1009 잔액 : 85,947원
+고객전화
+지사명 천사스마트(AG콜센터)
+고객명 **
+출발지 천사
+출도
+적요
+도착지
+인천 미추홀구 도화동
+입금합계
+차감합계
+인천도화동1009 2-2
+자택 108동 절대비흡연 전동휠킥보드절대금지
+경로거리 : ㅇkm
+요금 12,000원 (예상 수익금:9,289원)
+현금 0원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, '천사 인천 미추홀구 도화동');
+      expect(parsed.endLocation, '인천도화동1009');
+      expect(parsed.grossFare, 12000);
+    });
+
+    test('colmanner Case 3: 병점동 705-1 filters 5OK payment text and preserves address', () {
+      const rawText = '''
+위치: 송도2동/ 투모로우시티역 잔액 : 87,821원
+고객전화
+지사명 서븐콜대리운전(S콜센터정산)
+고객명 **
+출발지
+도착지
+출도
+인천 연수구 송도동
+즉후)워시갤럭시
+입금합계
+차감합계
+경기 화성시 병점동
+그개저비
+화성시 병점동 705-1
+경로거리 : Okm
+(예상소요시간 : 44분)
+적요 대리리운전 편도요금/어플접수>출,도착지
+후불5OK]완료20분후입금}카드결재
+요금 50,000원 (여상 수익금:39.526원)
+현금 0원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, '인천 연수구 송도동 워시갤럭시');
+      expect(parsed.endLocation, '경기 화성시 병점동 화성시 병점동 705-1');
+      expect(parsed.grossFare, 50000);
     });
 
     test('colmanner tolerates OCR spacing on 출도경로거리 stop line', () {

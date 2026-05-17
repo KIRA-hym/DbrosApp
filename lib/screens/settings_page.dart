@@ -9,6 +9,7 @@ import '../services/backup_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
+import 'ocr_debug_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -474,22 +475,14 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  final file = await OcrParseLogService.exportToDownload();
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("OCR 로그를 저장했습니다.\n${file.path}")),
-                  );
-                } catch (e) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("OCR 로그 추출 실패: $e")),
-                  );
-                }
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const OcrDebugPage()),
+                );
               },
-              icon: const Icon(Icons.file_download, color: Colors.white),
-              label: const Text("로그 추출"),
+              icon: const Icon(Icons.bug_report_outlined, color: Colors.white),
+              label: const Text("OCR 디버그 (로그 추출)"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF9C27B0),
                 foregroundColor: Colors.white,
@@ -500,7 +493,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: spacing),
           Text(
-            "• OCR 인식 시 파싱 결과가 앱 내부에 누적됩니다\n• 추출 시 단말기 Downloads 폴더에 누적 OCR 로그와 drive_logs 저장 데이터가 함께 JSON으로 생성됩니다",
+            "• OCR 인식 시 파싱 결과가 앱 내부에 누적됩니다\n• OCR 디버그 화면을 통해 전체 파싱 로그 조회 및 클립보드 복사, 공유/추출이 가능합니다",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
