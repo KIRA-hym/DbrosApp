@@ -33,10 +33,16 @@ jobs:
         run: |
           if [ -f android/gradle.properties ]; then
             sed -i '/org.gradle.java.home/d' android/gradle.properties
-            sed -i '/org.gradle.daemon=false/d' android/gradle.properties
-            sed -i '/org.gradle.parallel=false/d' android/gradle.properties
-            sed -i '/org.gradle.workers.max=1/d' android/gradle.properties
-            sed -i '/UseSerialGC/d' android/gradle.properties
+            sed -i '/org.gradle.daemon/d' android/gradle.properties
+            sed -i '/org.gradle.parallel/d' android/gradle.properties
+            sed -i '/org.gradle.workers.max/d' android/gradle.properties
+            sed -i '/org.gradle.jvmargs/d' android/gradle.properties
+            
+            # 깃허브 서버(7GB 램) 환경에 맞춰 메모리 대폭 할당 및 캐시 활성화
+            echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g" >> android/gradle.properties
+            echo "org.gradle.daemon=true" >> android/gradle.properties
+            echo "org.gradle.parallel=true" >> android/gradle.properties
+            echo "org.gradle.workers.max=2" >> android/gradle.properties
           fi
 
       - name: Extract Version and Date
