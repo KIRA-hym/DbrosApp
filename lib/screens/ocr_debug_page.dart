@@ -10,6 +10,8 @@ import '../utils/logi_colmanner_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
+import 'package:http/http.dart' as http;
+import '../services/settings_service.dart';
 
 class OcrDebugPage extends StatefulWidget {
   const OcrDebugPage({super.key});
@@ -194,6 +196,77 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     );
   }
 
+  bool _isUploadingGas = false;
+
+  Future<void> _uploadToGoogleDriveGAS() async {
+    final gasUrl = SettingsService.gasWebhookUrl.trim();
+    if (gasUrl.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("구글 드라이브 업로드 GAS URL이 비어 있습니다. 설정 화면에서 URL을 등록해 주세요."),
+          backgroundColor: Color(0xFFC62828),
+        ),
+      );
+      return;
+    }
+
+    if (_results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("업로드할 OCR 디버그 결과가 없습니다."),
+          backgroundColor: Color(0xFFC62828),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingGas = true);
+
+    try {
+      final logText = _buildLogText();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'ocr_failure_log_$timestamp.txt';
+
+      final res = await http.post(
+        Uri.parse(gasUrl),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode(<String, dynamic>{
+          'fileName': fileName,
+          'mimeType': 'text/plain',
+          'fileContent': base64Encode(utf8.encode(logText)),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("구글 드라이브(GAS)로 실패 로그가 성공적으로 전송 및 업로드되었습니다!"),
+            backgroundColor: Color(0xFF2E7D32),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("업로드 실패 (서버 응답 오류: ${res.statusCode})"),
+            backgroundColor: const Color(0xFFC62828),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("네트워크 오류 또는 시간 초과가 발생했습니다: $e"),
+          backgroundColor: const Color(0xFFC62828),
+        ),
+      );
+    } finally {
+      setState(() => _isUploadingGas = false);
+    }
+  }
+
   Future<void> _copyToClipboard() async {
     if (_results.isEmpty) return;
     await Clipboard.setData(ClipboardData(text: _buildLogText()));
@@ -225,6 +298,21 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
         ),
         actions: [
           if (_results.isNotEmpty) ...[
+            if (_isUploadingGas)
+              const SizedBox(
+                width: 48,
+                height: 48,
+                child: Padding(
+                  padding: EdgeInsets.all(14.0),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC700)),
+                ),
+              )
+            else
+              IconButton(
+                icon: const Icon(Icons.cloud_upload, color: Color(0xFFFFC700)),
+                tooltip: '구글 드라이브(GAS) 전송',
+                onPressed: _uploadToGoogleDriveGAS,
+              ),
             IconButton(
               icon: const Icon(Icons.copy, color: Color(0xFFFFC700)),
               tooltip: '클립보드 복사',
@@ -256,7 +344,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '개발자 전용 도구 — OCR Raw 텍스트 및 파싱 결과를 추출합니다.\n이미지 선택 후 우측 상단 공유 버튼으로 로그를 전송하세요.',
+                    '개발자 전용 도구 — OCR Raw 텍스트 및 파싱 결과를 추출합니다.\n우측 상단의 구름 업로드 버튼(GAS 연동)을 통해 구글 드라이브 지정 폴더로 실패 로그를 원격 업로드하거나, 공유 버튼을 이용하실 수 있습니다.',
                     style: TextStyle(color: Color(0xFFFFC700), fontSize: 11, height: 1.4),
                   ),
                 ),

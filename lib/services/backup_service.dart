@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'db_helper.dart';
 import 'expense_repository.dart';
 import 'settings_service.dart';
+import 'package:flutter/services.dart' show MethodChannel;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class BackupService {
   static String _safeFileNameFromPath(String path) {
@@ -327,4 +329,86 @@ class BackupService {
     }
   }
 
+  static const MethodChannel _androidChannel = MethodChannel('dbros.app/today_summary');
+
+  static Future<int> purgeOldImages({String? customPeriod}) async {
+    final period = customPeriod ?? SettingsService.imagePurgePeriod;
+    if (period == 'none') return 0;
+
+    final days = period == '3_months' ? 90 : 180;
+    final cutoffDate = DateTime.now().subtract(Duration(days: days));
+    final cutoffStr = '${cutoffDate.year}-${cutoffDate.month.toString().padLeft(2, '0')}-${cutoffDate.day.toString().padLeft(2, '0')}';
+
+    final db = await DriveLogDatabase.instance.database;
+    final List<Map<String, dynamic>> targetLogs = await db.query(
+      'drive_logs',
+      where: 'drive_date < ? AND image_path IS NOT NULL AND TRIM(image_path) != ""',
+      whereArgs: [cutoffStr],
+    );
+
+    if (targetLogs.isEmpty) return 0;
+
+    var deletedCount = 0;
+    for (final log in targetLogs) {
+      final id = log['id'];
+      final path = log['image_path']?.toString() ?? '';
+      if (path.isNotEmpty) {
+        try {
+          final f = File(path);
+          if (await f.exists()) {
+            await f.delete();
+            deletedCount++;
+          }
+        } catch (_) {}
+      }
+      await db.update(
+        'drive_logs',
+        <String, Object?>{'image_path': ''},
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+    }
+    return deletedCount;
+  }
+
+  static Future<bool> runAutoBackupIfNeeded({bool force = false}) async {
+    if (!force && !SettingsService.autoBackupEnabled) return false;
+
+    final now = DateTime.now();
+    if (!force) {
+      final lastBackupStr = SettingsService.lastAutoBackupDate;
+      if (lastBackupStr.isNotEmpty) {
+        final lastBackup = DateTime.tryParse(lastBackupStr);
+        if (lastBackup != null && now.difference(lastBackup).inDays < 7) {
+          return false;
+        }
+      }
+    }
+
+    try {
+      final backupFile = await _writeTempBackupZipFile();
+      final bytes = await backupFile.readAsBytes();
+
+      if (!kIsWeb && Platform.isAndroid) {
+        final dt = DateTime.now();
+        final fileName = 'dbros_auto_backup_${dt.year}${dt.month.toString().padLeft(2, '0')}${dt.day.toString().padLeft(2, '0')}.zip';
+        final path = await _androidChannel.invokeMethod<String>(
+          'writeBytesToPublicDownloads',
+          <String, dynamic>{
+            'fileName': fileName,
+            'content': bytes,
+            'mimeType': 'application/zip',
+          },
+        );
+        if (path != null && path.isNotEmpty) {
+          await SettingsService.setLastAutoBackupDate(now.toIso8601String());
+          try {
+            await backupFile.delete();
+          } catch (_) {}
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
 }

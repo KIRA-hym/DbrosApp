@@ -139,4 +139,16 @@ class SettingsService {
     currentList.remove(program);
     await setProgramList(currentList);
   }
+
+  static String get imagePurgePeriod => _prefs.getString('imagePurgePeriod') ?? 'none';
+  static Future<void> setImagePurgePeriod(String value) async => await _prefs.setString('imagePurgePeriod', value);
+
+  static bool get autoBackupEnabled => _prefs.getBool('autoBackupEnabled') ?? false;
+  static Future<void> setAutoBackupEnabled(bool value) async => await _prefs.setBool('autoBackupEnabled', value);
+
+  static String get lastAutoBackupDate => _prefs.getString('lastAutoBackupDate') ?? '';
+  static Future<void> setLastAutoBackupDate(String value) async => await _prefs.setString('lastAutoBackupDate', value);
+
+  static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? '';
+  static Future<void> setGasWebhookUrl(String value) async => await _prefs.setString('gasWebhookUrl', value);
 }

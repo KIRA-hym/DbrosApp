@@ -25,6 +25,10 @@ class _SettingsPageState extends State<SettingsPage> {
   final _newProgramCon = TextEditingController();
   bool _showFloatingButtons = SettingsService.showFloatingButtons;
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
+  bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
+  String _imagePurgePeriod = SettingsService.imagePurgePeriod;
+  final _gasWebhookCon = TextEditingController(text: SettingsService.gasWebhookUrl);
+  bool _hasGasChanges = false;
 
   final double _initialBaseFeeRate = SettingsService.baseFeeRate;
   final String _initialInsuranceType = SettingsService.insuranceType;
@@ -108,6 +112,8 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: EdgeInsets.all(horizontalPadding),
         children: [
           _buildBackupRestoreSettings(),
+          SizedBox(height: groupSpacing),
+          _buildStorageSettings(),
           SizedBox(height: groupSpacing),
           _buildOcrParseLogSettings(),
           SizedBox(height: groupSpacing),
@@ -508,6 +514,11 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
 
+    final lastBackupStr = SettingsService.lastAutoBackupDate;
+    final displayDate = lastBackupStr.isEmpty
+        ? '없음'
+        : lastBackupStr.split('T').first;
+
     return Container(
       decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
       padding: EdgeInsets.all(padding),
@@ -554,6 +565,151 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(height: spacing),
           Text(
             "• 백업: 백업 파일(.json)을 원하는 위치(기기/클라우드)에 저장합니다\n• 복원: 저장해둔 백업 파일(.json)을 선택해 데이터를 불러옵니다",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+          ),
+          const Divider(color: Color(0xFF2C2F38), height: 32),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text("7일 주기 자동 백업 (ZIP)", style: TextStyle(color: Colors.white, fontSize: 16)),
+            subtitle: Text(
+              "최근 자동 백업일: $displayDate\n매 7일 경과 후 앱 실행 시 단말기 'Downloads' 폴더에 이미지와 DB가 패키징된 ZIP 파일로 백업됩니다.",
+              style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12),
+            ),
+            value: _autoBackupEnabled,
+            activeThumbColor: const Color(0xFFFFC700),
+            activeColor: const Color(0xFFFFC700).withOpacity(0.3),
+            onChanged: (value) async {
+              await SettingsService.setAutoBackupEnabled(value);
+              setState(() {
+                _autoBackupEnabled = value;
+              });
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStorageSettings() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+    final borderRadius = isTablet ? 24.0 : 20.0;
+
+    return Container(
+      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("용량 및 데이터 전송 설정", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          SizedBox(height: spacing),
+          DropdownButtonFormField<String>(
+            value: _imagePurgePeriod,
+            dropdownColor: const Color(0xFF1F222A),
+            decoration: const InputDecoration(
+              labelText: "오래된 콜카드 이미지 정리 기준",
+              labelStyle: TextStyle(color: Color(0xFF6E717C), fontSize: 13),
+              floatingLabelStyle: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+              border: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2C2F38))),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2C2F38))),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
+            ),
+            style: const TextStyle(color: Colors.white, fontSize: 15),
+            items: const [
+              DropdownMenuItem(value: 'none', child: Text("선택 안 함")),
+              DropdownMenuItem(value: '3_months', child: Text("3개월 이전 이미지")),
+              DropdownMenuItem(value: '6_months', child: Text("6개월 이전 이미지")),
+            ],
+            onChanged: (value) async {
+              if (value != null) {
+                await SettingsService.setImagePurgePeriod(value);
+                setState(() {
+                  _imagePurgePeriod = value;
+                });
+              }
+            },
+          ),
+          SizedBox(height: spacing),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1F222A),
+                    title: const Text("이미지 정리", style: TextStyle(color: Colors.white, fontFamily: 'GmarketSans', fontWeight: FontWeight.w700)),
+                    content: Text(
+                      _imagePurgePeriod == 'none'
+                          ? "설정된 정리 기준이 없습니다. 정리 기준을 '3개월 이전' 또는 '6개월 이전'으로 선택한 뒤 다시 시도해 주세요."
+                          : "선택한 이미지 정리 기준(${_imagePurgePeriod == '3_months' ? '3개월' : '6개월'} 이전)에 따라 오래된 원본 이미지를 디스크에서 제거하시겠습니까?\n\n※ 정산 및 운행일지 기록은 그대로 보존됩니다.",
+                      style: const TextStyle(color: Color(0xFF8A8D96)),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                        child: const Text("취소", style: TextStyle(color: Color(0xFF6E717C))),
+                      ),
+                      if (_imagePurgePeriod != 'none')
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text("지금 정리", style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                        ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  final deleted = await BackupService.purgeOldImages();
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("$deleted건의 오래된 콜카드 이미지가 정리되었습니다.")),
+                  );
+                }
+              },
+              icon: const Icon(Icons.cleaning_services_outlined, color: Colors.black),
+              label: const Text("지금 오래된 이미지 정리 (수동)"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(vertical: isTablet ? 14 : 10),
+              ),
+            ),
+          ),
+          const Divider(color: Color(0xFF2C2F38), height: 32),
+          _buildTextField(_gasWebhookCon, "구글 드라이브 업로드 GAS URL (대안 A)", onChanged: () {
+            setState(() {
+              _hasGasChanges = _gasWebhookCon.text != SettingsService.gasWebhookUrl;
+            });
+          }),
+          if (_hasGasChanges) ...[
+            SizedBox(height: spacing * 0.5),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  await SettingsService.setGasWebhookUrl(_gasWebhookCon.text.trim());
+                  setState(() {
+                    _hasGasChanges = false;
+                  });
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("GAS Webhook URL이 성공적으로 저장되었습니다.")),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFC700),
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("GAS 설정 저장"),
+              ),
+            ),
+          ],
+          SizedBox(height: spacing * 0.5),
+          Text(
+            "• 이미지 수동 정리는 텍스트 기록과 통계에는 지장을 주지 않고 첨부 이미지 파일만 삭제하여 기기 여유 공간을 아껴줍니다.\n• 구글 드라이브 연동용 Google Apps Script Webhook URL을 설정하면 OCR 인식 실패 디버그 페이지에서 간편하게 실패 로그를 드라이브로 원격 업로드할 수 있습니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],

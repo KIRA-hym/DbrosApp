@@ -52,6 +52,21 @@ class MainActivity : FlutterActivity() {
                         result.error("WRITE_FAILED", e.message, null)
                     }
                 }
+                "writeBytesToPublicDownloads" -> {
+                    val fileName = call.argument<String>("fileName")?.trim().orEmpty()
+                    val content = call.argument<ByteArray>("content")
+                    val mimeType = call.argument<String>("mimeType")?.trim() ?: "application/octet-stream"
+                    if (fileName.isEmpty() || content == null) {
+                        result.error("INVALID", "fileName and content are required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val path = PublicDownloadsWriter.writeBytes(this, fileName, content, mimeType)
+                        result.success(path)
+                    } catch (e: Exception) {
+                        result.error("WRITE_FAILED", e.message, null)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

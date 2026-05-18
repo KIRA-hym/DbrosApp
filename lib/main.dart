@@ -21,6 +21,7 @@ import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
 import 'services/today_stats_notification_service.dart';
+import 'services/backup_service.dart';
 import 'utils/work_date_utils.dart';
 
 void main() async {
@@ -42,6 +43,12 @@ void main() async {
   await TodayStatsNotificationService.instance.initialize();
 
   runApp(const DbrosApp());
+
+  Future.microtask(() async {
+    try {
+      await BackupService.runAutoBackupIfNeeded();
+    } catch (_) {}
+  });
 }
 
 @pragma('vm:entry-point')
