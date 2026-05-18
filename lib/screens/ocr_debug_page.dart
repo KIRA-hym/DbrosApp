@@ -12,6 +12,7 @@ import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import 'package:http/http.dart' as http;
 import '../services/settings_service.dart';
+import '../services/ocr_parse_log_service.dart';
 
 class OcrDebugPage extends StatefulWidget {
   const OcrDebugPage({super.key});
@@ -26,6 +27,60 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
   final List<_OcrResult> _results = [];
   bool _isProcessing = false;
   int _processedCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistoricalOcrLogs();
+  }
+
+  Future<void> _loadHistoricalOcrLogs() async {
+    setState(() {
+      _isProcessing = true;
+    });
+    try {
+      final logs = await OcrParseLogService.loadAllRecordedLogs();
+      if (logs.isNotEmpty) {
+        final List<_OcrResult> list = [];
+        var idx = 1;
+        for (final entry in logs.reversed) {
+          final rawText = entry['raw_text']?.toString() ?? '';
+          final recognized = entry['recognized'] as bool? ?? true;
+          final program = entry['program']?.toString() ?? '';
+          
+          final parsed = entry['parsed_data'] as Map? ?? {};
+          final driveTime = parsed['drive_time']?.toString() ?? '';
+          final grossFare = parsed['fee_amount'] as int? ?? 0;
+          final startLocation = parsed['departure']?.toString() ?? '';
+          final endLocation = parsed['destination']?.toString() ?? '';
+          
+          final waypoints = parsed['waypoints'] as List? ?? [];
+          final waypoint = waypoints.isNotEmpty ? waypoints.first.toString() : '';
+          
+          final isFail = !recognized || (startLocation.isEmpty && endLocation.isEmpty && grossFare == 0);
+          
+          list.add(_OcrResult(
+            imageIndex: idx++,
+            imageName: isFail ? '❌ 자동인식 실패 로그' : '✅ 자동인식 성공 로그',
+            program: program.isNotEmpty ? program : '❌ 인식불가',
+            rawText: rawText,
+            driveTime: driveTime,
+            grossFare: grossFare,
+            startLocation: startLocation,
+            endLocation: endLocation,
+            waypoint: waypoint,
+            parseError: isFail ? '인식 실패 로그' : '',
+          ));
+        }
+        setState(() {
+          _results.addAll(list);
+        });
+      }
+    } catch (_) {}
+    setState(() {
+      _isProcessing = false;
+    });
+  }
 
   Future<void> _pickImages() async {
     final picked = await _picker.pickMultiImage();

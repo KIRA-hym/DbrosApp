@@ -337,4 +337,27 @@ class OcrParseLogService {
     await file.writeAsString(json, flush: true);
     return file.path;
   }
+
+  static Future<List<Map<String, dynamic>>> loadAllRecordedLogs() async {
+    final list = <Map<String, dynamic>>[];
+    try {
+      final dir = await _logDir();
+      if (await dir.exists()) {
+        final files = await _listDailyLogFiles(dir);
+        for (final file in files) {
+          final payload = await _readDailyPayload(file);
+          if (payload == null) continue;
+          final entries = payload['entries'];
+          if (entries is List) {
+            for (final entry in entries) {
+              if (entry is Map) {
+                list.add(Map<String, dynamic>.from(entry));
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+    return list;
+  }
 }

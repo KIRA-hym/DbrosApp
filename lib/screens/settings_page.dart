@@ -583,6 +583,7 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() {
                 _autoBackupEnabled = value;
               });
+            },
           ),
         ],
       ),
@@ -668,7 +669,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 }
               },
               icon: const Icon(Icons.cleaning_services_outlined, color: Colors.black),
-              label: const Text("지금 오래된 이미지 정리 (수동)"),
+              label: const Text("이미지 정리"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFC700),
                 foregroundColor: Colors.black,
@@ -677,39 +678,9 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          const Divider(color: Color(0xFF2C2F38), height: 32),
-          _buildTextField(_gasWebhookCon, "구글 드라이브 업로드 GAS URL (대안 A)", onChanged: () {
-            setState(() {
-              _hasGasChanges = _gasWebhookCon.text != SettingsService.gasWebhookUrl;
-            });
-          }),
-          if (_hasGasChanges) ...[
-            SizedBox(height: spacing * 0.5),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await SettingsService.setGasWebhookUrl(_gasWebhookCon.text.trim());
-                  setState(() {
-                    _hasGasChanges = false;
-                  });
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("GAS Webhook URL이 성공적으로 저장되었습니다.")),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC700),
-                  foregroundColor: Colors.black,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: const Text("GAS 설정 저장"),
-              ),
-            ),
-          ],
           SizedBox(height: spacing * 0.5),
           Text(
-            "• 이미지 수동 정리는 텍스트 기록과 통계에는 지장을 주지 않고 첨부 이미지 파일만 삭제하여 기기 여유 공간을 아껴줍니다.\n• 기본적으로 개발자님의 구글 드라이브(GAS)가 기본값으로 내장되어 있어, 입력을 비워두거나 변경하지 않아도 원터치로 즉시 로그 피드백을 사용자님의 드라이브로 자동 전송할 수 있습니다.",
+            "• 이미지 정리는 운행일지 텍스트 기록과 매출 통계에는 지장을 주지 않고, 기기 용량을 많이 차지하는 원본 이미지 파일만 소거하여 여유 공간을 안전하게 확보해 줍니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
