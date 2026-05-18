@@ -1422,7 +1422,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 _transportCon,
                 label: "지출",
                 selectedValue: _selectedExpenseCategory,
-                dropdownItems: const ["킥/자전거", "택복", "식비", "기타"],
+                dropdownItems: const ["킥/자전거", "택틀", "택복", "식비", "기타"],
                 focusNode: _transportFocusNode,
                 isNumber: true,
                 onDropdownChanged: (value) {
