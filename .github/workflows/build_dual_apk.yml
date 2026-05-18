@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Configure release signing (shared keystore)
+        run: cp android/key.properties.example android/key.properties
+
       - name: Optimize Gradle Properties for Cloud
         run: |
           if [ -f android/gradle.properties ]; then

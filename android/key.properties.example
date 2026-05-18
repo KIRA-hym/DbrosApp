@@ -1,0 +1,6 @@
+# 복사: copy android\key.properties.example android\key.properties
+# 모든 PC·CI에서 동일 APK 서명 → 덮어쓰기 업데이트 가능
+storePassword=dbros2026
+keyPassword=dbros2026
+keyAlias=upload
+storeFile=keys/dbros-release.jks

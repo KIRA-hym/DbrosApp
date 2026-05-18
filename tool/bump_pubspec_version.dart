@@ -1,5 +1,6 @@
 // APK 빌드 전 실행: pubspec.yaml 의 version (이름+빌드번호) 증가
-// 규칙: +빌드번호를 1 증가. 9 다음은 패치 자리를 올리고 빌드는 0 (예: 1.0.00+9 → 1.0.01+0)
+// 규칙: +빌드번호를 1 증가. 9 다음은 패치 자리를 올리고 빌드는 10 (예: 1.0.00+9 → 1.0.01+10)
+// Android versionCode(+)는 항상 커져야 덮어쓰기 설치가 가능함. 0으로 리셋하지 않음.
 import 'dart:io';
 
 void main(List<String> args) {
@@ -26,7 +27,7 @@ void main(List<String> args) {
 
   build++;
   if (build > 9) {
-    build = 0;
+    build = 10;
     final parts = name.split('.');
     if (parts.length < 2) {
       stderr.writeln('Expected major.minor.patch in version name');

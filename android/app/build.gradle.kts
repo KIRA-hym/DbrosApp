@@ -18,6 +18,24 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// PC·CI 공통 release 서명 (android/key.properties + keys/dbros-release.jks)
+val keystoreProperties = Properties().apply {
+    val f = rootProject.file("key.properties")
+    if (f.exists()) {
+        f.inputStream().use { load(it) }
+    }
+}
+
+fun monotonicVersionCode(): Int {
+    val name = flutter.versionName
+    val build = flutter.versionCode
+    val parts = name.split(".")
+    val major = parts.getOrNull(0)?.toIntOrNull() ?: 1
+    val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+    val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+    return major * 100_000 + minor * 1_000 + patch * 100 + build
+}
+
 android {
     namespace = "com.example.dbros_app"
     compileSdk = flutter.compileSdkVersion
@@ -41,16 +59,31 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
+        versionCode = monotonicVersionCode()
         versionName = flutter.versionName
         resValue("string", "google_maps_api_key", mapsApiKey)
     }
 
+    signingConfigs {
+        create("release") {
+            val store = keystoreProperties.getProperty("storeFile")
+            if (store != null) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = rootProject.file(store)
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         getByName("release") {
-            // [수정됨] Kotlin DSL 문법에 맞게 등호(=)와 정확한 참조 사용
-            signingConfig = signingConfigs.getByName("debug") // 별도의 release 키가 없다면 일단 debug로 설정
-            
+            signingConfig = if (keystoreProperties.getProperty("storeFile") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
+
             isMinifyEnabled = true   // minifyEnabled -> isMinifyEnabled
             isShrinkResources = true // shrinkResources -> isShrinkResources
             
