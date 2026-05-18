@@ -81,6 +81,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   bool _overlayAutoOcrHandled = false;
   int _driveTimeDefaultGen = 0;
 
+  // FocusNodes for transport and waypoint tip to detect focus loss (focus out)
+  final FocusNode _transportFocusNode = FocusNode();
+  final FocusNode _waypointTipFocusNode = FocusNode();
+
+  // Category selections
+  String _selectedExpenseCategory = "킥/자전거";
+  String _selectedExtraIncomeCategory = "경유비";
+
   /// 신규 작성: false면 저장 시 운행시각을 **등록 시점**으로 쓴다. OCR 비어 있음·갤러리 폴백 시각은 여기 해당.
   /// true: OCR이 운행시각을 채웠거나 사용자가 시간 피커로 고른 경우 → [_timeCon] 사용.
   bool _useFormDriveTimeOnSave = false;
@@ -93,6 +101,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   @override
   void initState() {
     super.initState();
+    _transportFocusNode.addListener(_onTransportFocusChanged);
+    _waypointTipFocusNode.addListener(_onWaypointTipFocusChanged);
     _selectedProgram = _coerceProgramForSelection(_selectedProgram);
     if (widget.existingLog != null) {
       final log = widget.existingLog!;
@@ -222,6 +232,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       WidgetsBinding.instance.removeObserver(this);
       _workDateRollTimer?.cancel();
     }
+    _transportFocusNode.dispose();
+    _waypointTipFocusNode.dispose();
     _workDateCon.dispose();
     _dateCon.dispose(); _timeCon.dispose(); _incomeCon.dispose(); _transportCon.dispose(); _waypointTipCon.dispose();
     _startLocCon.dispose(); _waypointCon.dispose(); _endLocCon.dispose(); _memoCon.dispose();
@@ -801,6 +813,57 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
+  void _onTransportFocusChanged() {
+    if (!_transportFocusNode.hasFocus) {
+      _appendMemoFromField(
+        category: _selectedExpenseCategory,
+        amountStr: _transportCon.text,
+      );
+    }
+  }
+
+  void _onWaypointTipFocusChanged() {
+    if (!_waypointTipFocusNode.hasFocus) {
+      _appendMemoFromField(
+        category: _selectedExtraIncomeCategory,
+        amountStr: _waypointTipCon.text,
+      );
+    }
+  }
+
+  String _formatToKValue(int amount) {
+    if (amount <= 0) return '';
+    if (amount % 1000 == 0) {
+      return '${amount ~/ 1000}k';
+    } else {
+      final double kValue = amount / 1000;
+      return '${kValue.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), "")}k';
+    }
+  }
+
+  void _appendMemoFromField({required String category, required String amountStr}) {
+    final int amount = _parseMoney(amountStr);
+    if (amount <= 0) return;
+
+    final String kStr = _formatToKValue(amount);
+    final String appendText = "$category $kStr";
+
+    String currentMemo = _memoCon.text.trim();
+
+    // Prevent duplicate entries of the same category + amount in the memo
+    final escaped = RegExp.escape(appendText);
+    final hasPattern = RegExp('(?:^|\\s)$escaped(?:$|\\s)').hasMatch(currentMemo);
+    if (hasPattern) return;
+
+    setState(() {
+      if (currentMemo.isEmpty) {
+        _memoCon.text = appendText;
+      } else {
+        _memoCon.text = "$currentMemo $appendText";
+      }
+    });
+  }
+
   int _parseMoney(String value) => int.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
   String _formatMoney(int value) => NumberFormat('#,###').format(value);
   String? _normalizeYmdForStorage(String raw) {
@@ -1355,12 +1418,33 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             [
               _buildDropdown(),
               _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, onChanged: (_) => _captureGrossAndApplyDeductions(), suffixWidget: _deductionHint.isNotEmpty ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500)) : null),
-              Row(
-                children: [
-                  Expanded(child: _buildInputField(_transportCon, label: "교통비", isNumber: true, onChanged: (_) => _applyDeductions())),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildInputField(_waypointTipCon, label: "경유비(팁)", isNumber: true, onChanged: (_) => _applyDeductions())),
-                ],
+              _buildComboInputField(
+                _transportCon,
+                label: "지출",
+                selectedValue: _selectedExpenseCategory,
+                dropdownItems: const ["킥/자전거", "택복", "식비", "기타"],
+                focusNode: _transportFocusNode,
+                isNumber: true,
+                onDropdownChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedExpenseCategory = value);
+                  }
+                },
+                onChanged: (_) => _applyDeductions(),
+              ),
+              _buildComboInputField(
+                _waypointTipCon,
+                label: "부가수입",
+                selectedValue: _selectedExtraIncomeCategory,
+                dropdownItems: const ["경유비", "팁", "기타"],
+                focusNode: _waypointTipFocusNode,
+                isNumber: true,
+                onDropdownChanged: (value) {
+                  if (value != null) {
+                    setState(() => _selectedExtraIncomeCategory = value);
+                  }
+                },
+                onChanged: (_) => _applyDeductions(),
               ),
             ],
             trailing: Row(
@@ -1529,6 +1613,77 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
         ),
         SizedBox(height: bottomMargin),
+      ],
+    );
+  }
+
+  Widget _buildComboInputField(
+    TextEditingController controller, {
+    required String label,
+    required String selectedValue,
+    required List<String> dropdownItems,
+    required ValueChanged<String?> onDropdownChanged,
+    FocusNode? focusNode,
+    bool isNumber = false,
+    Function(String)? onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+        const SizedBox(height: 8),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF121418),
+                border: Border.all(color: Colors.white10),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: dropdownItems.contains(selectedValue) ? selectedValue : dropdownItems.first,
+                  dropdownColor: const Color(0xFF1F222A),
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  onChanged: onDropdownChanged,
+                  items: dropdownItems.map((String item) {
+                    return DropdownMenuItem<String>(
+                      value: item,
+                      child: Text(item),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  onChanged: onChanged,
+                  keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+                  inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFF121418),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
       ],
     );
   }
