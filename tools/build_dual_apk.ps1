@@ -75,16 +75,16 @@ function Copy-NamedApk([string]$variantTag) {
 }
 
 Write-Host ">>> flutter pub get..."
-flutter pub get
+cmd /c flutter pub get
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ">>> Build owner APK (maps ON)..."
-flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=true
+cmd /c flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=true
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Copy-NamedApk "owner"
 
 Write-Host ">>> Build public APK (maps OFF)..."
-flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=false
+cmd /c flutter build apk --release --dart-define=MAP_FEATURES_ENABLED=false
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Copy-NamedApk "public"
 
