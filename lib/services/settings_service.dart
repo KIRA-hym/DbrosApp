@@ -149,6 +149,6 @@ class SettingsService {
   static String get lastAutoBackupDate => _prefs.getString('lastAutoBackupDate') ?? '';
   static Future<void> setLastAutoBackupDate(String value) async => await _prefs.setString('lastAutoBackupDate', value);
 
-  static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? '';
+  static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? 'https://script.google.com/macros/s/AKfycbzo6cx79n-eIZYkrd7ZJxzsCA9BC63FQ7JqFI45BInY9ES9YKjDCDI9vJRTFFwiGtvA/exec';
   static Future<void> setGasWebhookUrl(String value) async => await _prefs.setString('gasWebhookUrl', value);
 }

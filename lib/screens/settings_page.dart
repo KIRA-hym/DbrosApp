@@ -709,7 +709,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ],
           SizedBox(height: spacing * 0.5),
           Text(
-            "• 이미지 수동 정리는 텍스트 기록과 통계에는 지장을 주지 않고 첨부 이미지 파일만 삭제하여 기기 여유 공간을 아껴줍니다.\n• 구글 드라이브 연동용 Google Apps Script Webhook URL을 설정하면 OCR 인식 실패 디버그 페이지에서 간편하게 실패 로그를 드라이브로 원격 업로드할 수 있습니다.",
+            "• 이미지 수동 정리는 텍스트 기록과 통계에는 지장을 주지 않고 첨부 이미지 파일만 삭제하여 기기 여유 공간을 아껴줍니다.\n• 기본적으로 개발자님의 구글 드라이브(GAS)가 기본값으로 내장되어 있어, 입력을 비워두거나 변경하지 않아도 원터치로 즉시 로그 피드백을 사용자님의 드라이브로 자동 전송할 수 있습니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
