@@ -596,32 +596,40 @@ class _StatsPageState extends State<StatsPage> {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(
-                              "전체 통계",
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontFamily: 'GmarketSans',
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                                fontSize: sectionTitleFontSize,
-                              ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    "전체 통계",
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontFamily: 'GmarketSans',
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: sectionTitleFontSize,
+                                    ),
+                                  ),
+                                ),
+                                if (kMapFeaturesEnabled) ...[
+                                  IconButton(
+                                    onPressed: _openRouteMap,
+                                    icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                                    tooltip: '기간 경로 지도',
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
-                          if (kMapFeaturesEnabled) ...[
-                            IconButton(
-                              onPressed: _openRouteMap,
-                              icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-                              tooltip: '기간 경로 지도',
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          SizedBox(width: compact ? 6 : 10),
-                          Flexible(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
+                          SizedBox(width: compact ? 8 : 12),
+                          Expanded(
+                            child: Align(
                               alignment: Alignment.centerRight,
-                              child: _buildDateSelector(),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: _buildDateSelector(),
+                              ),
                             ),
                           ),
                         ],

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -136,8 +137,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _useFormDriveTimeOnSave = false;
       final def = widget.initialDate ?? WorkDateUtils.effectiveWorkDateYmd();
       _workDateCon.text = def;
-      _dateCon.text = def;
       _timeCon.text = DateFormat('HH:mm').format(DateTime.now());
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(def, _timeCon.text);
       _showWaypointField = false;
       _syncedEffectiveYmd = widget.initialDate == null ? def : null;
       if (widget.initialDate == null) {
@@ -213,7 +214,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     setState(() {
       _workDateCon.text = cur;
-      _dateCon.text = cur;
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(cur, _timeCon.text);
       _syncedEffectiveYmd = cur;
     });
     _applyDefaultDriveTimeForNewLog();
@@ -362,6 +363,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
 
     _captureGrossAndApplyDeductions();
+    _syncWorkDateFromDriveDateTime();
     final waypoints = _waypointCon.text.trim().isEmpty
         ? const <String>[]
         : [_waypointCon.text.trim()];
@@ -548,7 +550,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       nextHm = formatDriveTimeHm(base.add(const Duration(minutes: 30)));
     }
     if (!mounted || gen != _driveTimeDefaultGen) return;
-    setState(() => _timeCon.text = nextHm);
+    setState(() {
+      _timeCon.text = nextHm;
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(_workDateCon.text, nextHm);
+    });
   }
 
   Future<void> _showDateQuickPicker() async {
@@ -561,6 +566,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _manualWorkDateRoll = true;
       _syncedEffectiveYmd = null;
       _dateCon.text = DateFormat('yyyy-MM-dd').format(picked);
+      _syncWorkDateFromDriveDateTime();
     });
   }
 
@@ -598,6 +604,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     setState(() {
       _timeCon.text = _formatTime24(picked);
       _useFormDriveTimeOnSave = true;
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(_workDateCon.text, _timeCon.text);
+      _syncWorkDateFromDriveDateTime();
     });
   }
 
@@ -611,6 +619,28 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return TimeOfDay(hour: hour, minute: minute);
   }
   String _formatTime24(TimeOfDay time) => "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+  void _syncWorkDateFromDriveDateTime() {
+    final driveDateStr = _dateCon.text.trim();
+    final driveTimeStr = _timeCon.text.trim();
+    if (driveDateStr.isEmpty || driveTimeStr.isEmpty) return;
+    
+    final dDate = DateTime.tryParse(driveDateStr);
+    if (dDate == null) return;
+    
+    final hour = WorkDateUtils.hourFromHm(driveTimeStr);
+    final String workDateStr;
+    if (hour < WorkDateUtils.workDayRolloverHour) {
+      final workDate = dDate.subtract(const Duration(days: 1));
+      workDateStr = DateFormat('yyyy-MM-dd').format(workDate);
+    } else {
+      workDateStr = driveDateStr;
+    }
+    
+    setState(() {
+      _workDateCon.text = workDateStr;
+    });
+  }
 
   DateTime _dayOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
@@ -1249,21 +1279,29 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildInputGroup("요금", Icons.payments_outlined, [
-            _buildDropdown(),
-            _buildInputField(
-              _incomeCon,
-              label: "요금",
-              isNumber: true,
-              onChanged: (_) {
-                _captureGrossAndApplyDeductions();
-                _applyDeductions();
-              },
-              suffixWidget: _deductionHint.isNotEmpty
-                  ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500))
-                  : null,
+            Row(
+              children: [
+                Expanded(child: _buildDropdown(bottomMargin: 0)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildInputField(
+                    _incomeCon,
+                    label: "요금",
+                    isNumber: true,
+                    bottomMargin: 0,
+                    onChanged: (_) {
+                      _captureGrossAndApplyDeductions();
+                      _applyDeductions();
+                    },
+                    suffixWidget: _deductionHint.isNotEmpty
+                        ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500))
+                        : null,
+                  ),
+                ),
+              ],
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 4),
+              padding: const EdgeInsets.only(top: 8),
               child: Text(
                 '일자·시간은 기본값으로 반영 (${_workDateCon.text} ${_timeCon.text})',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96), fontSize: 11),
@@ -1403,7 +1441,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       child: Column(
         children: [
           _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
-            _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
+            if (_logId != null) ...[
+              _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
+            ],
             Row(
               children: [
                 Expanded(child: _buildInputField(_dateCon, label: "운행 일자", readOnly: true, onTap: _showDateQuickPicker, bottomMargin: 0)),
@@ -1416,8 +1456,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           _buildInputGroup(
             "프로그램 및 금액", Icons.account_balance_wallet, 
             [
-              _buildDropdown(),
-              _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, onChanged: (_) => _captureGrossAndApplyDeductions(), suffixWidget: _deductionHint.isNotEmpty ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500)) : null),
+              Row(
+                children: [
+                  Expanded(child: _buildDropdown(bottomMargin: 0)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, onChanged: (_) => _captureGrossAndApplyDeductions(), suffixWidget: _deductionHint.isNotEmpty ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500)) : null)),
+                ],
+              ),
+              const SizedBox(height: 16),
               _buildComboInputField(
                 _transportCon,
                 label: "지출",
@@ -1573,6 +1619,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (title == "프로그램 및 금액") ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: _showOcrHelpDialog,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: Colors.white10,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.help_outline,
+                        color: Color(0xFFFFC700),
+                        size: 14,
+                      ),
+                    ),
+                  ),
+                ],
                 if (trailing != null) ...[const Spacer(), trailing],
               ],
             ),
@@ -1688,7 +1752,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildDropdown() {
+  Widget _buildDropdown({double bottomMargin = 16}) {
     final options = SettingsService.programList;
     final selected = options.contains(_selectedProgram)
         ? _selectedProgram
@@ -1729,8 +1793,158 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        if (bottomMargin > 0) SizedBox(height: bottomMargin),
       ],
+    );
+  }
+
+  void _showOcrHelpDialog() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Dialog(
+              backgroundColor: const Color(0xCC1F222A),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: const BorderSide(color: Colors.white10),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Color(0xFFFFC700), size: 22),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            "콜카드 인식 시 주의사항",
+                            style: TextStyle(
+                              fontFamily: 'GmarketSans',
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                          onPressed: () => Navigator.pop(context),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _buildOcrHelpItem(
+                      "1",
+                      "상단 시간 포함 필수",
+                      "캡처 이미지 상단의 상태바 시간까지 함께 캡처되어야 운행 시간이 자동으로 셋팅됩니다. (기기 시간은 24시 설정 기준)",
+                      Icons.access_time,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildOcrHelpItem(
+                      "2",
+                      "로지 앱 캡처 범위",
+                      "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.",
+                      Icons.crop_free,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildOcrHelpItem(
+                      "3",
+                      "콜마너 앱 캡처 범위",
+                      "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.",
+                      Icons.location_on_outlined,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildOcrHelpItem(
+                      "4",
+                      "미니 팝업/스티커 주의",
+                      "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
+                      Icons.warning_amber_rounded,
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFFC700),
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                        child: const Text(
+                          "확인",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildOcrHelpItem(String step, String title, String desc, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFC700).withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: const Color(0xFFFFC700), size: 16),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "$step. $title",
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  desc,
+                  style: const TextStyle(
+                    color: Color(0xFF8A8D96),
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
