@@ -4,6 +4,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:dbros_app/utils/kakao_call_card_ocr.dart';
 import 'package:dbros_app/utils/kakao_custom_call_ocr.dart';
 import 'package:dbros_app/utils/logi_colmanner_ocr.dart';
+import 'package:dbros_app/utils/logi_fare_parse.dart';
 import 'package:dbros_app/utils/tmap_trip_detail_ocr.dart';
 
 void main() {
@@ -899,6 +900,84 @@ tl34
       expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 30000);
     });
 
+    test('logi gross fare inferred from fee-only OCR (6000 -> 30000)', () {
+      const rawText = '''
+요금
+입금액
+고객
+메모
+92500093291
+17분 31초 남음
+6000
+일반 일반
+0508-5068-8499
+광명KTX역
+''';
+      expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 30000);
+    });
+
+    test('logi gross fare inferred from fee-only OCR (5000 -> 25000)', () {
+      const rawText = '''
+요금
+입금액
+18분 13초 남음
+5000
+일반 왕단골
+출발지 A
+''';
+      expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 25000);
+    });
+
+    test('logi lone gross amount is not multiplied (25000 stays)', () {
+      const rawText = '''
+요금
+입금액
+25000
+18분 13초 남음
+일반 일반
+''';
+      expect(LogiColmannerOcr.parseLogi(rawText).grossFare, 25000);
+    });
+
+    test('logi trims won misread on deposit (140002 -> 14000)', () {
+      expect(parseLogiFareFromOcrText('140002'), 14000);
+      expect(parseLogiFareFromOcrText('140002!'), 14000);
+      expect(parseLogiFareFromOcrText('14002'), 14000);
+    });
+
+    test('logi fare I0000 OCR reads as 70000', () {
+      expect(parseLogiFareFromOcrText('I0000'), 70000);
+    });
+
+    test('logi 서린빌딩 card: fare, departure 상세, destination 푸르지오', () {
+      const rawText = r'''
+요금
+입금액
+고객
+I0000
+17분 57초 남음
+140002
+법인
+(e|I5,000/65,000/N/A)
+경)서린동+SK서린빌딩B4
+인천 연수구 송도동)신림역/
+출발지
+운행시작연기
+지도
+상세:서울 종로구 서린동 99-0 서린동 99
+서명
+완료
+인천송도동+푸르지오월드마크2단지A202동
+처리
+''';
+      final parsed = LogiColmannerOcr.parseLogi(rawText);
+      expect(parsed.grossFare, 70000);
+      expect(parsed.startLocation, '서울 종로구 서린동 99-0');
+      expect(parsed.endLocation, contains('송도'));
+      expect(parsed.endLocation, contains('푸르지오'));
+      expect(parsed.endLocation, isNot(contains('신림역')));
+    });
+
     test('logi collects address after mid-card 출발지 and 지도 labels', () {
       const rawText = '''
 요금 30000원
@@ -1231,6 +1310,157 @@ T 티맵으로 길안내
       expect(parsed!.startAddress, '안양시 동안구 평촌동 932 토니치킨');
       expect(parsed.endAddress, '화성시 효행구 봉담읍 674 우방아이유쉘1단지 상가동');
       expect(parsed.grossFare, 24800);
+    });
+
+    test('in-progress card screen with multiline start, end, waypoint and user real ocr', () {
+      const rawText = '''
+22:52 54m TALK
+고객센터
+운행중
+부천시 원미구 중동 1257
+짝궁노래바
+김포시 풍무동 936
+풍무센트럴푸르지오아파트15 전기차충전소
+T 티맵으로 길안내
+소사고신고
+실수익 24,000P
+운행완료
+54m
+677m
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '부천시 원미구 중동 1257 짝궁노래바');
+      expect(parsed.endAddress, '김포시 풍무동 936 풍무센트럴푸르지오아파트15 전기차충전소');
+      expect(parsed.waypoint, '');
+      expect(parsed.grossFare, 24000);
+      expect(parsed.driveStartTimeHm, '22:52');
+    });
+
+    test('in-progress card screen with multiline start, waypoint, end and fare', () {
+      const rawText = '''
+고객센터
+운행중
+사고신고
+부천시 원미구 중동 1257
+짝궁노래바
+인천 계양구 작전동 123
+작전동경유지
+김포시 풍무동 936
+풍무센트럴푸르지오아파트15 전기차충전소
+T 티맵으로 길안내
+실수익 24,000P
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '부천시 원미구 중동 1257 짝궁노래바');
+      expect(parsed.waypoint, '인천 계양구 작전동 123 작전동경유지');
+      expect(parsed.endAddress, '김포시 풍무동 936 풍무센트럴푸르지오아파트15 전기차충전소');
+      expect(parsed.grossFare, 24000);
+    });
+
+    test('tmap driving start time fallback from first 3 lines', () {
+      const rawText = '''
+15:35
+티맵으로 길안내
+운행상세정보
+실수익 24,800P
+출발지 서울 종로구
+도착지 경기 성남시
+운행일자 2026.05.18
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.driveStartTimeHm, '15:35');
+    });
+  });
+
+  group('New OCR improvements regression tests', () {
+    test('Kakao rating score 96l100/96/100/96% ignored, fare correctly parsed as 11,600', () {
+      const rawText = '''
+배정 완료
+배정취소 메뉴
+문래동3가
+스트롱무브
+서울 양천구 신월동
+강서성결행복한홈스쿨 지역아동센터
+96l100
+카드 | 확정
+11,600 P
+고객과 통화
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.grossFare, 11600);
+    });
+
+    test('Kakao waypoint cleans standalone Q noise', () {
+      const rawText = '''
+배정 완료
+배정취소 메뉴
+출발지
+풍무동 Q 경유
+도착지
+100점
+카드 | 확정
+15,000 P
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.waypoint, '풍무동 경유');
+    });
+
+    test('Colmanner starting point strips "카" payment abbreviation', () {
+      const rawText = '''
+출발지 백석동 "카" 일산백석동양천리양꼬치
+도착지 서울 마포구
+요금 15,000원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, '백석동 일산백석동양천리양꼬치');
+    });
+
+    test('Colmanner waypoint resolves "그47-7" to "747-7"', () {
+      const rawText = '''
+출발지 서울
+도착지 경기
+경유지 그47-7
+요금 20,000원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.waypoint, '747-7');
+    });
+
+    test('Colmanner start point strips "동 n후", "n후" prefix and removes situation room noise', () {
+      const rawText = '''
+출발지 동 n후 합정동 삼아빌딩
+도착지 서울 강서구 화곡동 화곡화이트마사지
+상황실 연락처 고객전화
+요금 25,000원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.startLocation, '합정동 삼아빌딩');
+      expect(parsed.endLocation, '서울 강서구 화곡동 화곡화이트마사지');
+    });
+
+    test('Colmanner waypoint correctly parses "장지동" and ignores situation room variable warning', () {
+      const rawText = '''
+출발지 서울
+도착지 경기
+경유변동시 상황실 연락 바람 경유지 장지동
+요금 30,000원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.waypoint, '장지동');
+    });
+
+    test('Logi waypoint strips "고객과의" distance metadata to keep "등촌초교"', () {
+      const rawText = '''
+요금 20000원
+출발지 서울
+도착지 경기
+[UE하나로 23:09] 현금0.5 마일후불2.5 경유:등촌초교 고객과의 거리: 264미터
+''';
+      final parsed = LogiColmannerOcr.parseLogi(rawText);
+      expect(parsed.waypoint, '등촌초교');
     });
   });
 }

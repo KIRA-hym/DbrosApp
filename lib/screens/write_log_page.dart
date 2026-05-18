@@ -494,6 +494,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
       if (r.startAddress.isNotEmpty) _startLocCon.text = r.startAddress;
       if (r.endAddress.isNotEmpty) _endLocCon.text = r.endAddress;
+      if (r.waypoint != null && r.waypoint!.isNotEmpty) {
+        _waypointCon.text = r.waypoint!;
+        _showWaypointField = true;
+      }
     });
   }
 
@@ -852,6 +856,51 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return;
     }
     if (!_validateRequiredManualEntryFields()) return;
+
+    final fare = _parseMoney(_incomeCon.text);
+    if (_selectedProgram.contains('카카오') && fare < 12000) {
+      if (!mounted) return;
+      final bool proceed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1F222A),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text(
+              "알림",
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'GmarketSans'),
+            ),
+            content: const Text(
+              "입력된 요금이 너무 낮습니다. 계속 진행하시겠습니까?",
+              style: TextStyle(color: Color(0xFFD1D2D4), fontSize: 14),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text(
+                  "아니오",
+                  style: TextStyle(color: Color(0xFF6E717C), fontWeight: FontWeight.bold),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.15),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: const Text(
+                  "예",
+                  style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          );
+        },
+      ) ?? false;
+      if (!proceed) return;
+    }
+
     try {
       if (!mounted) return;
 

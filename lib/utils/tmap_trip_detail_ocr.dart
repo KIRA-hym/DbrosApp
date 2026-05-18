@@ -11,6 +11,7 @@ class TmapTripDetailParsed {
     required this.grossFare,
     required this.startAddress,
     required this.endAddress,
+    this.waypoint,
   });
 
   final String driveDateYmd;
@@ -18,6 +19,7 @@ class TmapTripDetailParsed {
   final int grossFare;
   final String startAddress;
   final String endAddress;
+  final String? waypoint;
 }
 
 /// T맵 대리 「운행 상세 정보」 스크린 OCR.
@@ -65,6 +67,7 @@ class TmapTripDetailOcr {
     var grossFare = 0;
     var startAddress = '';
     var endAddress = '';
+    var waypoint = '';
 
     void apply(String source) {
       final dt = _parseDriveDateTime(source);
@@ -77,7 +80,8 @@ class TmapTripDetailOcr {
       if (startAddress.isEmpty || endAddress.isEmpty) {
         final alt = _parseInProgressCardAddresses(source);
         if (startAddress.isEmpty && alt.$1.isNotEmpty) startAddress = alt.$1;
-        if (endAddress.isEmpty && alt.$2.isNotEmpty) endAddress = alt.$2;
+        if (waypoint.isEmpty && alt.$2.isNotEmpty) waypoint = alt.$2;
+        if (endAddress.isEmpty && alt.$3.isNotEmpty) endAddress = alt.$3;
       }
     }
 
@@ -108,6 +112,7 @@ class TmapTripDetailOcr {
       grossFare: grossFare,
       startAddress: startAddress,
       endAddress: endAddress,
+      waypoint: waypoint,
     );
   }
 
@@ -149,6 +154,21 @@ class TmapTripDetailOcr {
         if (driveStartTimeHm.isEmpty) {
           final rawStart = trip.group(4)!;
           driveStartTimeHm = normalizeDriveTimeHm(rawStart) ?? rawStart;
+        }
+      }
+    }
+
+    if (driveStartTimeHm.isEmpty) {
+      final lines = normalized.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).take(3);
+      for (final line in lines) {
+        final timeM = RegExp(r'(\d{1,2}:\d{2})').firstMatch(line);
+        if (timeM != null) {
+          final raw = timeM.group(1)!;
+          final norm = normalizeDriveTimeHm(raw);
+          if (norm != null) {
+            driveStartTimeHm = norm;
+            break;
+          }
         }
       }
     }
@@ -200,47 +220,110 @@ class TmapTripDetailOcr {
     return int.tryParse(digits) ?? 0;
   }
 
+  static String _cleanLineBullet(String line) {
+    var s = line.trim();
+    s = s.replaceFirst(RegExp(r'^[o•*·\-\d]\s+'), '');
+    s = s.replaceFirst(RegExp(r'^[o•*·\-]+'), '');
+    return s.trim();
+  }
+
   /// 티맵 「운행중 콜카드」 형태:
   /// - 상단 상태/버튼 줄
-  /// - 출발지 1줄
-  /// - 도착지 1줄
+  /// - 출발지 주소 + 출발지 상호명 (다중 줄 지원)
+  /// - 경유지 주소 + 경유지 상호명 (선택)
+  /// - 도착지 주소 + 도착지 상호명 (다중 줄 지원)
   /// - `실수익` 줄
-  static (String, String) _parseInProgressCardAddresses(String source) {
+  static (String, String, String) _parseInProgressCardAddresses(String source) {
     final lines = source
         .split(RegExp(r'[\r\n]+'))
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    if (lines.length < 3) return ('', '');
+    if (lines.length < 2) return ('', '', '');
+
+    int startIdx = -1;
+    for (int i = 0; i < lines.length; i++) {
+      final t = lines[i].replaceAll(RegExp(r'\s+'), '');
+      if (t.contains('고객센터') || t.contains('운행중') || t.contains('사고신고') || t.contains('소사고신고')) {
+        startIdx = i;
+        break;
+      }
+    }
+
+    int endIdx = -1;
+    for (int i = 0; i < lines.length; i++) {
+      final t = lines[i].replaceAll(RegExp(r'\s+'), '');
+      if (t.contains('티맵으로길안내') || t.contains('티맵으로') || t.contains('길안내')) {
+        endIdx = i;
+        break;
+      }
+    }
 
     final candidates = <String>[];
-    for (final line in lines) {
-      if (_isInProgressNoiseLine(line)) continue;
-      if (!_looksLikeAddress(line)) continue;
-      candidates.add(line);
+    if (startIdx != -1 && endIdx != -1 && endIdx > startIdx + 1) {
+      for (final line in lines.sublist(startIdx + 1, endIdx)) {
+        if (!_isInProgressNoiseLine(line)) {
+          candidates.add(line);
+        }
+      }
+    } else {
+      for (final line in lines) {
+        if (_isInProgressNoiseLine(line)) continue;
+        candidates.add(line);
+      }
     }
-    if (candidates.length < 2) return ('', '');
-    return (candidates[0], candidates[1]);
+
+    if (candidates.isEmpty) return ('', '', '');
+
+    final RegExp addressStartPattern = RegExp(
+      r'^[o0•*·\-\s]*(?:서울|경기|인천|강원|충북|충남|전북|전남|경북|경남|세종|제주|부산|대구|광주|대전|울산|[가-힣]+[시도군구])',
+    );
+
+    final List<List<String>> locations = [];
+    for (final line in candidates) {
+      final cleaned = _cleanLineBullet(line);
+      if (cleaned.isEmpty) continue;
+
+      if (addressStartPattern.hasMatch(line)) {
+        locations.add([cleaned]);
+      } else {
+        if (locations.isNotEmpty) {
+          locations.last.add(cleaned);
+        } else {
+          locations.add([cleaned]);
+        }
+      }
+    }
+
+    if (locations.isEmpty) return ('', '', '');
+
+    final start = locations[0].join(' ').trim();
+
+    if (locations.length == 2) {
+      final end = locations[1].join(' ').trim();
+      return (start, '', end);
+    } else if (locations.length >= 3) {
+      final end = locations.last.join(' ').trim();
+      final waypointParts = locations.sublist(1, locations.length - 1)
+          .map((loc) => loc.join(' ').trim())
+          .where((s) => s.isNotEmpty)
+          .join(', ');
+      return (start, waypointParts, end);
+    }
+
+    return (start, '', '');
   }
 
   static bool _isInProgressNoiseLine(String line) {
     final t = line.replaceAll(RegExp(r'\s+'), '');
-    if (t.contains('고객센터') || t.contains('사고신고')) return true;
+    if (t.contains('고객센터') || t.contains('사고신고') || t.contains('소사고신고')) return true;
     if (t.contains('운행중') || t.contains('운행완료')) return true;
-    if (t.contains('티맵으로길안내') || t.contains('티맵고객이선호')) return true;
-    if (t.contains('실수익')) return true;
-    if (t.contains('밀어서고객에게도착알림')) return true;
-    if (t.contains('길찾기') || t.contains('위치정보')) return true;
-    return false;
-  }
-
-  static bool _looksLikeAddress(String line) {
-    final t = line.trim();
-    if (t.length < 6) return false;
-    if (RegExp(r'^[\d,]+\s*P?$').hasMatch(t)) return false;
-    if (RegExp(r'(시|군|구|동|읍|면|로|길)').hasMatch(t)) return true;
-    // 상호명만 짧게 떨어지는 OCR 방어: 숫자 번지/동/호가 있으면 주소 후보 허용
-    if (RegExp(r'\d').hasMatch(t) && RegExp(r'(동|호|번지|아파트|상가)').hasMatch(t)) return true;
+    if (t.contains('티맵으로길안내') || t.contains('티맵고객이선호') || t.contains('티맵으로') || t.contains('길안내') || t.contains('티맵')) return true;
+    if (t.contains('실수익') || t.contains('실수익금')) return true;
+    if (t.contains('밀어서고객에게도착알림') || t.contains('도착알림')) return true;
+    if (t.contains('길찾기') || t.contains('위치정보') || t.contains('고객전화')) return true;
+    if (RegExp(r'^\d+\s*[m|M]$').hasMatch(t)) return true;
+    if (t.toUpperCase() == 'TALK') return true;
     return false;
   }
 }

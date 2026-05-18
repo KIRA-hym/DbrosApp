@@ -339,6 +339,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     if (r.grossFare > 0) logData['gross_fare'] = r.grossFare;
     if (r.startAddress.isNotEmpty) logData['start_location'] = r.startAddress;
     if (r.endAddress.isNotEmpty) logData['end_location'] = r.endAddress;
+    if (r.waypoint != null && r.waypoint!.isNotEmpty) {
+      logData['waypoint'] = r.waypoint;
+    }
   }
 
   int _calculateFee(String program, int grossFare) => SettingsService.deductionFeeFromGross(grossFare, program);

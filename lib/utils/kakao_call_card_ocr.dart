@@ -227,7 +227,7 @@ class KakaoCallCardOcr {
 
       final raw = b.text.trim();
       if (i == startIdx) {
-        var rest = raw.replaceFirst(RegExp(r'^.*\b경유\s*지?\s*[:：]?\s*', caseSensitive: false), '').trim();
+        var rest = raw.replaceFirst(RegExp(r'^.*경유\s*지?\s*[:：]?\s*', caseSensitive: false), '').trim();
         if (rest.isEmpty || rest == raw) {
           rest = raw.replaceAll(RegExp(r'경유\s*지?'), '').trim();
         }
@@ -278,7 +278,13 @@ class KakaoCallCardOcr {
   }
 
   static bool _shouldSkipFareLine(String line) {
+    final t = line.trim().replaceAll(',', '');
     if (_looksLikeAddressLine(line) && _looksLikeAddressFareTrap(line)) return true;
+    // Skip rating/score patterns like "96/100", "96l100", "100점", "96점", "96%"
+    if (RegExp(r'\b\d{1,3}\s*(?:점|%)\b').hasMatch(t)) return true;
+    if (RegExp(r'\b\d{1,3}\s*[lL/|]\s*100\b', caseSensitive: false).hasMatch(t)) return true;
+    if (RegExp(r'^\d{1,3}\s*[lL/|]\s*100$', caseSensitive: false).hasMatch(t)) return true;
+    if (RegExp(r'^\d{1,3}점$').hasMatch(t)) return true;
     return false;
   }
 
@@ -365,12 +371,6 @@ class KakaoCallCardOcr {
     if (fare < 12000) {
       if (fare < 2000) {
         fare = fare * 10;
-      }
-      if (fare >= 10000 && fare < 12000) {
-        final fareStr = fare.toString();
-        if (fareStr.startsWith('11')) {
-          fare = fare + 6000;
-        }
       }
     }
 
@@ -586,7 +586,7 @@ class KakaoCallCardOcr {
 
     // 끝자리 순수 오더 번호 및 영문/숫자 노이즈 제거
     t = t.replaceAll(RegExp(r'\b\d{6,}\b'), ' ');
-    t = t.replaceAll(RegExp(r'\b[a-zA-Z\d.]{2,8}\b\s*$'), ' ');
+    t = t.replaceAll(RegExp(r'\b[a-zA-Z.]{2,8}\b\s*$'), ' ');
 
     // 카카오 매칭률/UI 노이즈 잔해 제거
     t = t.replaceAll(RegExp(r'\b\d{1,3}\s*[lI|%]\s*(?:\(\d{1,2}\))?\b', caseSensitive: false), ' ');
@@ -833,10 +833,16 @@ class KakaoCallCardOcr {
       }
     }
 
+    var cleanedWaypoint = parsedWaypoint.trim();
+    cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\bQ\b', caseSensitive: false), '');
+    cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\s*Q$'), '');
+    cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'^Q\s*'), '');
+    cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\s+'), ' ').trim();
+
     return KakaoScreenParsed(
       driveDateYmd: parsedDate,
       driveTimeHm: parsedTime,
-      waypoint: parsedWaypoint,
+      waypoint: cleanedWaypoint,
       startLocation: startBuf.toString().trim(),
       endLocation: endBuf.toString().trim(),
       grossFare: parsedIncome,

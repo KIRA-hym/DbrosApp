@@ -1,3 +1,29 @@
+/// 로지 OCR 숫자 토큰의 **원→1/2** 맨끝 오인식·`I0000`→7만 등을 보정한다.
+int? normalizeLogiFareDigitToken(String digits) {
+  var val = digits.trim();
+  if (val.isEmpty) return null;
+
+  // 요금·입금액 줄: I/l + 0000 → 70000
+  if (RegExp(r'^[Il]0{4}$', caseSensitive: false).hasMatch(val)) {
+    return 70000;
+  }
+
+  // 140002 / 250001 — 끝 1·2는 「원」 오인식
+  if (val.length == 6 && (val.endsWith('1') || val.endsWith('2'))) {
+    val = val.substring(0, 5);
+  } else if (val.length == 5 && (val.endsWith('1') || val.endsWith('2'))) {
+    final raw = int.tryParse(val);
+    if (raw != null && raw % 100 != 0) {
+      val = '${val.substring(0, 4)}0'; // 14002 → 14000
+    }
+  }
+
+  final n = int.tryParse(val);
+  if (n == null || n < 1000 || n > 999999) return null;
+  if (n % 100 != 0) return null;
+  return n;
+}
+
 /// 로지 콜카드 OCR에서 요금만 안정적으로 추출합니다.
 int? parseLogiFareFromOcrText(String raw) {
   if (raw.trim().isEmpty) return null;
@@ -6,6 +32,10 @@ int? parseLogiFareFromOcrText(String raw) {
     var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
     s = s.replaceAll(RegExp(r'원|₩|P'), '');
     s = s.replaceAll(RegExp(r'[!]+'), '');
+    // I0000 / l0000 — l→1 치환 전에 7만원 패턴 인식
+    if (RegExp(r'^[Il]0{4}$', caseSensitive: false).hasMatch(s)) {
+      return '70000';
+    }
     // OCR 오인식 (한글 일괄 제거 전에 혼입 문자만 보정)
     s = s.replaceAll('그', '7').replaceAll('기', '7').replaceAll('o', '0').replaceAll('O', '0');
     s = s.replaceAll('l', '1').replaceAll('L', '1').replaceAll('I', '1').replaceAll('i', '1');
@@ -17,19 +47,18 @@ int? parseLogiFareFromOcrText(String raw) {
   }
 
   int? bestFrom(String s) {
+    if (s == '70000') return 70000;
+
     final matches = RegExp(r'\d{4,6}').allMatches(s);
     if (matches.isEmpty) return null;
     final candidates = matches.map((m) => m.group(0)!).toList()
       ..sort((a, b) => int.parse(b).compareTo(int.parse(a)));
 
-    var val = candidates.first;
-    // 140002 -> 14000 처리 (끝에 붙은 오인식 숫자 제거)
-    if (val.length == 6 && (val.endsWith('1') || val.endsWith('2'))) {
-      val = val.substring(0, 5);
+    for (final token in candidates) {
+      final n = normalizeLogiFareDigitToken(token);
+      if (n != null) return n;
     }
-    final n = int.tryParse(val);
-    if (n == null || n < 1000 || n > 999999) return null;
-    return n;
+    return null;
   }
 
   return bestFrom(prepare(raw));
