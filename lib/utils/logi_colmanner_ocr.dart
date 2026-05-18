@@ -645,7 +645,7 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'[Q|/\\{}]'), ' ');
     res = res.replaceAll(
       RegExp(
-        r'\(?(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|후불|제휴|즉후|카드|천사|정장)\)?',
+        r'\(?(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|제휴|즉후|카드|정장|법\]|정장\])\)?',
       ),
       ' ',
     );
@@ -664,6 +664,7 @@ class LogiColmannerOcr {
     // 3. 라벨 잔해물 제거
     res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지)\s*', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'\s+(출발지|도착지|지도|서명|길안내|고객위치|고객과의\s*거리\s*[:：]?\s*.*)$', caseSensitive: false), '');
+    res = res.replaceAll(RegExp(r'(?:^|\s)(출발지|도착지|위치|경유지|지도|서명|길안내)(?:\s|$)', caseSensitive: false), ' ');
     res = res.replaceAll(RegExp(r'출\s*도\s*경로거리.*$', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[a-zA-Z0-9\.]+(?:km)?', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
@@ -972,7 +973,7 @@ class LogiColmannerOcr {
       if (RegExp(r'^0\d{1,2}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
 
       final hasMetro = _leadingMetroProvinceToken(t) != null ||
-          RegExp(r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)').hasMatch(t);
+          RegExp(r'(?:^|\s)(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)').hasMatch(t);
       final isSangse = t.contains('상세:');
 
       if (hasMetro || isSangse) {
@@ -1080,7 +1081,7 @@ class LogiColmannerOcr {
 
   static bool _isPurePaymentOrMemoLine(String line) {
     var s = line.replaceAll(RegExp(r'[()\[\]\{\}\s]'), '');
-    s = s.replaceAll(RegExp(r'(?:후불|카드|현금|즉후|정장|제휴|천사|요금|결재|결제)'), '');
+    s = s.replaceAll(RegExp(r'(?:후불|카드|현금|즉후|정장|제휴|천사|요금|결재|결제|그개저비|그개저)'), '');
     if (s.isEmpty) return true;
     s = s.replaceAll(RegExp(r'\d+(?:분|시간|[kK]|[oO][kK]|원)?'), '');
     s = s.replaceAll(RegExp(r'[,\./\-~X]'), '');
@@ -1096,9 +1097,8 @@ class LogiColmannerOcr {
     if (line.startsWith('(예상')) return true;
     if (line.contains('자택') || line.contains('[자택]') || line.contains('자택:')) return true;
     if (line.contains('차량') || line.contains('[차량]') || line.contains('차량:')) return true;
-    if (line.contains('법]') || line.contains('정장]')) return true;
     if (line.contains('기사님') || line.contains('[주차]')) return true;
-    if (line.contains('비흡연') || line.contains('킥보드') || line.contains('휠X')) return true;
+    if (line.contains('킥보드') || line.contains('휠X')) return true;
     if (RegExp(r'\(\d+-\d+\)').hasMatch(line)) return true;
     return false;
   }
