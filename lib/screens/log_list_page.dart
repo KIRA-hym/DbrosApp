@@ -259,6 +259,8 @@ class _LogListPageState extends State<LogListPage> {
           final horizontalPadding = isTablet ? 24.0 : 20.0;
           final verticalPadding = isTablet ? 18.0 : 16.0;
           final iconSize = isTablet ? 22.0 : 20.0;
+          final spacing = isTablet ? 16.0 : 12.0;
+          final innerSpacing = isTablet ? 6.0 : 4.0;
                  return Container(
             key: isToday ? _todayKey : null,
             decoration: const BoxDecoration(
