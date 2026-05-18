@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/db_helper.dart';
 import '../main.dart'; 
 import 'write_log_page.dart';
+import '../utils/snackbar_utils.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -301,18 +302,16 @@ class _LogListPageState extends State<LogListPage> {
                 );
               },
               onDismissed: (direction) async {
-                final ms = ScaffoldMessenger.of(context);
                 for (var log in dailyLogs) {
                   await DriveLogDatabase.instance.deleteLog(log['id']);
                 }
                 _loadMonthData();
 
                 if (!mounted) return;
-                ms.showSnackBar(
-                  SnackBar(
-                    content: Text("$dateStr의 모든 운행일지가 삭제되었습니다."),
-                    backgroundColor: Colors.red,
-                  ),
+                showDbrosSnackBar(
+                  context,
+                  "$dateStr의 모든 운행일지가 삭제되었습니다.",
+                  backgroundColor: Colors.red,
                 );
               },
               child: InkWell(
@@ -439,9 +438,7 @@ class _LogListPageState extends State<LogListPage> {
   Future<void> _shareMonthListAsImage() async {
     if (!mounted || _isLoading) return;
     if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('웹에서는 공유를 지원하지 않습니다.')),
-      );
+      showDbrosSnackBar(context, '웹에서는 공유를 지원하지 않습니다.');
       return;
     }
     final messenger = ScaffoldMessenger.of(context);
@@ -516,9 +513,7 @@ class _LogListPageState extends State<LogListPage> {
 
       if (!mounted) return;
       if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.')),
-        );
+        showDbrosSnackBar(context, '이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
 
@@ -541,9 +536,7 @@ class _LogListPageState extends State<LogListPage> {
       debugPrint('LogListPage month share error: $e');
       debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('공유에 실패했습니다: $e')),
-      );
+      showDbrosSnackBar(context, '공유에 실패했습니다: $e');
     }
   }
 
@@ -853,7 +846,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     if (msg != null && msg.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+        showDbrosSnackBar(context, msg);
       });
     }
   }
@@ -885,9 +878,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       debugPrint('DailyLogListPage load error: $e');
       debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("상세 목록을 불러오는 중 오류가 발생했습니다.")),
-      );
+      showDbrosSnackBar(context, "상세 목록을 불러오는 중 오류가 발생했습니다.");
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -898,9 +889,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   Future<void> _shareDetailAsImage() async {
     if (!mounted || _isLoading) return;
     if (kIsWeb) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('웹에서는 공유를 지원하지 않습니다.')),
-      );
+      showDbrosSnackBar(context, '웹에서는 공유를 지원하지 않습니다.');
       return;
     }
 
@@ -961,9 +950,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
 
       if (!mounted) return;
       if (bytes.isEmpty) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.')),
-        );
+        showDbrosSnackBar(context, '이미지를 만들 수 없습니다. 잠시 후 다시 시도해 주세요.');
         return;
       }
 
@@ -985,9 +972,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       debugPrint('DailyLogListPage share error: $e');
       debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      messenger.showSnackBar(
-        SnackBar(content: Text('공유에 실패했습니다: $e')),
-      );
+      showDbrosSnackBar(context, '공유에 실패했습니다: $e');
     }
   }
 
@@ -1308,16 +1293,14 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             );
           },
           onDismissed: (direction) async {
-            final ms = ScaffoldMessenger.of(context);
             await DriveLogDatabase.instance.deleteLog(log['id']);
             _loadData();
 
             if (!mounted) return;
-            ms.showSnackBar(
-              const SnackBar(
-                content: Text("운행일지가 삭제되었습니다."),
-                backgroundColor: Colors.red,
-              ),
+            showDbrosSnackBar(
+              context,
+              "운행일지가 삭제되었습니다.",
+              backgroundColor: Colors.red,
             );
           },
           child: InkWell(
