@@ -852,7 +852,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     // Prevent duplicate entries of the same category + amount in the memo
     final escaped = RegExp.escape(appendText);
-    final hasPattern = RegExp('(?:^|\\s)$escaped(?:$|\\s)').hasMatch(currentMemo);
+    final hasPattern = RegExp('(?:^|\\s)$escaped(?:\\\$|\\s)').hasMatch(currentMemo);
     if (hasPattern) return;
 
     setState(() {
