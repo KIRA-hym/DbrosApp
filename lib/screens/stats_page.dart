@@ -8,15 +8,23 @@ import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
 import '../config/feature_flags.dart';
 
+int _intField(Map<String, dynamic> log, String key) {
+  final v = log[key];
+  if (v == null) return 0;
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  return int.tryParse(v.toString()) ?? 0;
+}
+
 int _statsRowRevenue(Map<String, dynamic> log) =>
-    (log['gross_fare'] as int? ?? 0) + (log['waypoint_tip'] as int? ?? 0);
+    _intField(log, 'gross_fare') + _intField(log, 'waypoint_tip');
 
 /// 목록과 동일: 순수익 = 요금 + 경유팁 − 수수료 − 교통비 (행 단위 하한 0).
 int _statsRowNet(Map<String, dynamic> log) {
-  final gross = log['gross_fare'] as int? ?? 0;
-  final tip = log['waypoint_tip'] as int? ?? 0;
-  final fee = log['fee'] as int? ?? 0;
-  final transport = log['transport_cost'] as int? ?? 0;
+  final gross = _intField(log, 'gross_fare');
+  final tip = _intField(log, 'waypoint_tip');
+  final fee = _intField(log, 'fee');
+  final transport = _intField(log, 'transport_cost');
   return (gross + tip - fee - transport).clamp(0, 999999999);
 }
 
@@ -122,9 +130,10 @@ class _StatsPageState extends State<StatsPage> {
 
   void _changeWeek(int weeks) {
     final DateTime newDate = _selectedDate.add(Duration(days: weeks * 7));
+    final DateTime newDateOnly = DateTime(newDate.year, newDate.month, newDate.day);
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
-    if (newDate.isAfter(today)) return;
+    if (newDateOnly.isAfter(today)) return;
     setState(() => _selectedDate = newDate);
     _loadStats();
   }
@@ -188,13 +197,14 @@ class _StatsPageState extends State<StatsPage> {
 
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime selDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
     final bool canGoNext = _selectedPeriod == "일간" 
-        ? _selectedDate.isBefore(today) || _selectedDate.isAtSameMomentAs(today)
+        ? selDateOnly.isBefore(today)
         : _selectedPeriod == "주간"
-            ? _selectedDate.add(Duration(days: 7)).isBefore(today) || _selectedDate.add(Duration(days: 7)).isAtSameMomentAs(today)
+            ? selDateOnly.add(const Duration(days: 7)).isBefore(today) || selDateOnly.add(const Duration(days: 7)).isAtSameMomentAs(today)
             : _selectedPeriod == "월간"
-                ? DateTime(_selectedDate.year, _selectedDate.month + 1, 1).isBefore(today) || DateTime(_selectedDate.year, _selectedDate.month + 1, 1).isAtSameMomentAs(today)
-                : DateTime(_selectedDate.year + 1, 1, 1).isBefore(today) || DateTime(_selectedDate.year + 1, 1, 1).isAtSameMomentAs(today);
+                ? DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isBefore(today) || DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isAtSameMomentAs(today)
+                : DateTime(selDateOnly.year + 1, 1, 1).isBefore(today) || DateTime(selDateOnly.year + 1, 1, 1).isAtSameMomentAs(today);
 
     return Container(
       decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
@@ -350,7 +360,7 @@ class _StatsPageState extends State<StatsPage> {
       final String time = log['drive_time'] as String? ?? '';
       final int hour = int.tryParse(time.split(':')[0]) ?? 0;
       final h = hour.clamp(0, 23);
-      byHour[h] = (byHour[h] ?? 0) + _statsRowRevenue(log);
+      byHour[h] = (byHour[h] ?? 0) + _statsRowNet(log);
     }
     final sortedHours = byHour.keys.toList()..sort();
     return sortedHours.map((h) => {'hour': '$h시', 'revenue': byHour[h] ?? 0}).toList();
@@ -370,7 +380,7 @@ class _StatsPageState extends State<StatsPage> {
     for (final log in logs) {
       final wd = log['work_date']?.toString().trim() ?? '';
       if (wd.isEmpty || !revenueByYmd.containsKey(wd)) continue;
-      revenueByYmd[wd] = (revenueByYmd[wd] ?? 0) + _statsRowRevenue(log);
+      revenueByYmd[wd] = (revenueByYmd[wd] ?? 0) + _statsRowNet(log);
     }
 
     final List<Map<String, dynamic>> out = [];
@@ -401,7 +411,7 @@ class _StatsPageState extends State<StatsPage> {
       if (parsed.year != date.year || parsed.month != date.month) continue;
       final day = parsed.day;
       if (day >= 1 && day <= lastDay) {
-        dailyRevenue['$day일'] = (dailyRevenue['$day일'] ?? 0) + _statsRowRevenue(log);
+        dailyRevenue['$day일'] = (dailyRevenue['$day일'] ?? 0) + _statsRowNet(log);
       }
     }
     return dailyRevenue.entries.map((entry) => { 'day': entry.key, 'revenue': entry.value }).toList();
@@ -411,7 +421,7 @@ class _StatsPageState extends State<StatsPage> {
     Map<String, int> monthlyRevenue = {};
     for (int m = 1; m <= 12; m++) {
       final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, m)));
-      monthlyRevenue['$m월'] = logs.fold(0, (sum, log) => sum + _statsRowRevenue(log));
+      monthlyRevenue['$m월'] = logs.fold(0, (sum, log) => sum + _statsRowNet(log));
     }
     return monthlyRevenue.entries.map((entry) => { 'month': entry.key, 'revenue': entry.value }).toList();
   }
@@ -731,10 +741,10 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildSecondChart(double titleFontSize) {
     String title = _selectedPeriod == "일간"
-        ? "시간대별 매출"
+        ? "시간대별 순수익"
         : (_selectedPeriod == "주간"
-            ? "요일별 매출 (근무일 기준)"
-            : (_selectedPeriod == "월간" ? "일자별 매출 (근무일 기준)" : "월별 매출 (근무일 기준)"));
+            ? "요일별 순수익 (근무일 기준)"
+            : (_selectedPeriod == "월간" ? "일자별 순수익 (근무일 기준)" : "월별 순수익 (근무일 기준)"));
     return Container(
       decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
       child: Padding(
@@ -896,18 +906,19 @@ class _StatsPageState extends State<StatsPage> {
         final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
         final itemWidth =
             ((contentWidth / data.length).clamp(minItemWidth, math.max(48.0, minItemWidth))).toDouble();
+        final double actualWidth = itemWidth * data.length;
 
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: SizedBox(
-            width: contentWidth,
+            width: actualWidth,
             child: Column(
               children: [
                 SizedBox(
-                  width: contentWidth,
+                  width: actualWidth,
                   height: plotHeight,
                   child: CustomPaint(
-                    painter: LineChartPainter(data, valueKey, maxValue, plotHeight),
+                    painter: LineChartPainter(data, valueKey, maxValue, plotHeight, itemWidth),
                   ),
                 ),
                 SizedBox(height: gapPlotLabels),
@@ -1224,8 +1235,9 @@ class LineChartPainter extends CustomPainter {
   final String valueKey;
   final double maxValue;
   final double chartHeight;
+  final double itemWidth;
   
-  LineChartPainter(this.data, this.valueKey, this.maxValue, this.chartHeight);
+  LineChartPainter(this.data, this.valueKey, this.maxValue, this.chartHeight, this.itemWidth);
   
   @override
   void paint(Canvas canvas, Size size) {
@@ -1238,10 +1250,9 @@ class LineChartPainter extends CustomPainter {
       ..color = const Color(0xFFFFC700)
       ..style = PaintingStyle.fill;
     final path = Path();
-    final stepX = data.length > 1 ? size.width / (data.length - 1) : 0.0;
 
     for (int i = 0; i < data.length; i++) {
-      final x = stepX * i;
+      final x = (itemWidth * i) + (itemWidth / 2);
       final value = (data[i][valueKey] as int?) ?? 0;
       final y = maxValue > 0 ? chartHeight - (value / maxValue) * chartHeight : chartHeight;
       if (i == 0) {
@@ -1253,7 +1264,7 @@ class LineChartPainter extends CustomPainter {
     canvas.drawPath(path, paint);
 
     for (int i = 0; i < data.length; i++) {
-      final x = stepX * i;
+      final x = (itemWidth * i) + (itemWidth / 2);
       final value = (data[i][valueKey] as int?) ?? 0;
       final y = maxValue > 0 ? chartHeight - (value / maxValue) * chartHeight : chartHeight;
       canvas.drawCircle(Offset(x, y), 3, dotPaint);

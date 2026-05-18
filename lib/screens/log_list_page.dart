@@ -258,69 +258,118 @@ class _LogListPageState extends State<LogListPage> {
           final horizontalPadding = isTablet ? 24.0 : 20.0;
           final verticalPadding = isTablet ? 18.0 : 16.0;
           final iconSize = isTablet ? 22.0 : 20.0;
-          final spacing = isTablet ? 14.0 : 12.0;
-          final innerSpacing = isTablet ? 6.0 : 4.0;
-
-          return Container(
+                 return Container(
             key: isToday ? _todayKey : null,
             decoration: const BoxDecoration(
               color: Color(0xFF1F222A),
               border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
             ),
-            child: InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DailyLogListPage(
-                      dateStr: dateStr,
-                      dateTitle: '근무일자: $dateStr',
-                    ),
-                  ),
-                ).then((_) => _loadMonthData());
-              },
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-                child: Row(
+            child: Dismissible(
+              key: Key("day_$dateStr"),
+              direction: DismissDirection.endToStart,
+              background: Container(
+                color: Colors.red,
+                alignment: Alignment.centerRight,
+                padding: EdgeInsets.only(right: horizontalPadding),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.contact_mail, color: isToday ? const Color(0xFFFFC700) : Colors.white, size: iconSize),
-                    SizedBox(width: spacing),
-                    Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: isToday ? const Color(0xFFFFC700) : Colors.white)),
-                    SizedBox(width: spacing + 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    Icon(Icons.delete, color: Colors.white, size: isTablet ? 26 : 24),
+                    const SizedBox(height: 4),
+                    Text("삭제", style: TextStyle(color: Colors.white, fontSize: isTablet ? 13 : 12)),
+                  ],
+                ),
+              ),
+              confirmDismiss: (direction) async {
+                return await showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    backgroundColor: const Color(0xFF1F222A),
+                    title: const Text("하루 일지 삭제", style: TextStyle(color: Colors.white)),
+                    content: Text("$dateStr의 운행일지 $logCount건을 모두 삭제하시겠습니까?", style: const TextStyle(color: Colors.white70)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text("취소", style: TextStyle(color: Color(0xFF6E717C))),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text("삭제", style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              onDismissed: (direction) async {
+                final ms = ScaffoldMessenger.of(context);
+                for (var log in dailyLogs) {
+                  await DriveLogDatabase.instance.deleteLog(log['id']);
+                }
+                _loadMonthData();
+
+                if (!mounted) return;
+                ms.showSnackBar(
+                  SnackBar(
+                    content: Text("$dateStr의 모든 운행일지가 삭제되었습니다."),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              },
+              child: InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DailyLogListPage(
+                        dateStr: dateStr,
+                        dateTitle: '근무일자: $dateStr',
+                      ),
+                    ),
+                  ).then((_) => _loadMonthData());
+                },
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+                  child: Row(
+                    children: [
+                      Icon(Icons.contact_mail, color: isToday ? const Color(0xFFFFC700) : Colors.white, size: iconSize),
+                      SizedBox(width: spacing),
+                      Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, color: isToday ? const Color(0xFFFFC700) : Colors.white)),
+                      SizedBox(width: spacing + 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("${logCount}건", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
+                            SizedBox(height: innerSpacing),
+                            Row(
+                              children: [
+                                const Text("순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                                Text("₩${NumberFormat('#,###').format(dailyNetProfit)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text("${logCount}건", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
+                          Row(
+                            children: [
+                              const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                              Text("₩${NumberFormat('#,###').format(dailyIncome)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.lightBlueAccent)),
+                            ],
+                          ),
                           SizedBox(height: innerSpacing),
                           Row(
                             children: [
-                              const Text("순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                              Text("₩${NumberFormat('#,###').format(dailyNetProfit)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                              const Text("지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                              Text("-₩${NumberFormat('#,###').format(dailyExpense)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFF5252))),
                             ],
                           ),
                         ],
                       ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Row(
-                          children: [
-                            const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                            Text("₩${NumberFormat('#,###').format(dailyIncome)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.lightBlueAccent)),
-                          ],
-                        ),
-                        SizedBox(height: innerSpacing),
-                        Row(
-                          children: [
-                            const Text("지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                            Text("-₩${NumberFormat('#,###').format(dailyExpense)}", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFF5252))),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
