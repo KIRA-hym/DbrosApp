@@ -282,19 +282,30 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName = 'ocr_failure_log_$timestamp.txt';
 
-      final res = await http.post(
-        Uri.parse(gasUrl),
-        headers: {'Content-Type': 'application/json; charset=utf-8'},
-        body: jsonEncode(<String, dynamic>{
+      final request = http.Request('POST', Uri.parse(gasUrl))
+        ..followRedirects = false
+        ..headers['Content-Type'] = 'application/json; charset=utf-8'
+        ..body = jsonEncode(<String, dynamic>{
           'fileName': fileName,
           'mimeType': 'text/plain',
           'fileContent': base64Encode(utf8.encode(logText)),
-        }),
-      ).timeout(const Duration(seconds: 15));
+        });
+
+      final client = http.Client();
+      final streamedRes = await client.send(request).timeout(const Duration(seconds: 15));
+      final res = await http.Response.fromStream(streamedRes);
+
+      var finalResponse = res;
+      if (res.statusCode == 302) {
+        final redirectUrl = res.headers['location'];
+        if (redirectUrl != null) {
+          finalResponse = await http.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 15));
+        }
+      }
 
       if (!mounted) return;
 
-      if (res.statusCode == 200) {
+      if (finalResponse.statusCode == 200 || res.statusCode == 302) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text("구글 드라이브(GAS)로 실패 로그가 성공적으로 전송 및 업로드되었습니다!"),
@@ -304,7 +315,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("업로드 실패 (서버 응답 오류: ${res.statusCode})"),
+            content: Text("업로드 실패 (서버 응답 오류: ${finalResponse.statusCode})"),
             backgroundColor: const Color(0xFFC62828),
           ),
         );
