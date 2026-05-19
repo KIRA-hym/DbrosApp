@@ -307,7 +307,8 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<List<Map<String, dynamic>>> _getProgramStats(DateTime date, String period) async {
     final List<String> fixedPrograms = [
-      "카카오",
+      "카카오(일반)",
+      "카카오(프콜)",
       "로지",
       "콜마너",
       "티맵",
@@ -321,7 +322,11 @@ class _StatsPageState extends State<StatsPage> {
       for (var log in logs) {
         String program = log['program'] as String? ?? '기타';
         if (program.contains('카카오')) {
-          program = '카카오';
+          if (program.contains('프콜') || program.contains('단독')) {
+            program = '카카오(프콜)';
+          } else {
+            program = '카카오(일반)';
+          }
         }
         if (!fixedPrograms.contains(program)) program = '기타';
         programRevenue[program] = (programRevenue[program]!) + _statsRowRevenue(log);
