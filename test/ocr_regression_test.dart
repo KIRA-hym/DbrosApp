@@ -66,6 +66,56 @@ void main() {
       expect(parsed.endLocation, '경기 성남시 분당구 분당로 17 분당타워 1201호');
       expect(parsed.grossFare, 36000);
     });
+
+    test('handles map noise interleaved with addresses and alternative currency symbol', () {
+      const rawText = '''
+19:48 T•
+J0성수
+순환로
+주장암간)
+도착
+맞춤콜
+4고속도로-
+북부간선후
+출발
+도착
+출발 중랑구 면목동 365-11
+거절
+실제 카드| 확정 | 23,200®
+수익 추천가골발도착 10점
+프로 단독배정
+서별내
+도보 2.6km(약41분 )
+세(으천고속도로-
+경기 남양주시 별내5로 22
+약 29분 운행
+HD LTE* 90%
+약 29분 운행
+중랑
+동별내
+덕내로
+0) 남별내
+(C) 퇴계원
+스도귀
+구리
+0)구리
+스화고속도르
+남구리
+383
+북부간선로
+남양주
+토평
+1초뒤자동수락
+60
+kakao
+86
+''';
+      final parsed = KakaoCustomCallOcr.parseScreen(const [], rawText);
+      expect(parsed.startLocation, '중랑구 면목동 365-11');
+      expect(parsed.endLocation, '경기 남양주시 별내5로 22');
+      expect(parsed.grossFare, 23200);
+      expect(parsed.paymentMethod, '카드');
+    });
   });
 
   group('Kakao card OCR regression', () {

@@ -37,30 +37,27 @@ class KakaoCustomCallOcr {
 
   /// `실제 수익 카드 | 확정 | 36,000 P` 형태를 분해.
   static ({String? paymentMethod, int? amount}) parsePaymentAndFare(String fullText) {
-    final lines = fullText
-        .replaceAll('\r', '\n')
-        .split('\n')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
-    for (final line in lines) {
-      if (!line.contains('실제') || !line.contains('수익')) continue;
-      final m = RegExp(
-        r'실제\s*수익\s*([^\|\n]+?)\s*\|\s*([^\|\n]+?)\s*\|\s*([\d,]{3,})\s*P',
-        caseSensitive: false,
-      ).firstMatch(line);
-      if (m != null) {
-        final method = m.group(1)?.trim();
-        final amount = int.tryParse((m.group(3) ?? '').replaceAll(',', ''));
-        return (paymentMethod: method, amount: amount);
-      }
-      // 구분자 OCR 누락 대비: 실제 수익 ... [숫자] P
-      final amountOnly = RegExp(r'([\d,]{3,})\s*P', caseSensitive: false).firstMatch(line);
-      if (amountOnly != null) {
-        final amount = int.tryParse((amountOnly.group(1) ?? '').replaceAll(',', ''));
-        final method = line.contains('카드')
+    final flat = fullText.replaceAll(RegExp(r'[\r\n]+'), ' ');
+    final m = RegExp(
+      r'실제\s*(?:수익\s*)?([^\s|]+)?\s*\|\s*([^|\n]+?)\s*\|\s*([\d,]{3,})\s*(?:P|원|®|©|p)?',
+      caseSensitive: false,
+    ).firstMatch(flat);
+    if (m != null) {
+      final method = m.group(1)?.trim();
+      final amount = int.tryParse((m.group(3) ?? '').replaceAll(',', ''));
+      return (paymentMethod: method, amount: amount);
+    }
+    
+    // Fallback: 실제 옆의 첫 3자리 이상 숫자 매칭
+    final idx = flat.indexOf('실제');
+    if (idx >= 0) {
+      final slice = flat.substring(idx);
+      final m2 = RegExp(r'([\d,]{3,})').firstMatch(slice);
+      if (m2 != null) {
+        final amount = int.tryParse(m2.group(1)!.replaceAll(',', ''));
+        final method = slice.contains('카드')
             ? '카드'
-            : (line.contains('현금') ? '현금' : null);
+            : (slice.contains('현금') ? '현금' : null);
         return (paymentMethod: method, amount: amount);
       }
     }
@@ -75,12 +72,12 @@ class KakaoCustomCallOcr {
     if (idx >= 0) {
       slice = flat.substring(idx);
     }
-    final m = RegExp(r'([\d,]{3,})\s*P').firstMatch(slice);
+    final m = RegExp(r'([\d,]{3,})\s*(?:P|원|®|©|p)?').firstMatch(slice);
     if (m != null) {
       final v = int.tryParse(m.group(1)!.replaceAll(',', ''));
       if (v != null && v > 0) return v;
     }
-    final m2 = RegExp(r'([\d,]{3,})\s*P').firstMatch(flat);
+    final m2 = RegExp(r'([\d,]{3,})\s*(?:P|원|®|©|p)?').firstMatch(flat);
     if (m2 != null) {
       final v = int.tryParse(m2.group(1)!.replaceAll(',', ''));
       if (v != null && v > 0) return v;
@@ -178,8 +175,24 @@ class KakaoCustomCallOcr {
       }
     }
 
-    final start = _extractLabeledPlace(sorted, '출발', fullText) ?? '';
-    final endRaw = _extractLabeledPlace(sorted, '도착', fullText) ?? '';
+    var start = _extractLabeledPlace(sorted, '출발', fullText) ?? '';
+    var endRaw = _extractLabeledPlace(sorted, '도착', fullText) ?? '';
+
+    // Heuristic fallback if addresses are empty, contain map noise, or are invalid Korean addresses
+    if (start.isEmpty || _isMapRouteNoise(start) || start.contains('맞춤콜') || start.contains('고속도로') ||
+        endRaw.isEmpty || _isMapRouteNoise(endRaw) || endRaw.contains('맞춤콜') || endRaw.contains('고속도로') ||
+        !_isValidKoreanAddress(start) || !_isValidKoreanAddress(endRaw)) {
+      final heuristicAddr = _parseAddressesHeuristically(fullText);
+      if (heuristicAddr.start.isNotEmpty &&
+          (start.isEmpty || !_isValidKoreanAddress(start) || start.contains('맞춤콜') || start.contains('고속도로'))) {
+        start = heuristicAddr.start;
+      }
+      if (heuristicAddr.end.isNotEmpty &&
+          (endRaw.isEmpty || !_isValidKoreanAddress(endRaw) || endRaw.contains('맞춤콜') || endRaw.contains('고속도로'))) {
+        endRaw = heuristicAddr.end;
+      }
+    }
+
     final end = stripHeartDecorations(endRaw);
 
     final income = parsePaymentAndFare(fullText);
@@ -194,5 +207,70 @@ class KakaoCustomCallOcr {
       grossFare: fare,
       paymentMethod: income.paymentMethod,
     );
+  }
+
+  static bool _isValidKoreanAddress(String text) {
+    final t = text.trim();
+    if (t.length < 5) return false;
+    final hasProvince = RegExp(r'^(서울|경기|인천|강원|충북|충남|전북|전남|경북|경남|부산|대구|광주|대전|울산|세종|제주)').hasMatch(t);
+    final hasStructure = RegExp(r'([시구동읍면로길]|\d+-\d+)').hasMatch(t);
+    if (t.contains('고속도로') || t.contains('간선') || t.contains('순환로')) return false;
+    if (t.contains('프로') || t.contains('단독') || t.contains('배정') || t.contains('추천') || t.contains('자동')) return false;
+    return hasProvince || (hasStructure && t.split(' ').length >= 2);
+  }
+
+  static ({String start, String end}) _parseAddressesHeuristically(String fullText) {
+    final lines = fullText
+        .replaceAll('\r', '\n')
+        .split('\n')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    String startAddress = '';
+    String endAddress = '';
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (line.startsWith('출발')) {
+        var rest = line.substring(2).trim();
+        rest = rest.replaceFirst(RegExp(r'^[:\s|]+'), '').trim();
+        if (rest.isNotEmpty && !_isMapRouteNoise(rest)) {
+          startAddress = rest;
+          break;
+        }
+        for (var j = i + 1; j < lines.length && j < i + 4; j++) {
+          final next = lines[j];
+          if (next.startsWith('출발') || next.startsWith('도착') || next.contains('실제')) break;
+          if (_isMapRouteNoise(next)) continue;
+          if (_isValidKoreanAddress(next)) {
+            startAddress = next;
+            break;
+          }
+        }
+        if (startAddress.isNotEmpty) break;
+      }
+    }
+
+    final List<String> addressCandidates = [];
+    for (final line in lines) {
+      if (line.startsWith('출발') || line.startsWith('도착') || line.contains('실제') || line.contains('수익')) continue;
+      if (_isMapRouteNoise(line)) continue;
+      if (_isValidKoreanAddress(line)) {
+        addressCandidates.add(line);
+      }
+    }
+
+    addressCandidates.removeWhere((c) => c == startAddress || startAddress.contains(c));
+
+    if (addressCandidates.isNotEmpty) {
+      final provCandidate = addressCandidates.firstWhere(
+        (c) => RegExp(r'^(서울|경기|인천|강원|충북|충남|전북|전남|경북|경남|부산|대구|광주|대전|울산|세종|제주)').hasMatch(c),
+        orElse: () => addressCandidates.first,
+      );
+      endAddress = provCandidate;
+    }
+
+    return (start: startAddress, end: endAddress);
   }
 }
