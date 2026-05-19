@@ -1345,47 +1345,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지"),
             _buildInputField(_endLocCon, label: "도착지", suffixIcon: _pinPickButton(forStart: false)),
           ]),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () {
-                _captureGrossAndApplyDeductions();
-                final draft = <String, dynamic>{
-                  'work_date': _workDateCon.text.trim(),
-                  'drive_date': _dateCon.text.trim(),
-                  'drive_time': resolveDriveTimeForStorage(_timeCon.text),
-                  'program': _selectedProgram,
-                  'gross_fare': _parseMoney(_incomeCon.text),
-                  'fee': _currentFeeFromGross(),
-                  'transport_cost': _parseMoney(_transportCon.text),
-                  'waypoint_tip': _parseMoney(_waypointTipCon.text),
-                  'net_income': _currentNetIncomeFromGross(),
-                  'start_location': _startLocCon.text.trim(),
-                  'waypoint': _waypointCon.text.trim(),
-                  'end_location': _endLocCon.text.trim(),
-                  'memo': '',
-                  if (_startLat != null) 'start_lat': _startLat,
-                  if (_startLng != null) 'start_lng': _startLng,
-                  if (_endLat != null) 'end_lat': _endLat,
-                  if (_endLng != null) 'end_lng': _endLng,
-                };
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute<void>(
-                    builder: (_) => DriveLogForm(existingLog: draft),
-                  ),
-                );
-              },
-              child: Text(
-                '전체 항목으로 작성',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFFFC700),
-                      decoration: TextDecoration.underline,
-                      decorationColor: Color(0xFFFFC700),
-                    ),
-              ),
-            ),
-          ),
         ],
       ),
     );
