@@ -7,6 +7,10 @@ Write-Host ">>> Bump pubspec version..."
 dart run tool/bump_pubspec_version.dart
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+Write-Host ">>> Validate notification icon..."
+dart run tool/validate_notification_icon.dart
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host ">>> flutter pub get..."
 dart pub get
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

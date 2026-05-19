@@ -7,7 +7,7 @@ alwaysApply: true
 
 When creating a `git commit` for this project:
 
-1. **Subject**: one line, imperative mood, include app version if `pubspec.yaml` changed (e.g. `Release v1.0.00+9: …`).
+1. **Subject**: one line, imperative mood, include app version if `pubspec.yaml` changed (e.g. `Release v1.0.02.09: …`).
 2. **Body (required)**: blank line after subject, then bullet list of **concrete changes** (paths or feature areas, what changed and why if non-obvious). Group by theme (Android, lib/screens, parsers, tests, etc.).
 
 # Before Android release builds (commit + push)

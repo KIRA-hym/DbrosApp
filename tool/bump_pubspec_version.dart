@@ -1,6 +1,7 @@
-// APK 빌드 전 실행: pubspec.yaml 의 version (이름+빌드번호) 증가
-// 규칙: +빌드번호를 1 증가. 9 다음은 패치 자리를 올리고 빌드는 10 (예: 1.0.00+9 → 1.0.01+10)
-// Android versionCode(+)는 항상 커져야 덮어쓰기 설치가 가능함. 0으로 리셋하지 않음.
+// APK 빌드 전 실행: pubspec.yaml version (이름+빌드번호) 증가
+// 규칙: 표시 1.0.02.01~1.0.02.09 → 다음 1.0.03.01
+//   pubspec: 1.0.02+1 … +9 → 1.0.03+1 (이름=major.minor.patch, +뒤=01~09)
+// Android versionCode는 gradle에서 이름+빌드로 단조 증가 (0으로 리셋하지 않음).
 import 'dart:io';
 
 void main(List<String> args) {
@@ -17,7 +18,9 @@ void main(List<String> args) {
   final re = RegExp(r'^version:\s*([\d.]+)\+(\d+)\s*$', multiLine: true);
   final m = re.firstMatch(text);
   if (m == null) {
-    stderr.writeln('Could not parse version: line must look like "version: 1.0.00+5"');
+    stderr.writeln(
+      'Could not parse version: line must look like "version: 1.0.02+1"',
+    );
     exitCode = 1;
     return;
   }
@@ -25,11 +28,12 @@ void main(List<String> args) {
   var name = m.group(1)!;
   var build = int.parse(m.group(2)!);
 
-  build++;
-  if (build > 9) {
-    build = 10;
+  if (build < 9) {
+    build++;
+  } else {
+    build = 1;
     final parts = name.split('.');
-    if (parts.length < 2) {
+    if (parts.length < 3) {
       stderr.writeln('Expected major.minor.patch in version name');
       exitCode = 1;
       return;
@@ -50,10 +54,16 @@ void main(List<String> args) {
   final newLine = 'version: $name+$build';
   if (dryRun) {
     stdout.writeln('Would set: $newLine');
+    stdout.writeln('Display: ${_displayLabel(name, build)}');
     return;
   }
 
   text = text.replaceFirst(re, newLine);
   pubspec.writeAsStringSync(text);
   stdout.writeln('Bumped pubspec to $newLine');
+  stdout.writeln('Display: ${_displayLabel(name, build)}');
+}
+
+String _displayLabel(String name, int build) {
+  return 'v$name.${build.toString().padLeft(2, '0')}';
 }

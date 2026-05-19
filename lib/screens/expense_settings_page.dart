@@ -43,7 +43,8 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
     try {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
-      setState(() => _appVersionLabel = 'v${info.version}.${info.buildNumber}');
+      setState(() => _appVersionLabel =
+          'v${info.version}.${info.buildNumber.padLeft(2, '0')}');
     } catch (_) {
       if (mounted) setState(() => _appVersionLabel = '');
     }

@@ -52,7 +52,7 @@ jobs:
         id: vars
         run: |
           DATE=$(date +'%Y%m%d')
-          # Extract version like 1.0.0+1 and convert to 1_0_0_1
+          # Extract version like 1.0.02+1 and convert to 1_0_02_01
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
           FORMATTED_VER=$(echo $VERSION | sed 's/\./_/g; s/\+/_/g')
           echo "date=$DATE" >> $GITHUB_OUTPUT

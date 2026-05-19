@@ -322,7 +322,8 @@ class _StatsPageState extends State<StatsPage> {
       for (var log in logs) {
         String program = log['program'] as String? ?? '기타';
         if (program.contains('카카오')) {
-          if (program.contains('프콜') || program.contains('단독')) {
+          // 프콜만 별도 막대. 일반·제휴·맞춤은 카카오(일반)에 합산 ('단독'은 UI 개념, 프로그램명 아님)
+          if (program.contains('프콜')) {
             program = '카카오(프콜)';
           } else {
             program = '카카오(일반)';
@@ -361,14 +362,18 @@ class _StatsPageState extends State<StatsPage> {
     final String dateStr = DateFormat('yyyy-MM-dd').format(date);
     final logs = await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr);
     final Map<int, int> byHour = {};
+    final Map<int, int> countByHour = {};
     for (final log in logs) {
       final String time = log['drive_time'] as String? ?? '';
       final int hour = int.tryParse(time.split(':')[0]) ?? 0;
       final h = hour.clamp(0, 23);
       byHour[h] = (byHour[h] ?? 0) + _statsRowNet(log);
+      countByHour[h] = (countByHour[h] ?? 0) + 1;
     }
     final sortedHours = byHour.keys.toList()..sort();
-    return sortedHours.map((h) => {'hour': '$h시', 'revenue': byHour[h] ?? 0}).toList();
+    return sortedHours
+        .map((h) => {'hour': '$h시', 'revenue': byHour[h] ?? 0, 'count': countByHour[h] ?? 0})
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> _getWeeklyDayStats(DateTime date) async {
@@ -382,10 +387,15 @@ class _StatsPageState extends State<StatsPage> {
       for (int i = 0; i < 7; i++)
         DateFormat('yyyy-MM-dd').format(weekStart.add(Duration(days: i))): 0,
     };
+    final Map<String, int> countByYmd = {
+      for (int i = 0; i < 7; i++)
+        DateFormat('yyyy-MM-dd').format(weekStart.add(Duration(days: i))): 0,
+    };
     for (final log in logs) {
       final wd = log['work_date']?.toString().trim() ?? '';
       if (wd.isEmpty || !revenueByYmd.containsKey(wd)) continue;
       revenueByYmd[wd] = (revenueByYmd[wd] ?? 0) + _statsRowNet(log);
+      countByYmd[wd] = (countByYmd[wd] ?? 0) + 1;
     }
 
     final List<Map<String, dynamic>> out = [];
@@ -394,7 +404,11 @@ class _StatsPageState extends State<StatsPage> {
       final ymd = DateFormat('yyyy-MM-dd').format(slotDate);
       final dow = kDow[slotDate.weekday - 1];
       final label = '${slotDate.month}/${slotDate.day}($dow)';
-      out.add({'day': label, 'revenue': revenueByYmd[ymd] ?? 0});
+      out.add({
+        'day': label,
+        'revenue': revenueByYmd[ymd] ?? 0,
+        'count': countByYmd[ymd] ?? 0,
+      });
     }
     return out;
   }
@@ -403,7 +417,8 @@ class _StatsPageState extends State<StatsPage> {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
     final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
     final int lastDay = DateTime(date.year, date.month + 1, 0).day;
-    Map<String, int> dailyRevenue = { for (int d = 1; d <= lastDay; d++) '$d일': 0 };
+    Map<String, int> dailyRevenue = {for (int d = 1; d <= lastDay; d++) '$d일': 0};
+    Map<String, int> dailyCount = {for (int d = 1; d <= lastDay; d++) '$d일': 0};
     for (var log in logs) {
       final wd = log['work_date']?.toString().trim() ?? '';
       if (wd.isEmpty) continue;
@@ -416,19 +431,27 @@ class _StatsPageState extends State<StatsPage> {
       if (parsed.year != date.year || parsed.month != date.month) continue;
       final day = parsed.day;
       if (day >= 1 && day <= lastDay) {
-        dailyRevenue['$day일'] = (dailyRevenue['$day일'] ?? 0) + _statsRowNet(log);
+        final key = '$day일';
+        dailyRevenue[key] = (dailyRevenue[key] ?? 0) + _statsRowNet(log);
+        dailyCount[key] = (dailyCount[key] ?? 0) + 1;
       }
     }
-    return dailyRevenue.entries.map((entry) => { 'day': entry.key, 'revenue': entry.value }).toList();
+    return dailyRevenue.entries
+        .map((entry) => {'day': entry.key, 'revenue': entry.value, 'count': dailyCount[entry.key] ?? 0})
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> _getYearlyMonthStats(DateTime date) async {
     Map<String, int> monthlyRevenue = {};
+    Map<String, int> monthlyCount = {};
     for (int m = 1; m <= 12; m++) {
       final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, m)));
       monthlyRevenue['$m월'] = logs.fold(0, (sum, log) => sum + _statsRowNet(log));
+      monthlyCount['$m월'] = logs.length;
     }
-    return monthlyRevenue.entries.map((entry) => { 'month': entry.key, 'revenue': entry.value }).toList();
+    return monthlyRevenue.entries
+        .map((entry) => {'month': entry.key, 'revenue': entry.value, 'count': monthlyCount[entry.key] ?? 0})
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> _getLogsForSelectedPeriod() async {
@@ -790,6 +813,64 @@ class _StatsPageState extends State<StatsPage> {
     return 'month';
   }
 
+  int _chartItemCount(Map<String, dynamic> item) => (item['count'] as int?) ?? 0;
+
+  TextStyle _chartCountTextStyle(double fontSize) => TextStyle(
+        color: const Color(0xFFB8BBC4),
+        fontSize: fontSize,
+        height: 1.0,
+      );
+
+  Widget _chartCountLabel(int count, double fontSize, double height) {
+    if (count <= 0) {
+      return SizedBox(height: height);
+    }
+    return SizedBox(
+      height: height,
+      child: Center(
+        child: Text(
+          '$count',
+          style: _chartCountTextStyle(fontSize),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+        ),
+      ),
+    );
+  }
+
+  ({
+    double textFontSize,
+    double labelHeight,
+    double valueHeight,
+    double countHeight,
+    double gapPlotLabels,
+    double plotHeight,
+  }) _chartLayoutMetrics(
+    BuildContext context,
+    BoxConstraints constraints,
+    List<Map<String, dynamic>> data,
+    String valueKey,
+  ) {
+    final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
+    final labelHeight = textFontSize + 6.0;
+    final valueHeight = textFontSize + 6.0;
+    final countHeight = textFontSize + 2.0;
+    const gapPlotLabels = 4.0;
+    final availH = constraints.maxHeight;
+    final plotHeight = availH.isFinite && availH > 0
+        ? (availH - labelHeight - valueHeight - gapPlotLabels - countHeight).clamp(28.0, 80.0)
+        : 68.0;
+    return (
+      textFontSize: textFontSize,
+      labelHeight: labelHeight,
+      valueHeight: valueHeight,
+      countHeight: countHeight,
+      gapPlotLabels: gapPlotLabels,
+      plotHeight: plotHeight,
+    );
+  }
+
   Widget _buildBarChart(List<Map<String, dynamic>> data, String labelKey, String valueKey) {
     if (data.isEmpty) return const SizedBox();
     final totalSum = data.fold(0, (sum, item) => sum + ((item[valueKey] as int?) ?? 0));
@@ -804,7 +885,13 @@ class _StatsPageState extends State<StatsPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
+        final layout = _chartLayoutMetrics(context, constraints, data, valueKey);
+        final textFontSize = layout.textFontSize;
+        final labelHeight = layout.labelHeight;
+        final valueHeight = layout.valueHeight;
+        final countHeight = layout.countHeight;
+        final gapPlotLabels = layout.gapPlotLabels;
+        final plotHeight = layout.plotHeight;
         final longestValueLen = data
             .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
             .fold<int>(1, (a, b) => a > b ? a : b);
@@ -812,13 +899,6 @@ class _StatsPageState extends State<StatsPage> {
         final minItemWidth = math.max(30.0, valueWidthByText);
         const maxItemWidth = 56.0;
         const itemSpacing = 6.0;
-        final labelHeight = textFontSize + 6.0;
-        final valueHeight = textFontSize + 6.0;
-        const gapPlotLabels = 4.0;
-        final availH = constraints.maxHeight;
-        final plotHeight = availH.isFinite && availH > 0
-            ? (availH - labelHeight - valueHeight - gapPlotLabels).clamp(28.0, 88.0)
-            : 72.0;
 
         final naturalWidth = (data.length * (minItemWidth + itemSpacing)).toDouble();
         final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
@@ -834,9 +914,11 @@ class _StatsPageState extends State<StatsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: data.map((item) {
                 final value = (item[valueKey] as int?) ?? 0;
+                final count = _chartItemCount(item);
                 final label = item[labelKey]?.toString() ?? '';
                 final normalizedHeight = maxValue > 0 ? (value / maxValue) * plotHeight : 0.0;
                 final barHeight = value > 0 ? normalizedHeight.clamp(2.0, plotHeight) : 0.0;
+                final countTop = (plotHeight - barHeight - countHeight).clamp(0.0, plotHeight - countHeight);
 
                 return SizedBox(
                   width: itemWidth + itemSpacing,
@@ -846,16 +928,27 @@ class _StatsPageState extends State<StatsPage> {
                       children: [
                         SizedBox(
                           height: plotHeight,
-                          child: Align(
-                            alignment: Alignment.bottomCenter,
-                            child: Container(
-                              width: 6,
-                              height: barHeight,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFC700),
-                                borderRadius: BorderRadius.circular(6),
+                          child: Stack(
+                            clipBehavior: Clip.hardEdge,
+                            children: [
+                              Align(
+                                alignment: Alignment.bottomCenter,
+                                child: Container(
+                                  width: 6,
+                                  height: barHeight,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFFC700),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                ),
                               ),
-                            ),
+                              Positioned(
+                                top: countTop,
+                                left: 0,
+                                right: 0,
+                                child: _chartCountLabel(count, textFontSize, countHeight),
+                              ),
+                            ],
                           ),
                         ),
                         SizedBox(height: gapPlotLabels),
@@ -900,20 +993,19 @@ class _StatsPageState extends State<StatsPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
+        final layout = _chartLayoutMetrics(context, constraints, data, valueKey);
+        final textFontSize = layout.textFontSize;
+        final labelHeight = layout.labelHeight;
+        final valueHeight = layout.valueHeight;
+        final countHeight = layout.countHeight;
+        final gapPlotLabels = layout.gapPlotLabels;
+        final plotHeight = layout.plotHeight;
         final longestValueLen = data
             .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
             .fold<int>(1, (a, b) => a > b ? a : b);
         final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
         final minItemWidth = math.max(30.0, valueWidthByText);
         const itemSpacing = 6.0;
-        final labelHeight = textFontSize + 6.0;
-        final valueHeight = textFontSize + 6.0;
-        const gapPlotLabels = 4.0;
-        final availH = constraints.maxHeight;
-        final plotHeight = availH.isFinite && availH > 0
-            ? (availH - labelHeight - valueHeight - gapPlotLabels).clamp(28.0, 88.0)
-            : 72.0;
 
         final naturalWidth = (data.length * (minItemWidth + itemSpacing)).toDouble();
         final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
@@ -930,8 +1022,26 @@ class _StatsPageState extends State<StatsPage> {
                 SizedBox(
                   width: actualWidth,
                   height: plotHeight,
-                  child: CustomPaint(
-                    painter: LineChartPainter(data, valueKey, maxValue, plotHeight, itemWidth),
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      CustomPaint(
+                        size: Size(actualWidth, plotHeight),
+                        painter: LineChartPainter(data, valueKey, maxValue, plotHeight, itemWidth),
+                      ),
+                      ...List.generate(data.length, (i) {
+                        final value = (data[i][valueKey] as int?) ?? 0;
+                        final count = _chartItemCount(data[i]);
+                        final y = maxValue > 0 ? plotHeight - (value / maxValue) * plotHeight : plotHeight;
+                        final top = (y - countHeight).clamp(0.0, plotHeight - countHeight);
+                        return Positioned(
+                          left: itemWidth * i,
+                          top: top,
+                          width: itemWidth,
+                          child: _chartCountLabel(count, textFontSize, countHeight),
+                        );
+                      }),
+                    ],
                   ),
                 ),
                 SizedBox(height: gapPlotLabels),

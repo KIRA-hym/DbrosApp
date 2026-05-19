@@ -57,7 +57,7 @@ function Get-VersionSuffix {
     $m = [regex]::Match($pubspec, '(?m)^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$')
     if (-not $m.Success) { return "v0_0_00_0" }
     $name = $m.Groups[1].Value.Replace('.', '_')
-    $build = $m.Groups[2].Value
+    $build = $m.Groups[2].Value.PadLeft(2, '0')
     return "v${name}_${build}"
 }
 
@@ -73,6 +73,10 @@ function Copy-NamedApk([string]$variantTag) {
     Copy-Item $src $dst -Force
     Write-Host ">>> Created: $dst"
 }
+
+Write-Host ">>> Validate notification icon..."
+dart run tool/validate_notification_icon.dart
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ">>> flutter pub get..."
 cmd /c flutter pub get

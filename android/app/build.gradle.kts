@@ -118,7 +118,7 @@ tasks.matching { it.name == "assembleRelease" }.configureEach {
             val vm = Regex("^version:\\s*(.+)\\+(\\d+)\\s*$", RegexOption.MULTILINE).find(text)
             if (vm != null) {
                 val vName = vm.groupValues[1].replace(".", "_")
-                val bNum = vm.groupValues[2]
+                val bNum = vm.groupValues[2].padStart(2, '0')
                 suffix = "_v${vName}_$bNum"
             }
         }
