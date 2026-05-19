@@ -53,6 +53,31 @@ class DriveLogForm extends StatefulWidget {
 
   @override
   State<DriveLogForm> createState() => _DriveLogFormState();
+
+  @visibleForTesting
+  static void testAppendMemoFromField(BuildContext context, {required String category, required String amountStr}) {
+    if (context is StatefulElement) {
+      final state = context.state as _DriveLogFormState;
+      state._appendMemoFromField(category: category, amountStr: amountStr);
+    }
+  }
+
+  @visibleForTesting
+  static String getTestMemoText(BuildContext context) {
+    if (context is StatefulElement) {
+      final state = context.state as _DriveLogFormState;
+      return state._memoCon.text;
+    }
+    return '';
+  }
+
+  @visibleForTesting
+  static void setTestMemoText(BuildContext context, String text) {
+    if (context is StatefulElement) {
+      final state = context.state as _DriveLogFormState;
+      state._memoCon.text = text;
+    }
+  }
 }
 
 class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver {
@@ -883,14 +908,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     // Prevent duplicate entries of the same category + amount in the memo
     final escaped = RegExp.escape(appendText);
-    final hasPattern = RegExp('(?:^|\\s)$escaped(?:\\\$|\\s)').hasMatch(currentMemo);
+    final hasPattern = RegExp('(?:^|\\s|,)$escaped(?:\$|\\s|,)').hasMatch(currentMemo);
     if (hasPattern) return;
 
     setState(() {
       if (currentMemo.isEmpty) {
         _memoCon.text = appendText;
       } else {
-        _memoCon.text = "$currentMemo $appendText";
+        if (currentMemo.endsWith(',')) {
+          _memoCon.text = "$currentMemo $appendText";
+        } else {
+          _memoCon.text = "$currentMemo, $appendText";
+        }
       }
     });
   }
