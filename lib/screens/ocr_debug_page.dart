@@ -410,7 +410,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '개발자 전용 도구 — OCR Raw 텍스트 및 파싱 결과를 추출합니다.\n우측 상단의 구름 업로드 버튼(GAS 연동)을 통해 구글 드라이브 지정 폴더로 실패 로그를 원격 업로드하거나, 공유 버튼을 이용하실 수 있습니다.',
+                    '개발자 전용 도구 - OCR Raw 텍스트 및 파싱결과를 추출합니다.',
                     style: TextStyle(color: Color(0xFFFFC700), fontSize: 11, height: 1.4),
                   ),
                 ),

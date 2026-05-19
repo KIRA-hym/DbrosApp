@@ -564,7 +564,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: spacing),
           Text(
-            "• 백업: 백업 파일(.json)을 원하는 위치(기기/클라우드)에 저장합니다\n• 복원: 저장해둔 백업 파일(.json)을 선택해 데이터를 불러옵니다",
+            "• 백업 : 백업파일(DB/이미지)를 내부저장소에 저장합니다.\n• 복원 : 저장해둔 백업파일(.zip)을 선택해 데이터를 불러옵니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
           const Divider(color: Color(0xFF2C2F38), height: 32),
