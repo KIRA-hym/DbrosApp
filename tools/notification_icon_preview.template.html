@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{TITLE}}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; margin: 0; padding: 24px; background: #1a1c22; color: #e8e8e8; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    h3 { font-size: 0.9rem; color: #ffc700; margin: 0 0 8px; }
+    .meta { color: #9aa0ad; font-size: 0.85rem; margin-bottom: 16px; }
+    .about { background: #252830; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem; line-height: 1.55; max-width: 720px; margin-bottom: 24px; color: #c8cad0; }
+    .hint { background: #1f222a; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; max-width: 720px; margin-bottom: 24px; border: 1px solid #333; }
+    .density { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #333; }
+    .density h2 { font-size: 0.95rem; color: #ffc700; margin: 0 0 4px; }
+    .path { font-size: 0.7rem; color: #6e717c; margin: 0 0 12px; word-break: break-all; }
+    .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+    .panel { padding: 16px; border-radius: 12px; text-align: center; min-width: 100px; }
+    .panel span { display: block; margin-top: 8px; font-size: 0.75rem; color: #9aa0ad; }
+    .panel.dark { background: #2d2d2d; }
+    .panel.light { background: #f5f5f5; }
+    .panel.light span { color: #666; }
+    .panel.checker { background: repeating-conic-gradient(#444 0% 25%, #555 0% 50%) 50% / 16px 16px; }
+    code { background: #333; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>{{TITLE}}</h1>
+  <p class="meta">{{META_GENERATED}}<br>{{META_FILL}}</p>
+  <div class="about">
+    <h3>{{ABOUT_TITLE}}</h3>
+    <p>{{ABOUT_BODY}}</p>
+  </div>
+  <p class="hint">{{HINT_LINE1}}<br>{{HINT_LINE2}}</p>
+{{ROWS}}
+</body>
+</html>

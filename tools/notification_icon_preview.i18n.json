@@ -1,0 +1,12 @@
+{
+  "title": "알림바 아이콘 미리보기",
+  "metaFill": "fill {0} · 팽창 없음 (원본 D 형태)",
+  "metaGenerated": "생성: {0}",
+  "hintLine1": "tools/generate_notification_icon.ps1 실행 시 PNG와 이 페이지가 함께 갱신됩니다.",
+  "hintLine2": "브라우저에서 tools/notification_icon_preview.html 파일을 엽니다.",
+  "panelDark": "어두운 상태바",
+  "panelLight": "밝은 상태바",
+  "panelZoom": "3× 확대 (형체 확인)",
+  "aboutTitle": "96px와 실제 알림바 크기",
+  "aboutBody": "drawable-xxxhdpi의 96×96 PNG는 고해상도 기기용 원본 해상도입니다. 상태바에 실제로 보이는 크기는 약 24dp(대략 24~36픽셀)이며, Android가 기기 밀도에 맞는 drawable(mdpi 24px ~ xxxhdpi 96px)을 골라 축소 표시합니다. fill 0.96은 각 PNG 캔버스 안에서 D가 96%를 쓴다는 뜻이지, 화면에서 96픽셀 크기로 보인다는 뜻은 아닙니다. mdpi 24px 미리보기가 상태바에 가장 가깝습니다."
+}

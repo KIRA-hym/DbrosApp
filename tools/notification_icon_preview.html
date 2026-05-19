@@ -1,0 +1,88 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>알림바 아이콘 미리보기</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; margin: 0; padding: 24px; background: #1a1c22; color: #e8e8e8; }
+    h1 { font-size: 1.25rem; margin: 0 0 8px; }
+    h3 { font-size: 0.9rem; color: #ffc700; margin: 0 0 8px; }
+    .meta { color: #9aa0ad; font-size: 0.85rem; margin-bottom: 16px; }
+    .about { background: #252830; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem; line-height: 1.55; max-width: 720px; margin-bottom: 24px; color: #c8cad0; }
+    .hint { background: #1f222a; padding: 12px 16px; border-radius: 8px; font-size: 0.85rem; line-height: 1.5; max-width: 720px; margin-bottom: 24px; border: 1px solid #333; }
+    .density { margin-bottom: 32px; padding-bottom: 24px; border-bottom: 1px solid #333; }
+    .density h2 { font-size: 0.95rem; color: #ffc700; margin: 0 0 4px; }
+    .path { font-size: 0.7rem; color: #6e717c; margin: 0 0 12px; word-break: break-all; }
+    .row { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+    .panel { padding: 16px; border-radius: 12px; text-align: center; min-width: 100px; }
+    .panel span { display: block; margin-top: 8px; font-size: 0.75rem; color: #9aa0ad; }
+    .panel.dark { background: #2d2d2d; }
+    .panel.light { background: #f5f5f5; }
+    .panel.light span { color: #666; }
+    .panel.checker { background: repeating-conic-gradient(#444 0% 25%, #555 0% 50%) 50% / 16px 16px; }
+    code { background: #333; padding: 2px 6px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>알림바 아이콘 미리보기</h1>
+  <p class="meta">생성: 2026-05-19 18:43:32<br>fill 0.96 · 팽창 없음 (원본 D 형태)</p>
+  <div class="about">
+    <h3>96px와 실제 알림바 크기</h3>
+    <p>drawable-xxxhdpi의 96×96 PNG는 고해상도 기기용 원본 해상도입니다. 상태바에 실제로 보이는 크기는 약 24dp(대략 24~36픽셀)이며, Android가 기기 밀도에 맞는 drawable(mdpi 24px ~ xxxhdpi 96px)을 골라 축소 표시합니다. fill 0.96은 각 PNG 캔버스 안에서 D가 96%를 쓴다는 뜻이지, 화면에서 96픽셀 크기로 보인다는 뜻은 아닙니다. mdpi 24px 미리보기가 상태바에 가장 가깝습니다.</p>
+  </div>
+  <p class="hint">tools/generate_notification_icon.ps1 실행 시 PNG와 이 페이지가 함께 갱신됩니다.<br>브라우저에서 tools/notification_icon_preview.html 파일을 엽니다.</p>
+
+    <section class="density">
+      <h2>24px</h2>
+      <p class="path">android/app/src/main/res/drawable-mdpi/app_notification_icon.png</p>
+      <div class="row">
+        <div class="panel dark"><img src="../android/app/src/main/res/drawable-mdpi/app_notification_icon.png" width="24" height="24" /><span>어두운 상태바</span></div>
+        <div class="panel light"><img src="../android/app/src/main/res/drawable-mdpi/app_notification_icon.png" width="24" height="24" /><span>밝은 상태바</span></div>
+        <div class="panel checker"><img src="../android/app/src/main/res/drawable-mdpi/app_notification_icon.png" width="72" height="72" /><span>3× 확대 (형체 확인)</span></div>
+      </div>
+    </section>
+
+    <section class="density">
+      <h2>36px</h2>
+      <p class="path">android/app/src/main/res/drawable-hdpi/app_notification_icon.png</p>
+      <div class="row">
+        <div class="panel dark"><img src="../android/app/src/main/res/drawable-hdpi/app_notification_icon.png" width="36" height="36" /><span>어두운 상태바</span></div>
+        <div class="panel light"><img src="../android/app/src/main/res/drawable-hdpi/app_notification_icon.png" width="36" height="36" /><span>밝은 상태바</span></div>
+        <div class="panel checker"><img src="../android/app/src/main/res/drawable-hdpi/app_notification_icon.png" width="108" height="108" /><span>3× 확대 (형체 확인)</span></div>
+      </div>
+    </section>
+
+    <section class="density">
+      <h2>48px</h2>
+      <p class="path">android/app/src/main/res/drawable-xhdpi/app_notification_icon.png</p>
+      <div class="row">
+        <div class="panel dark"><img src="../android/app/src/main/res/drawable-xhdpi/app_notification_icon.png" width="48" height="48" /><span>어두운 상태바</span></div>
+        <div class="panel light"><img src="../android/app/src/main/res/drawable-xhdpi/app_notification_icon.png" width="48" height="48" /><span>밝은 상태바</span></div>
+        <div class="panel checker"><img src="../android/app/src/main/res/drawable-xhdpi/app_notification_icon.png" width="144" height="144" /><span>3× 확대 (형체 확인)</span></div>
+      </div>
+    </section>
+
+    <section class="density">
+      <h2>72px</h2>
+      <p class="path">android/app/src/main/res/drawable-xxhdpi/app_notification_icon.png</p>
+      <div class="row">
+        <div class="panel dark"><img src="../android/app/src/main/res/drawable-xxhdpi/app_notification_icon.png" width="72" height="72" /><span>어두운 상태바</span></div>
+        <div class="panel light"><img src="../android/app/src/main/res/drawable-xxhdpi/app_notification_icon.png" width="72" height="72" /><span>밝은 상태바</span></div>
+        <div class="panel checker"><img src="../android/app/src/main/res/drawable-xxhdpi/app_notification_icon.png" width="216" height="216" /><span>3× 확대 (형체 확인)</span></div>
+      </div>
+    </section>
+
+    <section class="density">
+      <h2>96px</h2>
+      <p class="path">android/app/src/main/res/drawable-xxxhdpi/app_notification_icon.png</p>
+      <div class="row">
+        <div class="panel dark"><img src="../android/app/src/main/res/drawable-xxxhdpi/app_notification_icon.png" width="96" height="96" /><span>어두운 상태바</span></div>
+        <div class="panel light"><img src="../android/app/src/main/res/drawable-xxxhdpi/app_notification_icon.png" width="96" height="96" /><span>밝은 상태바</span></div>
+        <div class="panel checker"><img src="../android/app/src/main/res/drawable-xxxhdpi/app_notification_icon.png" width="288" height="288" /><span>3× 확대 (형체 확인)</span></div>
+      </div>
+    </section>
+
+</body>
+</html>
