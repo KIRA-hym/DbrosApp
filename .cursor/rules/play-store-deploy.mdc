@@ -1,0 +1,21 @@
+---
+description: Google Play 스토어 배포·AAB·applicationId·정책·권한 심사. Play/플레이스토어/스토어 출시/배포 질문 시 이 규칙과 루트 문서를 참고한다.
+alwaysApply: false
+---
+
+# Play Store 배포
+
+사용자가 **Play Store**, **플레이스토어**, **스토어 출시**, **AAB**, **applicationId 변경**, **Data safety**, **개인정보처리방침**, **Play 심사** 등을 물으면:
+
+1. **먼저 읽기:** 레포 루트 [`PLAY_STORE_DEPLOYMENT.md`](../../PLAY_STORE_DEPLOYMENT.md)
+2. 그 문서가 프로젝트 기준 진실(source of truth). 답변·작업 시 현재 `pubspec.yaml`, `android/app/build.gradle.kts`, `AndroidManifest.xml`과 불일치하면 문서 또는 코드 중 어느 쪽을 갱신할지 사용자에게 확인.
+
+## 핵심 (요약)
+
+- Flutter/Dart **전환 불필요**
+- `com.example.dbros_app` → Play 전 **정식 ID 필수**
+- 스토어 업로드: **`flutter build appbundle`** (public: `MAP_FEATURES_ENABLED=false`)
+- 듀얼 APK(`build_dual_apk.ps1`)는 로컬/내부 배포용; Play는 보통 **public AAB 단일**
+- 민감: 오버레이, 알림, 위치, 사진 — 콘솔 선언·개인정보처리방침 URL
+
+문서 갱신 시 `PLAY_STORE_DEPLOYMENT.md`의 **최종 갱신** 날짜도 함께 수정.
