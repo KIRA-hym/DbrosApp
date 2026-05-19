@@ -175,6 +175,25 @@ class KakaoCustomCallOcr {
       }
     }
 
+    // Text-based fallback for date/time if blocks list is empty or bounding box is missing
+    if (parsedDate == null) {
+      final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
+      if (dateMatch != null) {
+        parsedDate =
+            '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
+      }
+    }
+    if (parsedTime == null) {
+      final lines = fullText.split('\n');
+      for (var i = 0; i < lines.length && i < 5; i++) {
+        final timeMatch = RegExp(r'\b\d{1,2}:\d{1,2}\b').firstMatch(lines[i]);
+        if (timeMatch != null) {
+          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
+          break;
+        }
+      }
+    }
+
     var start = _extractLabeledPlace(sorted, '출발', fullText) ?? '';
     var endRaw = _extractLabeledPlace(sorted, '도착', fullText) ?? '';
 
