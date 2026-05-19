@@ -1699,31 +1699,34 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Container(
-              height: 48,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF121418),
-                border: Border.all(color: Colors.white10),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: dropdownItems.contains(selectedValue) ? selectedValue : dropdownItems.first,
-                  dropdownColor: const Color(0xFF1F222A),
-                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  onChanged: onDropdownChanged,
-                  items: dropdownItems.map((String item) {
-                    return DropdownMenuItem<String>(
-                      value: item,
-                      child: Text(item),
-                    );
-                  }).toList(),
+            Expanded(
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF121418),
+                  border: Border.all(color: Colors.white10),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: dropdownItems.contains(selectedValue) ? selectedValue : dropdownItems.first,
+                    dropdownColor: const Color(0xFF1F222A),
+                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                    onChanged: onDropdownChanged,
+                    items: dropdownItems.map((String item) {
+                      return DropdownMenuItem<String>(
+                        value: item,
+                        child: Text(item),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -1773,6 +1776,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
+              isExpanded: true,
               value: selected,
               dropdownColor: const Color(0xFF1F222A),
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
