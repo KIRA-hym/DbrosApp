@@ -1210,18 +1210,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         child: Scaffold(
           backgroundColor: const Color(0xCC000000),
           body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: isTablet ? 520 : screenWidth * 0.94, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Material(
-                    color: const Color(0xFF121418),
-                    child: Column(
-                      children: [
-                        Expanded(child: form),
-                        footer,
-                      ],
+            child: Padding(
+              padding: const EdgeInsets.only(top: 36.0),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: isTablet ? 520 : screenWidth * 0.94, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Material(
+                      color: const Color(0xFF121418),
+                      child: Column(
+                        children: [
+                          Expanded(child: form),
+                          footer,
+                        ],
+                      ),
                     ),
                   ),
                 ),
