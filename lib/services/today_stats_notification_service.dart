@@ -9,6 +9,7 @@ import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import '../app_navigator.dart';
 import '../screens/write_log_page.dart';
 import '../utils/work_date_utils.dart';
+import '../main.dart' show MainWrapper;
 import 'db_helper.dart';
 import 'settings_service.dart';
 
@@ -108,14 +109,14 @@ class TodayStatsNotificationService {
   }
 
   void _openFullWriteScreen() {
-    final today = WorkDateUtils.effectiveWorkDateYmd();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final nav = rootNavigatorKey.currentState;
       if (nav == null) return;
-      nav.push(
+      nav.pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => DriveLogForm(initialDate: today),
+          builder: (_) => const MainWrapper(initialIndex: 2),
         ),
+        (route) => false,
       );
     });
   }
