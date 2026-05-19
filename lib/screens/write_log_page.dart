@@ -29,6 +29,7 @@ import '../utils/ocr_failure_feedback.dart';
 import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
+import '../utils/formatters.dart';
 import 'location_pick_map_page.dart';
 import 'log_list_page.dart';
 
@@ -1109,7 +1110,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final iconSize = isTablet ? 26 : 24;
 
     final form = Padding(
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+      padding: EdgeInsets.only(
+        left: horizontalPadding,
+        right: horizontalPadding,
+        top: widget.quickPanel ? (isTablet ? 24.0 : 20.0) : verticalPadding,
+        bottom: verticalPadding,
+      ),
       child: widget.quickPanel ? _buildQuickPanelFormLayout() : _buildFormLayout(),
     );
 
@@ -1125,55 +1131,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           Navigator.pop(context);
         }
       };
-
-      final header = SafeArea(
-        bottom: false,
-        child: Container(
-          padding: EdgeInsets.fromLTRB(
-            isTablet ? 12.0 : 8.0,
-            isTablet ? 8.0 : 6.0,
-            isTablet ? 12.0 : 8.0,
-            isTablet ? 8.0 : 6.0,
-          ),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1F222A),
-            border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
-          ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: Icon(Icons.close, color: Colors.white, size: iconSize.toDouble()),
-                onPressed: closeQuickPanel,
-              ),
-              Expanded(
-                child: Text(
-                  '퀵 등록',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFFFC700),
-                      ),
-                ),
-              ),
-              TextButton(
-                onPressed: _saveDriveLog,
-                style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                ),
-                child: Text(
-                  '등록',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: const Color(0xFFFFC700),
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
 
       final footer = SafeArea(
         top: false,
@@ -1223,19 +1180,20 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         opacity: quickUiOpacity,
         child: Scaffold(
           backgroundColor: const Color(0xCC000000),
-          body: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: isTablet ? 520 : screenWidth * 0.94, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Material(
-                  color: const Color(0xFF121418),
-                  child: Column(
-                    children: [
-                      header,
-                      Expanded(child: form),
-                      footer,
-                    ],
+          body: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: isTablet ? 520 : screenWidth * 0.94, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Material(
+                    color: const Color(0xFF121418),
+                    child: Column(
+                      children: [
+                        Expanded(child: form),
+                        footer,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1293,9 +1251,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       _captureGrossAndApplyDeductions();
                       _applyDeductions();
                     },
-                    suffixWidget: _deductionHint.isNotEmpty
-                        ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500))
-                        : null,
                   ),
                 ),
               ],
@@ -1460,7 +1415,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 children: [
                   Expanded(child: _buildDropdown(bottomMargin: 0)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, onChanged: (_) => _captureGrossAndApplyDeductions(), suffixWidget: _deductionHint.isNotEmpty ? Text(_deductionHint, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.w500)) : null)),
+                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, onChanged: (_) => _captureGrossAndApplyDeductions())),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1661,8 +1616,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           readOnly: readOnly,
           onTap: onTap,
           onChanged: onChanged,
+          textAlign: isNumber ? TextAlign.right : TextAlign.left,
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-          inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+          inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
           decoration: InputDecoration(
@@ -1734,8 +1690,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   controller: controller,
                   focusNode: focusNode,
                   onChanged: onChanged,
+                  textAlign: isNumber ? TextAlign.right : TextAlign.left,
                   keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-                  inputFormatters: isNumber ? [FilteringTextInputFormatter.digitsOnly] : null,
+                  inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,

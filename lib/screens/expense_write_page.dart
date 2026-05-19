@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import '../utils/formatters.dart';
 
 import '../expense_nav_bus.dart';
 import '../services/expense_repository.dart';
@@ -358,8 +359,9 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
             child: TextField(
               controller: _amountCon,
               focusNode: _amountFocus,
+              textAlign: TextAlign.right,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [thousandSeparatorFormatter],
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 filled: true,
