@@ -22,6 +22,7 @@ import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
 import 'services/today_stats_notification_service.dart';
 import 'services/backup_service.dart';
+import 'services/screenshot_auto_register_service.dart';
 import 'utils/work_date_utils.dart';
 
 void main() async {
@@ -45,6 +46,10 @@ void main() async {
     ExpenseHomePage.requestRefresh();
   };
   await TodayStatsNotificationService.instance.initialize();
+
+  if (!kIsWeb && Platform.isAndroid) {
+    unawaited(ScreenshotAutoRegisterService.instance.start());
+  }
 
   runApp(const DbrosApp());
 

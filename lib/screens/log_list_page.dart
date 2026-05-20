@@ -1577,7 +1577,11 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           if ((log['memo'] ?? '').toString().trim().isNotEmpty)
             Text(
               (log['memo'] ?? '').toString().trim(),
-              style: TextStyle(color: Colors.white70, fontSize: lay.locationFontSize - 1),
+              style: TextStyle(
+                color: const Color(0xFF39FF14),
+                fontSize: lay.locationFontSize - 1,
+                fontWeight: FontWeight.w600,
+              ),
               maxLines: memoMaxLines,
               overflow: TextOverflow.ellipsis,
             ),
