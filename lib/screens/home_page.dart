@@ -10,6 +10,7 @@ import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
@@ -47,6 +48,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubeChannelName = '';
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
+  final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
   @override
   void initState() {
@@ -72,11 +74,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _loadHomeData();
       _loadYoutubeBanner();
+      _chartsKey.currentState?.reload();
     }
   }
 
   void requestLoadHomeData() {
     if (mounted) _loadHomeData();
+    _chartsKey.currentState?.reload();
   }
 
   void _rollWorkDateIfNeeded() {
@@ -260,6 +264,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         centerTitle: false,
       ),
       body: ResponsiveBody(
+        fullWidthWhenExpanded: true,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
             : Padding(
@@ -280,28 +285,49 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     final summaryValueFs = (cell * 0.20).clamp(26.0, 40.0);
 
                     if (isExpanded) {
-                      return Column(
+                      return Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            flex: 42,
-                            child: Row(
+                            flex: 11,
+                            child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
+                                  flex: 11,
                                   child: _buildTodaySummaryCard(summaryValueFontSize: summaryValueFs),
                                 ),
-                                SizedBox(width: sectionGap),
+                                SizedBox(height: sectionGap),
                                 Expanded(
-                                  child: _buildQuickActions(summaryValueFontSize: summaryValueFs),
+                                  flex: 13,
+                                  child: HomeDailyChartsPanel(key: _chartsKey),
                                 ),
                               ],
                             ),
                           ),
-                          SizedBox(height: sectionGap),
-                          Expanded(flex: 24, child: _buildRecentLogSection()),
-                          SizedBox(height: sectionGap),
-                          Expanded(flex: 18, child: _buildYoutubeSection()),
+                          SizedBox(width: sectionGap),
+                          Expanded(
+                            flex: 13,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  flex: 10,
+                                  child: _buildQuickActions(summaryValueFontSize: summaryValueFs),
+                                ),
+                                SizedBox(height: sectionGap),
+                                Expanded(
+                                  flex: 10,
+                                  child: _buildRecentLogSection(),
+                                ),
+                                SizedBox(height: sectionGap),
+                                Expanded(
+                                  flex: 6,
+                                  child: _buildYoutubeSection(),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                       );
                     }

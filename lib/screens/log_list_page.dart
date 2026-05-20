@@ -56,6 +56,31 @@ class _LogListPageState extends State<LogListPage> {
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _todayKey = GlobalKey();
   final ScreenshotController _monthShareScreenshotController = ScreenshotController();
+  String? _masterDetailDate;
+  /// 마스터-디테일 우측 패널 강제 갱신(하루 삭제·월 데이터 reload 등).
+  int _detailRevision = 0;
+
+  String _defaultDateYmdInFocusedMonth() {
+    final now = DateTime.now();
+    final y = _focusedMonth.year;
+    final m = _focusedMonth.month;
+    final daysInMonth = DateUtils.getDaysInMonth(y, m);
+    final day = (now.year == y && now.month == m) ? now.day.clamp(1, daysInMonth) : 1;
+    return DateFormat('yyyy-MM-dd').format(DateTime(y, m, day));
+  }
+
+  void _syncMasterDetailDateInState() {
+    final selected = _masterDetailDate;
+    if (selected != null) {
+      final parsed = DateTime.tryParse(selected);
+      if (parsed != null &&
+          parsed.year == _focusedMonth.year &&
+          parsed.month == _focusedMonth.month) {
+        return;
+      }
+    }
+    _masterDetailDate = _defaultDateYmdInFocusedMonth();
+  }
 
   @override
   void initState() {
@@ -105,6 +130,8 @@ class _LogListPageState extends State<LogListPage> {
       _totalNet = netProfitSum;
       _totalExpenses = expenseSum;
       _isLoading = false;
+      _syncMasterDetailDateInState();
+      _detailRevision++;
     });
 
     _scrollToToday();
@@ -132,6 +159,14 @@ class _LogListPageState extends State<LogListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isExpanded = ResponsiveLayout.isExpanded(context);
+    if (isExpanded && _masterDetailDate == null && !_isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _masterDetailDate = _defaultDateYmdInFocusedMonth());
+      });
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
@@ -158,22 +193,72 @@ class _LogListPageState extends State<LogListPage> {
             ),
         ],
       ),
-      body: ResponsiveBody(
-        child: Column(
-          children: [
-            _buildMonthHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                  : Opacity(
-                      opacity: _isScrolled ? 1.0 : 0.0,
-                      child: _buildDailyList(),
-                    ),
+      body: isExpanded
+          ? _buildExpandedMasterDetailBody()
+          : ResponsiveBody(
+              child: Column(
+                children: [
+                  _buildMonthHeader(),
+                  Expanded(
+                    child: _isLoading
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                        : Opacity(
+                            opacity: _isScrolled ? 1.0 : 0.0,
+                            child: _buildDailyList(),
+                          ),
+                  ),
+                  _buildMonthlySummaryFooter(),
+                ],
+              ),
             ),
-            _buildMonthlySummaryFooter(),
-          ],
+    );
+  }
+
+  Widget _buildExpandedMasterDetailBody() {
+    final selected = _masterDetailDate;
+    return Column(
+      children: [
+        _buildMonthHeader(),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ColoredBox(
+                        color: const Color(0xFF121418),
+                        child: _buildDailyList(
+                          masterDetailMode: true,
+                          selectedDate: selected,
+                          onSelectDate: (d) => setState(() => _masterDetailDate = d),
+                        ),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1, color: Colors.white10),
+                    Expanded(
+                      flex: 6,
+                      child: selected == null
+                          ? const Center(
+                              child: Text(
+                                '왼쪽에서 날짜를 선택하세요',
+                                style: TextStyle(color: Color(0xFF6E717C)),
+                              ),
+                            )
+                          : DailyLogListPage(
+                              key: ValueKey('${selected}_$_detailRevision'),
+                              dateStr: selected,
+                              dateTitle: '근무일자: $selected',
+                              embedded: true,
+                              onLogsChanged: _loadMonthData,
+                            ),
+                    ),
+                  ],
+                ),
         ),
-      ),
+        _buildMonthlySummaryFooter(),
+      ],
     );
   }
 
@@ -210,7 +295,11 @@ class _LogListPageState extends State<LogListPage> {
     );
   }
 
-  Widget _buildDailyList() {
+  Widget _buildDailyList({
+    bool masterDetailMode = false,
+    String? selectedDate,
+    void Function(String dateStr)? onSelectDate,
+  }) {
     int daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final now = DateTime.now();
     
@@ -230,11 +319,13 @@ class _LogListPageState extends State<LogListPage> {
             final isTablet = screenWidth > 600;
             final horizontalPadding = isTablet ? 24.0 : 20.0;
             final iconSize = isTablet ? 22.0 : 20.0;
+            final isSelected = masterDetailMode && selectedDate == dateStr;
 
             return Container(
               key: isToday ? _todayKey : null,
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2A2E38) : null,
+                border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
               ),
               child: ListTile(
                 contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -242,6 +333,10 @@ class _LogListPageState extends State<LogListPage> {
                 title: Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isToday ? const Color(0xFFFFC700) : Colors.white70, fontWeight: FontWeight.bold)),
                 trailing: Text("<일지 입력>", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
                 onTap: () {
+                  if (masterDetailMode && onSelectDate != null) {
+                    onSelectDate(dateStr);
+                    return;
+                  }
                   Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(initialDate: dateStr))).then((_) => _loadMonthData());
                 },
               ),
@@ -265,11 +360,12 @@ class _LogListPageState extends State<LogListPage> {
           final iconSize = isTablet ? 22.0 : 20.0;
           final spacing = isTablet ? 16.0 : 12.0;
           final innerSpacing = isTablet ? 6.0 : 4.0;
+          final isSelected = masterDetailMode && selectedDate == dateStr;
                  return Container(
             key: isToday ? _todayKey : null,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F222A),
-              border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
+              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
             ),
             child: Dismissible(
               key: Key("day_$dateStr"),
@@ -322,6 +418,10 @@ class _LogListPageState extends State<LogListPage> {
               },
               child: InkWell(
                 onTap: () {
+                  if (masterDetailMode && onSelectDate != null) {
+                    onSelectDate(dateStr);
+                    return;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -821,7 +921,13 @@ class DailyLogListPage extends StatefulWidget {
     required this.dateStr,
     required this.dateTitle,
     this.snackMessage,
+    this.embedded = false,
+    this.onLogsChanged,
   });
+
+  /// 목록 마스터-디테일 오른쪽 패널용.
+  final bool embedded;
+  final VoidCallback? onLogsChanged;
 
   @override
   State<DailyLogListPage> createState() => _DailyLogListPageState();
@@ -890,6 +996,18 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _openAddLogForm() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => DriveLogForm(initialDate: widget.dateStr),
+      ),
+    );
+    if (!mounted) return;
+    await _loadData();
+    widget.onLogsChanged?.call();
   }
 
   Future<void> _shareDetailAsImage() async {
@@ -989,15 +1107,29 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final padding = isTablet ? 12.0 : 8.0;
     return Container(
       color: const Color(0xFF1F222A),
-      padding: EdgeInsets.symmetric(vertical: padding),
-      alignment: Alignment.center,
-      child: Text(
-        widget.dateTitle,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+      padding: EdgeInsets.symmetric(vertical: padding, horizontal: isTablet ? 12.0 : 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              widget.dateTitle,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
             ),
+          ),
+          if (widget.embedded)
+            TextButton.icon(
+              onPressed: _openAddLogForm,
+              icon: const Icon(Icons.add_circle_outline, size: 18, color: Color(0xFFFFC700)),
+              label: const Text(
+                '일지 입력',
+                style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 13),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -1020,8 +1152,65 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     );
   }
 
+  Widget _buildDetailBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildDailyDetailDateHeader(),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              : ColoredBox(
+                  color: const Color(0xFF121418),
+                  child: Column(
+                    children: [
+                      Expanded(child: _buildLogsBody()),
+                      _buildDailySummaryFooter(),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLogsBody() {
+    if (!_isLoading && _dailyLogs.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              '등록된 운행일지가 없습니다',
+              style: TextStyle(color: Color(0xFF6E717C), fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            if (widget.embedded)
+              OutlinedButton.icon(
+                onPressed: _openAddLogForm,
+                icon: const Icon(Icons.add, color: Color(0xFFFFC700)),
+                label: const Text('일지 입력', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFFFFC700)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+    return _buildList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return ColoredBox(
+        color: const Color(0xFF121418),
+        child: _buildDetailBody(),
+      );
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
 
@@ -1054,25 +1243,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         ],
       ),
       body: ResponsiveBody(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildDailyDetailDateHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                  : ColoredBox(
-                      color: const Color(0xFF121418),
-                      child: Column(
-                        children: [
-                          Expanded(child: _buildList()),
-                          _buildDailySummaryFooter(),
-                        ],
-                      ),
-                    ),
-            ),
-          ],
-        ),
+        child: _buildDetailBody(),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
@@ -1088,7 +1259,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           currentIndex: 1, 
           onTap: (index) {
             if (index == 2) {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(initialDate: widget.dateStr))).then((_) => _loadData());
+              _openAddLogForm();
             } else if (index == 1) {
               Navigator.pop(context);
             } else {
@@ -1303,6 +1474,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           onDismissed: (direction) async {
             await DriveLogDatabase.instance.deleteLog(log['id']);
             _loadData();
+            widget.onLogsChanged?.call();
 
             if (!mounted) return;
             showDbrosSnackBar(
@@ -1313,7 +1485,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           },
           child: InkWell(
             onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) => _loadData());
+              Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) {
+                _loadData();
+                widget.onLogsChanged?.call();
+              });
             },
             child: _buildLogTileContent(log, lay),
           ),

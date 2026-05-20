@@ -8,6 +8,7 @@ class ResponsiveBody extends StatelessWidget {
     super.key,
     required this.child,
     this.fullWidth = false,
+    this.fullWidthWhenExpanded = false,
     this.maxWidth,
     this.alignment = Alignment.topCenter,
   });
@@ -16,6 +17,9 @@ class ResponsiveBody extends StatelessWidget {
 
   /// 지도 등 가로 전체가 필요한 화면은 true.
   final bool fullWidth;
+
+  /// 펼침(expanded) 구간에서 최대 너비 제한 없이 화면을 채웁니다.
+  final bool fullWidthWhenExpanded;
   final double? maxWidth;
   final Alignment alignment;
 
@@ -24,6 +28,10 @@ class ResponsiveBody extends StatelessWidget {
     if (fullWidth) return child;
 
     final size = MediaQuery.sizeOf(context);
+    if (fullWidthWhenExpanded && ResponsiveLayout.isExpanded(context)) {
+      return child;
+    }
+
     final cap = maxWidth ?? ResponsiveLayout.contentMaxWidth(size);
     if (size.width <= cap + 1) return child;
 

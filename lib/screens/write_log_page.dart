@@ -1137,6 +1137,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final isTablet = ResponsiveLayout.isTablet(context);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
     final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
     final formMaxW = ResponsiveLayout.formMaxWidth(size);
     final verticalPadding = isTablet ? 12.0 : 10.0;
@@ -1266,7 +1267,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         ],
       ),
       body: ResponsiveBody(
-        maxWidth: formMaxW,
+        fullWidthWhenExpanded: true,
+        maxWidth: isExpanded ? size.width : formMaxW,
         child: form,
       ),
     );
@@ -1392,24 +1394,23 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildFormLayout() {
-    return SingleChildScrollView(
-      child: Column(
+  Widget _buildDateTimeSection() {
+    return _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
+      if (_logId != null) ...[
+        _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
+      ],
+      Row(
         children: [
-          _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
-            if (_logId != null) ...[
-              _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
-            ],
-            Row(
-              children: [
-                Expanded(child: _buildInputField(_dateCon, label: "운행 일자", readOnly: true, onTap: _showDateQuickPicker, bottomMargin: 0)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildInputField(_timeCon, label: "운행 시간", readOnly: true, onTap: _showTimeQuickPicker, bottomMargin: 0)),
-              ],
-            ),
-          ]),
-          const SizedBox(height: 20),
-          _buildInputGroup(
+          Expanded(child: _buildInputField(_dateCon, label: "운행 일자", readOnly: true, onTap: _showDateQuickPicker, bottomMargin: 0)),
+          const SizedBox(width: 12),
+          Expanded(child: _buildInputField(_timeCon, label: "운행 시간", readOnly: true, onTap: _showTimeQuickPicker, bottomMargin: 0)),
+        ],
+      ),
+    ]);
+  }
+
+  Widget _buildProgramMoneySection() {
+    return _buildInputGroup(
             "프로그램 및 금액", Icons.account_balance_wallet, 
             [
               Row(
@@ -1479,9 +1480,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 20),
-          _buildInputGroup("운행 경로", Icons.directions, [
+          );
+  }
+
+  Widget _buildRouteSection() {
+    return _buildInputGroup("운행 경로", Icons.directions, [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1543,9 +1546,56 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     onPressed: _openNaverMapRoute,
                   )
                 : null,
+          );
+  }
+
+  Widget _buildMemoSection() {
+    return _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3)]);
+  }
+
+  Widget _buildFormLayout() {
+    const gap = 20.0;
+    if (ResponsiveLayout.isExpanded(context)) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildDateTimeSection(),
+                  const SizedBox(height: gap),
+                  _buildProgramMoneySection(),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 20),
-          _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3)]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildRouteSection(),
+                  const SizedBox(height: gap),
+                  _buildMemoSection(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          _buildDateTimeSection(),
+          const SizedBox(height: gap),
+          _buildProgramMoneySection(),
+          const SizedBox(height: gap),
+          _buildRouteSection(),
+          const SizedBox(height: gap),
+          _buildMemoSection(),
         ],
       ),
     );

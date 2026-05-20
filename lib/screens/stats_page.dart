@@ -575,6 +575,7 @@ class _StatsPageState extends State<StatsPage> {
         ),
       ),
       body: ResponsiveBody(
+        fullWidthWhenExpanded: true,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
             : LayoutBuilder(
@@ -670,26 +671,44 @@ class _StatsPageState extends State<StatsPage> {
                       SizedBox(height: gapMd),
                       Expanded(
                         flex: 2,
-                        child: GridView.count(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: compact ? 8 : 12,
-                          mainAxisSpacing: compact ? 8 : 12,
-                          childAspectRatio: gridAspect,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _statCard("총 매출", NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0), Colors.green, statCardTitleFontSize, statCardValueFontSize),
-                            _statCard("총 순수익", NumberFormat('#,###').format(_stats['totalNet'] ?? 0), const Color(0xFFFFC700), statCardTitleFontSize, statCardValueFontSize),
-                            _statCard("총 지출", NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), const Color(0xFFFF5252), statCardTitleFontSize, statCardValueFontSize),
-                            if (_selectedPeriod != "일간")
-                              _statCard(
-                                "근무일수 / 운행건수",
-                                '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-                                Colors.white,
-                                statCardTitleFontSize,
-                                statCardValueFontSize,
-                              ),
-                            if (_selectedPeriod == "일간") _statCard("운행 건수", '${_stats['totalCount'] ?? 0}', Colors.white, statCardTitleFontSize, statCardValueFontSize),
-                          ],
+                        child: Builder(
+                          builder: (context) {
+                            final statCards = <Widget>[
+                              _statCard("총 매출", NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0), Colors.green, statCardTitleFontSize, statCardValueFontSize),
+                              _statCard("총 순수익", NumberFormat('#,###').format(_stats['totalNet'] ?? 0), const Color(0xFFFFC700), statCardTitleFontSize, statCardValueFontSize),
+                              _statCard("총 지출", NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), const Color(0xFFFF5252), statCardTitleFontSize, statCardValueFontSize),
+                              if (_selectedPeriod != "일간")
+                                _statCard(
+                                  "근무일수 / 운행건수",
+                                  '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
+                                  Colors.white,
+                                  statCardTitleFontSize,
+                                  statCardValueFontSize,
+                                )
+                              else
+                                _statCard("운행 건수", '${_stats['totalCount'] ?? 0}', Colors.white, statCardTitleFontSize, statCardValueFontSize),
+                            ];
+                            final cardGap = compact ? 8.0 : 12.0;
+                            if (isExpanded && !compact) {
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (var i = 0; i < statCards.length; i++) ...[
+                                    if (i > 0) SizedBox(width: cardGap),
+                                    Expanded(child: statCards[i]),
+                                  ],
+                                ],
+                              );
+                            }
+                            return GridView.count(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: cardGap,
+                              mainAxisSpacing: cardGap,
+                              childAspectRatio: gridAspect,
+                              physics: const NeverScrollableScrollPhysics(),
+                              children: statCards,
+                            );
+                          },
                         ),
                       ),
                       SizedBox(height: compact ? 10 : 16),

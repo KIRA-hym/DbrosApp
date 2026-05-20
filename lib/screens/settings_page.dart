@@ -91,36 +91,12 @@ class _SettingsPageState extends State<SettingsPage> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isTablet = ResponsiveLayout.isTablet(context);
-    final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
-    final groupSpacing = isTablet ? 28.0 : 24.0;
-
-    final versionFs = isTablet ? 12.0 : 11.0;
-    final versionStyle = TextStyle(
-      fontFamily: 'GmarketSans',
-      color: Colors.white,
-      fontSize: versionFs,
-      fontWeight: FontWeight.w500,
-    );
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF121418),
-      appBar: AppBar(
-        title: Text("운행 일지 설정", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700))),
-      ),
-      body: ResponsiveBody(
-        child: ListView(
-        padding: EdgeInsets.all(horizontalPadding),
-        children: [
-          _buildBackupRestoreSettings(),
-          SizedBox(height: groupSpacing),
-          _buildStorageSettings(),
-          SizedBox(height: groupSpacing),
-          _buildOcrParseLogSettings(),
-          SizedBox(height: groupSpacing),
-          _buildSettingsGroup("수수료 설정", [
+  List<Widget> _settingsSections(TextStyle versionStyle) {
+    return [
+      _buildBackupRestoreSettings(),
+      _buildStorageSettings(),
+      _buildOcrParseLogSettings(),
+      _buildSettingsGroup("수수료 설정", [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
@@ -136,8 +112,7 @@ class _SettingsPageState extends State<SettingsPage> {
             setState(() => _hasFeeChanges = false);
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료율이 저장되었습니다.")));
           }),
-          SizedBox(height: groupSpacing),
-          _buildSettingsGroup("보험료 설정", [
+      _buildSettingsGroup("보험료 설정", [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
@@ -158,17 +133,76 @@ class _SettingsPageState extends State<SettingsPage> {
             if (!context.mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("보험료 설정이 저장되었습니다.")));
           }),
-          SizedBox(height: groupSpacing),
-          _buildProgramListSettings(),
-          SizedBox(height: groupSpacing),
-          if (!kIsWeb && Platform.isAndroid) ...[
-            _buildStatusBarQuickSettings(),
-            SizedBox(height: groupSpacing),
-          ],
-          _buildFloatingButtonSettings(),
-          SizedBox(height: groupSpacing),
-          _buildVersionInfoSection(versionStyle),
+      _buildProgramListSettings(),
+      if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
+      _buildFloatingButtonSettings(),
+      _buildVersionInfoSection(versionStyle),
+    ];
+  }
+
+  Widget _buildSettingsScrollBody({
+    required double horizontalPadding,
+    required double groupSpacing,
+    required TextStyle versionStyle,
+  }) {
+    final sections = _settingsSections(versionStyle);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
+
+    if (isExpanded) {
+      const gridGap = 16.0;
+      return SingleChildScrollView(
+        padding: EdgeInsets.all(horizontalPadding),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final itemWidth = (constraints.maxWidth - gridGap) / 2;
+            return Wrap(
+              spacing: gridGap,
+              runSpacing: gridGap,
+              children: sections
+                  .map((section) => SizedBox(width: itemWidth, child: section))
+                  .toList(),
+            );
+          },
+        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.all(horizontalPadding),
+      children: [
+        for (var i = 0; i < sections.length; i++) ...[
+          if (i > 0) SizedBox(height: groupSpacing),
+          sections[i],
         ],
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
+    final groupSpacing = isTablet ? 28.0 : 24.0;
+
+    final versionFs = isTablet ? 12.0 : 11.0;
+    final versionStyle = TextStyle(
+      fontFamily: 'GmarketSans',
+      color: Colors.white,
+      fontSize: versionFs,
+      fontWeight: FontWeight.w500,
+    );
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121418),
+      appBar: AppBar(
+        title: Text("운행 일지 설정", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700))),
+      ),
+      body: ResponsiveBody(
+        fullWidthWhenExpanded: true,
+        child: _buildSettingsScrollBody(
+          horizontalPadding: horizontalPadding,
+          groupSpacing: groupSpacing,
+          versionStyle: versionStyle,
         ),
       ),
     );
