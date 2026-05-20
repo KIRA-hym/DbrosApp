@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/cupertino.dart';
@@ -21,7 +22,9 @@ import '../services/ocr_parse_log_service.dart';
 import '../main_navigation.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
+import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/responsive_body.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
@@ -1132,9 +1135,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 20.0;
+    final size = MediaQuery.sizeOf(context);
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
+    final formMaxW = ResponsiveLayout.formMaxWidth(size);
     final verticalPadding = isTablet ? 12.0 : 10.0;
     final iconSize = isTablet ? 26 : 24;
 
@@ -1214,7 +1218,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               padding: const EdgeInsets.only(top: 36.0),
               child: Center(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: isTablet ? 520 : screenWidth * 0.94, maxHeight: MediaQuery.sizeOf(context).height * 0.88),
+                  constraints: BoxConstraints(
+                    maxWidth: math.min(formMaxW, size.width * 0.94),
+                    maxHeight: size.height * 0.88,
+                  ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Material(
@@ -1258,7 +1265,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           )
         ],
       ),
-      body: form,
+      body: ResponsiveBody(
+        maxWidth: formMaxW,
+        child: form,
+      ),
     );
   }
 

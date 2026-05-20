@@ -6,6 +6,8 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
+import '../utils/backup_log_row.dart';
 import 'db_helper.dart';
 import 'expense_repository.dart';
 import 'settings_service.dart';
@@ -86,13 +88,23 @@ class BackupService {
     await ExpenseRepository.replaceFromBackup(categories: cats, entries: ents);
   }
 
+  static Future<bool> _driveLogsTableHasLegacyDateColumn(Database db) async {
+    final rows = await db.rawQuery('PRAGMA table_info(drive_logs)');
+    return rows.any((r) => r['name']?.toString() == 'date');
+  }
+
   static Future<void> _restoreLogsFromBackupPayload(List logsRaw) async {
     final db = await DriveLogDatabase.instance.database;
+    final hasLegacyDate = await _driveLogsTableHasLegacyDateColumn(db);
     await db.transaction((txn) async {
       await txn.delete('drive_logs');
       final batch = txn.batch();
       for (final item in logsRaw) {
-        batch.insert('drive_logs', Map<String, dynamic>.from(item as Map));
+        var row = BackupLogRow.sanitizeForRestore(
+          Map<String, dynamic>.from(item as Map),
+        );
+        row = BackupLogRow.withLegacyDateIfNeeded(row, hasLegacyDate);
+        batch.insert('drive_logs', row);
       }
       await batch.commit(noResult: true);
     });

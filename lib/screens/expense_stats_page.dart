@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/expense_repository.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 import '../widgets/simple_expense_bar_chart.dart';
 
 int _koreanWeekOfMonth(DateTime d) {
@@ -297,7 +299,8 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
     final padding = isTablet ? 24.0 : math.min(16.0, screenWidth * 0.04);
 
     return Scaffold(
@@ -313,12 +316,15 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
           ),
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : LayoutBuilder(
+      body: ResponsiveBody(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            : LayoutBuilder(
               builder: (context, constraints) {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
-                final compact = maxH < 520 || constraints.maxWidth < 340;
+                final maxW = constraints.maxWidth;
+                final compact = maxH < 520 || maxW < 340;
+                final chartsSideBySide = isExpanded && maxW >= 640 && !compact && _selectedPeriod != '일간';
                 final gapSm = compact ? 8.0 : (isTablet ? 24.0 : 16.0);
                 final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
                 final gridAspect = compact ? 1.45 : 1.75;
@@ -405,29 +411,49 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
                                 '항목별 지출',
                                 SimpleExpenseBarChart(data: _byCategory, labelKey: 'label', valueKey: 'amount'),
                               )
-                            : Column(
-                                children: [
-                                  Expanded(
-                                    child: _chartBox(
-                                      '항목별 지출',
-                                      SimpleExpenseBarChart(data: _byCategory, labelKey: 'label', valueKey: 'amount'),
-                                    ),
+                            : chartsSideBySide
+                                ? Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: _chartBox(
+                                          '항목별 지출',
+                                          SimpleExpenseBarChart(data: _byCategory, labelKey: 'label', valueKey: 'amount'),
+                                        ),
+                                      ),
+                                      SizedBox(width: compact ? 8 : 12),
+                                      Expanded(
+                                        child: _chartBox(
+                                          _secondTitle(),
+                                          SimpleExpenseBarChart(data: _second, labelKey: 'label', valueKey: 'amount'),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                : Column(
+                                    children: [
+                                      Expanded(
+                                        child: _chartBox(
+                                          '항목별 지출',
+                                          SimpleExpenseBarChart(data: _byCategory, labelKey: 'label', valueKey: 'amount'),
+                                        ),
+                                      ),
+                                      SizedBox(height: compact ? 8 : 12),
+                                      Expanded(
+                                        child: _chartBox(
+                                          _secondTitle(),
+                                          SimpleExpenseBarChart(data: _second, labelKey: 'label', valueKey: 'amount'),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  SizedBox(height: compact ? 8 : 12),
-                                  Expanded(
-                                    child: _chartBox(
-                                      _secondTitle(),
-                                      SimpleExpenseBarChart(data: _second, labelKey: 'label', valueKey: 'amount'),
-                                    ),
-                                  ),
-                                ],
-                              ),
                       ),
                     ],
                   ),
                 );
               },
             ),
+      ),
     );
   }
 

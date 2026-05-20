@@ -26,8 +26,12 @@ import 'utils/work_date_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 폴드 펼침·태블릿 가로 모드 포함 (Z Fold 6 등)
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
   await SettingsService.init();
   await FontSizeService.loadFontSize();

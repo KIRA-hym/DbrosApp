@@ -8,7 +8,9 @@ import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
+import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/responsive_body.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
@@ -193,11 +195,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final padding = isTablet ? 24.0 : 20.0;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
+    final padding = ResponsiveLayout.horizontalPadding(context);
     final titleFontSize = isTablet ? 20.0 : 18.0;
-    final sectionGap = isTablet ? 12.0 : 10.0;
+    final sectionGap = isExpanded ? 14.0 : (isTablet ? 12.0 : 10.0);
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
@@ -257,52 +259,81 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         centerTitle: false,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : Padding(
-              padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final outerPad = isTablet ? 22.0 : 16.0;
-                  final innerW = constraints.maxWidth;
-                  final availH = constraints.maxHeight - 2 * sectionGap;
-                  final summarySectionH = availH * 34 / 100;
-                  final innerCardW = innerW - 2 * outerPad;
-                  final innerCardH = summarySectionH - 2 * outerPad;
-                  final rowGap = (innerCardW * 0.022).clamp(8.0, 14.0);
-                  final colGap = (innerCardW * 0.022).clamp(8.0, 14.0);
-                  final cw = (innerCardW - colGap) / 2;
-                  final ch = (innerCardH - rowGap) / 2;
-                  final cell = cw < ch ? cw : ch;
-                  final summaryValueFs = (cell * 0.20).clamp(26.0, 44.0);
+      body: ResponsiveBody(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            : Padding(
+                padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final outerPad = isTablet ? 22.0 : 16.0;
+                    final innerW = constraints.maxWidth;
+                    final availH = constraints.maxHeight - 2 * sectionGap;
+                    final summarySectionH = availH * 34 / 100;
+                    final innerCardW = innerW - 2 * outerPad;
+                    final innerCardH = summarySectionH - 2 * outerPad;
+                    final rowGap = (innerCardW * 0.022).clamp(8.0, 14.0);
+                    final colGap = (innerCardW * 0.022).clamp(8.0, 14.0);
+                    final cw = (innerCardW - colGap) / 2;
+                    final ch = (innerCardH - rowGap) / 2;
+                    final cell = cw < ch ? cw : ch;
+                    final summaryValueFs = (cell * 0.20).clamp(26.0, 40.0);
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 34,
-                        child: _buildTodaySummaryCard(summaryValueFontSize: summaryValueFs),
-                      ),
-                      SizedBox(height: sectionGap),
-                      Expanded(
-                        flex: 24,
-                        child: _buildQuickActions(summaryValueFontSize: summaryValueFs),
-                      ),
-                      SizedBox(height: sectionGap),
-                      Expanded(
-                        flex: 18,
-                        child: _buildRecentLogSection(),
-                      ),
-                      SizedBox(height: sectionGap),
-                      Expanded(
-                        flex: 14,
-                        child: _buildYoutubeSection(),
-                      ),
-                    ],
-                  );
-                },
+                    if (isExpanded) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 42,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _buildTodaySummaryCard(summaryValueFontSize: summaryValueFs),
+                                ),
+                                SizedBox(width: sectionGap),
+                                Expanded(
+                                  child: _buildQuickActions(summaryValueFontSize: summaryValueFs),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: sectionGap),
+                          Expanded(flex: 24, child: _buildRecentLogSection()),
+                          SizedBox(height: sectionGap),
+                          Expanded(flex: 18, child: _buildYoutubeSection()),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 34,
+                          child: _buildTodaySummaryCard(summaryValueFontSize: summaryValueFs),
+                        ),
+                        SizedBox(height: sectionGap),
+                        Expanded(
+                          flex: 24,
+                          child: _buildQuickActions(summaryValueFontSize: summaryValueFs),
+                        ),
+                        SizedBox(height: sectionGap),
+                        Expanded(
+                          flex: 18,
+                          child: _buildRecentLogSection(),
+                        ),
+                        SizedBox(height: sectionGap),
+                        Expanded(
+                          flex: 14,
+                          child: _buildYoutubeSection(),
+                        ),
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
+      ),
     );
   }
 

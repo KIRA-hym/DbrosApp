@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/formatters.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 
 import '../expense_nav_bus.dart';
 import '../services/expense_repository.dart';
@@ -274,6 +276,8 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
   @override
   Widget build(BuildContext context) {
     final isEdit = _entryId != null;
+    final padding = ResponsiveLayout.horizontalPadding(context);
+    final formMaxW = ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context));
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
@@ -297,8 +301,10 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      body: ResponsiveBody(
+        maxWidth: formMaxW,
+        child: ListView(
+        padding: EdgeInsets.all(padding),
         children: [
           _buildSection(
             icon: Icons.event_available_outlined,
@@ -391,6 +397,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
             ),
           ),
         ],
+        ),
       ),
     );
   }

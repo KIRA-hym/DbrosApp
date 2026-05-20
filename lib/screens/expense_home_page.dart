@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/expense_repository.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 import '../widgets/simple_expense_bar_chart.dart';
 import 'expense_list_page.dart';
 
@@ -80,11 +82,11 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final padding = isTablet ? 24.0 : 20.0;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
+    final padding = ResponsiveLayout.horizontalPadding(context);
     final titleFontSize = isTablet ? 20.0 : 18.0;
-    final sectionGap = isTablet ? 12.0 : 10.0;
+    final sectionGap = isExpanded ? 14.0 : (isTablet ? 12.0 : 10.0);
 
     final today = DateTime.now();
     final dateCompact = DateFormat('yyyy.MM.dd').format(today);
@@ -140,59 +142,117 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
         ),
         centerTitle: false,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : Padding(
-              padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final outerPad = isTablet ? 22.0 : 16.0;
-                  final innerW = constraints.maxWidth;
-                  final availH = constraints.maxHeight - 2 * sectionGap;
-                  final summarySectionH = availH * 34 / 100;
-                  final innerCardW = innerW - 2 * outerPad;
-                  final innerCardH = summarySectionH - 2 * outerPad;
-                  final rowGap = (innerCardW * 0.022).clamp(8.0, 14.0);
-                  final colGap = (innerCardW * 0.022).clamp(8.0, 14.0);
-                  final cw = (innerCardW - colGap) / 2;
-                  final ch = (innerCardH - rowGap) / 2;
-                  final cell = cw < ch ? cw : ch;
-                  final summaryValueFs = (cell * 0.20).clamp(26.0, 44.0);
+      body: ResponsiveBody(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            : Padding(
+                padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final outerPad = isTablet ? 22.0 : 16.0;
+                    final innerW = constraints.maxWidth;
+                    final availH = constraints.maxHeight - 2 * sectionGap;
+                    final summarySectionH = availH * 34 / 100;
+                    final innerCardW = innerW - 2 * outerPad;
+                    final innerCardH = summarySectionH - 2 * outerPad;
+                    final rowGap = (innerCardW * 0.022).clamp(8.0, 14.0);
+                    final colGap = (innerCardW * 0.022).clamp(8.0, 14.0);
+                    final cw = (innerCardW - colGap) / 2;
+                    final ch = (innerCardH - rowGap) / 2;
+                    final cell = cw < ch ? cw : ch;
+                    final summaryValueFs = (cell * 0.20).clamp(26.0, 40.0);
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: 34,
-                        child: _buildSummaryCard(
-                          summaryValueFontSize: summaryValueFs,
-                          dateCompact: dateCompact,
-                          weekdayLong: weekdayLong,
-                          outerPad: outerPad,
-                          onTap: _openTodayList,
+                    if (isExpanded) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 40,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _buildSummaryCard(
+                                    summaryValueFontSize: summaryValueFs,
+                                    dateCompact: dateCompact,
+                                    weekdayLong: weekdayLong,
+                                    outerPad: outerPad,
+                                    onTap: _openTodayList,
+                                  ),
+                                ),
+                                SizedBox(width: sectionGap),
+                                Expanded(
+                                  child: _chartSection(
+                                    title: '항목별 지출내역',
+                                    child: SimpleExpenseBarChart(
+                                      data: _byCategory,
+                                      labelKey: 'label',
+                                      valueKey: 'amount',
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: sectionGap),
+                          Expanded(
+                            flex: 35,
+                            child: _chartSection(
+                              title: '일자별 지출내역',
+                              child: SimpleExpenseBarChart(
+                                data: _byDay,
+                                labelKey: 'label',
+                                valueKey: 'amount',
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          flex: 34,
+                          child: _buildSummaryCard(
+                            summaryValueFontSize: summaryValueFs,
+                            dateCompact: dateCompact,
+                            weekdayLong: weekdayLong,
+                            outerPad: outerPad,
+                            onTap: _openTodayList,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: sectionGap),
-                      Expanded(
-                        flex: 28,
-                        child: _chartSection(
-                          title: '항목별 지출내역',
-                          child: SimpleExpenseBarChart(data: _byCategory, labelKey: 'label', valueKey: 'amount'),
+                        SizedBox(height: sectionGap),
+                        Expanded(
+                          flex: 28,
+                          child: _chartSection(
+                            title: '항목별 지출내역',
+                            child: SimpleExpenseBarChart(
+                              data: _byCategory,
+                              labelKey: 'label',
+                              valueKey: 'amount',
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(height: sectionGap),
-                      Expanded(
-                        flex: 28,
-                        child: _chartSection(
-                          title: '일자별 지출내역',
-                          child: SimpleExpenseBarChart(data: _byDay, labelKey: 'label', valueKey: 'amount'),
+                        SizedBox(height: sectionGap),
+                        Expanded(
+                          flex: 28,
+                          child: _chartSection(
+                            title: '일자별 지출내역',
+                            child: SimpleExpenseBarChart(
+                              data: _byDay,
+                              labelKey: 'label',
+                              valueKey: 'amount',
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
+                      ],
+                    );
+                  },
+                ),
               ),
-            ),
+      ),
     );
   }
 

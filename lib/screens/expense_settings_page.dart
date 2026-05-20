@@ -4,6 +4,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../services/backup_service.dart';
 import '../services/expense_repository.dart';
 import '../services/settings_service.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 
 class ExpenseSettingsPage extends StatefulWidget {
   const ExpenseSettingsPage({super.key});
@@ -58,9 +60,8 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 20.0;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
     final groupSpacing = isTablet ? 28.0 : 24.0;
     final versionFs = isTablet ? 12.0 : 11.0;
     final versionStyle = TextStyle(
@@ -78,9 +79,10 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
           style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700)),
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : ListView(
+      body: ResponsiveBody(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            : ListView(
               padding: EdgeInsets.all(horizontalPadding),
               children: [
                 _buildBackupRestore(),
@@ -92,6 +94,7 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                 _buildVersionSection(versionStyle),
               ],
             ),
+      ),
     );
   }
 

@@ -16,7 +16,9 @@ import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
 import 'log_list_page.dart';
+import '../utils/responsive_layout.dart';
 import '../widgets/drive_date_selector_bar.dart';
+import '../widgets/responsive_body.dart';
 
 class MultiCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -483,7 +485,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             ),
         ],
       ),
-      body: Padding(
+      body: ResponsiveBody(
+        maxWidth: ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context)),
+        child: Padding(
         padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -505,6 +509,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
               ],
             ],
           ],
+        ),
         ),
       ),
     );

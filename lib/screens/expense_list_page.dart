@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../expense_nav_bus.dart';
 import '../services/expense_repository.dart';
+import '../widgets/responsive_body.dart';
 import 'expense_write_page.dart';
 
 class ExpenseListPage extends StatefulWidget {
@@ -92,19 +93,21 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         ),
         backgroundColor: const Color(0xFF1F222A),
       ),
-      body: Column(
-        children: [
-          _buildMonthHeader(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                : Opacity(
-                    opacity: _isScrolled ? 1.0 : 0.0,
-                    child: _buildDailyList(),
-                  ),
-          ),
-          _buildMonthlySummaryFooter(),
-        ],
+      body: ResponsiveBody(
+        child: Column(
+          children: [
+            _buildMonthHeader(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                  : Opacity(
+                      opacity: _isScrolled ? 1.0 : 0.0,
+                      child: _buildDailyList(),
+                    ),
+            ),
+            _buildMonthlySummaryFooter(),
+          ],
+        ),
       ),
     );
   }

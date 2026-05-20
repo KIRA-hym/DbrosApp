@@ -8,6 +8,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../services/backup_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../services/settings_service.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
 
@@ -91,9 +93,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 20.0;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
     final groupSpacing = isTablet ? 28.0 : 24.0;
 
     final versionFs = isTablet ? 12.0 : 11.0;
@@ -109,7 +110,8 @@ class _SettingsPageState extends State<SettingsPage> {
       appBar: AppBar(
         title: Text("운행 일지 설정", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700))),
       ),
-      body: ListView(
+      body: ResponsiveBody(
+        child: ListView(
         padding: EdgeInsets.all(horizontalPadding),
         children: [
           _buildBackupRestoreSettings(),
@@ -167,6 +169,7 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(height: groupSpacing),
           _buildVersionInfoSection(versionStyle),
         ],
+        ),
       ),
     );
   }

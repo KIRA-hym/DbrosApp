@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
 import '../config/feature_flags.dart';
+import '../utils/responsive_layout.dart';
+import '../widgets/responsive_body.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -548,7 +550,8 @@ class _StatsPageState extends State<StatsPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final isExpanded = ResponsiveLayout.isExpanded(context);
     final padding = isTablet ? 24.0 : math.min(16.0, screenWidth * 0.04);
     final fontScale = _uiFontScale(context);
     final appBarFontSize = (isTablet ? 20.0 : 18.0) * fontScale;
@@ -571,13 +574,15 @@ class _StatsPageState extends State<StatsPage> {
           ),
         ),
       ),
-      body: _isLoading 
-        ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-        : LayoutBuilder(
+      body: ResponsiveBody(
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            : LayoutBuilder(
               builder: (context, constraints) {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
                 final maxW = constraints.maxWidth;
                 final compact = maxH < 520 || maxW < 340;
+                final chartsSideBySide = isExpanded && maxW >= 640 && !compact;
                 final tight = maxH < 580;
                 final gapSm = compact ? 8.0 : (isTablet ? 24.0 : 16.0);
                 final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
@@ -697,19 +702,29 @@ class _StatsPageState extends State<StatsPage> {
                       SizedBox(height: compact ? 8 : 12),
                       Expanded(
                         flex: 3,
-                        child: Column(
-                          children: [
-                            Expanded(child: _buildProgramChart(chartTitleFontSize)),
-                            SizedBox(height: gapBetweenCharts),
-                            Expanded(child: _buildSecondChart(chartTitleFontSize)),
-                          ],
-                        ),
+                        child: chartsSideBySide
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(child: _buildProgramChart(chartTitleFontSize)),
+                                  SizedBox(width: gapBetweenCharts),
+                                  Expanded(child: _buildSecondChart(chartTitleFontSize)),
+                                ],
+                              )
+                            : Column(
+                                children: [
+                                  Expanded(child: _buildProgramChart(chartTitleFontSize)),
+                                  SizedBox(height: gapBetweenCharts),
+                                  Expanded(child: _buildSecondChart(chartTitleFontSize)),
+                                ],
+                              ),
                       ),
                     ],
                   ),
                 );
               },
             ),
+      ),
     );
   }
 

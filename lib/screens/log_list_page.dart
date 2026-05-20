@@ -11,7 +11,9 @@ import 'package:share_plus/share_plus.dart';
 import '../services/db_helper.dart';
 import '../main.dart'; 
 import 'write_log_page.dart';
+import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
+import '../widgets/responsive_body.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -156,19 +158,21 @@ class _LogListPageState extends State<LogListPage> {
             ),
         ],
       ),
-      body: Column(
-        children: [
-          _buildMonthHeader(),
-          Expanded(
-            child: _isLoading 
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))) 
-              : Opacity(
-                  opacity: _isScrolled ? 1.0 : 0.0,
-                  child: _buildDailyList(),
-                ),
-          ),
-          _buildMonthlySummaryFooter(),
-        ],
+      body: ResponsiveBody(
+        child: Column(
+          children: [
+            _buildMonthHeader(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                  : Opacity(
+                      opacity: _isScrolled ? 1.0 : 0.0,
+                      child: _buildDailyList(),
+                    ),
+            ),
+            _buildMonthlySummaryFooter(),
+          ],
+        ),
       ),
     );
   }
@@ -1049,24 +1053,26 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             ),
         ],
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildDailyDetailDateHeader(),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                : ColoredBox(
-                    color: const Color(0xFF121418),
-                    child: Column(
-                      children: [
-                        Expanded(child: _buildList()),
-                        _buildDailySummaryFooter(),
-                      ],
+      body: ResponsiveBody(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildDailyDetailDateHeader(),
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                  : ColoredBox(
+                      color: const Color(0xFF121418),
+                      child: Column(
+                        children: [
+                          Expanded(child: _buildList()),
+                          _buildDailySummaryFooter(),
+                        ],
+                      ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
