@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stats expanded left column mockup</title>
+  <style>
+    :root {
+      --bg: #121418;
+      --card: #1f222a;
+      --border: rgba(255,255,255,0.1);
+      --gold: #ffc700;
+      --muted: #6e717c;
+      --green: #4caf50;
+      --red: #ff5252;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 16px 40px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #0d0f12;
+      color: #e8e8e8;
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.15rem; color: var(--gold); margin: 0 0 6px; }
+    .lead { color: #999; font-size: 0.85rem; max-width: 800px; margin-bottom: 20px; }
+    h2 { font-size: 0.95rem; margin: 28px 0 8px; }
+    .note { font-size: 0.78rem; color: #888; margin: 0 0 10px; }
+    .badge { display: inline-block; font-size: 0.65rem; padding: 2px 7px; border-radius: 8px; margin-left: 4px; }
+    .chg { background: #2a3a5c; color: #9ec5ff; }
+    .keep { background: #333; color: #bbb; }
+    .screen {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .top-tabs {
+      padding: 10px;
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 4px 14px;
+      border-radius: 16px;
+      font-size: 0.7rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+    }
+    .tab.on { background: var(--gold); color: #000; font-weight: 700; }
+    .split { display: flex; gap: 12px; padding: 12px; min-height: 400px; }
+    .col-left { flex: 5; display: flex; flex-direction: column; min-width: 0; }
+    .col-right {
+      flex: 11;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.7rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .hdr-old { text-align: right; margin-bottom: 8px; }
+    .hdr-old .title { font-weight: 700; font-size: 0.8rem; }
+    .ctrl-old { display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px; }
+    .map-btn {
+      width: 36px;
+      height: 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .date-wide {
+      flex: 1;
+      margin-left: 4px;
+      padding: 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--gold);
+      font-size: 0.75rem;
+      text-align: center;
+    }
+    .cards-stack { display: flex; flex-direction: column; gap: 8px; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card .label { color: var(--muted); font-size: 0.7rem; font-weight: 700; flex: 1; }
+    .card .val { font-weight: 700; font-size: 0.9rem; flex-shrink: 0; }
+    .card .val.center { min-width: 48px; text-align: center; }
+    .card .val.right { text-align: right; }
+    .card .val.green { color: var(--green); }
+    .card .val.gold { color: var(--gold); }
+    .card .val.red { color: var(--red); }
+    .hdr-new { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .hdr-new .title { font-weight: 700; font-size: 0.8rem; text-align: left; }
+    .ctrl-new { width: 100%; margin-bottom: 8px; }
+    .date-compact {
+      width: 100%;
+      padding: 6px 8px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--gold);
+      font-size: 0.68rem;
+      text-align: center;
+    }
+    .cards-fill { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 180px; }
+    .cards-fill .card { flex: 1; min-height: 44px; }
+    .callout {
+      background: #1a2332;
+      border-left: 3px solid var(--gold);
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      margin: 10px 0;
+      border-radius: 0 6px 6px 0;
+    }
+    .anno { font-size: 0.65rem; color: #7a9; margin: 4px 0 8px; }
+    .compare { display: grid; gap: 20px; }
+    @media (min-width: 960px) {
+      .compare { grid-template-columns: 1fr 1fr; max-width: 1200px; margin: 0 auto 24px; }
+    }
+    ul.check { font-size: 0.82rem; color: #aaa; padding-left: 1.2rem; max-width: 720px; margin-bottom: 20px; }
+    ul.check li { margin-bottom: 8px; }
+    ul.check strong { color: #eee; }
+    .narrow-demo { max-width: 260px; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <h1>&#53685;&#44228; &#54200;&#52840; &mdash; &#51340;&#52769; &#50676; &#49688;&#51221; (&#51060;&#54644; &#51221;&#47532;)</h1>
+  <p class="lead">
+    3&#48264;(&#51217;&#54980;&#44284; &#46041;&#51068; &#44396;&#51312;)&#51008; &#48372;&#47448;.
+    <strong>&#54788;&#51116; &#51340;/&#50864; &#48516;&#54624;</strong> &#50976;&#51648; &middot; <strong>&#50724;&#47480;&#51901; &#51204;&#52404; &#53685;&#44228;</strong>&#47564; &#49688;&#51221;.
+    &#50864;&#52769; &#49688;&#51061; &#48516;&#49437;&#183;&#52264;&#53944;&#45716; &#44536;&#45824;&#47196;.
+  </p>
+
+  <ul class="check">
+    <li><strong>1.</strong> &#51204;&#52404; &#53685;&#44228; &#8594; <strong>&#51340;&#52769; &#51221;&#47148;</strong></li>
+    <li><strong>2.</strong> &#45216;&#51676; &#51312;&#54924; <strong>&#52652;&#49548;</strong> (&#51319;&#51004;&#47732; &#45796;&#51020; &#51460; OK).
+      &#51648;&#46020;+&#45216;&#51676; &#51460; = &#50500;&#47000; &#52852;&#46300;&#50752; <strong>&#44057;&#51008; &#45392;&#51060;</strong><br>
+      &#8594; &#51648;&#46020;&#45716; <strong>&#51204;&#52404; &#53685;&#44228; &#53440;&#51060;&#53952; &#50724;&#47480;&#51901;</strong>,
+      &#45216;&#51676;&#45716; &#44536; &#50500;&#47000; <strong>&#52852;&#46300;&#50752; &#46041;&#51068; &#45392;</strong></li>
+    <li><strong>3.</strong> &#51648;&#54364; 4&#52845;: &#46972;&#48296; &#51340; &middot; <strong>&#44050; &#50864;&#52769; &#51221;&#47148;</strong> &middot;
+      &#45224;&#45716; &#49464;&#47196; <strong>4&#46321;&#48516; &#52292;&#50880;</strong></li>
+  </ul>
+
+  <div class="compare">
+    <section>
+      <h2>&#54788;&#51116; <span class="badge keep">&#49828;&#53356;&#47536;&#49383;</span></h2>
+      <p class="note">&#53440;&#51060;&#53952;&#183;&#52972;&#53944;&#47204; &#50864;&#52769; / &#44050; &#44032;&#50868;&#45936; / &#52852;&#46300; &#45458;&#51060; &#44256;&#51221;</p>
+      <div class="screen">
+        <div class="top-tabs">
+          <span class="tab on">&#51068;&#44036;</span><span class="tab">&#51452;&#44036;</span>
+          <span class="tab">&#50900;&#44036;</span><span class="tab">&#50672;&#44036;</span>
+        </div>
+        <div class="split">
+          <div class="col-left">
+            <div class="hdr-old"><div class="title">&#51204;&#52404; &#53685;&#44228;</div></div>
+            <div class="ctrl-old">
+              <div class="map-btn">MAP</div>
+              <div class="date-wide">&lt; 2026-05-20 &gt;</div>
+            </div>
+            <p class="anno">&#51648;&#46020;+&#45216;&#51676; &#45392;&#51060; &#8800; &#52852;&#46300; &#45392;&#51060;</p>
+            <div class="cards-stack">
+              <div class="card"><span class="label">&#52509; &#47588;&#52636;</span><span class="val green center">0</span></div>
+              <div class="card"><span class="label">&#52509; &#49692;&#49688;&#51061;</span><span class="val gold center">0</span></div>
+              <div class="card"><span class="label">&#52509; &#51648;&#52636;</span><span class="val red center">0</span></div>
+              <div class="card"><span class="label">&#50868;&#54665; &#44148;&#49688;</span><span class="val center">0</span></div>
+            </div>
+            <p class="anno">&#44050; &#51473;&#50521; &middot; &#54616;&#45800; &#50668;&#48177;</p>
+          </div>
+          <div class="col-right">&#49688;&#51061; &#48516;&#49437; &middot; &#52264;&#53944;<br>(&#48320;&#44221; &#50630;&#51020;)</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>&#48320;&#44221;&#50504; <span class="badge chg">&#47785;&#54364;</span></h2>
+      <p class="note">&#53440;&#51060;&#53952; &#51340; + &#51648;&#46020; &#50864; / &#45216;&#51676;=&#52852;&#46300; &#45392; / &#44050; &#50864; / flex 4&#52845;</p>
+      <div class="screen">
+        <div class="top-tabs">
+          <span class="tab on">&#51068;&#44036;</span><span class="tab">&#51452;&#44036;</span>
+          <span class="tab">&#50900;&#44036;</span><span class="tab">&#50672;&#44036;</span>
+        </div>
+        <div class="split">
+          <div class="col-left">
+            <div class="hdr-new">
+              <span class="title">&#51204;&#52404; &#53685;&#44228;</span>
+              <div class="map-btn" title="map">MAP</div>
+            </div>
+            <div class="ctrl-new">
+              <div class="date-compact">&lt; 2026-05-20 &gt;</div>
+            </div>
+            <p class="anno">&#45216;&#51676; &#51460; = &#52852;&#46300; 100% &#46041;&#51068; &#45392;&#51060;</p>
+            <div class="cards-fill">
+              <div class="card"><span class="label">&#52509; &#49692;&#49688;&#51061;</span><span class="val gold right">85,000</span></div>
+              <div class="card"><span class="label">&#52509; &#47588;&#52636;</span><span class="val green right">120,000</span></div>
+              <div class="card"><span class="label">&#52509; &#51648;&#52636;</span><span class="val red right">12,000</span></div>
+              <div class="card"><span class="label">&#50868;&#54665; &#44148;&#49688;</span><span class="val right">9</span></div>
+            </div>
+          </div>
+          <div class="col-right">&#49688;&#51061; &#48516;&#49437; &middot; &#52264;&#53944;<br>(&#44592;&#51316; &#50976;&#51648;)</div>
+        </div>
+      </div>
+      <div class="callout">
+        Flutter: Column + 4x Expanded cards, value textAlign right, map in title row
+      </div>
+    </section>
+  </div>
+
+  <h2>&#51319;&#51060; &#47196; &#45216;&#51676; 2&#51460; (&#49440;&#53469;)</h2>
+  <div class="screen narrow-demo">
+    <div class="split" style="min-height:300px;padding:10px">
+      <div class="col-left" style="flex:1">
+        <div class="hdr-new">
+          <span class="title">&#51204;&#52404; &#53685;&#44228;</span>
+          <div class="map-btn">MAP</div>
+        </div>
+        <div class="date-compact" style="margin-bottom:4px;font-size:0.62rem">&lt; 2026-05-20 &gt;</div>
+        <div class="cards-fill" style="min-height:140px">
+          <div class="card"><span class="label">&#52509; &#47588;&#52636;</span><span class="val green right">0</span></div>
+          <div class="card"><span class="label">&#52509; &#49692;&#49688;&#51061;</span><span class="val gold right">0</span></div>
+          <div class="card"><span class="label">&#52509; &#51648;&#52636;</span><span class="val red right">0</span></div>
+          <div class="card"><span class="label">&#50868;&#54665; &#44148;&#49688;</span><span class="val right">0</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="lead" style="margin-top:20px">
+    Open: <code>c:\dbros_app\tools\stats_expanded_left_layout_mockup.html</code>
+  </p>
+</body>
+</html>

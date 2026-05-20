@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UI 변경 최종 컨펌</title>
+<style>
+:root{--bg:#121418;--card:#1f222a;--b:rgba(255,255,255,.1);--g:#ffc700;--m:#6e717c;--gn:#4caf50;--r:#ff5252;--bl:#64b5f6}
+*{box-sizing:border-box}body{margin:0;padding:20px 14px 48px;font-family:system-ui,sans-serif;background:#0a0c0f;color:#eee;line-height:1.45}
+h1{color:var(--g);font-size:1.1rem;margin:0 0 6px}h2{font-size:.92rem;margin:24px 0 8px;color:#ddd}
+.lead{color:#999;font-size:.82rem;max-width:880px;margin-bottom:16px}
+ul.chk{font-size:.8rem;color:#bbb;padding-left:1.1rem;max-width:880px}ul.chk li{margin:6px 0}ul.chk b{color:#fff}
+.tag{display:inline-block;font-size:.62rem;padding:2px 6px;border-radius:6px;margin-left:4px}
+.new{background:#1e3a28;color:#9fdf9f}.fix{background:#3a2e1e;color:#ffd699}
+.screen{max-width:920px;margin:12px auto;background:var(--bg);border:1px solid var(--b);border-radius:10px;overflow:hidden}
+.tabs{display:flex;gap:5px;justify-content:center;padding:8px;border-bottom:1px solid var(--b)}
+.tab{padding:3px 10px;border-radius:12px;font-size:.65rem;background:var(--card);border:1px solid var(--b)}
+.tab.on{background:var(--g);color:#000;font-weight:700}
+.split{display:flex;min-height:320px}.L{flex:4;display:flex;flex-direction:column;border-right:1px solid var(--b)}
+.R{flex:6;display:flex;flex-direction:column}
+.mh{background:var(--card);padding:6px;text-align:center;font-size:.7rem;font-weight:700}
+.pad{padding:8px}
+.card{background:var(--card);border:1px solid var(--b);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:.68rem}
+.card.sel{outline:1px solid var(--g)}
+.row1{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.row2{display:flex;justify-content:space-between;gap:8px}
+.month{margin-top:auto;background:var(--card);border-top:1px solid var(--b);padding:8px 10px;font-size:.68rem}
+.month b{display:block;margin-bottom:4px}
+.hdr-r{background:var(--card);padding:6px 8px;display:flex;align-items:center;justify-content:space-between;font-size:.68rem}
+.list-r{flex:1;padding:6px;font-size:.65rem;color:var(--m)}
+.log{border-bottom:1px solid var(--b);padding:6px 0}
+.note{font-size:.65rem;color:#7a9;margin:4px 0 0}
+.stats-split{display:flex;min-height:280px;padding:10px;gap:10px}
+.stats-L{flex:5;display:flex;flex-direction:column;min-width:0}
+.stats-R{flex:11;background:var(--card);border:1px solid var(--b);border-radius:8px;padding:8px;font-size:.65rem;color:var(--m);display:flex;align-items:center;justify-content:center}
+.trow{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.date{width:100%;padding:5px;background:var(--card);border:1px solid var(--b);border-radius:8px;color:var(--g);font-size:.62rem;text-align:center;margin-bottom:6px}
+.metric{flex:1;background:var(--card);border:1px solid var(--b);border-radius:8px;padding:8px;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;font-size:.68rem}
+.metric .v{font-weight:700;text-align:right}
+.mcol{flex:1;display:flex;flex-direction:column;min-height:0}
+.flow{background:#1a2332;border-left:3px solid var(--g);padding:8px 10px;font-size:.78rem;margin:12px 0;border-radius:0 6px 6px 0;max-width:920px}
+</style>
+</head>
+<body>
+<h1>UI 변경 최종 컨펌 시안</h1>
+<p class="lead">구현 반영: 목록 펼침(1) · 접음→펼침(2) · 통계 펼침 좌측(3) · 가로회전=펼침(이전 작업)</p>
+
+<ul class="chk">
+<li><b>1. 목록 펼침</b> 월간합계 → <b>좌측 하단만</b>. 일별 2줄(날짜·건수·순익 / 수입·지출). 우측: 근무일자·일일합계 <b>축소·일일합계 제거</b></li>
+<li><b>2. 접음→펼침</b> 상세 전체화면에서 펼치면 → 목록으로 돌아가 <b>마스터·디테일</b> (선택일 유지)</li>
+<li><b>3. 통계 펼침 좌측</b> 전체통계 <b>좌정렬</b> · 지도 <b>타이틀 우</b> · 날짜 <b>축소·카드폭</b> · 값 <b>우정렬</b> · 4카드 <b>세로 꽉 채움</b></li>
+</ul>
+
+<h2>1+2. 목록 — 펼침 / 마스터·디테일 <span class="tag new">변경</span></h2>
+<div class="screen">
+<div class="mh">2026년 05월 ◀ ▶</div>
+<div class="split">
+<div class="L">
+<div class="pad" style="flex:1;overflow:auto">
+<div class="card sel">
+<div class="row1"><span style="color:var(--g);font-weight:700">15 (금)</span><span>3건</span><span style="margin-left:auto;color:var(--g)">순익 : 85,000</span></div>
+<div class="row2"><span style="color:var(--bl)">수입 : 120,000</span><span style="color:var(--r)">지출 : 35,000</span></div>
+</div>
+<div class="card">
+<div class="row1"><span style="font-weight:700">14 (목)</span><span>2건</span><span style="margin-left:auto;color:var(--g)">순익 : 40,000</span></div>
+<div class="row2"><span style="color:var(--bl)">수입 : 50,000</span><span style="color:var(--r)">지출 : 10,000</span></div>
+</div>
+<p class="note">일별 요약 2줄 (접힌 목록과 동일 톤)</p>
+</div>
+<div class="month">
+<div class="row1"><b>[ 월간 합계 ]</b><span>100건</span><span style="margin-left:auto;color:var(--g)">순익 : 850,000</span></div>
+<div class="row2"><span style="color:var(--bl)">수입 : 1,200,000</span><span style="color:var(--r)">지출 : 350,000</span></div>
+<p class="note">우측·화면 하단 월간합계 없음</p>
+</div>
+</div>
+<div class="R">
+<div class="hdr-r"><span>근무일자: 2026-05-15</span><span style="color:var(--g)">+ 입력</span></div>
+<div class="list-r">
+<div class="log">09시 30분 · 카카오 · 수입 …</div>
+<div class="log">14시 00분 · 로지 · 수입 …</div>
+<p class="note">헤더 컴팩트 · [일일 합계] 없음 → 목록 영역 확대</p>
+</div>
+</div>
+</div>
+</div>
+
+<div class="flow"><b>2. 접음→펼침:</b> 상세(전체화면) 상태에서 펼치면 → 자동 pop → 목록 마스터·디테일 + 해당 날짜 선택 유지</div>
+
+<h2>3. 통계 — 펼침 좌측 열 <span class="tag new">변경</span></h2>
+<div class="screen">
+<div class="tabs"><span class="tab on">일간</span><span class="tab">주간</span><span class="tab">월간</span><span class="tab">연간</span></div>
+<div class="stats-split">
+<div class="stats-L">
+<div class="trow"><b>전체 통계</b><span style="color:var(--g)">🗺</span></div>
+<div class="date">&lt; 2026-05-20 &gt;</div>
+<div class="mcol">
+<div class="metric"><span style="color:var(--m)">총 순수익</span><span class="v" style="color:var(--g)">85,000</span></div>
+<div class="metric"><span style="color:var(--m)">총 매출</span><span class="v" style="color:var(--gn)">120,000</span></div>
+<div class="metric"><span style="color:var(--m)">총 지출</span><span class="v" style="color:var(--r)">12,000</span></div>
+<div class="metric"><span style="color:var(--m)">운행 건수</span><span class="v">9</span></div>
+</div>
+</div>
+<div class="stats-R">수익 분석 · 차트 2개 (기존 우측 유지)</div>
+</div>
+</div>
+
+<p class="lead" style="margin-top:20px">시안 경로 (복사용):</p>
+<pre style="background:#1a1a1a;padding:12px;border-radius:8px;font-size:.85rem;user-select:all">c:\dbros_app\tools\ui_changes_confirm_mockup.html</pre>
+</body>
+</html>

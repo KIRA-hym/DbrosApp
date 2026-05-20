@@ -14,15 +14,30 @@ enum LayoutTier {
 class ResponsiveLayout {
   ResponsiveLayout._();
 
-  static LayoutTier tierOf(Size size) {
+  /// 펼침·태블릿·폴드 내부 화면 또는 **가로 회전** 시 넓은 레이아웃(마스터·디테일 등) 사용.
+  static bool qualifiesAsExpanded(Size size) {
     final w = size.width;
     final h = size.height;
     final shortest = math.min(w, h);
     final longest = math.max(w, h);
-    // Z Fold 6 펼침 세로(~690×830dp) 포함: 짧은 변 ≥580 & 긴 변 ≥720, 또는 가로 ≥840
+    // Z Fold 6 펼침 세로(~690×830dp): 짧은 변 ≥580 & 긴 변 ≥720, 또는 가로 ≥840
     if (w >= 840 || (shortest >= 580 && longest >= 720)) {
+      return true;
+    }
+    // 단말기 가로 모드: 긴 변이 일반 폰 가로 폭 이상이면 펼침과 동일 레이아웃
+    if (w > h && longest >= 640 && shortest >= 320) {
+      return true;
+    }
+    return false;
+  }
+
+  static bool isLandscape(Size size) => size.width > size.height;
+
+  static LayoutTier tierOf(Size size) {
+    if (qualifiesAsExpanded(size)) {
       return LayoutTier.expanded;
     }
+    final w = size.width;
     if (w >= 600) return LayoutTier.tablet;
     if (w < 360) return LayoutTier.compact;
     return LayoutTier.phone;

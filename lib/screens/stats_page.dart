@@ -169,12 +169,13 @@ class _StatsPageState extends State<StatsPage> {
   String _getMonthlyDisplayText() => DateFormat('yyyy-MM').format(_selectedDate);
   String _getYearlyDisplayText() => DateFormat('yyyy').format(_selectedDate);
 
-  Widget _buildDateSelector() {
+  Widget _buildDateSelector({bool compact = false}) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
-    final iconSize = isTablet ? 24.0 : 20.0;
-    final padding = isTablet ? 12.0 : 8.0;
-    final buttonSize = isTablet ? 40.0 : 32.0;
+    final iconSize = compact ? 18.0 : (isTablet ? 24.0 : 20.0);
+    final padding = compact ? 4.0 : (isTablet ? 12.0 : 8.0);
+    final buttonSize = compact ? 28.0 : (isTablet ? 40.0 : 32.0);
+    final fontSize = (compact ? 12.0 : (isTablet ? 16.0 : 14.0)) * _uiFontScale(context);
 
     String displayText = '';
     VoidCallback? onPrevious;
@@ -209,29 +210,42 @@ class _StatsPageState extends State<StatsPage> {
                 ? DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isBefore(today) || DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isAtSameMomentAs(today)
                 : DateTime(selDateOnly.year + 1, 1, 1).isBefore(today) || DateTime(selDateOnly.year + 1, 1, 1).isAtSameMomentAs(today);
 
+    final row = Row(
+      mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        IconButton(
+          onPressed: onPrevious,
+          icon: Icon(Icons.chevron_left, color: const Color(0xFFFFC700), size: iconSize),
+          constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
+          padding: compact ? EdgeInsets.zero : null,
+        ),
+        Expanded(
+          child: Text(
+            displayText,
+            textAlign: TextAlign.center,
+            maxLines: compact ? 2 : 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: fontSize),
+          ),
+        ),
+        IconButton(
+          onPressed: canGoNext ? onNext : null,
+          icon: Icon(Icons.chevron_right, color: const Color(0xFFFFC700), size: iconSize),
+          constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
+          padding: compact ? EdgeInsets.zero : null,
+        ),
+      ],
+    );
+
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            onPressed: onPrevious,
-            icon: Icon(Icons.chevron_left, color: const Color(0xFFFFC700), size: iconSize),
-            constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
-          ),
-          SizedBox(width: padding),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: padding * 1.5, vertical: padding),
-            child: Text(displayText, style: TextStyle(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: (isTablet ? 16.0 : 14.0) * _uiFontScale(context))),
-          ),
-          SizedBox(width: padding),
-          IconButton(
-            onPressed: canGoNext ? onNext : null,
-            icon: Icon(Icons.chevron_right, color: const Color(0xFFFFC700), size: iconSize),
-            constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
-          ),
-        ],
+      width: compact ? double.infinity : null,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F222A),
+        borderRadius: BorderRadius.circular(compact ? 10 : 20),
+        border: compact ? Border.all(color: Colors.white10) : null,
       ),
+      padding: compact ? const EdgeInsets.symmetric(horizontal: 2, vertical: 2) : null,
+      child: row,
     );
   }
 
@@ -718,16 +732,16 @@ class _StatsPageState extends State<StatsPage> {
   List<Widget> _buildStatCardWidgets(double titleFontSize, double valueFontSize) {
     return <Widget>[
       _statCard(
-        '총 매출',
-        NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
-        Colors.green,
+        '총 순수익',
+        NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
+        const Color(0xFFFFC700),
         titleFontSize,
         valueFontSize,
       ),
       _statCard(
-        '총 순수익',
-        NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
-        const Color(0xFFFFC700),
+        '총 매출',
+        NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
+        Colors.green,
         titleFontSize,
         valueFontSize,
       ),
@@ -801,14 +815,14 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     final metrics = <({String title, String value, Color color})>[
       (
-        title: '총 매출',
-        value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
-        color: Colors.green,
-      ),
-      (
         title: '총 순수익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         color: const Color(0xFFFFC700),
+      ),
+      (
+        title: '총 매출',
+        value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
+        color: Colors.green,
       ),
       (
         title: '총 지출',
@@ -832,55 +846,51 @@ class _StatsPageState extends State<StatsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Align(
-          alignment: Alignment.centerRight,
-          child: Text(
-            '전체 통계',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontFamily: 'GmarketSans',
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: sectionTitleFontSize,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (kMapFeaturesEnabled) ...[
-                IconButton(
-                  onPressed: _openRouteMap,
-                  icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-                  tooltip: '기간 경로 지도',
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '전체 통계',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: sectionTitleFontSize,
                 ),
-              ],
-              _buildDateSelector(),
-            ],
-          ),
+              ),
+            ),
+            if (kMapFeaturesEnabled)
+              IconButton(
+                onPressed: _openRouteMap,
+                icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                tooltip: '기간 경로 지도',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              ),
+          ],
         ),
         SizedBox(height: cardGap),
+        _buildDateSelector(compact: true),
+        SizedBox(height: cardGap),
         Expanded(
-          child: ListView.separated(
-            physics: const BouncingScrollPhysics(),
-            itemCount: metrics.length,
-            separatorBuilder: (_, __) => SizedBox(height: cardGap),
-            itemBuilder: (context, index) {
-              final m = metrics[index];
-              return _statMetricRowCard(
-                title: m.title,
-                value: m.value,
-                valueColor: m.color,
-                titleFontSize: statCardTitleFontSize,
-                valueFontSize: statCardValueFontSize,
-              );
-            },
+          child: Column(
+            children: [
+              for (var i = 0; i < metrics.length; i++) ...[
+                if (i > 0) SizedBox(height: cardGap),
+                Expanded(
+                  child: _statMetricRowCard(
+                    title: metrics[i].title,
+                    value: metrics[i].value,
+                    valueColor: metrics[i].color,
+                    titleFontSize: statCardTitleFontSize,
+                    valueFontSize: statCardValueFontSize,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ],
@@ -895,8 +905,10 @@ class _StatsPageState extends State<StatsPage> {
     required double valueFontSize,
   }) {
     return Container(
+      width: double.infinity,
       decoration: BorderedSection.decoration(),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      alignment: Alignment.center,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
