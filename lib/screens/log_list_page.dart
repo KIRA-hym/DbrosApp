@@ -366,12 +366,15 @@ class _LogListPageState extends State<LogListPage> {
                 children: [
                   _buildMonthHeader(),
                   Expanded(
-                    child: _isLoading
-                        ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                        : Opacity(
-                            opacity: _isScrolled ? 1.0 : 0.0,
-                            child: _buildDailyList(),
-                          ),
+                    child: ColoredBox(
+                      color: const Color(0xFF121418),
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                          : Opacity(
+                              opacity: _isScrolled ? 1.0 : 0.0,
+                              child: _buildDailyList(),
+                            ),
+                    ),
                   ),
                   _buildMonthlySummaryFooter(),
                 ],
@@ -442,7 +445,13 @@ class _LogListPageState extends State<LogListPage> {
     final iconSize = isTablet ? 28.0 : 24.0;
 
     return Container(
-      color: const Color(0xFF1F222A),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1F222A),
+        border: Border(
+          top: BorderSide(color: Colors.white24, width: 1),
+          bottom: BorderSide(color: Colors.white24, width: 1),
+        ),
+      ),
       padding: EdgeInsets.symmetric(vertical: padding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -497,7 +506,7 @@ class _LogListPageState extends State<LogListPage> {
             return Container(
               key: isToday ? _todayKey : null,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2A2E38) : null,
+                color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
                 border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
               ),
               child: ListTile(

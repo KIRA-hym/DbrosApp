@@ -18,6 +18,7 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        GalleryMediaBridge.register(flutterEngine, this)
         summaryChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
         summaryChannel?.setMethodCallHandler { call, result ->
             when (call.method) {
@@ -81,6 +82,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        GalleryMediaBridge.dispose()
         summaryChannel = null
         super.onDestroy()
     }

@@ -906,7 +906,7 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  /// 펼침 좌측: 날짜 선택(프로그램별 매출 타이틀 라인) + 지표 카드.
+  /// 펼침 좌측: 날짜 선택 상단 = 우측 차트 패널 상단, 아래 지표 카드.
   Widget _buildExpandedStatsMetricsColumn({
     required double statCardTitleFontSize,
     required double statCardValueFontSize,
@@ -945,12 +945,7 @@ class _StatsPageState extends State<StatsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // 우측 차트 패널: padding 12 → 타이틀(프로그램별 매출) 라인과 동일 오프셋
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: _buildDateSelector(compact: true),
-        ),
-        const SizedBox(height: 8),
+        _buildDateSelector(compact: true),
         SizedBox(height: cardGap),
         Expanded(
           child: Column(

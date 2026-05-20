@@ -2,11 +2,13 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../config/feature_flags.dart';
 import '../services/backup_service.dart';
-import '../services/ocr_parse_log_service.dart';
+import '../services/screenshot_auto_debug_log.dart';
 import '../services/settings_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/bordered_section.dart';
@@ -97,11 +99,13 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildBackupRestoreSettings(),
       _buildStorageSettings(),
       _buildOcrParseLogSettings(),
+      if (!kIsWeb && Platform.isAndroid && kMapFeaturesEnabled)
+        _buildScreenshotAutoDiagSettings(),
       _buildSettingsGroup("수수료 설정", [
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                '카카오 전 항목·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
+                '카카오·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
               ),
             ),
@@ -117,7 +121,7 @@ class _SettingsPageState extends State<SettingsPage> {
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
-                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 금액이 더해집니다.',
+                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 설정금액이 차감됩니다.',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
               ),
             ),
@@ -514,6 +518,104 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildScreenshotAutoDiagSettings() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '스크린샷 자동등록 진단',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: spacing),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showScreenshotAutoDiagDialog(),
+              icon: const Icon(Icons.photo_camera_outlined, color: Colors.white),
+              label: const Text('진단 로그 보기 (최근 기록)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00897B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
+              ),
+            ),
+          ),
+          SizedBox(height: spacing),
+          Text(
+            '• 캡처 후에도 반응이 없을 때: 위 버튼으로 앱 안에서만 확인합니다(adb 불필요).\n'
+            '• 최대 약 150줄까지 메모리에 유지됩니다. 앱을 완전히 종료하면 비워질 수 있습니다.\n'
+            '• 이벤트가 한 줄도 없으면 MediaStore/플러그인에서 변화가 오지 않은 것입니다.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showScreenshotAutoDiagDialog() {
+    final text = ScreenshotAutoDebugLog.newestFirstText();
+    final body = text.isEmpty ? '(아직 기록 없음 — 앱 실행 후 캡처를 한 번 시도해 보세요.)' : text;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1F222A),
+        title: const Text('스크린샷 자동등록 진단', style: TextStyle(color: Colors.white, fontSize: 18)),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.sizeOf(context).height * 0.5,
+          child: SingleChildScrollView(
+            child: SelectableText(
+              body,
+              style: const TextStyle(
+                color: Color(0xFFE0E0E0),
+                fontSize: 12,
+                height: 1.35,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: body));
+              if (!mounted) return;
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('진단 로그를 클립보드에 복사했습니다.')),
+              );
+            },
+            child: const Text('복사 후 닫기', style: TextStyle(color: Color(0xFFFFC700))),
+          ),
+          TextButton(
+            onPressed: () {
+              ScreenshotAutoDebugLog.clear();
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('진단 로그를 비웠습니다.')),
+              );
+            },
+            child: const Text('비우기', style: TextStyle(color: Color(0xFFFF5252))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOcrParseLogSettings() {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
@@ -528,7 +630,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "OCR 파싱 로그",
+            "콜카드 인식 로그",
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
@@ -542,7 +644,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 );
               },
               icon: const Icon(Icons.bug_report_outlined, color: Colors.white),
-              label: const Text("OCR 디버그 (로그 추출)"),
+              label: const Text("로그추출"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF9C27B0),
                 foregroundColor: Colors.white,
@@ -553,7 +655,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: spacing),
           Text(
-            "• OCR 인식 시 파싱 결과가 앱 내부에 누적됩니다\n• OCR 디버그 화면을 통해 전체 파싱 로그 조회 및 클립보드 복사, 공유/추출이 가능합니다",
+            "• 콜카드 인식 시 인식결과가 누적됩니다.\n• 로그추출 화면을 통해 전체 인식로그 조회 및 복사,공유가 가능합니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
@@ -734,7 +836,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: spacing * 0.5),
           Text(
-            "• 이미지 정리는 운행일지 텍스트 기록과 매출 통계에는 지장을 주지 않고, 기기 용량을 많이 차지하는 원본 이미지 파일만 소거하여 여유 공간을 안전하게 확보해 줍니다.",
+            "• 이미지 정리는 일지 작성때 인식한 이미지파일만 제거하여 여유 공간을 확보합니다.",
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
@@ -764,7 +866,7 @@ class _SettingsPageState extends State<SettingsPage> {
             contentPadding: EdgeInsets.zero,
             title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
             subtitle: Text(
-              "알림 패널에 오늘 순익을 표시합니다. 일지 등록·수정 시 갱신됩니다.\n"
+              "알림 패널에 오늘 순익을 표시합니다.\n일지 등록·수정 시 갱신됩니다.\n"
               "본문 탭: 일반 작성 화면 · ⚡ 퀵등록: 반투명 퀵 입력.",
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
             ),

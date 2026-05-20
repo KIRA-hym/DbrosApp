@@ -3,6 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:dbros_app/services/screenshot_gallery_finder.dart';
 
 void main() {
+  group('ScreenshotGalleryFinder.looksLikeScreenshotsFolderPath', () {
+    test('matches common DCIM paths', () {
+      expect(
+        ScreenshotGalleryFinder.looksLikeScreenshotsFolderPath(
+          '/storage/emulated/0/DCIM/Screenshots/img.jpg',
+        ),
+        isTrue,
+      );
+      expect(
+        ScreenshotGalleryFinder.looksLikeScreenshotsFolderPath(r'\\sdcard\\Pictures\\screenshots'),
+        isTrue,
+      );
+    });
+
+    test('rejects unrelated paths', () {
+      expect(ScreenshotGalleryFinder.looksLikeScreenshotsFolderPath('/DCIM/Camera/foo.jpg'), isFalse);
+    });
+  });
+
   group('ScreenshotGalleryFinder.looksLikeScreenshotText', () {
     test('matches English and Korean hints', () {
       expect(ScreenshotGalleryFinder.looksLikeScreenshotText('Screenshot_20260520.png'), isTrue);
