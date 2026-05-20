@@ -57,3 +57,6 @@ defines.local.json
 # 로컬 배포/백업 바이너리 (용량·민감도)
 *.apk
 *.zip
+
+# 로컬 백업 JSON/ZIP 샘플·디버그 export (저장소에 커밋하지 않음)
+/logs/
