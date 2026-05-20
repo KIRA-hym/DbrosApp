@@ -636,6 +636,7 @@ class _StatsPageState extends State<StatsPage> {
                                     flex: 5,
                                     child: _buildWholeStatsTitleRow(sectionTitleFontSize),
                                   ),
+                                  SizedBox(width: gapMd),
                                   Expanded(
                                     flex: 11,
                                     child: _buildIncomeAnalysisTitleRow(sectionTitleFontSize),
@@ -678,6 +679,14 @@ class _StatsPageState extends State<StatsPage> {
                           ),
                         )
                       else ...[
+                        Center(
+                          child: _buildPeriodButtonBar(
+                            compact,
+                            buttonFontSize,
+                            wrapAlignment: WrapAlignment.center,
+                          ),
+                        ),
+                        SizedBox(height: cardGap),
                         _buildStatsHeaderRow(
                           compact: compact,
                           sectionTitleFontSize: sectionTitleFontSize,
@@ -695,10 +704,14 @@ class _StatsPageState extends State<StatsPage> {
                           ),
                         ),
                         SizedBox(height: compact ? 10 : 16),
-                        _buildIncomeAnalysisHeaderRow(
-                          sectionTitleFontSize: sectionTitleFontSize,
-                          compact: compact,
-                          buttonFontSize: buttonFontSize,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '수익 분석',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: _sectionTitleStyle(sectionTitleFontSize),
+                          ),
                         ),
                         SizedBox(height: compact ? 8 : 12),
                         Expanded(
@@ -828,30 +841,6 @@ class _StatsPageState extends State<StatsPage> {
             ),
         ],
       ),
-    );
-  }
-
-  Widget _buildIncomeAnalysisHeaderRow({
-    required double sectionTitleFontSize,
-    required bool compact,
-    required double buttonFontSize,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Text(
-            '수익 분석',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: _sectionTitleStyle(sectionTitleFontSize),
-          ),
-        ),
-        SizedBox(width: compact ? 6 : 10),
-        Flexible(
-          child: _buildPeriodButtonBar(compact, buttonFontSize),
-        ),
-      ],
     );
   }
 

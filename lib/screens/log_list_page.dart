@@ -1318,42 +1318,54 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     }
   }
 
-  /// [LogListPage] 의 `_buildMonthHeader` 와 동일 톤의 상단 바 — 근무일자.
+  /// [LogListPage] 의 `_buildMonthHeader` 와 동일 톤의 상단 바 — 근무일자(가운데 정렬).
   Widget _buildDailyDetailDateHeader() {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isTablet = screenWidth > 600;
     final compact = widget.embedded;
     final padding = compact ? 6.0 : (isTablet ? 12.0 : 8.0);
+    final hPad = compact ? 8.0 : (isTablet ? 12.0 : 8.0);
+    /// embedded 시 우측 `입력` 과 대칭을 맞춰 제목 시각적 중앙 유지
+    final sideSlot = compact ? 96.0 : 0.0;
     final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
         ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white);
     return Container(
       color: const Color(0xFF1F222A),
-      padding: EdgeInsets.symmetric(vertical: padding, horizontal: compact ? 8.0 : (isTablet ? 12.0 : 8.0)),
+      padding: EdgeInsets.symmetric(vertical: padding, horizontal: hPad),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          SizedBox(width: sideSlot),
           Expanded(
             child: Text(
               widget.dateTitle,
-              textAlign: TextAlign.left,
+              textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: titleStyle,
             ),
           ),
-          if (widget.embedded)
-            TextButton.icon(
-              onPressed: _openAddLogForm,
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
-              label: const Text(
-                '입력',
-                style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
-              ),
-            ),
+          SizedBox(
+            width: sideSlot,
+            child: compact
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _openAddLogForm,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                      label: const Text(
+                        '입력',
+                        style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
         ],
       ),
     );

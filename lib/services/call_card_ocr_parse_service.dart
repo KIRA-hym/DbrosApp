@@ -126,6 +126,25 @@ class CallCardOcrParseService {
     return int.tryParse(gross?.toString() ?? '') ?? 0;
   }
 
+  /// 동일 스크린샷을 다른 경로(gallery 파일 vs 네이티브 캐시)로 두 번 잡았을 때 DB 이중 삽입 방지용.
+  static String autoSaveDuplicateFingerprint(Map<String, dynamic> logData) {
+    if (!isValidForAutoSave(logData)) return '';
+    String norm(String? s) =>
+        s?.toString().trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ') ?? '';
+    final fare = _parsedGrossFare(logData);
+    final timePart = hasValidDriveTimeHm(logData['drive_time'])
+        ? (normalizeDriveTimeHm(logData['drive_time'].toString()) ?? '')
+        : '';
+    return [
+      norm(logData['program']?.toString()),
+      fare.toString(),
+      norm(logData['start_location']?.toString()),
+      norm(logData['end_location']?.toString()),
+      norm(logData['waypoint']?.toString()),
+      timePart,
+    ].join('\u001f');
+  }
+
   static Future<bool> saveLogToDatabase(
     Map<String, dynamic> logData, {
     String imagePrefix = 'ocr',

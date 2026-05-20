@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
@@ -19,16 +19,22 @@ class ScreenshotAutoRegisterService {
 
   static const MethodChannel _nativeGalleryObserver = MethodChannel('dbros.app/gallery_observer');
 
-  static const Duration _writeDelay = Duration(milliseconds: 1500);
-  static const Duration _dedupeWindow = Duration(seconds: 15);
-  static const Duration _galleryChangeDebounce = Duration(milliseconds: 450);
+  static const Duration _writeDelay = Duration(milliseconds: 750);
+  /// 첫 조회 실패 시 MediaStore 안정화를 위해 추가 대기 후 1회만 재조회.
+  static const Duration _retryCandidateDelay = Duration(milliseconds: 850);
+  static const Duration _dedupeWindow = Duration(seconds: 20);
+  static const Duration _fingerprintDedupeWindow = Duration(seconds: 30);
+  static const Duration _galleryChangeDebounce = Duration(milliseconds: 330);
 
   ScreenshotCallback? _callback;
   bool _started = false;
   bool _busy = false;
+  bool _pendingRetryAfterBusy = false;
   bool _galleryNotifyEnabled = false;
   String? _lastProcessedKey;
   DateTime? _lastProcessedAt;
+  String? _lastSaveFingerprint;
+  DateTime? _lastSaveFingerprintAt;
   Timer? _galleryDebounce;
 
   bool get _isAndroid => !kIsWeb && Platform.isAndroid;
@@ -146,7 +152,8 @@ class ScreenshotAutoRegisterService {
 
   Future<void> _handleScreenshotEvent() async {
     if (_busy) {
-      ScreenshotAutoDebugLog.add('건너뜀: 이전 처리가 아직 진행 중');
+      _pendingRetryAfterBusy = true;
+      ScreenshotAutoDebugLog.add('건너뜀: 이전 처리가 아직 진행 중 (종료 후 1회 재예약)');
       return;
     }
     _busy = true;
@@ -158,15 +165,17 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
-      final strict = await ScreenshotGalleryFinder.fetchLatestScreenshotFile();
-      final file = strict ??
-          await ScreenshotGalleryFinder.fetchRecentImageFromScreenshotsFolder(
-            maxAge: const Duration(seconds: 35),
-          );
-      if (strict != null) {
-        ScreenshotAutoDebugLog.add('후보 파일(1순위): ${strict.path}');
-      } else if (file != null) {
-        ScreenshotAutoDebugLog.add('후보 파일(폴더 폴백): ${file.path}');
+      var pick = await _pickScreenshotCandidate();
+      if (pick.file == null) {
+        ScreenshotAutoDebugLog.add(
+          '후보 없음 → ${_retryCandidateDelay.inMilliseconds}ms 후 1회 재조회',
+        );
+        await Future<void>.delayed(_retryCandidateDelay);
+        pick = await _pickScreenshotCandidate();
+      }
+      final file = pick.file;
+      if (file != null && pick.tag != null) {
+        ScreenshotAutoDebugLog.add('후보 파일(${pick.tag}): ${file.path}');
       }
       if (file == null) {
         ScreenshotAutoDebugLog.add('결과: 스크린샷 후보 이미지 없음(OCR 진행 안 함)');
@@ -174,7 +183,7 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
-      final dedupeKey = file.path;
+      final dedupeKey = _dedupeKeyForScreenshotPath(file.path);
       final now = DateTime.now();
       if (_lastProcessedKey == dedupeKey &&
           _lastProcessedAt != null &&
@@ -196,6 +205,18 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
+      final fp = CallCardOcrParseService.autoSaveDuplicateFingerprint(logData);
+      final now2 = DateTime.now();
+      if (fp.isNotEmpty &&
+          fp == _lastSaveFingerprint &&
+          _lastSaveFingerprintAt != null &&
+          now2.difference(_lastSaveFingerprintAt!) < _fingerprintDedupeWindow) {
+        ScreenshotAutoDebugLog.add(
+          '건너뜀: 동일 인식 내용 디바운스($_fingerprintDedupeWindow)·이중 저장 방지',
+        );
+        return;
+      }
+
       final saved = await CallCardOcrParseService.saveLogToDatabase(
         logData,
         imagePrefix: 'screenshot',
@@ -205,8 +226,11 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
+      final doneAt = DateTime.now();
       _lastProcessedKey = dedupeKey;
-      _lastProcessedAt = now;
+      _lastProcessedAt = doneAt;
+      _lastSaveFingerprint = fp;
+      _lastSaveFingerprintAt = doneAt;
 
       await AutoRegisterNotificationService.instance.showAutoRegisterComplete();
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
@@ -217,6 +241,50 @@ class ScreenshotAutoRegisterService {
       debugPrint('$st');
     } finally {
       _busy = false;
+      if (_pendingRetryAfterBusy) {
+        _pendingRetryAfterBusy = false;
+        ScreenshotAutoDebugLog.add('대기 중이던 처리 재예약(디바운스)');
+        _scheduleHandle();
+      }
     }
+  }
+
+  /// photo_manager → 폴더 폴백 → 네이티브 MediaStore 순으로 후보 탐색.
+  Future<({File? file, String? tag})> _pickScreenshotCandidate() async {
+    final strict = await ScreenshotGalleryFinder.fetchLatestScreenshotFile();
+    if (strict != null) return (file: strict, tag: '1순위');
+    final folder = await ScreenshotGalleryFinder.fetchRecentImageFromScreenshotsFolder(
+      maxAge: const Duration(seconds: 45),
+    );
+    if (folder != null) return (file: folder, tag: '폴더 폴백');
+    final native = await _queryLatestScreenshotViaMediaStore(maxAgeSeconds: 120);
+    if (native != null) return (file: native, tag: 'MediaStore 네이티브');
+    return (file: null, tag: null);
+  }
+
+  /// photo_manager 에서 후보가 없을 때 네이티브 MediaStore 직접 조회(삼성 등 대응).
+  Future<File?> _queryLatestScreenshotViaMediaStore({required int maxAgeSeconds}) async {
+    if (!_isAndroid) return null;
+    try {
+      final path = await _nativeGalleryObserver.invokeMethod<String?>('queryLatestScreenshot', {
+        'maxAgeSeconds': maxAgeSeconds,
+      });
+      if (path == null || path.isEmpty) return null;
+      final f = File(path);
+      if (await f.exists()) return f;
+    } catch (e, st) {
+      ScreenshotAutoDebugLog.add('MediaStore 네이티브 조회 실패: $e');
+      debugPrint('ScreenshotAutoRegister MediaStore fallback: $e');
+      debugPrint('$st');
+    }
+    return null;
+  }
+
+  /// 네이티브 캐시 `auto_screenshot_<id>` 는 MediaStore id 로 통합 (갤러리 경로와 이중 처리 시 경로 디바운스 일치).
+  static String _dedupeKeyForScreenshotPath(String path) {
+    final name = path.replaceAll(r'\', '/').split('/').last;
+    final m = RegExp(r'^auto_screenshot_(\d+)\.').firstMatch(name);
+    if (m != null) return 'media:${m.group(1)}';
+    return path;
   }
 }

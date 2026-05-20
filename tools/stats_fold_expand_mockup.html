@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>통계 — 접힘·펼침 레이아웃 시안 (Flutter 수치 반영)</title>
+  <style>
+    * { box-sizing: border-box; }
+    /*
+      stats_page.dart (일반 폰 비-compact 예시와 동일)
+      • body Padding: EdgeInsets.all(padding) — 폰/tablet별 상이; 여기서 폰 16px
+      • gapMd: compact ? 10 : (tablet ? 20 : 12)  → 12px
+      • cardGap: compact ? 8 : 12  → 12px
+      • gapBetweenCharts: compact ? 8 : 12  → 12px
+      • BorderedSection (차트): padding 12, borderRadius 12, #1F222A, border white10
+      • 지표 카드: 같은 decoration + padding horizontal 14, vertical 12
+      • 수익 분석 제목 줄: 높이 36 (SizedBox height)
+    */
+    :root {
+      --clr-bg: #121418;
+      --clr-bar: #1f222a;
+      --clr-panel: #1f222a;
+      --clr-gold: #ffc700;
+      --clr-muted: #6e717c;
+      --clr-outline: rgba(255,255,255,0.1);
+      --pad-body: 16px;
+      --gapMd: 12px;
+      --cardGap: 12px;
+      --gapCharts: 12px;
+      --panelPad: 12px;
+      --borderRad: 12px;
+      --titleRowH: 36px;
+      --sectionTit: 16px;
+      --gridGap: var(--cardGap);
+      --headerInnerGap: 12px;
+      --fold-before-income: 16px;
+      --fold-after-income: 12px;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+      background: var(--clr-bg);
+      color: #e8eaed;
+      padding: 20px;
+    }
+    h1 { color: var(--clr-gold); font-size: 1.15rem; margin: 0 0 8px; }
+    h2 {
+      color: var(--clr-gold);
+      font-size: 1rem;
+      margin: 28px 0 10px;
+      border-bottom: 1px solid #2a2e38;
+      padding-bottom: 6px;
+    }
+    .sub { color: #9aa0a6; font-size: 0.82rem; margin-bottom: 12px; line-height: 1.55; max-width: 52rem; }
+
+    /** Shell = Scaffold body 내부 Padding 한 겹 */
+    .shell {
+      border: 1px solid #2a2e38;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .shell-a { max-width: 440px; }
+    .shell-b { max-width: 820px; }
+
+    .appbar {
+      background: var(--clr-bar);
+      color: var(--clr-gold);
+      font-weight: bold;
+      padding: 12px 16px;
+      text-align: center;
+    }
+
+    .body-pad {
+      padding: var(--pad-body);
+    }
+
+    /** flutter: Expanded(flex:5) + SizedBox(width:gapMd) + Expanded(flex:11) */
+    .row-5-gap-11 {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .col5 {
+      flex: 5 1 0;
+      min-width: 0;
+    }
+    .g-md {
+      flex: 0 0 var(--gapMd);
+      width: var(--gapMd);
+      min-width: var(--gapMd);
+    }
+    .col11 {
+      flex: 11 1 0;
+      min-width: 0;
+    }
+
+    .period-wrap {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .period-wrap button {
+      border: none;
+      border-radius: 20px;
+      padding: 8px 16px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: var(--clr-bar);
+      color: #fff;
+    }
+    .period-wrap button.on { background: var(--clr-gold); color: #111; }
+
+    .section-title-text {
+      color: #fff;
+      font-weight: 700;
+      font-size: var(--sectionTit);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    /* 펼침: 제목 줄 높이 36, 수익 분석 좌측 정렬 */
+    .income-title-cell {
+      min-height: var(--titleRowH);
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    /* 접힘: _buildStatsHeaderRow — Expanded 1 | gap | Expanded 1 → 50%-50% 느낌 */
+    .fold-header-row {
+      display: flex;
+      align-items: center;
+      gap: var(--headerInnerGap);
+      margin-bottom: var(--gapMd);
+    }
+    .fold-header-row .lhs {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .fold-header-row .rhs {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .date-pill {
+      font-size: 0.72rem;
+      color: var(--clr-gold);
+      padding: 6px 10px;
+      background: var(--clr-bar);
+      border-radius: 16px;
+      white-space: nowrap;
+    }
+
+    .grid4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--gridGap);
+      margin-bottom: 0;
+    }
+
+    .stat-tile {
+      background: var(--clr-panel);
+      border: 1px solid var(--clr-outline);
+      border-radius: var(--borderRad);
+      padding: 12px 14px;
+      font-size: 0.8rem;
+    }
+    .stat-tile .t { color: var(--clr-muted); font-weight: 700; }
+    .stat-tile .v {
+      margin-top: 8px;
+      text-align: right;
+      font-weight: 700;
+      font-size: 1rem;
+      color: var(--clr-gold);
+    }
+
+    .chart-panel {
+      background: var(--clr-panel);
+      border-radius: var(--borderRad);
+      border: 1px solid var(--clr-outline);
+      padding: var(--panelPad);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .chart-panel + .chart-panel { margin-top: 0; }
+    .chart-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 0 0 8px;
+    }
+    .chart-body {
+      flex: 1;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--clr-muted);
+      font-size: 0.72rem;
+    }
+
+    /* 펼침 본문: 좌 우 열 높이 맞춤 데모 */
+    .expanded-body-split {
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      min-height: 320px;
+      margin-top: 0;
+    }
+    .metric-stack {
+      display: flex;
+      flex-direction: column;
+      gap: var(--cardGap);
+      min-height: 0;
+      flex: 1;
+    }
+    .mini-date-row {
+      font-size: 0.72rem;
+      color: var(--clr-gold);
+      padding: 6px 0;
+      border-bottom: 1px dashed #333742;
+      text-align: center;
+    }
+    .metric-stack-inner {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: var(--cardGap);
+      min-height: 0;
+    }
+    .metric-stack-inner .stat-tile {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-height: 48px;
+    }
+
+    .charts-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--gapCharts);
+      min-height: 0;
+      flex: 1;
+    }
+
+    /** 정렬 검증선: 차트열(col11) 시작 = 수익 분석 문자 시작 */
+    .with-col11-marker {
+      position: relative;
+    }
+    .with-col11-marker::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      /* (100% - gapMd) * 5/16 + gapMd = flex11 시작 */
+      left: calc((100% - var(--gapMd)) * 5 / 16 + var(--gapMd));
+      width: 0;
+      border-left: 2px dashed rgba(244, 114, 182, 0.85);
+      pointer-events: none;
+      z-index: 2;
+    }
+    .inner-pane-guide {
+      position: relative;
+    }
+    .inner-pane-guide::before {
+      content: "";
+      position: absolute;
+      left: calc(var(--panelPad));
+      top: var(--panelPad);
+      bottom: calc(var(--panelPad));
+      border-left: 1px dashed rgba(125, 211, 252, 0.45);
+      pointer-events: none;
+    }
+
+    dl.legend {
+      margin: 20px 0 0;
+      font-size: 0.76rem;
+      color: #9aa0a6;
+      padding: 14px 16px;
+      background: #1a1d24;
+      border-radius: 10px;
+      max-width: 52rem;
+    }
+    .legend dt { color: var(--clr-gold); font-weight: bold; margin-top: 10px; }
+    .legend dt:first-child { margin-top: 0; }
+    .legend dd { margin: 4px 0 0 0; padding: 0; line-height: 1.55; }
+    code { color: #7dd3fc; font-size: 0.9em; }
+
+    details.tablet-vars {
+      margin-top: 12px;
+      max-width: 52rem;
+      font-size: 0.78rem;
+      color: #9aa0a6;
+    }
+  </style>
+</head>
+<body>
+  <h1>통계 — 접힘 / 펼침 레이아웃 시안</h1>
+  <p class="sub">
+    아래 숫자·비율은 <code>lib/screens/stats_page.dart</code> 비-compact 폰 레이아웃 기준입니다.
+    펼침에서 <strong>위 제목 줄</strong>과 <strong>아래 지표·차트 줄</strong>이 같은
+    <code>flex: 5 · SizedBox(gapMd) · flex: 11</code> 를 쓰므로,
+    「수익 분석」의 기준선은 <strong>차트 영역(Column) 바깥쪽 왼쪽</strong>과 일치합니다.
+    차트 <code>BorderedSection</code> 안쪽 제목 텍스트는 <code>padding: 12</code> 만큼 더 안쪽입니다 (첫 패널에 청색 점선 참고).
+  </p>
+
+  <h2>A. 접힘 (세로 레이아웃)</h2>
+  <div class="shell shell-a">
+    <div class="appbar">운행 일지 통계</div>
+    <div class="body-pad">
+      <div class="period-wrap">
+        <button class="on">일간</button><button>주간</button><button>월간</button><button>연간</button>
+      </div>
+      <!-- SizedBox(height: cardGap) -->
+      <div style="height: var(--cardGap);" aria-hidden="true"></div>
+      <div class="fold-header-row">
+        <div class="lhs">
+          <span class="section-title-text">전체 통계</span>
+          <!-- kMapFeaturesEnabled 시 지도 아이콘 자리 생략 가능 -->
+        </div>
+        <div class="rhs">
+          <span class="date-pill">◀ 2026-05-20 ▶</span>
+        </div>
+      </div>
+      <div class="grid4">
+        <div class="stat-tile"><span class="t">총 순수익</span><div class="v">123,456</div></div>
+        <div class="stat-tile"><span class="t">총 매출</span><div class="v" style="color:#4caf50">234,567</div></div>
+        <div class="stat-tile"><span class="t">총 지출</span><div class="v" style="color:#ff5252">0</div></div>
+        <div class="stat-tile"><span class="t">근무일수 / 운행건수</span><div class="v" style="color:#fff">12 / 45</div></div>
+      </div>
+      <!-- SizedBox(height: compact ? 10 : 16) -->
+      <div style="height: var(--fold-before-income);" aria-hidden="true"></div>
+      <div class="section-title-text" style="text-align:left">수익 분석</div>
+      <!-- SizedBox(height: compact ? 8 : 12) -->
+      <div style="height: var(--fold-after-income);" aria-hidden="true"></div>
+      <div class="charts-column" style="min-height:220px;">
+        <div class="chart-panel inner-pane-guide">
+          <div class="chart-title">프로그램별 매출</div>
+          <div class="chart-body">차트 (ClipRRect 8)</div>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-title">시간대별 순수익</div>
+          <div class="chart-body">두 번째 차트</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>B. 펼침 (가로 분할, 5 · gapMd · 11)</h2>
+  <div class="shell shell-b">
+    <div class="appbar">운행 일지 통계</div>
+    <div class="body-pad">
+      <div class="period-wrap">
+        <button class="on">일간</button><button>주간</button><button>월간</button><button>연간</button>
+      </div>
+      <!-- SizedBox(height: cardGap) 후 제목 줄 -->
+      <div style="height: var(--cardGap);" aria-hidden="true"></div>
+      <!-- 실제 픽셀 정렬 검증선: 패딩 이후 두 줄(split) 에만 적용해 100% = Flutter body Column 폭 과 동일 -->
+      <div class="with-col11-marker">
+        <div class="row-5-gap-11">
+          <div class="col5">
+            <div class="income-title-cell" style="justify-content:flex-start">
+              <span class="section-title-text">전체 통계</span>
+            </div>
+          </div>
+          <div class="g-md" aria-hidden="true" title="gapMd = 12px"></div>
+          <div class="col11 income-title-cell">
+            <span class="section-title-text">수익 분석</span>
+          </div>
+        </div>
+        <div style="height: var(--cardGap);" aria-hidden="true"></div>
+        <div class="expanded-body-split row-5-gap-11">
+          <div class="col5">
+            <div class="metric-stack">
+              <div class="mini-date-row">기간 선택 / 날짜 (좌측 열 상단)</div>
+              <div class="metric-stack-inner">
+                <div class="stat-tile"><span class="t">총 순수익</span><div class="v">123,456</div></div>
+                <div class="stat-tile"><span class="t">총 매출</span><div class="v" style="color:#4caf50">⋯</div></div>
+                <div class="stat-tile"><span class="t">⋯</span><div class="v" style="color:#ccc">⋯</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="g-md" aria-hidden="true"></div>
+          <div class="col11 charts-column">
+            <div class="chart-panel inner-pane-guide">
+              <div class="chart-title">프로그램별 매출</div>
+              <div class="chart-body">패널 padding 12px 안쪽부터 제목</div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-title">시간대별 순수익</div>
+              <div class="chart-body">패널 간격 gapBetweenCharts = 12</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <dl class="legend">
+    <dt>B — 가로 간격 공식 및 검증선</dt>
+    <dd>
+      헤더·본문 두 줄 모두 같은 <code>Row</code> 패턴입니다:
+      <code>Expanded(flex:5)</code> + <code>SizedBox(width: gapMd)</code> +
+      <code>Expanded(flex:11)</code>.
+      따라서 「수익 분석」(우측 <code>col11</code> 내부 <code>Align.centerLeft</code>) 과
+      아래 차트 <code>Column</code>(같은 <code>col11</code>) 의 <strong>열 왼쪽 끝</strong> 이 일치합니다.
+      카드 안 분홍 점선은 <code>left: calc((100% - gapMd) * 5/16 + gapMd)</code> 로 두 줄에 공통 적용되어,
+      flex:11 시작 위치와 화면에서 겹치는지 확인할 수 있습니다.
+    </dd>
+    <dt>차트 패널 안쪽 여백</dt>
+    <dd>
+      <code>_buildChartPanel</code> → <code>BorderedSection(padding: EdgeInsets.all(12))</code>.
+      패널 테두리 기준 안쪽 제목 라인은 열 시작보다 <strong>12px 오른쪽</strong>입니다. 청색 세로 점선은 그 오프셋을 상기용입니다.
+    </dd>
+    <dt>A — 접힘</dt>
+    <dd>
+      기간 버튼 → <code>SizedBox(cardGap)</code> → 헤더 → <code>SizedBox(gapMd)</code> → 그리드(gap=<code>cardGap</code>)
+      → <code>SizedBox(16)</code> 수익 분석 → <code>SizedBox(12)</code> → 차트 영역.
+      「수익 분석」은 전체 폭 대비 <code>Align.centerLeft</code>(차트 패널과 같은 body 좌우 패딩).
+    </dd>
+    <details class="tablet-vars">
+      <summary style="cursor:pointer;color:#ffc700;font-weight:bold;">태블릿일 때 변수 (참고)</summary>
+      <p style="margin:8px 0 0;">body <code>padding</code> 24, <code>gapMd</code> 20 등으로 바뀝니다.
+        HTML에서는 <code>:root</code> 의 <code>--pad-body</code>, <code>--gapMd</code> 만 바꾸면 같은 구조를 재현할 수 있습니다.</p>
+    </details>
+  </dl>
+</body>
+</html>
