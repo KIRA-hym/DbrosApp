@@ -554,7 +554,6 @@ class _StatsPageState extends State<StatsPage> {
     final isExpanded = ResponsiveLayout.isExpanded(context);
     final padding = isTablet ? 24.0 : math.min(16.0, screenWidth * 0.04);
     final fontScale = _uiFontScale(context);
-    final appBarFontSize = (isTablet ? 20.0 : 18.0) * fontScale;
     final buttonFontSize = (isTablet ? 14.0 : 12.0) * fontScale;
     final sectionTitleFontSize = (isTablet ? 18.0 : 16.0) * fontScale;
     final statCardTitleFontSize = (isTablet ? 16.0 : 14.0) * fontScale;
@@ -564,14 +563,13 @@ class _StatsPageState extends State<StatsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF1F222A),
         title: Text(
-          "운행 일지 통계",
-          style: TextStyle(
-            fontFamily: 'GmarketSans',
-            color: const Color(0xFFFFC700),
-            fontSize: appBarFontSize,
-            fontWeight: FontWeight.w700,
-          ),
+          '운행 일지 통계',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFFFFC700),
+              ),
         ),
       ),
       body: ResponsiveBody(

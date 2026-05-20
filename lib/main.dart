@@ -159,7 +159,7 @@ class DbrosApp extends StatelessWidget {
                 surface: Color(0xFF1F222A), 
               ),
               appBarTheme: AppBarTheme(
-                backgroundColor: const Color(0xFF121418),
+                backgroundColor: const Color(0xFF1F222A),
                 elevation: 0,
                 centerTitle: true,
                 titleTextStyle: TextStyle(

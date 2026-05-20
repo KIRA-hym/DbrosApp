@@ -206,7 +206,14 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
-        title: Text("운행 일지 설정", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700))),
+        backgroundColor: const Color(0xFF1F222A),
+        title: Text(
+          '운행 일지 설정',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFFFFC700),
+              ),
+        ),
       ),
       body: ResponsiveBody(
         fullWidthWhenExpanded: true,
