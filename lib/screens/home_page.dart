@@ -10,6 +10,7 @@ import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
 import 'log_list_page.dart';
@@ -372,12 +373,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final String dateCompact = DateFormat('yyyy.MM.dd').format(workDay);
     final String weekdayLong = DateFormat('EEEE', 'ko').format(workDay);
 
-    return Material(
-      color: const Color(0xFF1F222A),
-      borderRadius: BorderRadius.circular(20),
+    return Container(
+      decoration: BorderedSection.decoration(),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _openTodayDailyList,
+      child: Material(
+        color: const Color(0xFF1F222A),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: _openTodayDailyList,
         splashColor: const Color(0xFFFFC700).withValues(alpha: 0.12),
         highlightColor: Colors.white10,
         child: Padding(
@@ -566,6 +569,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -669,10 +673,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final spacing = isTablet ? 12.0 : 10.0;
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BorderedSection.decoration(),
       clipBehavior: Clip.antiAlias,
       padding: EdgeInsets.all(outerPadding),
       child: Column(
@@ -746,12 +747,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final outerPadding = isTablet ? 12.0 : 10.0;
     final titleFs = isTablet ? 13.5 : 12.0;
 
-    return Material(
-      color: const Color(0xFF1F222A),
-      borderRadius: BorderRadius.circular(20),
+    return Container(
+      decoration: BorderedSection.decoration(),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: _openYoutubeBanner,
+      child: Material(
+        color: const Color(0xFF1F222A),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: _openYoutubeBanner,
         child: Padding(
           padding: EdgeInsets.all(outerPadding),
           child: Column(
@@ -877,6 +880,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -901,10 +905,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (_recentLogs.isEmpty) {
       return Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F222A),
-          borderRadius: BorderRadius.circular(20),
-        ),
+        decoration: BorderedSection.decoration(),
         padding: EdgeInsets.all(outerPadding),
         child: Align(
           alignment: Alignment.centerLeft,
@@ -949,10 +950,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         );
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BorderedSection.decoration(),
       clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,

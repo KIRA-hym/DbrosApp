@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
 import '../config/feature_flags.dart';
+import '../widgets/bordered_section.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/responsive_body.dart';
 
@@ -611,25 +612,11 @@ class _StatsPageState extends State<StatsPage> {
                             children: [
                               Expanded(
                                 flex: 5,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildStatsHeaderRow(
-                                      compact: compact,
-                                      sectionTitleFontSize: sectionTitleFontSize,
-                                    ),
-                                    SizedBox(height: gapMd),
-                                    Expanded(
-                                      child: GridView.count(
-                                        crossAxisCount: 2,
-                                        crossAxisSpacing: cardGap,
-                                        mainAxisSpacing: cardGap,
-                                        childAspectRatio: 1.35,
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        children: statCards,
-                                      ),
-                                    ),
-                                  ],
+                                child: _buildExpandedStatsLeftColumn(
+                                  sectionTitleFontSize: sectionTitleFontSize,
+                                  statCardTitleFontSize: statCardTitleFontSize,
+                                  statCardValueFontSize: statCardValueFontSize,
+                                  cardGap: cardGap,
                                 ),
                               ),
                               SizedBox(width: gapMd),
@@ -649,9 +636,13 @@ class _StatsPageState extends State<StatsPage> {
                                       ),
                                     ),
                                     SizedBox(height: gapBetweenCharts),
-                                    Expanded(child: _buildProgramChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                    ),
                                     SizedBox(height: gapBetweenCharts),
-                                    Expanded(child: _buildSecondChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -693,16 +684,24 @@ class _StatsPageState extends State<StatsPage> {
                               ? Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(child: _buildProgramChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                    ),
                                     SizedBox(width: gapBetweenCharts),
-                                    Expanded(child: _buildSecondChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                    ),
                                   ],
                                 )
                               : Column(
                                   children: [
-                                    Expanded(child: _buildProgramChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                    ),
                                     SizedBox(height: gapBetweenCharts),
-                                    Expanded(child: _buildSecondChart(chartTitleFontSize)),
+                                    Expanded(
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                    ),
                                   ],
                                 ),
                         ),
@@ -794,6 +793,144 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  Widget _buildExpandedStatsLeftColumn({
+    required double sectionTitleFontSize,
+    required double statCardTitleFontSize,
+    required double statCardValueFontSize,
+    required double cardGap,
+  }) {
+    final metrics = <({String title, String value, Color color})>[
+      (
+        title: '총 매출',
+        value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
+        color: Colors.green,
+      ),
+      (
+        title: '총 순수익',
+        value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
+        color: const Color(0xFFFFC700),
+      ),
+      (
+        title: '총 지출',
+        value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
+        color: const Color(0xFFFF5252),
+      ),
+      if (_selectedPeriod != '일간')
+        (
+          title: '근무일수 / 운행건수',
+          value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
+          color: Colors.white,
+        )
+      else
+        (
+          title: '운행 건수',
+          value: '${_stats['totalCount'] ?? 0}',
+          color: Colors.white,
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            '전체 통계',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: 'GmarketSans',
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: sectionTitleFontSize,
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (kMapFeaturesEnabled) ...[
+                IconButton(
+                  onPressed: _openRouteMap,
+                  icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                  tooltip: '기간 경로 지도',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints.tightFor(width: 40, height: 40),
+                ),
+              ],
+              _buildDateSelector(),
+            ],
+          ),
+        ),
+        SizedBox(height: cardGap),
+        Expanded(
+          child: ListView.separated(
+            physics: const BouncingScrollPhysics(),
+            itemCount: metrics.length,
+            separatorBuilder: (_, __) => SizedBox(height: cardGap),
+            itemBuilder: (context, index) {
+              final m = metrics[index];
+              return _statMetricRowCard(
+                title: m.title,
+                value: m.value,
+                valueColor: m.color,
+                titleFontSize: statCardTitleFontSize,
+                valueFontSize: statCardValueFontSize,
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _statMetricRowCard({
+    required String title,
+    required String value,
+    required Color valueColor,
+    required double titleFontSize,
+    required double valueFontSize,
+  }) {
+    return Container(
+      decoration: BorderedSection.decoration(),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: const Color(0xFF6E717C),
+                fontWeight: FontWeight.bold,
+                fontSize: titleFontSize,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: valueColor,
+                fontWeight: FontWeight.bold,
+                fontSize: valueFontSize,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatsHeaderRow({
     required bool compact,
     required double sectionTitleFontSize,
@@ -845,7 +982,7 @@ class _StatsPageState extends State<StatsPage> {
   Widget _statCard(String title, String value, Color color, double titleFontSize, double valueFontSize) {
     return Container(
       padding: EdgeInsets.all(math.min(12, titleFontSize)),
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
+      decoration: BorderedSection.decoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -878,67 +1015,60 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildProgramChart(double titleFontSize) {
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "프로그램별 매출",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _chartData.isEmpty
-                    ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
-                    : _buildBarChart(_chartData, 'program', 'revenue'),
-              ),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '프로그램별 매출',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
         ),
-      ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _chartData.isEmpty
+                ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
+                : _buildBarChart(_chartData, 'program', 'revenue'),
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildSecondChart(double titleFontSize) {
-    String title = _selectedPeriod == "일간"
-        ? "시간대별 순수익"
-        : (_selectedPeriod == "주간"
-            ? "요일별 순수익 (근무일 기준)"
-            : (_selectedPeriod == "월간" ? "일자별 순수익 (근무일 기준)" : "월별 순수익 (근무일 기준)"));
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
-            ),
-            const SizedBox(height: 8),
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _secondChartData.isEmpty
-                    ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
-                    : _buildBarChart(_secondChartData, _getSecondChartKey(), 'revenue'),
-              ),
-            ),
-          ],
+    final title = _selectedPeriod == '일간'
+        ? '시간대별 순수익'
+        : (_selectedPeriod == '주간'
+            ? '요일별 순수익 (근무일 기준)'
+            : (_selectedPeriod == '월간' ? '일자별 순수익 (근무일 기준)' : '월별 순수익 (근무일 기준)'));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
         ),
-      ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _secondChartData.isEmpty
+                ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
+                : _buildBarChart(_secondChartData, _getSecondChartKey(), 'revenue'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartPanel(Widget chart) {
+    return BorderedSection(
+      padding: const EdgeInsets.all(12),
+      child: chart,
     );
   }
 

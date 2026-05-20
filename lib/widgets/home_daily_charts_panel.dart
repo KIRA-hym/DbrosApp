@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 
 import '../services/daily_chart_data.dart';
+import 'bordered_section.dart';
 import '../utils/work_date_utils.dart';
 
 /// 펼침 홈 왼쪽 열: 오늘(근무일) 프로그램·시간대 파이 차트.
@@ -77,10 +78,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
     required String labelKey,
   }) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BorderedSection.decoration(),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

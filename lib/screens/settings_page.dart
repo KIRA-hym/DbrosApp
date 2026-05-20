@@ -9,6 +9,7 @@ import '../services/backup_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../services/settings_service.dart';
 import '../utils/responsive_layout.dart';
+import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
@@ -234,10 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final label = _appVersionLabel.isEmpty ? '…' : _appVersionLabel;
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.75),
       child: Row(
         children: [
@@ -261,7 +259,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -354,7 +352,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -524,7 +522,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,7 +574,7 @@ class _SettingsPageState extends State<SettingsPage> {
         : lastBackupStr.split('T').first;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,7 +652,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -752,7 +750,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -805,7 +803,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
