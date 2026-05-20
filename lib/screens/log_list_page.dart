@@ -1381,7 +1381,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   child: Column(
                     children: [
                       Expanded(child: _buildLogsBody()),
-                      if (!widget.embedded) _buildDailySummaryFooter(),
+                      if (widget.embedded)
+                        _buildEmbeddedDailySummaryFooter()
+                      else
+                        _buildDailySummaryFooter(),
                     ],
                   ),
                 ),
@@ -1714,6 +1717,79 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           ),
         );
       }
+    );
+  }
+
+  /// 펼침 마스터-디테일 우측: 월간 합계와 동일 톤의 하단 고정 일일 합계.
+  Widget _buildEmbeddedDailySummaryFooter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1F222A),
+        border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                '[ 일일 합계 ]',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const Spacer(),
+              Text('$_totalCount건', style: const TextStyle(color: Colors.white, fontSize: 13)),
+              const SizedBox(width: 10),
+              const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+              Text(
+                '₩${NumberFormat('#,###').format(_totalNetProfitSum)}',
+                style: const TextStyle(color: Color(0xFFFFC700), fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                    Expanded(
+                      child: Text(
+                        '₩${NumberFormat('#,###').format(_totalIncomeSum)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                    Flexible(
+                      child: Text(
+                        '-₩${NumberFormat('#,###').format(_totalExpenseSum)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(color: Color(0xFFFF5252), fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

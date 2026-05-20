@@ -299,6 +299,9 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         _lastNotifiedWorkDateYmd = next;
       }
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+      if (!kIsWeb && Platform.isAndroid) {
+        unawaited(ScreenshotAutoRegisterService.instance.start());
+      }
     }
   }
 

@@ -599,7 +599,6 @@ class _StatsPageState extends State<StatsPage> {
                 final useExpandedSplit = isExpanded && !compact;
                 final chartsSideBySide = !useExpandedSplit && maxW >= 640 && !compact;
                 final tight = maxH < 580;
-                final gapSm = compact ? 8.0 : (isTablet ? 24.0 : 16.0);
                 final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 final gridAspect = tight
@@ -617,45 +616,60 @@ class _StatsPageState extends State<StatsPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildPeriodButtonBar(compact, buttonFontSize),
-                      SizedBox(height: gapSm),
                       if (useExpandedSplit)
                         Expanded(
-                          child: Row(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                flex: 5,
-                                child: _buildExpandedStatsLeftColumn(
-                                  sectionTitleFontSize: sectionTitleFontSize,
-                                  statCardTitleFontSize: statCardTitleFontSize,
-                                  statCardValueFontSize: statCardValueFontSize,
-                                  cardGap: cardGap,
+                              Center(
+                                child: _buildPeriodButtonBar(
+                                  compact,
+                                  buttonFontSize,
+                                  wrapAlignment: WrapAlignment.center,
                                 ),
                               ),
-                              SizedBox(width: gapMd),
+                              SizedBox(height: cardGap),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: 5,
+                                    child: _buildWholeStatsTitleRow(sectionTitleFontSize),
+                                  ),
+                                  Expanded(
+                                    flex: 11,
+                                    child: _buildIncomeAnalysisTitleRow(sectionTitleFontSize),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: cardGap),
                               Expanded(
-                                flex: 11,
-                                child: Column(
+                                child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
-                                    Text(
-                                      '수익 분석',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: sectionTitleFontSize,
+                                    Expanded(
+                                      flex: 5,
+                                      child: _buildExpandedStatsMetricsColumn(
+                                        statCardTitleFontSize: statCardTitleFontSize,
+                                        statCardValueFontSize: statCardValueFontSize,
+                                        cardGap: cardGap,
                                       ),
                                     ),
-                                    SizedBox(height: gapBetweenCharts),
+                                    SizedBox(width: gapMd),
                                     Expanded(
-                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
-                                    ),
-                                    SizedBox(height: gapBetweenCharts),
-                                    Expanded(
-                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                      flex: 11,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          Expanded(
+                                            child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                          ),
+                                          SizedBox(height: gapBetweenCharts),
+                                          Expanded(
+                                            child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -681,15 +695,10 @@ class _StatsPageState extends State<StatsPage> {
                           ),
                         ),
                         SizedBox(height: compact ? 10 : 16),
-                        Text(
-                          '수익 분석',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: sectionTitleFontSize,
-                          ),
+                        _buildIncomeAnalysisHeaderRow(
+                          sectionTitleFontSize: sectionTitleFontSize,
+                          compact: compact,
+                          buttonFontSize: buttonFontSize,
                         ),
                         SizedBox(height: compact ? 8 : 12),
                         Expanded(
@@ -731,52 +740,142 @@ class _StatsPageState extends State<StatsPage> {
 
   List<Widget> _buildStatCardWidgets(double titleFontSize, double valueFontSize) {
     return <Widget>[
-      _statCard(
-        '총 순수익',
-        NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
-        const Color(0xFFFFC700),
-        titleFontSize,
-        valueFontSize,
+      _statMetricCard(
+        title: '총 순수익',
+        value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
+        valueColor: const Color(0xFFFFC700),
+        titleFontSize: titleFontSize,
+        valueFontSize: valueFontSize,
       ),
-      _statCard(
-        '총 매출',
-        NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
-        Colors.green,
-        titleFontSize,
-        valueFontSize,
+      _statMetricCard(
+        title: '총 매출',
+        value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
+        valueColor: Colors.green,
+        titleFontSize: titleFontSize,
+        valueFontSize: valueFontSize,
       ),
-      _statCard(
-        '총 지출',
-        NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
-        const Color(0xFFFF5252),
-        titleFontSize,
-        valueFontSize,
+      _statMetricCard(
+        title: '총 지출',
+        value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
+        valueColor: const Color(0xFFFF5252),
+        titleFontSize: titleFontSize,
+        valueFontSize: valueFontSize,
       ),
       if (_selectedPeriod != '일간')
-        _statCard(
-          '근무일수 / 운행건수',
-          '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-          Colors.white,
-          titleFontSize,
-          valueFontSize,
+        _statMetricCard(
+          title: '근무일수 / 운행건수',
+          value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
+          valueColor: Colors.white,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
         )
       else
-        _statCard(
-          '운행 건수',
-          '${_stats['totalCount'] ?? 0}',
-          Colors.white,
-          titleFontSize,
-          valueFontSize,
+        _statMetricCard(
+          title: '운행 건수',
+          value: '${_stats['totalCount'] ?? 0}',
+          valueColor: Colors.white,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
         ),
     ];
   }
 
-  Widget _buildPeriodButtonBar(bool compact, double buttonFontSize) {
-    return Center(
+  TextStyle _sectionTitleStyle(double fontSize) => TextStyle(
+        fontFamily: 'GmarketSans',
+        color: Colors.white,
+        fontWeight: FontWeight.w700,
+        fontSize: fontSize,
+      );
+
+  /// 펼침 우측: 수익 분석 제목만 (전체 통계 헤더 라인과 동일 높이).
+  Widget _buildIncomeAnalysisTitleRow(double sectionTitleFontSize) {
+    return SizedBox(
+      height: 36,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          '수익 분석',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _sectionTitleStyle(sectionTitleFontSize),
+        ),
+      ),
+    );
+  }
+
+  /// 펼침 좌측: 전체 통계 + 지도 (수익 분석 라인과 동일 높이).
+  Widget _buildWholeStatsTitleRow(double sectionTitleFontSize) {
+    return SizedBox(
+      height: 36,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Text(
+              '전체 통계',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _sectionTitleStyle(sectionTitleFontSize),
+            ),
+          ),
+          if (kMapFeaturesEnabled)
+            IconButton(
+              onPressed: _openRouteMap,
+              icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+              tooltip: '기간 경로 지도',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncomeAnalysisHeaderRow({
+    required double sectionTitleFontSize,
+    required bool compact,
+    required double buttonFontSize,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            '수익 분석',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _sectionTitleStyle(sectionTitleFontSize),
+          ),
+        ),
+        SizedBox(width: compact ? 6 : 10),
+        Flexible(
+          child: _buildPeriodButtonBar(compact, buttonFontSize),
+        ),
+      ],
+    );
+  }
+
+  static const Widget _emptyChartMessage = Center(
+    child: Text(
+      '데이터가 없습니다.',
+      style: TextStyle(color: Color(0xFF6E717C)),
+    ),
+  );
+
+  Widget _buildPeriodButtonBar(
+    bool compact,
+    double buttonFontSize, {
+    WrapAlignment wrapAlignment = WrapAlignment.end,
+  }) {
+    final align = wrapAlignment == WrapAlignment.center
+        ? Alignment.center
+        : (wrapAlignment == WrapAlignment.start ? Alignment.centerLeft : Alignment.centerRight);
+    return Align(
+      alignment: align,
       child: Wrap(
         spacing: compact ? 6 : 10,
         runSpacing: compact ? 6 : 10,
-        alignment: WrapAlignment.center,
+        alignment: wrapAlignment,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: ['일간', '주간', '월간', '연간'].map((t) {
           return ElevatedButton(
@@ -807,8 +906,8 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _buildExpandedStatsLeftColumn({
-    required double sectionTitleFontSize,
+  /// 펼침 좌측: 날짜 선택(프로그램별 매출 타이틀 라인) + 지표 카드.
+  Widget _buildExpandedStatsMetricsColumn({
     required double statCardTitleFontSize,
     required double statCardValueFontSize,
     required double cardGap,
@@ -846,34 +945,12 @@ class _StatsPageState extends State<StatsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '전체 통계',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
-                style: TextStyle(
-                  fontFamily: 'GmarketSans',
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: sectionTitleFontSize,
-                ),
-              ),
-            ),
-            if (kMapFeaturesEnabled)
-              IconButton(
-                onPressed: _openRouteMap,
-                icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-                tooltip: '기간 경로 지도',
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-              ),
-          ],
+        // 우측 차트 패널: padding 12 → 타이틀(프로그램별 매출) 라인과 동일 오프셋
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: _buildDateSelector(compact: true),
         ),
-        SizedBox(height: cardGap),
-        _buildDateSelector(compact: true),
+        const SizedBox(height: 8),
         SizedBox(height: cardGap),
         Expanded(
           child: Column(
@@ -881,7 +958,7 @@ class _StatsPageState extends State<StatsPage> {
               for (var i = 0; i < metrics.length; i++) ...[
                 if (i > 0) SizedBox(height: cardGap),
                 Expanded(
-                  child: _statMetricRowCard(
+                  child: _statMetricCard(
                     title: metrics[i].title,
                     value: metrics[i].value,
                     valueColor: metrics[i].color,
@@ -897,7 +974,7 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _statMetricRowCard({
+  Widget _statMetricCard({
     required String title,
     required String value,
     required Color valueColor,
@@ -908,33 +985,35 @@ class _StatsPageState extends State<StatsPage> {
       width: double.infinity,
       decoration: BorderedSection.decoration(),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      alignment: Alignment.center,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: const Color(0xFF6E717C),
-                fontWeight: FontWeight.bold,
-                fontSize: titleFontSize,
-              ),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: const Color(0xFF6E717C),
+              fontWeight: FontWeight.bold,
+              fontSize: titleFontSize,
             ),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: valueColor,
-                fontWeight: FontWeight.bold,
-                fontSize: valueFontSize,
+          SizedBox(height: math.max(6, titleFontSize * 0.35)),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                value,
+                textAlign: TextAlign.right,
+                maxLines: 1,
+                style: TextStyle(
+                  color: valueColor,
+                  fontWeight: FontWeight.bold,
+                  fontSize: valueFontSize,
+                ),
               ),
             ),
           ),
@@ -991,41 +1070,6 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _statCard(String title, String value, Color color, double titleFontSize, double valueFontSize) {
-    return Container(
-      padding: EdgeInsets.all(math.min(12, titleFontSize)),
-      decoration: BorderedSection.decoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: const Color(0xFF6E717C), fontWeight: FontWeight.bold, fontSize: titleFontSize),
-          ),
-          SizedBox(height: math.min(8, titleFontSize * 0.5)),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: Text(
-                  value,
-                  textAlign: TextAlign.right,
-                  maxLines: 1,
-                  style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: valueFontSize),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildProgramChart(double titleFontSize) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1041,7 +1085,7 @@ class _StatsPageState extends State<StatsPage> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: _chartData.isEmpty
-                ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
+                ? _emptyChartMessage
                 : _buildBarChart(_chartData, 'program', 'revenue'),
           ),
         ),
@@ -1069,7 +1113,7 @@ class _StatsPageState extends State<StatsPage> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: _secondChartData.isEmpty
-                ? const Center(child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C))))
+                ? _emptyChartMessage
                 : _buildBarChart(_secondChartData, _getSecondChartKey(), 'revenue'),
           ),
         ),
@@ -1150,7 +1194,7 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildBarChart(List<Map<String, dynamic>> data, String labelKey, String valueKey) {
-    if (data.isEmpty) return const SizedBox();
+    if (data.isEmpty) return _emptyChartMessage;
     final totalSum = data.fold(0, (sum, item) => sum + ((item[valueKey] as int?) ?? 0));
     final displayMaxValue = totalSum > 0 ? totalSum.toDouble() : 1.0;
     return GestureDetector(
