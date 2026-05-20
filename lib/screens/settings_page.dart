@@ -150,17 +150,28 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (isExpanded) {
       const gridGap = 16.0;
+      final gridSections = sections.length > 1 ? sections.sublist(0, sections.length - 1) : sections;
+      final versionSection = sections.isNotEmpty ? sections.last : null;
       return SingleChildScrollView(
         padding: EdgeInsets.all(horizontalPadding),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final itemWidth = (constraints.maxWidth - gridGap) / 2;
-            return Wrap(
-              spacing: gridGap,
-              runSpacing: gridGap,
-              children: sections
-                  .map((section) => SizedBox(width: itemWidth, child: section))
-                  .toList(),
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: gridGap,
+                  runSpacing: gridGap,
+                  children: gridSections
+                      .map((section) => SizedBox(width: itemWidth, child: section))
+                      .toList(),
+                ),
+                if (versionSection != null) ...[
+                  SizedBox(height: gridGap),
+                  versionSection,
+                ],
+              ],
             );
           },
         ),

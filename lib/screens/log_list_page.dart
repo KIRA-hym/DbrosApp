@@ -543,6 +543,10 @@ class _LogListPageState extends State<LogListPage> {
 
   Future<void> _shareMonthListAsImage() async {
     if (!mounted || _isLoading) return;
+    if (ResponsiveLayout.isExpanded(context)) {
+      showDbrosSnackBar(context, '폰을 접은 상태에서만 공유 기능이 가능합니다.');
+      return;
+    }
     if (kIsWeb) {
       showDbrosSnackBar(context, '웹에서는 공유를 지원하지 않습니다.');
       return;

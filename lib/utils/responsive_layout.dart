@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 /// 폰 · 태블릿 · 폴드 펼침(넓은 화면) 구간.
@@ -14,9 +16,11 @@ class ResponsiveLayout {
 
   static LayoutTier tierOf(Size size) {
     final w = size.width;
-    final shortest = size.shortestSide;
-    // Z Fold 6 펼침: 가로 ~840dp 이상 또는 짧은 변 ≥580 & 가로 ≥720
-    if (w >= 840 || (shortest >= 580 && w >= 720)) {
+    final h = size.height;
+    final shortest = math.min(w, h);
+    final longest = math.max(w, h);
+    // Z Fold 6 펼침 세로(~690×830dp) 포함: 짧은 변 ≥580 & 긴 변 ≥720, 또는 가로 ≥840
+    if (w >= 840 || (shortest >= 580 && longest >= 720)) {
       return LayoutTier.expanded;
     }
     if (w >= 600) return LayoutTier.tablet;
