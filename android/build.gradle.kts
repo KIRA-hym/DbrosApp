@@ -1,7 +1,27 @@
+import com.android.build.gradle.LibraryExtension
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+// AGP 8+: namespace 미지정 구형 플러그인(예: screenshot_callback) 보정
+subprojects {
+    afterEvaluate {
+        extensions.findByType(LibraryExtension::class.java)?.let { androidExt ->
+            if (androidExt.namespace.isNullOrBlank()) {
+                val manifestFile = project.file("src/main/AndroidManifest.xml")
+                if (manifestFile.exists()) {
+                    Regex("""package="([^"]+)"""")
+                        .find(manifestFile.readText())
+                        ?.groupValues
+                        ?.get(1)
+                        ?.let { androidExt.namespace = it }
+                }
+            }
+        }
     }
 }
 
