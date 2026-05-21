@@ -214,6 +214,20 @@ class _StatsPageState extends State<StatsPage> {
                 ? DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isBefore(today) || DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isAtSameMomentAs(today)
                 : DateTime(selDateOnly.year + 1, 1, 1).isBefore(today) || DateTime(selDateOnly.year + 1, 1, 1).isAtSameMomentAs(today);
 
+    final dateLabel = Text(
+      displayText,
+      textAlign: TextAlign.center,
+      maxLines: compact ? 2 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: const Color(0xFFFFC700),
+        fontWeight: FontWeight.bold,
+        fontSize: fontSize,
+      ),
+    );
+
+    // compact=true: 가로 제한 있음 → Expanded 가능.
+    // FittedBox 등 무한 가로 제약: Expanded 사용 시 RenderFlex 레이아웃 오류(웹·좁은 화면).
     final row = Row(
       mainAxisSize: compact ? MainAxisSize.max : MainAxisSize.min,
       children: [
@@ -223,15 +237,7 @@ class _StatsPageState extends State<StatsPage> {
           constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
           padding: compact ? EdgeInsets.zero : null,
         ),
-        Expanded(
-          child: Text(
-            displayText,
-            textAlign: TextAlign.center,
-            maxLines: compact ? 2 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: fontSize),
-          ),
-        ),
+        if (compact) Expanded(child: dateLabel) else dateLabel,
         IconButton(
           onPressed: canGoNext ? onNext : null,
           icon: Icon(Icons.chevron_right, color: const Color(0xFFFFC700), size: iconSize),
@@ -605,19 +611,27 @@ class _StatsPageState extends State<StatsPage> {
                 final maxW = constraints.maxWidth;
                 final compact = maxH < 520 || maxW < 340;
                 final useExpandedSplit = isExpanded && !compact;
-                final chartsSideBySide = !useExpandedSplit && maxW >= 640 && !compact;
+                // 접힘(비펼침): 프로그램·시간대 차트를 좌/우 열로 배치(각 패널 안은 세로 스크롤 막대).
+                // 예전 maxW>=640 은 일반 폰·접힌 폴드 폭에서 Column(상하)로 떨어져 웹 테스트 시 불일치.
+                final chartsSideBySide = !useExpandedSplit && !compact;
                 final tight = maxH < 580;
                 final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
-                final gridAspect = tight
-                    ? (maxW < 360 ? 1.35 : 1.45)
-                    : (compact ? 1.55 : 1.8);
+                // 세로가 짧을 때 지표 2×2가 잘리지 않도록 지표 영역 비중 확대
+                final statsFlex = (tight || compact) ? 3 : 2;
+                final chartsFlex = (tight || compact) ? 2 : 3;
 
                 final statCards = _buildStatCardWidgets(
                   statCardTitleFontSize,
                   statCardValueFontSize,
+                  compact: compact,
                 );
                 final cardGap = compact ? 8.0 : 12.0;
+                final statRowHeight = _statCardMinHeight(
+                  statCardTitleFontSize,
+                  statCardValueFontSize,
+                  compact: compact,
+                );
 
                 return Padding(
                   padding: EdgeInsets.all(padding),
@@ -649,18 +663,7 @@ class _StatsPageState extends State<StatsPage> {
                                 ],
                               ),
                               SizedBox(height: cardGap),
-                              SizedBox(
-                                height: 90,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (int i = 0; i < statCards.length; i++) ...[
-                                      Expanded(child: statCards[i]),
-                                      if (i < statCards.length - 1) SizedBox(width: cardGap),
-                                    ],
-                                  ],
-                                ),
-                              ),
+                              _statCardsInRow(statCards, cardGap, statRowHeight),
 
                               SizedBox(height: gapMd),
 
@@ -672,11 +675,11 @@ class _StatsPageState extends State<StatsPage> {
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize, compact: compact)),
                                     ),
                                     SizedBox(width: gapBetweenCharts),
                                     Expanded(
-                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize, compact: compact)),
                                     ),
                                   ],
                                 ),
@@ -699,15 +702,8 @@ class _StatsPageState extends State<StatsPage> {
                         ),
                         SizedBox(height: gapMd),
                         Expanded(
-                          flex: 2,
-                          child: GridView.count(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: cardGap,
-                            mainAxisSpacing: cardGap,
-                            childAspectRatio: gridAspect,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: statCards,
-                          ),
+                          flex: statsFlex,
+                          child: _statCardsTwoByTwo(statCards, cardGap),
                         ),
                         SizedBox(height: compact ? 10 : 16),
                         Align(
@@ -721,28 +717,28 @@ class _StatsPageState extends State<StatsPage> {
                         ),
                         SizedBox(height: compact ? 8 : 12),
                         Expanded(
-                          flex: 3,
+                          flex: chartsFlex,
                           child: chartsSideBySide
                               ? Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize, compact: compact)),
                                     ),
                                     SizedBox(width: gapBetweenCharts),
                                     Expanded(
-                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize, compact: compact)),
                                     ),
                                   ],
                                 )
                               : Column(
                                   children: [
                                     Expanded(
-                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize, compact: compact)),
                                     ),
                                     SizedBox(height: gapBetweenCharts),
                                     Expanded(
-                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize, compact: compact)),
                                     ),
                                   ],
                                 ),
@@ -757,7 +753,65 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  List<Widget> _buildStatCardWidgets(double titleFontSize, double valueFontSize) {
+  /// 지표 카드 1장 최소 높이(제목 2줄·금액·패딩). 펼침 1열 배치용.
+  double _statCardMinHeight(double titleFontSize, double valueFontSize, {bool compact = false}) {
+    final verticalPad = compact ? 16.0 : 24.0;
+    final innerGap = math.max(6.0, titleFontSize * 0.35);
+    final titleBlock = titleFontSize * 1.25 * 2;
+    final valueBlock = valueFontSize * 1.15;
+    return verticalPad + titleBlock + innerGap + valueBlock + (compact ? 2.0 : 4.0);
+  }
+
+  /// 펼침: 지표 4개 가로 1열.
+  Widget _statCardsInRow(List<Widget> cards, double gap, double rowHeight) {
+    return SizedBox(
+      height: rowHeight,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (int i = 0; i < cards.length; i++) ...[
+            Expanded(child: cards[i]),
+            if (i < cards.length - 1) SizedBox(width: gap),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 접힘·일반: 지표 2×2 — 부모 [Expanded] 높이에 맞춰 셀 크기 자동 분배.
+  Widget _statCardsTwoByTwo(List<Widget> cards, double gap) {
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: cards[0]),
+              SizedBox(width: gap),
+              Expanded(child: cards[1]),
+            ],
+          ),
+        ),
+        SizedBox(height: gap),
+        Expanded(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: cards[2]),
+              SizedBox(width: gap),
+              Expanded(child: cards[3]),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  List<Widget> _buildStatCardWidgets(
+    double titleFontSize,
+    double valueFontSize, {
+    bool compact = false,
+  }) {
     return <Widget>[
       _statMetricCard(
         title: '총 순수익',
@@ -765,6 +819,7 @@ class _StatsPageState extends State<StatsPage> {
         valueColor: const Color(0xFFFFC700),
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        compact: compact,
       ),
       _statMetricCard(
         title: '총 매출',
@@ -772,6 +827,7 @@ class _StatsPageState extends State<StatsPage> {
         valueColor: Colors.green,
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        compact: compact,
       ),
       _statMetricCard(
         title: '총 지출',
@@ -779,6 +835,7 @@ class _StatsPageState extends State<StatsPage> {
         valueColor: const Color(0xFFFF5252),
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        compact: compact,
       ),
       if (_selectedPeriod != '일간')
         _statMetricCard(
@@ -787,6 +844,7 @@ class _StatsPageState extends State<StatsPage> {
           valueColor: Colors.white,
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
+          compact: compact,
         )
       else
         _statMetricCard(
@@ -795,6 +853,7 @@ class _StatsPageState extends State<StatsPage> {
           valueColor: Colors.white,
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
+          compact: compact,
         ),
     ];
   }
@@ -970,45 +1029,61 @@ class _StatsPageState extends State<StatsPage> {
     required Color valueColor,
     required double titleFontSize,
     required double valueFontSize,
+    bool compact = false,
   }) {
-    return Container(
-      width: double.infinity,
-      decoration: BorderedSection.decoration(),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: const Color(0xFF6E717C),
-              fontWeight: FontWeight.bold,
-              fontSize: titleFontSize,
-            ),
-          ),
-          SizedBox(height: math.max(6, titleFontSize * 0.35)),
-          Align(
-            alignment: Alignment.centerRight,
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
-              child: Text(
-                value,
-                textAlign: TextAlign.right,
-                maxLines: 1,
-                style: TextStyle(
-                  color: valueColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: valueFontSize,
-                ),
+    final hPad = compact ? 10.0 : 14.0;
+    final vPad = compact ? 8.0 : 12.0;
+    final innerGap = math.max(4.0, titleFontSize * 0.3);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final contentW = constraints.maxWidth.isFinite
+            ? math.max(72.0, constraints.maxWidth - hPad * 2)
+            : 160.0;
+
+        return Container(
+          width: double.infinity,
+          decoration: BorderedSection.decoration(),
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: contentW,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: compact ? 1 : 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF6E717C),
+                      fontWeight: FontWeight.bold,
+                      fontSize: titleFontSize,
+                      height: 1.15,
+                    ),
+                  ),
+                  SizedBox(height: innerGap),
+                  Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: valueColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: valueFontSize,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1060,31 +1135,23 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _buildProgramChart(double titleFontSize) {
+  Widget _buildProgramChart(double titleFontSize, {bool compact = false}) {
     final validData = _chartData.where((e) {
       final val = (e['revenue'] as num?)?.toInt() ?? 0;
       return val > 0;
     }).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '프로그램별 매출',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: validData.isEmpty
-              ? _emptyChartMessage
-              : StatsBarChartBody(data: validData, labelKey: 'program', valueKey: 'revenue'),
-        ),
-      ],
+    return _chartPanelBody(
+      title: '프로그램별 매출',
+      titleFontSize: titleFontSize,
+      compact: compact,
+      maxTitleLines: 1,
+      body: validData.isEmpty
+          ? _emptyChartMessage
+          : StatsBarChartBody(data: validData, labelKey: 'program', valueKey: 'revenue'),
     );
   }
 
-  Widget _buildSecondChart(double titleFontSize) {
+  Widget _buildSecondChart(double titleFontSize, {bool compact = false}) {
     final title = _selectedPeriod == '일간'
         ? '시간대별 순수익'
         : (_selectedPeriod == '주간'
@@ -1095,22 +1162,57 @@ class _StatsPageState extends State<StatsPage> {
       final val = (e['revenue'] as num?)?.toInt() ?? 0;
       return val > 0;
     }).toList();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: titleFontSize),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: validData.isEmpty
-              ? _emptyChartMessage
-              : StatsBarChartBody(data: validData, labelKey: labelKey, valueKey: 'revenue'),
-        ),
-      ],
+    return _chartPanelBody(
+      title: title,
+      titleFontSize: titleFontSize,
+      compact: compact,
+      maxTitleLines: compact ? 1 : 2,
+      body: validData.isEmpty
+          ? _emptyChartMessage
+          : StatsBarChartBody(data: validData, labelKey: labelKey, valueKey: 'revenue'),
+    );
+  }
+
+  Widget _chartPanelBody({
+    required String title,
+    required double titleFontSize,
+    required bool compact,
+    required int maxTitleLines,
+    required Widget body,
+  }) {
+    final gap = compact ? 4.0 : 8.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxTitle = compact ? 28.0 : 44.0;
+        final titleH = math.max(
+          12.0,
+          math.min(maxTitle, constraints.maxHeight - gap - 2),
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: titleH,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  title,
+                  maxLines: maxTitleLines,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: titleFontSize,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(height: gap),
+            Expanded(child: body),
+          ],
+        );
+      },
     );
   }
 

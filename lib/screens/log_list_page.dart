@@ -13,6 +13,7 @@ import '../main.dart';
 import 'write_log_page.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
+import '../utils/work_date_utils.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
 
@@ -61,13 +62,36 @@ class _LogListPageState extends State<LogListPage> {
   /// 마스터-디테일 우측 패널 강제 갱신(하루 삭제·월 데이터 reload 등).
   int _detailRevision = 0;
 
+  /// 펼침 마스터-디테일: 우측에 일지가 있는 날을 우선 선택(웹 목업·근무일 9시 기준과 맞춤).
   String _defaultDateYmdInFocusedMonth() {
-    final now = DateTime.now();
     final y = _focusedMonth.year;
     final m = _focusedMonth.month;
     final daysInMonth = DateUtils.getDaysInMonth(y, m);
-    final day = (now.year == y && now.month == m) ? now.day.clamp(1, daysInMonth) : 1;
-    return DateFormat('yyyy-MM-dd').format(DateTime(y, m, day));
+    final now = DateTime.now();
+
+    if (now.year == y && now.month == m) {
+      final todayStr = DateFormat('yyyy-MM-dd').format(DateTime(y, m, now.day));
+      if ((_groupedLogs[todayStr] ?? []).isNotEmpty) return todayStr;
+    }
+
+    final effective = WorkDateUtils.effectiveWorkDateYmd();
+    final effectiveParsed = DateTime.tryParse(effective);
+    if (effectiveParsed != null &&
+        effectiveParsed.year == y &&
+        effectiveParsed.month == m &&
+        (_groupedLogs[effective] ?? []).isNotEmpty) {
+      return effective;
+    }
+
+    for (int d = 1; d <= daysInMonth; d++) {
+      final ds = DateFormat('yyyy-MM-dd').format(DateTime(y, m, d));
+      if ((_groupedLogs[ds] ?? []).isNotEmpty) return ds;
+    }
+
+    if (now.year == y && now.month == m) {
+      return DateFormat('yyyy-MM-dd').format(DateTime(y, m, now.day.clamp(1, daysInMonth)));
+    }
+    return DateFormat('yyyy-MM-dd').format(DateTime(y, m, 1));
   }
 
   Widget _buildMasterDetailAmountRow({
@@ -242,7 +266,8 @@ class _LogListPageState extends State<LogListPage> {
       final parsed = DateTime.tryParse(selected);
       if (parsed != null &&
           parsed.year == _focusedMonth.year &&
-          parsed.month == _focusedMonth.month) {
+          parsed.month == _focusedMonth.month &&
+          (_groupedLogs[selected] ?? []).isNotEmpty) {
         return;
       }
     }
