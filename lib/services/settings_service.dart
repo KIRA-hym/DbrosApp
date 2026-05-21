@@ -126,6 +126,12 @@ class SettingsService {
   static Future<void> setStatusBarQuickEnabled(bool value) async =>
       await _prefs.setBool('statusBarQuickEnabled', value);
 
+  /// 스크린샷 감시 → OCR 자동 등록 (Android). 끄면 리스너를 해제한다.
+  static bool get screenshotAutoRegisterEnabled =>
+      _prefs.getBool('screenshotAutoRegisterEnabled') ?? true;
+  static Future<void> setScreenshotAutoRegisterEnabled(bool value) async =>
+      await _prefs.setBool('screenshotAutoRegisterEnabled', value);
+
   static Future<void> addProgram(String program) async {
     final currentList = programList;
     if (!currentList.contains(program)) {

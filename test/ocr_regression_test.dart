@@ -140,7 +140,7 @@ kakao
       final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
       expect(parsed.startLocation, '중동 이치화로 용인동백점');
       expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
-      expect(parsed.waypoint, '죽전동 경유');
+      expect(parsed.waypoint, '죽전동');
       expect(parsed.grossFare, 29600);
     });
 
@@ -1497,7 +1497,97 @@ T 티맵으로 길안내
 15,000 P
 ''';
       final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.waypoint, '풍무동 경유');
+      expect(parsed.waypoint, '풍무동');
+    });
+
+    test('Kakao waypoint: OO동 경유 Q after 카드 확정 still parsed (not cut by payment index)', () {
+      const rawText = '''
+23:48 규T
+배정 완료
+카드 확정
+TALK
+사우동
+해원
+고객과 통화
+풍무동 경유 Q
+경기 고양 일산동구 백석동
+효성레제스오피스텔
+고객과 만날 장소 길찾기
+28,800
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.waypoint, '풍무동');
+      expect(parsed.startLocation, contains('사우동'));
+      expect(parsed.endLocation, contains('백석동'));
+    });
+
+    test('Colmanner full OCR: 합정 삼아빌딩→화곡, 하단 합계·예상 수수료 줄이 도착지에 붙지 않음', () {
+      const rawText = '''
+O1:28
+위치 : 합정동/ 합정역 잔액 : 119,644원
+고객전화
+지사명 올타대리(글로벌대리)
+고객명 **
+출발지
+도착지
+출도
+서울 마포구 합정동
+합정동삼아빌딩
+차감합계
+적요 /
+상황실
+서울 강서구 화곡동
+화곡화이트마사지
+경로거리 : 7.4km
+요금 25,000원 (예상 수익금:19,162원)
+현금 25000원
+연락처
+(예상소요시간 : 13분)
+입금합계 합계 : 0원
+합계 : 6,097원
+상황실
+예상 운행수수료 : 5,000원
+예상 고용보험료 : 110원
+예상 산자보험료 : 128원
+025606200
+접수시간 오전이1:2
+고객위치
+90 출도경로
+운행 시작
+||
+킬안내
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.grossFare, 25000);
+      expect(parsed.startLocation, contains('합정'));
+      expect(parsed.startLocation, contains('삼아빌딩'));
+      expect(parsed.endLocation, contains('화곡'));
+      expect(parsed.endLocation, contains('화이트'));
+      expect(parsed.endLocation, isNot(contains('합계')));
+      expect(parsed.endLocation, isNot(contains('6097')));
+      expect(parsed.endLocation, isNot(contains('예상 운행')));
+      expect(parsed.endLocation, isNot(contains('운행수수료')));
+    });
+
+    /// OCR이 마사지 줄과 하단 정산 줄을 한 줄로 붙이는 경우
+    test('Colmanner: 도착 POI 줄에 합계·예상 수수료가 붙어도 도착지만 남김', () {
+      const rawText = '''
+출발지
+도착지
+출도
+서울 마포구 합정동
+합정동삼아빌딩
+서울 강서구 화곡동 화곡화이트마사지 합계 : 6,097원 예상 운행수수료 : 5,000원
+경로거리 : 7.4km
+요금 25,000원
+''';
+      final parsed = LogiColmannerOcr.parseColmanner(rawText);
+      expect(parsed.endLocation, contains('화곡'));
+      expect(parsed.endLocation, contains('마사지'));
+      expect(parsed.endLocation, isNot(contains('합계')));
+      expect(parsed.endLocation, isNot(contains('6097')));
+      expect(parsed.endLocation, isNot(contains('운행수수료')));
+      expect(parsed.endLocation, isNot(contains('5,000')));
     });
 
     test('Colmanner starting point strips "카" payment abbreviation', () {

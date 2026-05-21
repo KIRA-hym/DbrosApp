@@ -118,6 +118,29 @@ class KakaoCallCardOcr {
     return null;
   }
 
+  /// 앱 OCR 디버그·로그 헤더가 그대로 찍힌 스크린샷 등(실제 카카오 콜화면 아님).
+  static bool looksLikeInternalOcrReviewDump(String fullText) {
+    final n = _compact(fullText);
+    return n.contains('자동인식성공로그') || n.contains('자동인식실패로그');
+  }
+
+  /// 스크린샷 자동등록 한정 — 배정/UI/법인 등 **콜카드 신호**가 있을 때만 허용.
+  static bool screenshotAutoEligibleContext(String fullText) {
+    if (looksLikeInternalOcrReviewDump(fullText)) return false;
+    final n = _compact(fullText);
+    if (n.isEmpty) return false;
+    if (_assignmentComplete(n) || _tPhone(n) || _hasForm2UiMarkers(n)) return true;
+    if (n.contains('운영센터')) return true;
+    if (_hasCorporateInsurance(n)) return true;
+    if (looksLikeKakaoCashPayment(fullText)) return true;
+    final hasCall = n.contains('고객과통화');
+    if (!hasCall) return false;
+    final hasFareShape = RegExp(r'\d{1,3},\d{3}').hasMatch(fullText);
+    final cardUi = (n.contains('카드') && n.contains('확정')) || n.contains('카드확정') || n.contains('카드|확정');
+    final totalFareWord = n.contains('총요금');
+    return hasFareShape || cardUi || totalFareWord;
+  }
+
   /// `현금 | 확정` 등 현금 배차 UI.
   static bool looksLikeKakaoCashPayment(String fullText) {
     final n = _compact(fullText);
@@ -655,14 +678,33 @@ class KakaoCallCardOcr {
   }
 
   static String _parseWaypointFromLines(List<String> lines) {
-    final payIdx = _findPaymentLineIndex(lines);
-    final bound = payIdx >= 0 ? payIdx : lines.length;
+    // "카드 확정" 등이 요금 줄보다 위에 있어 _findPaymentLineIndex 가 너무 이르면
+    // 그 아래의 "OO동 경유 Q" 줄이 스캔 범위에서 빠진다. 경유는 전달된 lines 전체에서 찾는다.
+    final bound = lines.length;
     final found = <String>[];
     for (var i = 0; i < bound; i++) {
-      final line = lines[i];
+      final line = lines[i].trim();
       if (!line.contains('경유')) continue;
-      final cleaned = line.replaceAll(RegExp(r'^\s*경유\s*지?\s*[:：]?\s*'), '').trim();
-      found.add(cleaned.isEmpty ? line.trim() : cleaned);
+
+      // "풍무동 경유 Q" — 지명이 앞에 오는 형태 (카카오 일반·동일)
+      final placeBefore = RegExp(
+        r'^(.+?)\s+경유(?:\s*지)?\s*[:：]?\s*Q?\s*$',
+        caseSensitive: false,
+      ).firstMatch(line);
+      if (placeBefore != null) {
+        var place = placeBefore.group(1)!.trim();
+        place = place.replaceAll(RegExp(r'\s+'), ' ').trim();
+        if (place.isNotEmpty && !_excludePaymentOrActionStrip(place)) {
+          found.add(place);
+          continue;
+        }
+      }
+
+      var cleaned = line.replaceAll(RegExp(r'^\s*경유\s*지?\s*[:：]?\s*'), '').trim();
+      if (cleaned.isEmpty || cleaned == line.trim()) {
+        cleaned = line.replaceAll(RegExp(r'경유\s*지?'), '').trim();
+      }
+      if (cleaned.isNotEmpty) found.add(cleaned);
     }
     var result = found.join(' ').trim();
     result = result.replaceAll(RegExp(r'\s*경유\s*Q\b', caseSensitive: false), '');

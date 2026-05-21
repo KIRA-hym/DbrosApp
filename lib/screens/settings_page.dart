@@ -9,6 +9,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../config/feature_flags.dart';
 import '../services/backup_service.dart';
 import '../services/screenshot_auto_debug_log.dart';
+import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/bordered_section.dart';
@@ -32,6 +33,7 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
   String _imagePurgePeriod = SettingsService.imagePurgePeriod;
+  bool _screenshotAutoRegisterEnabled = SettingsService.screenshotAutoRegisterEnabled;
   final _gasWebhookCon = TextEditingController(text: SettingsService.gasWebhookUrl);
   bool _hasGasChanges = false;
 
@@ -97,50 +99,66 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
       _buildBackupRestoreSettings(),
-      _buildStorageSettings(),
-      _buildOcrParseLogSettings(),
-      if (!kIsWeb && Platform.isAndroid && kMapFeaturesEnabled)
-        _buildScreenshotAutoDiagSettings(),
-      _buildSettingsGroup("수수료 설정", [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '카카오·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
-              ),
+      _buildSettingsGroup(
+        "수수료 설정",
+        [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '카카오·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
             ),
-            _buildTextField(_baseFeeCon, "기본 수수료율 (%)", onChanged: () {
-              _checkFeeChanges();
-            }),
-          ], showChangeButton: _hasFeeChanges, onSave: () {
-            SettingsService.setBaseFeeRate(double.tryParse(_baseFeeCon.text) ?? 20.0);
-            setState(() => _hasFeeChanges = false);
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료율이 저장되었습니다.")));
+          ),
+          _buildTextField(_baseFeeCon, "기본 수수료율 (%)", onChanged: () {
+            _checkFeeChanges();
           }),
-      _buildSettingsGroup("보험료 설정", [
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text(
-                '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 설정금액이 차감됩니다.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
-              ),
+        ],
+        showChangeButton: _hasFeeChanges,
+        onSave: () {
+          SettingsService.setBaseFeeRate(double.tryParse(_baseFeeCon.text) ?? 20.0);
+          setState(() => _hasFeeChanges = false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료율이 저장되었습니다.")));
+        },
+      ),
+      _buildSettingsGroup(
+        "보험료 설정",
+        [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Text(
+              '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 설정금액이 차감됩니다.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
             ),
-            _buildRadioTile("적용 안 함", 'none'),
-            _buildRadioTile("건당 보험료", 'per_trip', child: _insuranceType == 'per_trip' ? _buildTextField(_perTripInsCon, "1건당 차감 금액 (원)", onChanged: () {
-              _checkInsuranceChanges();
-            }) : null),
-          ], showChangeButton: _hasInsuranceChanges, onSave: () async {
-            await SettingsService.setInsuranceType(_insuranceType);
-            if (_insuranceType == 'per_trip') {
-              await SettingsService.setPerTripInsurance(int.tryParse(_perTripInsCon.text) ?? 0);
-            }
-            setState(() => _hasInsuranceChanges = false);
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("보험료 설정이 저장되었습니다.")));
-          }),
+          ),
+          _buildRadioTile("적용 안 함", 'none'),
+          _buildRadioTile(
+            "건당 보험료",
+            'per_trip',
+            child: _insuranceType == 'per_trip'
+                ? _buildTextField(_perTripInsCon, "1건당 차감 금액 (원)", onChanged: () {
+                    _checkInsuranceChanges();
+                  })
+                : null,
+          ),
+        ],
+        showChangeButton: _hasInsuranceChanges,
+        onSave: () async {
+          await SettingsService.setInsuranceType(_insuranceType);
+          if (_insuranceType == 'per_trip') {
+            await SettingsService.setPerTripInsurance(int.tryParse(_perTripInsCon.text) ?? 0);
+          }
+          setState(() => _hasInsuranceChanges = false);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("보험료 설정이 저장되었습니다.")));
+        },
+      ),
       _buildProgramListSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
       _buildFloatingButtonSettings(),
+      if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
+      _buildStorageSettings(),
+      _buildOcrParseLogSettings(),
+      if (!kIsWeb && Platform.isAndroid && kMapFeaturesEnabled) _buildScreenshotAutoDiagSettings(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -361,7 +379,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("프로그램 목록 관리", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text("프로그램 목록관리", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           Row(
             children: [
@@ -512,6 +530,52 @@ class _SettingsPageState extends State<SettingsPage> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
             child: const Text("저장", style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScreenshotAutoRegisterSettings() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '스크린샷 자동저장',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: spacing),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('자동 저장 사용', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+            subtitle: Text(
+              '켜두면 스크린샷 직후 콜카드로 인식될 때만 운행일지에 자동 등록합니다. 끄면 감시 리스너가 해제되어 동작하지 않습니다.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+            ),
+            value: _screenshotAutoRegisterEnabled,
+            activeThumbColor: const Color(0xFFFFC700),
+            onChanged: (value) async {
+              await SettingsService.setScreenshotAutoRegisterEnabled(value);
+              await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+              if (!mounted) return;
+              setState(() {
+                _screenshotAutoRegisterEnabled = SettingsService.screenshotAutoRegisterEnabled;
+              });
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(value ? '스크린샷 자동저장이 켜졌습니다.' : '스크린샷 자동저장이 꺼졌습니다.'),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -858,7 +922,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "상태바·퀵 기능",
+            "상태바 퀵기능",
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),

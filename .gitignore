@@ -60,3 +60,19 @@ defines.local.json
 
 # 로컬 백업 JSON/ZIP 샘플·디버그 export (저장소에 커밋하지 않음)
 /logs/
+
+# OCR 파싱 실험실 임시 JSON
+tools/.ocr_lab_tmp_*.json
+tools/.ocr_lab_in_*.json
+tools/.ocr_lab_out_*.json
+tools/.ocr_lab_done_*.json
+tools/.ocr_lab_job.json
+tools/.ocr_lab_worker_alive
+tools/.ocr_lab_worker.pid
+tools/.ocr_lab_flutter_log.txt
+tools/ocr_result.json
+tools/ocr_parse_report.txt
+tools/ocr_parse_log.txt
+tools/ocr_input.json
+tools/ocr_diag_*.json
+tools/ocr_diag_log.txt

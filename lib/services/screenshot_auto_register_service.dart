@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show File, Platform;
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -9,6 +10,7 @@ import 'package:screenshot_callback/screenshot_callback.dart';
 
 import 'auto_register_notification_service.dart';
 import 'call_card_ocr_parse_service.dart';
+import 'settings_service.dart';
 import 'screenshot_auto_debug_log.dart';
 import 'screenshot_gallery_finder.dart';
 
@@ -25,9 +27,13 @@ class ScreenshotAutoRegisterService {
   static const Duration _dedupeWindow = Duration(seconds: 20);
   static const Duration _fingerprintDedupeWindow = Duration(seconds: 30);
   static const Duration _galleryChangeDebounce = Duration(milliseconds: 330);
+  /// 같은 스크린샷이 다른 MediaStore id 로 두 번 들어오는 등 바이트는 같을 때 (제조사/갤러리 버그).
+  static const Duration _imageSampleDedupeWindow = Duration(seconds: 90);
+  static const int _imageSignatureMaxBytes = 256 * 1024;
 
   ScreenshotCallback? _callback;
   bool _started = false;
+  bool _nativeBridgeStarted = false;
   bool _busy = false;
   bool _pendingRetryAfterBusy = false;
   bool _galleryNotifyEnabled = false;
@@ -35,9 +41,21 @@ class ScreenshotAutoRegisterService {
   DateTime? _lastProcessedAt;
   String? _lastSaveFingerprint;
   DateTime? _lastSaveFingerprintAt;
+  String? _lastImageSampleSignature;
+  DateTime? _lastImageSampleSignatureAt;
   Timer? _galleryDebounce;
 
   bool get _isAndroid => !kIsWeb && Platform.isAndroid;
+
+  /// 설정값에 맞춰 리스너 시작 또는 해제. [main]·재개·설정 토글에서 호출.
+  Future<void> syncWithSettingsPreference() async {
+    if (!_isAndroid) return;
+    if (!SettingsService.screenshotAutoRegisterEnabled) {
+      stop();
+      return;
+    }
+    await start();
+  }
 
   /// 권한·리스너 설정. 거부 시 false (재시도 가능).
   Future<bool> start() async {
@@ -72,6 +90,8 @@ class ScreenshotAutoRegisterService {
   }
 
   Future<void> _ensureNativeGalleryObserver() async {
+    if (_nativeBridgeStarted) return;
+
     _nativeGalleryObserver.setMethodCallHandler((call) async {
       if (call.method == 'onChanged') {
         ScreenshotAutoDebugLog.add('이벤트: 네이티브 MediaStore(이미지) 변경');
@@ -81,6 +101,7 @@ class ScreenshotAutoRegisterService {
     });
     try {
       await _nativeGalleryObserver.invokeMethod<void>('start');
+      _nativeBridgeStarted = true;
       ScreenshotAutoDebugLog.add('네이티브 ContentObserver 등록 완료');
     } catch (e) {
       ScreenshotAutoDebugLog.add('경고: 네이티브 observer start 실패 → $e');
@@ -95,6 +116,7 @@ class ScreenshotAutoRegisterService {
     try {
       _nativeGalleryObserver.setMethodCallHandler(null);
     } catch (_) {}
+    _nativeBridgeStarted = false;
   }
 
   void stop() {
@@ -157,6 +179,7 @@ class ScreenshotAutoRegisterService {
       return;
     }
     _busy = true;
+    var suppressPendingRetryDueToSave = false;
     try {
       ScreenshotAutoDebugLog.add('처리 시작 — ${_writeDelay.inMilliseconds}ms 대기 후 갤러리 조회');
       await Future<void>.delayed(_writeDelay);
@@ -183,8 +206,19 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
-      final dedupeKey = _dedupeKeyForScreenshotPath(file.path);
       final now = DateTime.now();
+      final imageSig = await _fileLeadingBytesSignature(file);
+      if (imageSig != null &&
+          imageSig == _lastImageSampleSignature &&
+          _lastImageSampleSignatureAt != null &&
+          now.difference(_lastImageSampleSignatureAt!) < _imageSampleDedupeWindow) {
+        ScreenshotAutoDebugLog.add(
+          '건너뜀: 동일 이미지 샘플 해시($_imageSampleDedupeWindow)·다른 파일/갤러리 id 중복 무시',
+        );
+        return;
+      }
+
+      final dedupeKey = _dedupeKeyForScreenshotPath(file.path);
       if (_lastProcessedKey == dedupeKey &&
           _lastProcessedAt != null &&
           now.difference(_lastProcessedAt!) < _dedupeWindow) {
@@ -197,11 +231,11 @@ class ScreenshotAutoRegisterService {
         file,
         ocrSource: 'screenshot_auto',
       );
-      if (!CallCardOcrParseService.isValidForAutoSave(logData)) {
+      if (!CallCardOcrParseService.isValidForScreenshotAutoSave(logData)) {
         ScreenshotAutoDebugLog.add(
-          '결과: 파싱됐으나 자동저장 조건 불충족 (요금·출발·도착 등)',
+          '결과: 스크린샷 자동저장 제외(콜카드 UI 신호 부족·앱 OCR/디버그 화면 가능성 또는 약한 카카오 추정)',
         );
-        debugPrint('ScreenshotAutoRegister: parse invalid for auto-save');
+        debugPrint('ScreenshotAutoRegister: parse invalid for screenshot auto-save');
         return;
       }
 
@@ -220,6 +254,7 @@ class ScreenshotAutoRegisterService {
       final saved = await CallCardOcrParseService.saveLogToDatabase(
         logData,
         imagePrefix: 'screenshot',
+        registrationSource: 'screenshot_auto',
       );
       if (!saved) {
         ScreenshotAutoDebugLog.add('결과: DB 저장 호출 후 실패 처리');
@@ -231,20 +266,32 @@ class ScreenshotAutoRegisterService {
       _lastProcessedAt = doneAt;
       _lastSaveFingerprint = fp;
       _lastSaveFingerprintAt = doneAt;
+      if (imageSig != null) {
+        _lastImageSampleSignature = imageSig;
+        _lastImageSampleSignatureAt = doneAt;
+      }
 
       await AutoRegisterNotificationService.instance.showAutoRegisterComplete();
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
       debugPrint('ScreenshotAutoRegister: saved successfully');
+      suppressPendingRetryDueToSave = true;
     } catch (e, st) {
       ScreenshotAutoDebugLog.add('오류: $e');
       debugPrint('ScreenshotAutoRegister error: $e');
       debugPrint('$st');
     } finally {
       _busy = false;
-      if (_pendingRetryAfterBusy) {
-        _pendingRetryAfterBusy = false;
-        ScreenshotAutoDebugLog.add('대기 중이던 처리 재예약(디바운스)');
-        _scheduleHandle();
+      final pending = _pendingRetryAfterBusy;
+      _pendingRetryAfterBusy = false;
+      if (pending) {
+        if (suppressPendingRetryDueToSave) {
+          ScreenshotAutoDebugLog.add(
+            '대기 이벤트 생략: 같은 캡처 버스트로 보임(방금 자동저장 성공, 불필요 재실행 방지)',
+          );
+        } else {
+          ScreenshotAutoDebugLog.add('대기 중이던 처리 재예약(디바운스)');
+          _scheduleHandle();
+        }
       }
     }
   }
@@ -281,6 +328,25 @@ class ScreenshotAutoRegisterService {
   }
 
   /// 네이티브 캐시 `auto_screenshot_<id>` 는 MediaStore id 로 통합 (갤러리 경로와 이중 처리 시 경로 디바운스 일치).
+  /// 파일 앞쪽 + 전체 크기 요약 해시(OCR 비용 없이 같은 그림 재저장 차단).
+  Future<String?> _fileLeadingBytesSignature(File file) async {
+    try {
+      final len = await file.length();
+      if (len <= 0) return null;
+      final chunk = len > _imageSignatureMaxBytes ? _imageSignatureMaxBytes : len;
+      final raf = await file.open();
+      try {
+        final bytes = await raf.read(chunk);
+        final h = sha256.convert(bytes).toString();
+        return '$len|$h';
+      } finally {
+        await raf.close();
+      }
+    } catch (_) {
+      return null;
+    }
+  }
+
   static String _dedupeKeyForScreenshotPath(String path) {
     final name = path.replaceAll(r'\', '/').split('/').last;
     final m = RegExp(r'^auto_screenshot_(\d+)\.').firstMatch(name);

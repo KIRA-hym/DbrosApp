@@ -14,6 +14,7 @@ import 'write_log_page.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/drive_log_source_chip.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -1567,10 +1568,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 children: [
                   Text("[ $time ]", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: lay.timeFontSize)),
                   SizedBox(width: lay.innerSpacing),
-                  Text(
-                    log['program']?.toString() ?? '',
-                    style: TextStyle(color: Colors.white70, fontSize: lay.programFontSize),
+                  Flexible(
+                    child: Text(
+                      log['program']?.toString() ?? '',
+                      style: TextStyle(color: Colors.white70, fontSize: lay.programFontSize),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  SizedBox(width: lay.innerSpacing),
+                  DriveLogSourceChip(registrationSource: log['registration_source']?.toString()),
                 ],
               ),
               Row(

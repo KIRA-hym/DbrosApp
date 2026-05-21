@@ -670,6 +670,11 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
     res = res.replaceAll(RegExp(r'킥보드\s*[xX]\)?', caseSensitive: false), ' ');
 
+    // 3b. 콜마너 도착: 같은 OCR 줄에 붙은 `합계 : n원`·`예상 운행수수료` 등 정산 꼬리
+    if (!isLogi && !isStart) {
+      res = _stripColmannerSettlementTailFromAddressFragment(res);
+    }
+
     // 4. 로지 '상세:' 처리 — 출발은 **상세: 뒤 행정주소**만(상호·경로 제외)
     if (res.contains('상세:')) {
       if (isLogi && isStart) {
@@ -714,6 +719,26 @@ class LogiColmannerOcr {
 
     res = res.replaceAll(RegExp(r'\s+'), ' ').trim();
     return _deduplicateAdjacentTokens(res);
+  }
+
+  /// `…화이트마사지 합계 : 6,097원 예상 운행수수료 : …`처럼 도착 줄에 붙은 콜마너 하단 정산 OCR.
+  static String _stripColmannerSettlementTailFromAddressFragment(String s) {
+    var t = s.trim();
+    if (t.isEmpty) return t;
+    final re = RegExp(
+      r'\s+(?:합계\s*[:：]'
+      r'|예상\s*운행(?:\s*수수료)?\s*[:：]'
+      r'|예상\s*고용'
+      r'|예상\s*산자'
+      r'|입금합계(?:\s+합계\s*[:：])?'
+      r'|차감합계)',
+      caseSensitive: false,
+    );
+    final m = re.firstMatch(t);
+    if (m != null) {
+      t = t.substring(0, m.start).trim();
+    }
+    return t;
   }
 
   /// 로지: 출발지·고객·적요 이후 한 덩어리 → [_splitAddressText].
@@ -1380,6 +1405,10 @@ class LogiColmannerOcr {
     }
     if (n.startsWith('지사명') || n.startsWith('고객명')) return true;
     if (line.startsWith('(예상소요시간')) return true;
+    if (RegExp(r'^\s*합계\s*[:：]').hasMatch(line)) return true;
+    if (RegExp(r'^\s*예상\s*운행').hasMatch(line)) return true;
+    if (RegExp(r'^\s*예상\s*고용').hasMatch(line)) return true;
+    if (RegExp(r'^\s*예상\s*산자').hasMatch(line)) return true;
     return false;
   }
 
@@ -1389,6 +1418,8 @@ class LogiColmannerOcr {
     if (line.contains('고객전화') || line.contains('상황실') || line.contains('상황실연락처')) return true;
     if (line.contains('이니~') || line.contains('이니--') || line.contains('이니-니')) return true;
     if (n.contains('차감합계') || n.contains('입금합계') || n.contains('경로거리') || n.contains('소요시간') || n.contains('출도')) return true;
+    if (RegExp(r'합계\s*[:：]').hasMatch(line) && RegExp(r'\d').hasMatch(line)) return true;
+    if (n.contains('예상운행수수료') || n.contains('예상고용보험') || n.contains('예상산자보험')) return true;
     if (n.contains('기사님')) return true;
     return false;
   }

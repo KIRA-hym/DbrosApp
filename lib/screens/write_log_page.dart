@@ -25,6 +25,7 @@ import '../utils/logi_colmanner_ocr.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/drive_log_source_chip.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
@@ -96,6 +97,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final _memoCon = TextEditingController();
 
   int? _logId;
+  /// DB에 이미 들어있는 등록 출처(스크린샷 자동 등). 수정 시 유지한다.
+  String? _persistedRegistrationSource;
+
   int _grossIncome = 0;
   String _deductionHint = "";
   String _selectedProgram =
@@ -137,6 +141,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (widget.existingLog != null) {
       final log = widget.existingLog!;
       _logId = log['id'];
+      final rs = log['registration_source']?.toString().trim();
+      _persistedRegistrationSource = rs != null && rs.isNotEmpty ? rs : null;
       _workDateCon.text = (log['work_date'] ?? log['drive_date'])?.toString() ?? '';
       _dateCon.text = log['drive_date']?.toString() ?? '';
       _timeCon.text = normalizeDriveTimeHm(log['drive_time']?.toString()) ?? log['drive_time']?.toString() ?? '';
@@ -1085,6 +1091,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         "end_lng": _endLng,
         "image_path": compactImagePath,
         "updated_at": nowIso,
+        if (_persistedRegistrationSource != null && _persistedRegistrationSource!.trim().isNotEmpty)
+          "registration_source": _persistedRegistrationSource!.trim(),
         if (_logId == null)
           "created_at": nowIso
         else if (widget.existingLog != null && widget.existingLog!['created_at'] != null)
@@ -1250,7 +1258,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         leading: _logId != null || widget.initialDate != null
           ? IconButton(icon: Icon(Icons.arrow_back, color: Colors.white, size: iconSize.toDouble()), onPressed: () => Navigator.pop(context)) 
           : null,
-        title: Text(_logId != null ? "운행 일지 수정" : "운행 일지 작성", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700))),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                _logId != null ? "운행 일지 수정" : "운행 일지 작성",
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700)),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            DriveLogSourceChip(registrationSource: _persistedRegistrationSource),
+          ],
+        ),
         actions: [
           Padding(
             padding: EdgeInsets.only(right: isTablet ? 12.0 : 8.0),

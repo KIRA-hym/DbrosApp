@@ -23,7 +23,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 6,
+      version: 7,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -42,6 +42,7 @@ class DriveLogDatabase {
             end_location TEXT,
             memo TEXT,
             image_path TEXT,
+            registration_source TEXT,
             start_lat REAL,
             start_lng REAL,
             end_lat REAL,
@@ -69,6 +70,9 @@ class DriveLogDatabase {
         }
         if (oldVersion < 6) {
           await _ensureExpenseTables(db);
+        }
+        if (oldVersion < 7) {
+          await _ensureDriveLogsSchema(db);
         }
       },
       onOpen: (db) async {
@@ -124,6 +128,7 @@ class DriveLogDatabase {
     await addIfMissing('start_lng', 'REAL');
     await addIfMissing('end_lat', 'REAL');
     await addIfMissing('end_lng', 'REAL');
+    await addIfMissing('registration_source', 'TEXT');
 
     if (!columns.contains('drive_date') && columns.contains('date')) {
       await db.execute("ALTER TABLE drive_logs ADD COLUMN drive_date TEXT");

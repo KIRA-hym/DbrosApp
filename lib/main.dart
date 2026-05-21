@@ -48,7 +48,7 @@ void main() async {
   await TodayStatsNotificationService.instance.initialize();
 
   if (!kIsWeb && Platform.isAndroid) {
-    unawaited(ScreenshotAutoRegisterService.instance.start());
+    unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
   }
 
   runApp(const DbrosApp());
@@ -300,7 +300,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       }
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
       if (!kIsWeb && Platform.isAndroid) {
-        unawaited(ScreenshotAutoRegisterService.instance.start());
+        unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
       }
     }
   }

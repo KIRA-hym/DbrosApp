@@ -13,6 +13,7 @@ import '../utils/work_date_utils.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
@@ -993,19 +994,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       final rows = <Widget>[
                         paddedRow(Text('최근운행일지', style: titleStyle, maxLines: 1, overflow: TextOverflow.ellipsis)),
                         paddedRow(
-                          RichText(
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            text: TextSpan(
-                              style: metaTextStyle,
-                              children: [
-                                TextSpan(text: '$workDateLabel $time · '),
-                                TextSpan(
-                                  text: program,
-                                  style: metaTextStyle?.copyWith(color: Colors.greenAccent),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Expanded(
+                                child: Text.rich(
+                                  TextSpan(
+                                    style: metaTextStyle,
+                                    children: [
+                                      TextSpan(text: '$workDateLabel $time · '),
+                                      TextSpan(
+                                        text: program,
+                                        style: metaTextStyle?.copyWith(color: Colors.greenAccent),
+                                      ),
+                                    ],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ],
-                            ),
+                              ),
+                              DriveLogSourceChip(
+                                registrationSource: log['registration_source']?.toString(),
+                              ),
+                            ],
                           ),
                         ),
                         paddedRow(

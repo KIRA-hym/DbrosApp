@@ -3,7 +3,9 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 
-import '../config/feature_flags.dart';/// adb 없이 확인할 수 있도록 스크린샷 자동등록 동선을 메모리에 누적 (Android 한정).
+import '../config/feature_flags.dart';
+
+/// adb 없이 확인할 수 있도록 스크린샷 자동등록 동선을 메모리에 누적 (Android 한정).
 class ScreenshotAutoDebugLog {
   ScreenshotAutoDebugLog._();
 
