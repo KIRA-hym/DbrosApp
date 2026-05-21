@@ -73,7 +73,11 @@ class DailyChartData {
       byHour[hour] = (byHour[hour] ?? 0) + _statsRowNet(log);
       countByHour[hour] = (countByHour[hour] ?? 0) + 1;
     }
-    final sorted = byHour.keys.toList()..sort();
+    final sorted = byHour.keys.toList()..sort((a, b) {
+      final adjA = a < 6 ? a + 24 : a;
+      final adjB = b < 6 ? b + 24 : b;
+      return adjA.compareTo(adjB);
+    });
     return sorted
         .map((h) => {
               'hour': '$h시',

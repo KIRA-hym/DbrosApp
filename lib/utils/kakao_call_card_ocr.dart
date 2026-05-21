@@ -241,12 +241,20 @@ class KakaoCallCardOcr {
     }
     if (startIdx == null) return '';
 
-    const startBandY = 500.0;
+    // Calculate dynamic band threshold based on the '경유' block's position
+    final startY = sorted[startIdx].boundingBox.top;
+    final maxBandY = startY + 250.0;
+
     final buf = StringBuffer();
     for (var i = startIdx; i < sorted.length; i++) {
       final b = sorted[i];
       final y = b.boundingBox.top;
-      if (i > startIdx && y >= startBandY) break;
+      
+      if (i > startIdx) {
+        if (y > maxBandY) break;
+        final raw = b.text.trim();
+        if (raw.startsWith('출발') || raw.startsWith('도착') || raw.contains('실제')) break;
+      }
 
       final raw = b.text.trim();
       if (i == startIdx) {

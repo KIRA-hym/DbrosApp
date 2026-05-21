@@ -13,7 +13,8 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'
+    if (dart.library.html) '../utils/maps_web_stub.dart';
 import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';

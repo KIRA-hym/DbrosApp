@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -11,6 +12,27 @@ class DriveLogDatabase {
 
   /// 일지 저장·삭제 후 호출 (고정 알림 갱신 등).
   static void Function()? afterLogsChanged;
+
+  static List<Map<String, dynamic>> _mockLogsForWeb() {
+    final ymd = WorkDateUtils.effectiveWorkDateYmd();
+    return [
+      {
+        'id': 1, 'work_date': ymd, 'drive_date': ymd, 'drive_time': '21:30',
+        'program': '카카오(일반)', 'gross_fare': 30000, 'fee': 6000, 'transport_cost': 0, 'waypoint_tip': 0, 'net_income': 24000,
+        'start_location': '서울 강남구 역삼동', 'waypoint': '', 'end_location': '경기 성남시 분당구',
+      },
+      {
+        'id': 2, 'work_date': ymd, 'drive_date': ymd, 'drive_time': '22:45',
+        'program': '로지', 'gross_fare': 45000, 'fee': 9000, 'transport_cost': 3000, 'waypoint_tip': 0, 'net_income': 33000,
+        'start_location': '경기 성남시 분당구', 'waypoint': '', 'end_location': '서울 마포구 합정동',
+      },
+      {
+        'id': 3, 'work_date': ymd, 'drive_date': ymd, 'drive_time': '00:15',
+        'program': '콜마너', 'gross_fare': 25000, 'fee': 5000, 'transport_cost': 0, 'waypoint_tip': 0, 'net_income': 20000,
+        'start_location': '서울 마포구 합정동', 'waypoint': '서대문구 창천동', 'end_location': '경기 고양시 일산동구',
+      },
+    ];
+  }
 
   Future<Database> get database async {
     if (_db != null) return _db!;
@@ -235,11 +257,13 @@ class DriveLogDatabase {
   }
 
   Future<List<Map<String, dynamic>>> getRecentLogs({int limit = 10}) async {
+    if (kIsWeb) return _mockLogsForWeb().reversed.take(limit).toList();
     final db = await database;
     return db.query('drive_logs', orderBy: 'work_date DESC, drive_date DESC, drive_time DESC', limit: limit);
   }
 
   Future<List<Map<String, dynamic>>> getAllDriveLogsForExport() async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -248,12 +272,20 @@ class DriveLogDatabase {
   }
 
   Future<List<Map<String, dynamic>>> getRecentLogsByDriveDateTime({int limit = 10}) async {
+    if (kIsWeb) return _mockLogsForWeb().reversed.take(limit).toList();
     final db = await database;
     return db.query('drive_logs', orderBy: 'drive_date DESC, drive_time DESC', limit: limit);
   }
 
   /// 운행일(`drive_date`) 기준: 수입 = gross + waypoint_tip, 지출 = fee + transport
   Future<Map<String, int>> getTodayIncomeExpense(String driveDateYmd) async {
+    if (kIsWeb) {
+      final logs = _mockLogsForWeb();
+      return {
+        'income': logs.fold(0, (s, e) => s + (e['gross_fare'] as int)),
+        'expense': logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int)),
+      };
+    }
     final db = await database;
     final rows = await db.rawQuery(
       '''
@@ -276,6 +308,13 @@ class DriveLogDatabase {
 
   /// 근무일(`work_date`) 기준: 수입 = gross + waypoint_tip, 지출 = fee + transport
   Future<Map<String, int>> getTodayIncomeExpenseByWorkDate(String workDateYmd) async {
+    if (kIsWeb) {
+      final logs = _mockLogsForWeb();
+      return {
+        'income': logs.fold(0, (s, e) => s + (e['gross_fare'] as int)),
+        'expense': logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int)),
+      };
+    }
     final db = await database;
     final rows = await db.rawQuery(
       '''
@@ -298,6 +337,14 @@ class DriveLogDatabase {
 
   /// 운행일(`drive_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
   Future<Map<String, dynamic>> getTodayStats(String driveDateYmd) async {
+    if (kIsWeb) {
+      final logs = _mockLogsForWeb();
+      int count = logs.length;
+      int gross = logs.fold(0, (s, e) => s + (e['gross_fare'] as int));
+      int net = logs.fold(0, (s, e) => s + (e['net_income'] as int));
+      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int));
+      return {'count': count, 'gross': gross, 'net': net, 'expenses': expenses};
+    }
     final db = await database;
     final result = await db.rawQuery(
       '''
@@ -319,6 +366,14 @@ class DriveLogDatabase {
 
   /// 근무일(`work_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
   Future<Map<String, dynamic>> getTodayStatsByWorkDate(String workDateYmd) async {
+    if (kIsWeb) {
+      final logs = _mockLogsForWeb();
+      int count = logs.length;
+      int gross = logs.fold(0, (s, e) => s + (e['gross_fare'] as int));
+      int net = logs.fold(0, (s, e) => s + (e['net_income'] as int));
+      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int));
+      return {'count': count, 'gross': gross, 'net': net, 'expenses': expenses};
+    }
     final db = await database;
     final result = await db.rawQuery(
       '''
@@ -340,6 +395,7 @@ class DriveLogDatabase {
 
   /// 운행일이 [startYmd] ~ [endYmd] (포함, `yyyy-MM-dd`) 인 일지.
   Future<List<Map<String, dynamic>>> getLogsByDriveDateRange(String startYmd, String endYmd) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -351,6 +407,7 @@ class DriveLogDatabase {
 
   /// 근무일(`work_date`)이 [startYmd] ~ [endYmd] (포함). 구버전: work_date 비면 drive_date로 대체.
   Future<List<Map<String, dynamic>>> getLogsByWorkDateRange(String startYmd, String endYmd) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -364,6 +421,7 @@ class DriveLogDatabase {
 
   /// 단일 근무일(`yyyy-MM-dd`). 구버전: work_date 비면 drive_date 일치 행.
   Future<List<Map<String, dynamic>>> getLogsForWorkDate(String workDateYmd) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -376,6 +434,7 @@ class DriveLogDatabase {
 
   /// 통계·집계용: **근무일(`work_date`)만** 일치 (비어 있으면 제외).
   Future<List<Map<String, dynamic>>> getLogsForWorkDateStrict(String workDateYmd) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -400,6 +459,7 @@ class DriveLogDatabase {
   }
 
   Future<List<Map<String, dynamic>>> getLogsByMonth(String yearMonth) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -411,6 +471,7 @@ class DriveLogDatabase {
 
   /// 근무일(`work_date`) 기준 월 목록. (구버전 데이터 호환: work_date 비어있으면 drive_date 사용)
   Future<List<Map<String, dynamic>>> getLogsByWorkMonth(String yearMonth) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -424,6 +485,7 @@ class DriveLogDatabase {
   /// 통계용 주간·월간 합산: **근무일(`work_date`)만** 사용 (비어 있으면 제외).
   /// 일자별 차트·상단 합계와 동일 기준을 맞춘다.
   Future<List<Map<String, dynamic>>> getLogsByWorkDateRangeStrict(String startYmd, String endYmd) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',
@@ -437,6 +499,7 @@ class DriveLogDatabase {
 
   /// 통계용 월 목록: **근무일(`work_date`)만** (비어 있으면 제외).
   Future<List<Map<String, dynamic>>> getLogsByWorkMonthStrict(String yearMonth) async {
+    if (kIsWeb) return _mockLogsForWeb();
     final db = await database;
     return db.query(
       'drive_logs',

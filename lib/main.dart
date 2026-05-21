@@ -31,8 +31,6 @@ void main() async {
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
-    DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight,
   ]);
   await SettingsService.init();
   await FontSizeService.loadFontSize();

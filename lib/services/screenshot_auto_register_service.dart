@@ -231,7 +231,7 @@ class ScreenshotAutoRegisterService {
         file,
         ocrSource: 'screenshot_auto',
       );
-      if (!CallCardOcrParseService.isValidForScreenshotAutoSave(logData)) {
+      if (!CallCardOcrParseService.isValidForAutoSave(logData)) {
         ScreenshotAutoDebugLog.add(
           '결과: 스크린샷 자동저장 제외(콜카드 UI 신호 부족·앱 OCR/디버그 화면 가능성 또는 약한 카카오 추정)',
         );
@@ -254,7 +254,6 @@ class ScreenshotAutoRegisterService {
       final saved = await CallCardOcrParseService.saveLogToDatabase(
         logData,
         imagePrefix: 'screenshot',
-        registrationSource: 'screenshot_auto',
       );
       if (!saved) {
         ScreenshotAutoDebugLog.add('결과: DB 저장 호출 후 실패 처리');

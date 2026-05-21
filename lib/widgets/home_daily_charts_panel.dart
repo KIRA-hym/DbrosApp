@@ -33,6 +33,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
     try {
       final prog = await DailyChartData.programStatsForWorkDate(ymd);
       final hourly = await DailyChartData.hourlyNetForWorkDate(ymd);
+      
       if (!mounted) return;
       setState(() {
         _programData = prog;
@@ -77,6 +78,11 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
     required List<Map<String, dynamic>> data,
     required String labelKey,
   }) {
+    final validData = data.where((e) {
+      final val = (e['revenue'] as num?)?.toInt() ?? 0;
+      return val > 0;
+    }).toList();
+
     return Container(
       decoration: BorderedSection.decoration(),
       padding: const EdgeInsets.all(12),
@@ -95,23 +101,11 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: data.isEmpty
+            child: validData.isEmpty
                 ? const Center(
                     child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
                   )
-                : Row(
-                    children: [
-                      Expanded(
-                        flex: 3,
-                        child: _PieChartBody(data: data, valueKey: 'revenue'),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        flex: 2,
-                        child: _LegendList(data: data, labelKey: labelKey, valueKey: 'revenue'),
-                      ),
-                    ],
-                  ),
+                : StatsBarChartBody(data: validData, labelKey: labelKey, valueKey: 'revenue'),
           ),
         ],
       ),
@@ -119,10 +113,12 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
   }
 }
 
-class _PieChartBody extends StatelessWidget {
-  const _PieChartBody({required this.data, required this.valueKey});
+/// 홈·통계 공용 가로형 수익 막대 리스트 위젯.
+class StatsBarChartBody extends StatelessWidget {
+  const StatsBarChartBody({super.key, required this.data, required this.labelKey, required this.valueKey});
 
   final List<Map<String, dynamic>> data;
+  final String labelKey;
   final String valueKey;
 
   static const _colors = <Color>[
@@ -137,58 +133,79 @@ class _PieChartBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = data.fold<int>(0, (s, e) => s + ((e[valueKey] as num?)?.toInt() ?? 0));
-    if (total <= 0) return const SizedBox.shrink();
+    final maxVal = data.fold<int>(0, (prev, e) {
+      final v = (e[valueKey] as num?)?.toInt() ?? 0;
+      return v > prev ? v : prev;
+    });
 
-    var i = 0;
-    final sections = data.map((item) {
-      final value = (item[valueKey] as num?)?.toInt() ?? 0;
-      if (value <= 0) return null;
-      final color = _colors[i % _colors.length];
-      i++;
-      return PieChartSectionData(
-        value: value.toDouble(),
-        color: color,
-        radius: 42,
-        title: '',
-      );
-    }).whereType<PieChartSectionData>().toList();
-
-    return PieChart(
-      PieChartData(
-        sectionsSpace: 2,
-        centerSpaceRadius: 28,
-        sections: sections,
-      ),
-    );
-  }
-}
-
-class _LegendList extends StatelessWidget {
-  const _LegendList({
-    required this.data,
-    required this.labelKey,
-    required this.valueKey,
-  });
-
-  final List<Map<String, dynamic>> data;
-  final String labelKey;
-  final String valueKey;
-
-  @override
-  Widget build(BuildContext context) {
     return ListView.separated(
+      padding: const EdgeInsets.only(top: 4, bottom: 4, right: 8),
       itemCount: data.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 4),
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = data[index];
-        final label = item[labelKey]?.toString() ?? '';
+        final rawLabel = item[labelKey]?.toString() ?? '';
+        final count = item['count'];
         final value = (item[valueKey] as num?)?.toInt() ?? 0;
-        return Text(
-          '$label\n${NumberFormat('#,###').format(value)}',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(color: Color(0xFFB8BBC4), fontSize: 10, height: 1.2),
+        final color = _colors[index % _colors.length];
+        final ratio = maxVal == 0 ? 0.0 : (value / maxVal).clamp(0.0, 1.0);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    rawLabel,
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (count != null)
+                  Text(
+                    '${count}건',
+                    style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
+                  ),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 70,
+                  child: Text(
+                    NumberFormat('#,###').format(value),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                return Stack(
+                  children: [
+                    Container(
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOut,
+                      height: 6,
+                      width: constraints.maxWidth * ratio,
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
         );
       },
     );

@@ -124,7 +124,8 @@ class PlainOcrParseLab {
     String fullText, {
     String? forcedProgramLabel,
   }) {
-    final buffer = fullText.replaceAll('\r\n', '\n').trimRight();
+    // 로그캣 등에서 복사할 때 포함된 리터럴 '\n' 문자를 실제 줄바꿈으로 변환
+    final buffer = fullText.replaceAll(r'\n', '\n').replaceAll('\r\n', '\n').trimRight();
     final blocks = syntheticBlocksFromPlainOcrText(buffer);
     final force = normalizeForcedProgram(forcedProgramLabel);
 

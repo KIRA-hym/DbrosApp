@@ -1,13 +1,17 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+// 지도 기능은 웹에서 비활성화 (구글맵스 플러터 웹 미지원)
+import 'package:google_maps_flutter/google_maps_flutter.dart'
+    if (dart.library.html) '../utils/maps_web_stub.dart';
 import '../services/db_helper.dart';
 import '../config/feature_flags.dart';
 import '../widgets/bordered_section.dart';
+import '../widgets/home_daily_charts_panel.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/responsive_body.dart';
 
@@ -387,7 +391,11 @@ class _StatsPageState extends State<StatsPage> {
       byHour[h] = (byHour[h] ?? 0) + _statsRowNet(log);
       countByHour[h] = (countByHour[h] ?? 0) + 1;
     }
-    final sortedHours = byHour.keys.toList()..sort();
+    final sortedHours = byHour.keys.toList()..sort((a, b) {
+      final adjA = a < 6 ? a + 24 : a;
+      final adjB = b < 6 ? b + 24 : b;
+      return adjA.compareTo(adjB);
+    });
     return sortedHours
         .map((h) => {'hour': '$h시', 'revenue': byHour[h] ?? 0, 'count': countByHour[h] ?? 0})
         .toList();
@@ -621,6 +629,7 @@ class _StatsPageState extends State<StatsPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
+                              // 상단: 기간 선택버튼단
                               Center(
                                 child: _buildPeriodButtonBar(
                                   compact,
@@ -629,48 +638,45 @@ class _StatsPageState extends State<StatsPage> {
                                 ),
                               ),
                               SizedBox(height: cardGap),
+
+                              // 상단: 전체통계 4개 카드 1열 배치
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    flex: 5,
                                     child: _buildWholeStatsTitleRow(sectionTitleFontSize),
-                                  ),
-                                  SizedBox(width: gapMd),
-                                  Expanded(
-                                    flex: 11,
-                                    child: _buildIncomeAnalysisTitleRow(sectionTitleFontSize),
                                   ),
                                 ],
                               ),
+                              SizedBox(height: cardGap),
+                              SizedBox(
+                                height: 90,
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (int i = 0; i < statCards.length; i++) ...[
+                                      Expanded(child: statCards[i]),
+                                      if (i < statCards.length - 1) SizedBox(width: cardGap),
+                                    ],
+                                  ],
+                                ),
+                              ),
+
+                              SizedBox(height: gapMd),
+
+                              // 하단: 수익분석 제목 + 좌우 그래프
+                              _buildIncomeAnalysisTitleRow(sectionTitleFontSize),
                               SizedBox(height: cardGap),
                               Expanded(
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
-                                      flex: 5,
-                                      child: _buildExpandedStatsMetricsColumn(
-                                        statCardTitleFontSize: statCardTitleFontSize,
-                                        statCardValueFontSize: statCardValueFontSize,
-                                        cardGap: cardGap,
-                                      ),
+                                      child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
                                     ),
-                                    SizedBox(width: gapMd),
+                                    SizedBox(width: gapBetweenCharts),
                                     Expanded(
-                                      flex: 11,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                        children: [
-                                          Expanded(
-                                            child: _buildChartPanel(_buildProgramChart(chartTitleFontSize)),
-                                          ),
-                                          SizedBox(height: gapBetweenCharts),
-                                          Expanded(
-                                            child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
-                                          ),
-                                        ],
-                                      ),
+                                      child: _buildChartPanel(_buildSecondChart(chartTitleFontSize)),
                                     ),
                                   ],
                                 ),
@@ -1055,6 +1061,10 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Widget _buildProgramChart(double titleFontSize) {
+    final validData = _chartData.where((e) {
+      final val = (e['revenue'] as num?)?.toInt() ?? 0;
+      return val > 0;
+    }).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1066,12 +1076,9 @@ class _StatsPageState extends State<StatsPage> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _chartData.isEmpty
-                ? _emptyChartMessage
-                : _buildBarChart(_chartData, 'program', 'revenue'),
-          ),
+          child: validData.isEmpty
+              ? _emptyChartMessage
+              : StatsBarChartBody(data: validData, labelKey: 'program', valueKey: 'revenue'),
         ),
       ],
     );
@@ -1083,6 +1090,11 @@ class _StatsPageState extends State<StatsPage> {
         : (_selectedPeriod == '주간'
             ? '요일별 순수익 (근무일 기준)'
             : (_selectedPeriod == '월간' ? '일자별 순수익 (근무일 기준)' : '월별 순수익 (근무일 기준)'));
+    final labelKey = _getSecondChartKey();
+    final validData = _secondChartData.where((e) {
+      final val = (e['revenue'] as num?)?.toInt() ?? 0;
+      return val > 0;
+    }).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1094,12 +1106,9 @@ class _StatsPageState extends State<StatsPage> {
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _secondChartData.isEmpty
-                ? _emptyChartMessage
-                : _buildBarChart(_secondChartData, _getSecondChartKey(), 'revenue'),
-          ),
+          child: validData.isEmpty
+              ? _emptyChartMessage
+              : StatsBarChartBody(data: validData, labelKey: labelKey, valueKey: 'revenue'),
         ),
       ],
     );

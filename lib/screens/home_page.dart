@@ -106,8 +106,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Future<void> _loadHomeData() async {
     final String cal = WorkDateUtils.effectiveWorkDateYmd();
-    final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(cal);
-    final recent = await DriveLogDatabase.instance.getRecentLogs(limit: 5);
+    Map<String, dynamic> stats = {'count': 0, 'net': 0, 'expenses': 0};
+    List<Map<String, dynamic>> recent = [];
+
+    try {
+      stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(cal);
+      recent = await DriveLogDatabase.instance.getRecentLogs(limit: 5);
+    } catch (e) {
+      debugPrint('Web/Mock fallback DB error: $e');
+    }
 
     if (!mounted) return;
     setState(() {

@@ -5,92 +5,34 @@
 $ErrorActionPreference = "Continue"
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 $HtmlPath = Join-Path $PSScriptRoot "ocr_parse_lab.html"
-$JobFile = Join-Path $PSScriptRoot ".ocr_lab_job.json"
-$AliveFile = Join-Path $PSScriptRoot ".ocr_lab_worker_alive"
-$WorkerPidFile = Join-Path $PSScriptRoot ".ocr_lab_worker.pid"
 # 8765 is often stuck in http.sys (PID 4) after HttpListener — use 28765
 $LabPort = 28765
 $Utf8 = [System.Text.UTF8Encoding]::new($false)
 
-function Clear-StaleLabArtifacts {
-    if (Test-Path $JobFile) {
-        $age = ((Get-Date) - (Get-Item $JobFile).LastWriteTime).TotalSeconds
-        if ($age -gt 45) {
-            Remove-Item $JobFile -Force -ErrorAction SilentlyContinue
-            Write-Host "[$(Get-Date -Format 'HH:mm:ss')] removed stale job file" -ForegroundColor DarkYellow
-        }
-    }
-    Get-ChildItem $PSScriptRoot -Filter ".ocr_lab_done_*.json" -ErrorAction SilentlyContinue |
-        Where-Object { ((Get-Date) - $_.LastWriteTime).TotalHours -gt 1 } |
-        Remove-Item -Force -ErrorAction SilentlyContinue
-}
-
-function Test-WorkerAlive {
-    if (-not (Test-Path $AliveFile)) { return $false }
-    try {
-        $t = [datetime]::Parse([System.IO.File]::ReadAllText($AliveFile).Trim())
-        return ((Get-Date) - $t).TotalSeconds -lt 15
-    }
-    catch { return $false }
-}
-
 function Invoke-OcrLabParse {
     param([string]$BodyJson)
     try {
-        Clear-StaleLabArtifacts
-
-        if (-not (Test-WorkerAlive)) {
-            $err = @{
-                ok    = $false
-                error = "WORKER 창이 없습니다. start_ocr_parse_lab.bat 실행 후 'OCR Parse Lab WORKER' 창이 떠 있어야 합니다. 또는 서버 없이 tools\parse_ocr_simple.bat 사용."
-            }
-            return ($err | ConvertTo-Json -Compress)
-        }
-
         $id = [guid]::NewGuid().ToString("N").Substring(0, 12)
         $inPath = Join-Path $PSScriptRoot ".ocr_lab_in_$id.json"
         $outPath = Join-Path $PSScriptRoot ".ocr_lab_out_$id.json"
-        $donePath = Join-Path $PSScriptRoot ".ocr_lab_done_$id.json"
-        $logFile = Join-Path $PSScriptRoot ".ocr_lab_flutter_log.txt"
+        $logFile = Join-Path $PSScriptRoot ".ocr_lab_log_$id.txt"
+        $Bat = Join-Path $PSScriptRoot "run_ocr_lab_parse.bat"
 
         [System.IO.File]::WriteAllText($inPath, $BodyJson, $Utf8)
 
-        $waitUntil = (Get-Date).AddSeconds(90)
-        while ((Test-Path $JobFile) -and (Get-Date) -lt $waitUntil) {
-            Start-Sleep -Milliseconds 300
-        }
-        if (Test-Path $JobFile) {
-            Remove-Item $JobFile -Force -ErrorAction SilentlyContinue
-        }
+        $env:OCR_LAB_INPUT_PATH = $inPath
+        $env:OCR_LAB_OUTPUT_PATH = $outPath
+        $env:OCR_LAB_LOG = $logFile
 
-        $deadline = (Get-Date).AddSeconds(600)
+        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] parsing OCR data (running flutter test)..." -ForegroundColor DarkCyan
 
-        $job = @{
-            id         = $id
-            inputPath  = $inPath
-            outputPath = $outPath
-            logPath    = $logFile
-            donePath   = $donePath
-        } | ConvertTo-Json -Compress
-        [System.IO.File]::WriteAllText($JobFile, $job, $Utf8)
+        $proc = Start-Process -FilePath "cmd.exe" `
+            -ArgumentList @("/c", "`"$Bat`"") `
+            -WorkingDirectory $RepoRoot `
+            -WindowStyle Hidden `
+            -PassThru -Wait
 
-        Write-Host "[$(Get-Date -Format 'HH:mm:ss')] queued job $id (worker parses)..." -ForegroundColor DarkCyan
-
-        while (-not (Test-Path $donePath) -and (Get-Date) -lt $deadline) {
-            if (-not (Test-WorkerAlive)) {
-                $err = @{ ok = $false; error = "worker stopped during parse" }
-                return ($err | ConvertTo-Json -Compress)
-            }
-            Start-Sleep -Milliseconds 500
-        }
-
-        if (-not (Test-Path $donePath)) {
-            $err = @{ ok = $false; error = "parse timeout (10 min) — check Worker window" }
-            return ($err | ConvertTo-Json -Compress)
-        }
-
-        $done = [System.IO.File]::ReadAllText($donePath, $Utf8) | ConvertFrom-Json
-        $exitCode = [int]$done.exitCode
+        $exitCode = $proc.ExitCode
 
         if ($exitCode -ne 0) {
             $tail = ""
@@ -98,7 +40,6 @@ function Invoke-OcrLabParse {
                 $tail = [System.IO.File]::ReadAllText($logFile, $Utf8).Trim()
                 if ($tail.Length -gt 2000) { $tail = $tail.Substring($tail.Length - 2000) }
             }
-            if ($done.error) { $tail = "$($done.error)`n$tail" }
             $err = @{
                 ok    = $false
                 error = "flutter test failed (exit $exitCode)"
@@ -106,6 +47,7 @@ function Invoke-OcrLabParse {
             }
             return ($err | ConvertTo-Json -Compress)
         }
+
         if (-not (Test-Path $outPath)) {
             $err = @{ ok = $false; error = "no output from bridge test" }
             return ($err | ConvertTo-Json -Compress)
@@ -117,17 +59,29 @@ function Invoke-OcrLabParse {
         return ($err | ConvertTo-Json -Compress)
     }
     finally {
-        Get-ChildItem $PSScriptRoot -Filter ".ocr_lab_in_*.json" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        Get-ChildItem $PSScriptRoot -Filter ".ocr_lab_out_*.json" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
-        Get-ChildItem $PSScriptRoot -Filter ".ocr_lab_done_*.json" -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+        Remove-Item Env:OCR_LAB_INPUT_PATH -ErrorAction SilentlyContinue
+        Remove-Item Env:OCR_LAB_OUTPUT_PATH -ErrorAction SilentlyContinue
+        Remove-Item Env:OCR_LAB_LOG -ErrorAction SilentlyContinue
+        Remove-Item $inPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $outPath -Force -ErrorAction SilentlyContinue
+        Remove-Item $logFile -Force -ErrorAction SilentlyContinue
     }
 }
 
 function Read-HttpRequest {
     param([System.Net.Sockets.NetworkStream]$Stream)
 
-    $reader = New-Object System.IO.StreamReader($Stream, $Utf8, $false, 65536, $true)
-    $requestLine = $reader.ReadLine()
+    function Read-HttpLine {
+        $bytes = New-Object System.Collections.Generic.List[byte]
+        $b = New-Object byte[] 1
+        while ($Stream.Read($b, 0, 1) -gt 0) {
+            if ($b[0] -eq 10) { break }
+            if ($b[0] -ne 13) { $bytes.Add($b[0]) }
+        }
+        return [System.Text.Encoding]::UTF8.GetString($bytes.ToArray())
+    }
+
+    $requestLine = Read-HttpLine
     if ([string]::IsNullOrWhiteSpace($requestLine)) {
         return @{ Method = ""; Path = "/"; Body = "" }
     }
@@ -141,8 +95,8 @@ function Read-HttpRequest {
 
     $headers = @{}
     while ($true) {
-        $line = $reader.ReadLine()
-        if ($null -eq $line -or $line -eq "") { break }
+        $line = Read-HttpLine
+        if ([string]::IsNullOrEmpty($line)) { break }
         $colon = $line.IndexOf(":")
         if ($colon -gt 0) {
             $key = $line.Substring(0, $colon).Trim().ToLower()
@@ -157,14 +111,13 @@ function Read-HttpRequest {
         if ($len -gt 0) {
             $raw = New-Object byte[] $len
             $read = 0
-            $base = $reader.BaseStream
             while ($read -lt $len) {
-                $n = $base.Read($raw, $read, $len - $read)
+                $n = $Stream.Read($raw, $read, $len - $read)
                 if ($n -le 0) { break }
                 $read += $n
             }
             if ($read -gt 0) {
-                $body = $Utf8.GetString($raw, 0, $read)
+                $body = [System.Text.Encoding]::UTF8.GetString($raw, 0, $read)
             }
         }
     }
@@ -231,8 +184,7 @@ function Handle-Client {
         }
 
         if ($method -eq "GET" -and $path -eq "/health") {
-            $workerOk = Test-WorkerAlive
-            $json = "{`"ok`":true,`"service`":`"ocr_parse_lab`",`"version`":4,`"transport`":`"tcp`",`"worker`":$($workerOk.ToString().ToLower())}"
+            $json = "{`"ok`":true,`"service`":`"ocr_parse_lab`",`"version`":5,`"transport`":`"tcp`"}"
             Write-HttpResponse -Stream $stream -StatusCode 200 -StatusText "OK" `
                 -BodyBytes ($Utf8.GetBytes($json)) -ContentType "application/json; charset=utf-8"
             return
@@ -288,12 +240,9 @@ catch {
 Write-Host ""
 Write-Host "  OCR parse lab server running (TCP)" -ForegroundColor Cyan
 Write-Host "  http://127.0.0.1:$LabPort/" -ForegroundColor Yellow
-Write-Host "  Health: version 4 = Server + Worker (2 windows)" -ForegroundColor DarkGray
-Write-Host "  No web? use tools\parse_ocr_simple.bat" -ForegroundColor DarkGray
+Write-Host "  Health: version 5 (Synchronous, no separate worker)" -ForegroundColor DarkGray
 Write-Host "  Stop: Ctrl+C" -ForegroundColor DarkGray
 Write-Host ""
-
-Clear-StaleLabArtifacts
 
 try {
     while ($true) {

@@ -642,7 +642,7 @@ class LogiColmannerOcr {
     res = res.replaceAll('+', ' ');
 
     // 1. 콜마너/로지 공통 악성 노이즈 철벽 제거 (하단 UI 버튼 등 모든 시스템 문구)
-    res = res.replaceAll(RegExp(r'[Q|/\\{}]'), ' ');
+    res = res.replaceAll(RegExp(r'[Q|/\\{}<>]'), ' ');
     res = res.replaceAll(
       RegExp(
         r'\(?(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|제휴|즉후|카드|정장|법\]|정장\])\)?',
@@ -656,10 +656,12 @@ class LogiColmannerOcr {
     // 2. OCR 오인식 글자 및 층수/지하 보정 (데이터 축적 기반)
     res = res.replaceAllMapped(RegExp(r'([가-힣\s])[그기](\d)'), (m) => '${m.group(1)}7${m.group(2)}');
     res = res.replaceAllMapped(RegExp(r'([가-힣\s])나(\d)'), (m) => '${m.group(1)}4${m.group(2)}');
+    res = res.replaceAllMapped(RegExp(r'기내(\d+)'), (m) => '74${m.group(1)}');
     res = res.replaceAll(RegExp(r'지핟|지합'), '지하');
     res = res.replaceAllMapped(RegExp(r'([0-9B])총'), (m) => '${m.group(1)}층');
     res = res.replaceAll(RegExp(r'B!|B\|'), 'B1');
     res = res.replaceAllMapped(RegExp(r'기-(\d+)'), (m) => '7-${m.group(1)}');
+    res = res.replaceAll(RegExp(r'경유\)\d{1,2}\.\d{1,2}[가-힣A-Za-z]?\)\d{1,2}:\d{1,2}'), ' ');
 
     // 3. 라벨 잔해물 제거
     res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지)\s*', caseSensitive: false), '');
@@ -788,9 +790,15 @@ class LogiColmannerOcr {
       final noSpace = line.replaceAll(RegExp(r'\s+'), '');
 
       if (noSpace.contains('경유지')) {
-        waypoint = line.split(RegExp(r'경\s*유\s*지', caseSensitive: false)).last.replaceAll(RegExp(r'[:：]'), '').trim();
-        waypoint = waypoint.split(')').first.trim();
-        break;
+        if (waypoint.isEmpty) {
+          var w = line.split(RegExp(r'경\s*유\s*지', caseSensitive: false)).last.replaceAll(RegExp(r'[:：<>]'), '').trim();
+          w = w.split(')').first.trim();
+          // 어절 중복(예: 한남동 한남동) 제거 및 오인식(기내, 그기) 보정
+          w = w.replaceAllMapped(RegExp(r'([가-힣\s])[그기](\d)'), (m) => '${m.group(1)}7${m.group(2)}');
+          w = w.replaceAllMapped(RegExp(r'기내(\d+)'), (m) => '74${m.group(1)}');
+          waypoint = _deduplicateAdjacentTokens(w);
+        }
+        continue;
       }
 
       if (!inBlock) {
@@ -1388,7 +1396,6 @@ class LogiColmannerOcr {
   }
 
   static const List<String> _colmannerEndStops = [
-    '경유지',
     '요금',
     '현금',
     '적요',
@@ -1421,6 +1428,7 @@ class LogiColmannerOcr {
     if (RegExp(r'합계\s*[:：]').hasMatch(line) && RegExp(r'\d').hasMatch(line)) return true;
     if (n.contains('예상운행수수료') || n.contains('예상고용보험') || n.contains('예상산자보험')) return true;
     if (n.contains('기사님')) return true;
+    if (n.contains('경유지')) return true;
     return false;
   }
 

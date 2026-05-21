@@ -136,13 +136,12 @@
 
   <div class="banner">
     <strong>웹이 계속 실패하면 → <code>tools\parse_ocr_simple.bat</code></strong> (서버 없음, <code>ocr_input.txt</code>에 붙여넣기)<br>
-    <strong>웹 사용 시</strong> (서버 + WORKER 창 2개 필요)<br>
-    1. <code>tools\start_ocr_parse_lab.bat</code> → 창 <strong>2개</strong> 유지 (WORKER + SERVER)<br>
-    2. 브라우저: <code>http://127.0.0.1:28765/</code> — /health 에 <code>"worker":true</code> 확인<br>
-    &nbsp;&nbsp;&nbsp;문제 시: <code>tools\stop_ocr_parse_lab.bat</code> 후 다시 시작<br>
-    &nbsp;&nbsp;&nbsp;※ HTML 파일만 더블클릭하면 <strong>연결 안 됨</strong> (별도 주소 없음)<br>
+    <strong>웹 사용 시</strong><br>
+    1. <code>tools\start_ocr_parse_lab.bat</code> 실행하여 서버 창 유지<br>
+    2. 브라우저 접속: <code>http://127.0.0.1:28765/</code><br>
+    &nbsp;&nbsp;&nbsp;※ 문제 시: <code>tools\stop_ocr_parse_lab.bat</code> 후 다시 시작<br>
     3. OCR 원문 붙여넣기 → <strong>파싱 실행</strong> → <strong>피드백용 복사</strong><br>
-    <span style="color:#9aa0ad">첫 파싱은 flutter test 기동으로 10~30초 걸릴 수 있습니다.</span>
+    <span style="color:#9aa0ad">각 파싱은 flutter test 기동으로 수 초 ~ 수십 초 걸릴 수 있습니다.</span>
   </div>
 
   <div class="grid">
