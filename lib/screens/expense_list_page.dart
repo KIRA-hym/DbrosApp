@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../expense_nav_bus.dart';
 import '../services/expense_repository.dart';
+import '../utils/responsive_layout.dart';
 import '../widgets/responsive_body.dart';
 import 'expense_write_page.dart';
 
@@ -21,6 +22,10 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
   int _totalCount = 0;
   int _totalExpense = 0;
+
+  /// 펼침·넓은 화면 마스터-디테일에서 선택한 지출일(yyyy-MM-dd).
+  String? _masterDetailDate;
+  int _detailRevision = 0;
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _todayKey = GlobalKey();
@@ -64,8 +69,32 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       _totalCount = logs.length;
       _totalExpense = expenseSum;
       _isLoading = false;
+      _syncMasterDetailDateInState();
+      _detailRevision++;
     });
     _scrollToToday();
+  }
+
+  /// 펼침 기본 선택: 이번 달이면 **오늘** 지출일, 다른 달이면 null.
+  String? _initialMasterDetailDateInFocusedMonth() {
+    final now = DateTime.now();
+    if (now.year == _focusedMonth.year && now.month == _focusedMonth.month) {
+      return DateFormat('yyyy-MM-dd').format(now);
+    }
+    return null;
+  }
+
+  void _syncMasterDetailDateInState() {
+    final selected = _masterDetailDate;
+    if (selected != null) {
+      final parsed = DateTime.tryParse(selected);
+      if (parsed != null &&
+          parsed.year == _focusedMonth.year &&
+          parsed.month == _focusedMonth.month) {
+        return;
+      }
+    }
+    _masterDetailDate = _initialMasterDetailDateInFocusedMonth();
   }
 
   void _scrollToToday() {
@@ -81,6 +110,17 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isExpanded = ResponsiveLayout.isExpanded(context);
+    if (isExpanded && _masterDetailDate == null && !_isLoading) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final initial = _initialMasterDetailDateInFocusedMonth();
+        if (initial != null) {
+          setState(() => _masterDetailDate = initial);
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
@@ -93,21 +133,141 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         ),
         backgroundColor: const Color(0xFF1F222A),
       ),
-      body: ResponsiveBody(
-        child: Column(
-          children: [
-            _buildMonthHeader(),
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                  : Opacity(
-                      opacity: _isScrolled ? 1.0 : 0.0,
-                      child: _buildDailyList(),
+      body: isExpanded
+          ? _buildExpandedMasterDetailBody()
+          : ResponsiveBody(
+              child: Column(
+                children: [
+                  _buildMonthHeader(),
+                  Expanded(
+                    child: ColoredBox(
+                      color: const Color(0xFF121418),
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                          : Opacity(
+                              opacity: _isScrolled ? 1.0 : 0.0,
+                              child: _buildDailyList(),
+                            ),
                     ),
+                  ),
+                  _buildMonthlySummaryFooter(),
+                ],
+              ),
             ),
-            _buildMonthlySummaryFooter(),
-          ],
+    );
+  }
+
+  Widget _buildExpandedMasterDetailBody() {
+    final selected = _masterDetailDate;
+    return Column(
+      children: [
+        _buildMonthHeader(),
+        Expanded(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: ColoredBox(
+                        color: const Color(0xFF121418),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: Opacity(
+                                opacity: _isScrolled ? 1.0 : 0.0,
+                                child: _buildDailyList(
+                                  masterDetailMode: true,
+                                  selectedDate: selected,
+                                  onSelectDate: (d) => setState(() => _masterDetailDate = d),
+                                ),
+                              ),
+                            ),
+                            _buildMasterDetailMonthlySummary(compact: true),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const VerticalDivider(width: 1, color: Colors.white10),
+                    Expanded(
+                      flex: 6,
+                      child: selected == null
+                          ? const Center(
+                              child: Text(
+                                '왼쪽에서 날짜를 선택하세요',
+                                style: TextStyle(color: Color(0xFF6E717C)),
+                              ),
+                            )
+                          : DailyExpenseListPage(
+                              key: ValueKey('${selected}_$_detailRevision'),
+                              dateStr: selected,
+                              dateTitle: '지출일자: $selected',
+                              embedded: true,
+                              onEntriesChanged: _loadMonthData,
+                            ),
+                    ),
+                  ],
+                ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildMasterDetailMonthlySummary({bool compact = false}) {
+    final hPad = compact ? 12.0 : 20.0;
+    final vPad = compact ? 10.0 : 16.0;
+    final infoFontSize = compact ? 12.0 : 13.0;
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1F222A),
+        border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              '[ 월간 합계 ]',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                    Expanded(
+                      child: Text(
+                        '₩${NumberFormat('#,###').format(_totalExpense)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          color: Color(0xFFFF5252),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -148,9 +308,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     );
   }
 
-  Widget _buildDailyList() {
+  Widget _buildDailyList({
+    bool masterDetailMode = false,
+    String? selectedDate,
+    void Function(String dateStr)? onSelectDate,
+  }) {
     final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
     final now = DateTime.now();
+    final compactMaster = masterDetailMode;
 
     return SingleChildScrollView(
       controller: _scrollController,
@@ -164,16 +329,16 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               currentDate.year == now.year && currentDate.month == now.month && currentDate.day == now.day;
           final daily = _grouped[dateStr] ?? [];
 
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isTablet = screenWidth > 600;
-          final horizontalPadding = isTablet ? 24.0 : 20.0;
-          final iconSize = isTablet ? 22.0 : 20.0;
+          final horizontalPadding = compactMaster ? 12.0 : (ResponsiveLayout.isTablet(context) ? 24.0 : 20.0);
+          final iconSize = compactMaster ? 20.0 : (ResponsiveLayout.isTablet(context) ? 22.0 : 20.0);
+          final isSelected = masterDetailMode && selectedDate == dateStr;
 
           if (daily.isEmpty) {
             return Container(
               key: isToday ? _todayKey : null,
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
+                border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
               ),
               child: ListTile(
                 contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -186,10 +351,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                       ),
                 ),
                 trailing: Text(
-                  '<지출 입력>',
+                  masterDetailMode ? '' : '<지출 입력>',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
                 ),
                 onTap: () {
+                  if (masterDetailMode && onSelectDate != null) {
+                    onSelectDate(dateStr);
+                    return;
+                  }
                   Navigator.push(
                     context,
                     MaterialPageRoute<void>(
@@ -210,17 +379,21 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           }
           final logCount = daily.length;
 
-          final verticalPadding = isTablet ? 18.0 : 16.0;
-          final spacing = isTablet ? 14.0 : 12.0;
+          final verticalPadding = compactMaster ? 12.0 : (ResponsiveLayout.isTablet(context) ? 18.0 : 16.0);
+          final spacing = compactMaster ? 10.0 : (ResponsiveLayout.isTablet(context) ? 14.0 : 12.0);
 
           return Container(
             key: isToday ? _todayKey : null,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1F222A),
-              border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
+              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
             ),
             child: InkWell(
               onTap: () {
+                if (masterDetailMode && onSelectDate != null) {
+                  onSelectDate(dateStr);
+                  return;
+                }
                 Navigator.push(
                   context,
                   MaterialPageRoute<void>(
@@ -235,28 +408,40 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   children: [
                     Icon(Icons.receipt_long, color: isToday ? const Color(0xFFFFC700) : Colors.white, size: iconSize),
                     SizedBox(width: spacing),
-                    Text(
-                      '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: isToday ? const Color(0xFFFFC700) : Colors.white,
-                          ),
-                    ),
-                    SizedBox(width: spacing + 8),
                     Expanded(
                       child: Row(
                         children: [
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: Text(
+                              '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: isToday ? const Color(0xFFFFC700) : Colors.white,
+                                  ),
+                            ),
+                          ),
+                          SizedBox(width: spacing),
                           Text(
                             '$logCount건',
                             style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                           ),
                           const Spacer(),
-                          Text(
-                            '₩${NumberFormat('#,###').format(dailyExpense)}',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: const Color(0xFFFF5252),
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Flexible(
+                            fit: FlexFit.loose,
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                '₩${NumberFormat('#,###').format(dailyExpense)}',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                      color: const Color(0xFFFF5252),
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -286,31 +471,43 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
       child: SafeArea(
         top: false,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '[ 월간 합계 ]',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                '[ 월간 합계 ]',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
-                SizedBox(height: spacing),
-                Row(
-                  children: [
-                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                    Text(
-                      '₩${NumberFormat('#,###').format(_totalExpense)}',
-                      style: TextStyle(
-                        color: const Color(0xFFFF5252),
-                        fontSize: valueFontSize,
-                        fontWeight: FontWeight.bold,
+            SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                  SizedBox(height: spacing),
+                  Row(
+                    children: [
+                      const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      Expanded(
+                        child: Text(
+                          '₩${NumberFormat('#,###').format(_totalExpense)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: const Color(0xFFFF5252),
+                            fontSize: valueFontSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -329,7 +526,13 @@ class DailyExpenseListPage extends StatefulWidget {
     required this.dateStr,
     required this.dateTitle,
     this.snackMessage,
+    this.embedded = false,
+    this.onEntriesChanged,
   });
+
+  /// 목록 마스터-디테일 오른쪽 패널용.
+  final bool embedded;
+  final VoidCallback? onEntriesChanged;
 
   @override
   State<DailyExpenseListPage> createState() => _DailyExpenseListPageState();
@@ -340,6 +543,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
   bool _loading = true;
   int _totalCount = 0;
   int _totalExpense = 0;
+  bool _poppingForExpandedLayout = false;
 
   @override
   void initState() {
@@ -352,6 +556,33 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       });
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.embedded || _poppingForExpandedLayout) return;
+    if (!ResponsiveLayout.isExpanded(context)) return;
+    _poppingForExpandedLayout = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pop(context, widget.dateStr);
+    });
+  }
+
+  Future<void> _openAddExpense() async {
+    await Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => ExpenseWritePage(
+          initialExpenseDate: widget.dateStr,
+          closeAfterSave: true,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    await _load();
+    widget.onEntriesChanged?.call();
   }
 
   Future<void> _load() async {
@@ -388,8 +619,120 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
     }
   }
 
+  Widget _buildDailyDetailDateHeader() {
+    final compact = widget.embedded;
+    final padding = compact ? 6.0 : (ResponsiveLayout.isTablet(context) ? 12.0 : 8.0);
+    final hPad = compact ? 8.0 : (ResponsiveLayout.isTablet(context) ? 12.0 : 8.0);
+    final sideSlot = compact ? 96.0 : 0.0;
+    final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
+        ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white);
+    return Container(
+      color: const Color(0xFF1F222A),
+      padding: EdgeInsets.symmetric(vertical: padding, horizontal: hPad),
+      child: Row(
+        children: [
+          SizedBox(width: sideSlot),
+          Expanded(
+            child: Text(
+              widget.dateTitle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: titleStyle,
+            ),
+          ),
+          SizedBox(
+            width: sideSlot,
+            child: compact
+                ? Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _openAddExpense,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                      label: const Text(
+                        '입력',
+                        style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailBody() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildDailyDetailDateHeader(),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              : ColoredBox(
+                  color: const Color(0xFF121418),
+                  child: Column(
+                    children: [
+                      Expanded(child: _buildListBody()),
+                      _buildFooter(),
+                    ],
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildListBody() {
+    if (_rows.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              widget.embedded ? '이 날짜에 등록된 지출이 없습니다' : '등록된 지출이 없습니다.',
+              style: const TextStyle(color: Color(0xFF6E717C), fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            if (widget.embedded) ...[
+              const SizedBox(height: 20),
+              FilledButton.icon(
+                onPressed: _openAddExpense,
+                icon: const Icon(Icons.add, size: 22),
+                label: const Text(
+                  '지출 입력',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFC700),
+                  foregroundColor: const Color(0xFF121418),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
+    return _buildList();
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return ColoredBox(
+        color: const Color(0xFF121418),
+        child: _buildDetailBody(),
+      );
+    }
+
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final titleFontSize = isTablet ? 18.0 : 16.0;
@@ -410,9 +753,16 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                : _buildList(),
+                : ColoredBox(
+                    color: const Color(0xFF121418),
+                    child: Column(
+                      children: [
+                        Expanded(child: _buildListBody()),
+                        _buildFooter(),
+                      ],
+                    ),
+                  ),
           ),
-          _buildFooter(),
         ],
       ),
       bottomNavigationBar: Container(
@@ -454,15 +804,6 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
   }
 
   Widget _buildList() {
-    if (_rows.isEmpty) {
-      return Center(
-        child: Text(
-          '등록된 지출이 없습니다.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFF6E717C)),
-        ),
-      );
-    }
-
     return ListView.builder(
       itemCount: _rows.length,
       itemBuilder: (context, index) {
@@ -474,10 +815,9 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
         final amount = (e['amount'] as num?)?.toInt() ?? 0;
         final memo = (e['memo'] ?? '').toString().trim();
 
-        final screenWidth = MediaQuery.of(context).size.width;
-        final isTablet = screenWidth > 600;
-        final horizontalPadding = isTablet ? 24.0 : 20.0;
-        final verticalPadding = isTablet ? 18.0 : 16.0;
+        final compact = widget.embedded;
+        final horizontalPadding = compact ? 12.0 : (ResponsiveLayout.isTablet(context) ? 24.0 : 20.0);
+        final verticalPadding = compact ? 12.0 : (ResponsiveLayout.isTablet(context) ? 18.0 : 16.0);
 
         return Dismissible(
           key: Key('exp_${e['id']}'),
@@ -522,6 +862,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
           onDismissed: (_) async {
             await ExpenseRepository.deleteEntry((e['id'] as num).toInt());
             await _load();
+            widget.onEntriesChanged?.call();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('지출이 삭제되었습니다.'), backgroundColor: Colors.red),
@@ -535,7 +876,10 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
                 MaterialPageRoute<void>(
                   builder: (_) => ExpenseWritePage(existing: e, closeAfterSave: true),
                 ),
-              ).then((_) => _load());
+              ).then((_) async {
+                await _load();
+                widget.onEntriesChanged?.call();
+              });
             },
             child: Container(
               decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5))),
@@ -557,9 +901,15 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
                       ),
                       const Spacer(),
-                      Text(
-                        '₩${NumberFormat('#,###').format(amount)}',
-                        style: const TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold, fontSize: 15),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            '₩${NumberFormat('#,###').format(amount)}',
+                            style: const TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -580,12 +930,11 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
   }
 
   Widget _buildFooter() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final horizontalPadding = isTablet ? 24.0 : 20.0;
-    final verticalPadding = isTablet ? 20.0 : 16.0;
-    final valueFontSize = isTablet ? 15.0 : 14.0;
-    final spacing = isTablet ? 8.0 : 6.0;
+    final compact = widget.embedded;
+    final horizontalPadding = compact ? 12.0 : (ResponsiveLayout.isTablet(context) ? 24.0 : 20.0);
+    final verticalPadding = compact ? 10.0 : (ResponsiveLayout.isTablet(context) ? 20.0 : 16.0);
+    final valueFontSize = compact ? 13.0 : (ResponsiveLayout.isTablet(context) ? 15.0 : 14.0);
+    final spacing = compact ? 4.0 : (ResponsiveLayout.isTablet(context) ? 8.0 : 6.0);
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
@@ -593,31 +942,43 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
       child: SafeArea(
         top: false,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '[ 일일 합계 ]',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            Expanded(
+              child: Text(
+                '[ 일일 합계 ]',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: valueFontSize)),
-                SizedBox(height: spacing),
-                Row(
-                  children: [
-                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                    Text(
-                      '₩${NumberFormat('#,###').format(_totalExpense)}',
-                      style: TextStyle(
-                        color: const Color(0xFFFF5252),
-                        fontSize: valueFontSize,
-                        fontWeight: FontWeight.bold,
+            SizedBox(width: spacing),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: valueFontSize)),
+                  SizedBox(height: spacing),
+                  Row(
+                    children: [
+                      const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      Expanded(
+                        child: Text(
+                          '₩${NumberFormat('#,###').format(_totalExpense)}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: const Color(0xFFFF5252),
+                            fontSize: valueFontSize,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),

@@ -115,11 +115,18 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
 
 /// 홈·통계 공용 가로형 수익 막대 리스트 위젯.
 class StatsBarChartBody extends StatelessWidget {
-  const StatsBarChartBody({super.key, required this.data, required this.labelKey, required this.valueKey});
+  const StatsBarChartBody({
+    super.key,
+    required this.data,
+    required this.labelKey,
+    required this.valueKey,
+    this.programLabels = false,
+  });
 
   final List<Map<String, dynamic>> data;
   final String labelKey;
   final String valueKey;
+  final bool programLabels;
 
   static const _colors = <Color>[
     Color(0xFFFFC700),
@@ -159,8 +166,9 @@ class StatsBarChartBody extends StatelessWidget {
                   child: Text(
                     rawLabel,
                     style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    maxLines: programLabels ? 2 : 1,
+                    overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
+                    softWrap: true,
                   ),
                 ),
                 if (count != null)
@@ -169,10 +177,11 @@ class StatsBarChartBody extends StatelessWidget {
                     style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
                   ),
                 const SizedBox(width: 8),
-                SizedBox(
-                  width: 70,
+                Flexible(
                   child: Text(
                     NumberFormat('#,###').format(value),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
                     style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
                   ),

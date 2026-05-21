@@ -323,11 +323,13 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
               builder: (context, constraints) {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
                 final maxW = constraints.maxWidth;
-                final compact = maxH < 520 || maxW < 340;
-                final chartsSideBySide = isExpanded && maxW >= 640 && !compact && _selectedPeriod != '일간';
+                final compact = ResponsiveLayout.isPhoneLayout(context);
+                final chartsSideBySide = isExpanded && _selectedPeriod != '일간';
                 final gapSm = compact ? 8.0 : (isTablet ? 24.0 : 16.0);
                 final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
-                final gridAspect = compact ? 1.45 : 1.75;
+                final gridW = math.max(120.0, (maxW - gapSm) / 2);
+                final gridH = math.max(72.0, maxH * (compact ? 0.16 : 0.20));
+                final gridAspect = gridW / gridH;
 
                 return Padding(
                   padding: EdgeInsets.all(padding),

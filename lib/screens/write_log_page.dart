@@ -622,9 +622,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           height: 180,
           child: Row(
             children: [
-              Expanded(child: CupertinoPicker(scrollController: hourController, itemExtent: 36, onSelectedItemChanged: (value) => selectedHour = value, children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)))))),
+              Expanded(child: CupertinoPicker(scrollController: hourController, itemExtent: 36, onSelectedItemChanged: (value) => selectedHour = value, children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)))))),
               const Center(child: Text(":", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
-              Expanded(child: CupertinoPicker(scrollController: minuteController, itemExtent: 36, onSelectedItemChanged: (value) => selectedMinute = value, children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)))))),
+              Expanded(child: CupertinoPicker(scrollController: minuteController, itemExtent: 36, onSelectedItemChanged: (value) => selectedMinute = value, children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)))))),
             ],
           ),
         ),
@@ -710,7 +710,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           builder: (ctx, setModalState) {
             final selectedIndex = dates.indexWhere((d) => d == selected);
             return SizedBox(
-              height: 420,
+              height: ResponsiveLayout.bottomSheetHeight(ctx),
               child: Column(
                 children: [
                   Padding(
@@ -1256,22 +1256,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1F222A),
+        centerTitle: true,
         leading: _logId != null || widget.initialDate != null
           ? IconButton(icon: Icon(Icons.arrow_back, color: Colors.white, size: iconSize.toDouble()), onPressed: () => Navigator.pop(context)) 
           : null,
-        title: Row(
-          children: [
-            Expanded(
-              child: Text(
-                _logId != null ? "운행 일지 수정" : "운행 일지 작성",
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700)),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            DriveLogSourceChip(registrationSource: _persistedRegistrationSource),
-          ],
+        title: Text(
+          _logId != null ? '운행 일지 수정' : '운행 일지 작성',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700)),
+          overflow: TextOverflow.ellipsis,
         ),
         actions: [
+          if (_persistedRegistrationSource != null && _persistedRegistrationSource!.trim().isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(right: isTablet ? 4.0 : 2.0),
+              child: Center(child: DriveLogSourceChip(registrationSource: _persistedRegistrationSource)),
+            ),
           Padding(
             padding: EdgeInsets.only(right: isTablet ? 12.0 : 8.0),
             child: TextButton(
@@ -1392,7 +1391,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFF121418),
@@ -1537,7 +1536,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFF121418),
@@ -1639,7 +1638,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(width: 8),
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontFamily: 'GmarketSans',
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
@@ -1691,7 +1690,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
           decoration: InputDecoration(
             suffix: suffixWidget,
             suffixIcon: suffixIcon,
@@ -1764,7 +1763,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   textAlign: isNumber ? TextAlign.right : TextAlign.left,
                   keyboardType: isNumber ? TextInputType.number : TextInputType.text,
                   inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: const Color(0xFF121418),
@@ -1807,7 +1806,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               isExpanded: true,
               value: selected,
               dropdownColor: const Color(0xFF1F222A),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
               items: options.map((program) {
                 return DropdownMenuItem<String>(
                   value: program,

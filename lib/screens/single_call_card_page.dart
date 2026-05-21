@@ -390,30 +390,66 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         ),
       ),
       body: ResponsiveBody(
+        fullWidthWhenExpanded: true,
         maxWidth: ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context)),
         child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text("근무일자", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
-            const SizedBox(height: 6),
-            DriveDateSelectorBar(
-              selectedDate: _driveDay,
-              onDateChanged: (d) => setState(() => _driveDay = DateTime(d.year, d.month, d.day)),
-            ),
-            SizedBox(height: spacing),
-            if (_selectedImage == null) ...[
-              _buildEmptyState(),
-            ] else ...[
-              _buildImagePreview(),
-              SizedBox(height: spacing),
-              if (_isProcessing || _isSaving) ...[
-                _buildProcessingState(),
-              ],
-            ],
-          ],
-        ),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isExpanded = ResponsiveLayout.isExpanded(context);
+              final dateBlock = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('근무일자', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+                  const SizedBox(height: 6),
+                  DriveDateSelectorBar(
+                    selectedDate: _driveDay,
+                    onDateChanged: (d) => setState(() => _driveDay = DateTime(d.year, d.month, d.day)),
+                  ),
+                ],
+              );
+
+              if (!isExpanded) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    dateBlock,
+                    SizedBox(height: spacing),
+                    if (_selectedImage == null) ...[
+                      _buildEmptyState(),
+                    ] else ...[
+                      _buildImagePreview(),
+                      SizedBox(height: spacing),
+                      if (_isProcessing || _isSaving) _buildProcessingState(),
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  dateBlock,
+                  SizedBox(height: spacing),
+                  Expanded(
+                    child: _selectedImage == null
+                        ? _buildEmptyState()
+                        : (_isProcessing || _isSaving)
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(flex: 4, child: _buildProcessingState()),
+                                  SizedBox(width: spacing),
+                                  Expanded(flex: 6, child: _buildImagePreview(fillHeight: true)),
+                                ],
+                              )
+                            : _buildImagePreview(fillHeight: true),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -476,27 +512,38 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     );
   }
 
-  Widget _buildImagePreview() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final containerHeight = isTablet ? 240.0 : 200.0;
+  Widget _buildImagePreview({bool fillHeight = false}) {
+    final isTablet = ResponsiveLayout.isTablet(context);
     final borderRadius = isTablet ? 20.0 : 16.0;
     final borderWidth = isTablet ? 3.0 : 2.0;
     final innerBorderRadius = borderRadius - borderWidth;
 
+    final image = ClipRRect(
+      borderRadius: BorderRadius.circular(innerBorderRadius),
+      child: Image.file(
+        _selectedImage!,
+        fit: fillHeight ? BoxFit.contain : BoxFit.cover,
+      ),
+    );
+
+    final decoration = BoxDecoration(
+      borderRadius: BorderRadius.circular(borderRadius),
+      border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
+    );
+
+    if (fillHeight) {
+      return Container(
+        decoration: decoration,
+        alignment: Alignment.center,
+        child: image,
+      );
+    }
+
+    final containerHeight = isTablet ? 240.0 : 200.0;
     return Container(
       height: containerHeight,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(innerBorderRadius),
-        child: Image.file(
-          _selectedImage!,
-          fit: BoxFit.cover,
-        ),
-      ),
+      decoration: decoration,
+      child: image,
     );
   }
 

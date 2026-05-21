@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../utils/app_bottom_sheet.dart';
+import '../utils/responsive_layout.dart';
 
 /// 운행 통계 화면 일간 날짜 선택과 동일 스타일(좌우 화살표 + yyyy-MM-dd).
 class DriveDateSelectorBar extends StatelessWidget {
@@ -65,7 +66,7 @@ class DriveDateSelectorBar extends StatelessWidget {
         builder: (ctx, setModalState) {
           final selectedIndex = dates.indexWhere((d) => d == selected);
           return SizedBox(
-            height: 420,
+            height: ResponsiveLayout.bottomSheetHeight(ctx),
             child: Column(
               children: [
                 Padding(

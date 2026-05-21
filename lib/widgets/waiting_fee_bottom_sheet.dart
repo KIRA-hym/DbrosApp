@@ -165,12 +165,18 @@ class _WaitingFeeBottomSheetState extends State<WaitingFeeBottomSheet> {
                   ),
                 ),
                 const Spacer(),
-                Text(
-                  _fee == null ? '-' : '${_currency.format(_fee)}원',
-                  style: const TextStyle(
-                    color: Color(0xFFFFC700),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      _fee == null ? '-' : '${_currency.format(_fee)}원',
+                      style: const TextStyle(
+                        color: Color(0xFFFFC700),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                      ),
+                    ),
                   ),
                 ),
               ],

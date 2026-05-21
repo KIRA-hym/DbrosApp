@@ -70,7 +70,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('folded layout places charts in a horizontal row', (tester) async {
+  testWidgets('folded layout stacks charts vertically', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
@@ -92,7 +92,32 @@ void main() {
 
     final programBox = tester.getRect(programTitle);
     final hourlyBox = tester.getRect(hourlyTitle);
+    expect(programBox.bottom, lessThan(hourlyBox.top));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('expanded layout places charts in a horizontal row', (tester) async {
+    // Z Fold 펼침 세로에 가까운 단말기 크기
+    tester.view.physicalSize = const Size(690, 830);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: StatsPage(),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+
+    final programTitle = find.text('프로그램별 매출');
+    final hourlyTitle = find.text('시간대별 순수익');
+    final programBox = tester.getRect(programTitle);
+    final hourlyBox = tester.getRect(hourlyTitle);
     expect(programBox.right, lessThan(hourlyBox.left));
+    expect(find.byIcon(Icons.chevron_left), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

@@ -308,30 +308,66 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         ],
       ),
       body: ResponsiveBody(
+        fullWidthWhenExpanded: true,
         maxWidth: ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context)),
         child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text("근무일자", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
-            const SizedBox(height: 6),
-            DriveDateSelectorBar(
-              selectedDate: _driveDay,
-              onDateChanged: (d) => setState(() => _driveDay = DateTime(d.year, d.month, d.day)),
-            ),
-            SizedBox(height: spacing),
-            if (_selectedImages.isEmpty) ...[
-              _buildEmptyState(),
-            ] else ...[
-              _buildImagePreview(),
-              SizedBox(height: spacing),
-              if (_isSaving) ...[
-                _buildSavingState(),
-              ],
-            ],
-          ],
-        ),
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isExpanded = ResponsiveLayout.isExpanded(context);
+              final dateBlock = Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('근무일자', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+                  const SizedBox(height: 6),
+                  DriveDateSelectorBar(
+                    selectedDate: _driveDay,
+                    onDateChanged: (d) => setState(() => _driveDay = DateTime(d.year, d.month, d.day)),
+                  ),
+                ],
+              );
+
+              if (!isExpanded) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    dateBlock,
+                    SizedBox(height: spacing),
+                    if (_selectedImages.isEmpty) ...[
+                      _buildEmptyState(),
+                    ] else ...[
+                      _buildImagePreview(),
+                      SizedBox(height: spacing),
+                      if (_isSaving) _buildSavingState(),
+                    ],
+                  ],
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  dateBlock,
+                  SizedBox(height: spacing),
+                  Expanded(
+                    child: _selectedImages.isEmpty
+                        ? _buildEmptyState()
+                        : _isSaving
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(flex: 4, child: _buildSavingState()),
+                                  SizedBox(width: spacing),
+                                  Expanded(flex: 6, child: _buildImagePreview(fillHeight: true)),
+                                ],
+                              )
+                            : _buildImagePreview(fillHeight: true),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -394,38 +430,54 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     );
   }
 
-  Widget _buildImagePreview() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final containerHeight = isTablet ? 120.0 : 100.0;
-    final itemWidth = isTablet ? 100.0 : 80.0;
+  Widget _buildImagePreview({bool fillHeight = false}) {
+    final isTablet = ResponsiveLayout.isTablet(context);
+    final containerHeight = fillHeight ? null : (isTablet ? 120.0 : 100.0);
+    final itemWidth = fillHeight ? null : (isTablet ? 100.0 : 80.0);
     final itemMargin = isTablet ? 12.0 : 8.0;
     final borderRadius = isTablet ? 12.0 : 8.0;
     final borderWidth = isTablet ? 2.0 : 1.0;
 
-    return Container(
+    Widget thumb(File image, {double? width, double? height}) {
+      return Container(
+        width: width,
+        height: height,
+        margin: EdgeInsets.only(right: itemMargin, bottom: fillHeight ? itemMargin : 0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(borderRadius),
+          border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(borderRadius),
+          child: Image.file(image, fit: BoxFit.cover),
+        ),
+      );
+    }
+
+    if (fillHeight) {
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final thumbH = (constraints.maxHeight - itemMargin).clamp(80.0, 200.0);
+          final thumbW = thumbH * 0.75;
+          return SingleChildScrollView(
+            child: Wrap(
+              spacing: itemMargin,
+              runSpacing: itemMargin,
+              children: [
+                for (final image in _selectedImages) thumb(image, width: thumbW, height: thumbH),
+              ],
+            ),
+          );
+        },
+      );
+    }
+
+    return SizedBox(
       height: containerHeight,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _selectedImages.length,
-        itemBuilder: (context, index) {
-          final File image = _selectedImages[index];
-          return Container(
-            width: itemWidth,
-            margin: EdgeInsets.only(right: itemMargin),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Image.file(
-                image,
-                fit: BoxFit.cover,
-              ),
-            ),
-          );
-        },
+        itemBuilder: (context, index) => thumb(_selectedImages[index], width: itemWidth, height: containerHeight),
       ),
     );
   }
