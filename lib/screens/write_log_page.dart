@@ -11,6 +11,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
+import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
@@ -119,6 +120,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   // FocusNodes for transport and waypoint tip to detect focus loss (focus out)
   final FocusNode _transportFocusNode = FocusNode();
   final FocusNode _waypointTipFocusNode = FocusNode();
+  final FocusNode _startLocFocusNode = FocusNode();
+  final FocusNode _endLocFocusNode = FocusNode();
+  final FocusNode _waypointFocusNode = FocusNode();
+  final FocusNode _incomeFocusNode = FocusNode();
+  final FocusNode _memoFocusNode = FocusNode();
 
   // Category selections
   String _selectedExpenseCategory = "킥/자전거";
@@ -216,7 +222,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       final recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
 
-      final parsed = _detectProgramAndParse(recognizedText);
+      final originalDate = file.existsSync() ? file.lastModifiedSync() : DateTime.now();
+      final parsed = _detectProgramAndParse(recognizedText, originalDate: originalDate);
       if (!parsed) return;
 
       final canAutoSave = _parseMoney(_incomeCon.text) > 0 &&
@@ -233,20 +240,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (_logId != null || widget.existingLog != null || widget.initialDate != null) return;
     if (_manualWorkDateRoll) return;
 
-    final w = _workDateCon.text.trim();
-    final d = _dateCon.text.trim();
-    if (w.isEmpty || d.isEmpty || w != d) {
-      _manualWorkDateRoll = true;
-      return;
-    }
-
     final cur = WorkDateUtils.effectiveWorkDateYmd();
-    if (w == cur) return;
-
-    if (_syncedEffectiveYmd != null && w != _syncedEffectiveYmd) {
-      _manualWorkDateRoll = true;
-      return;
-    }
+    if (_syncedEffectiveYmd == cur) return;
 
     setState(() {
       _workDateCon.text = cur;
@@ -271,23 +266,52 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
     _transportFocusNode.dispose();
     _waypointTipFocusNode.dispose();
+    _startLocFocusNode.dispose();
+    _endLocFocusNode.dispose();
+    _waypointFocusNode.dispose();
+    _incomeFocusNode.dispose();
+    _memoFocusNode.dispose();
     _workDateCon.dispose();
     _dateCon.dispose(); _timeCon.dispose(); _incomeCon.dispose(); _transportCon.dispose(); _waypointTipCon.dispose();
     _startLocCon.dispose(); _waypointCon.dispose(); _endLocCon.dispose(); _memoCon.dispose();
     super.dispose();
   }
 
+  Future<DateTime?> _getOriginalImageDate(File imageFile) async {
+    try {
+      final int targetLen = await imageFile.length();
+      final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(onlyAll: true, type: RequestType.image);
+      if (albums.isEmpty) return null;
+      // Search up to 200 recent images
+      final List<AssetEntity> recent = await albums.first.getAssetListPaged(page: 0, size: 200);
+      for (final asset in recent) {
+        final file = await asset.file;
+        if (file != null) {
+          final len = await file.length();
+          if (len == targetLen) {
+            return asset.createDateTime;
+          }
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   Future<void> _openGallery() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
     if (image == null) return;
-    setState(() => _capturedImage = File(image.path));
+    
+    final file = File(image.path);
+    setState(() => _capturedImage = file);
+    
+    final originalDate = await _getOriginalImageDate(file);
     
     final inputImage = InputImage.fromFilePath(image.path);
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
     final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
     await textRecognizer.close();
     
-    _detectProgramAndParse(recognizedText);
+    _detectProgramAndParse(recognizedText, originalDate: originalDate);
   }
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
@@ -304,12 +328,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
       if (!mounted) return;
       setState(() => _capturedImage = file);
+
+      final originalDate = file.existsSync() ? file.lastModifiedSync() : DateTime.now();
+
       final inputImage = InputImage.fromFilePath(file.path);
       final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-      final recognizedText = await textRecognizer.processImage(inputImage);
+      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
+      
       if (!mounted) return;
-      _detectProgramAndParse(recognizedText);
+      _detectProgramAndParse(recognizedText, originalDate: originalDate);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -355,7 +383,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return null;
   }
 
-  bool _detectProgramAndParse(RecognizedText recognizedText) {
+  bool _detectProgramAndParse(RecognizedText recognizedText, {DateTime? originalDate}) {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     _useFormDriveTimeOnSave = false;
@@ -398,8 +426,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _parseTmapTripDetail(recognizedText);
     }
 
+    if (originalDate != null) {
+      _timeCon.text = formatDriveTimeHm(originalDate);
+      final workYmd = WorkDateUtils.effectiveWorkDateYmd(originalDate);
+      _workDateCon.text = workYmd;
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(workYmd, _timeCon.text);
+      _syncedEffectiveYmd = workYmd;
+    } else {
+      _syncWorkDateFromDriveDateTime();
+    }
+
     _captureGrossAndApplyDeductions();
-    _syncWorkDateFromDriveDateTime();
     final waypoints = _waypointCon.text.trim().isEmpty
         ? const <String>[]
         : [_waypointCon.text.trim()];
@@ -1391,6 +1428,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
+                  focusNode: _startLocFocusNode,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,
@@ -1405,8 +1443,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 16),
               ],
             ),
-            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지"),
-            _buildInputField(_endLocCon, label: "도착지", suffixIcon: _pinPickButton(forStart: false)),
+            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
+            _buildInputField(_endLocCon, label: "도착지", focusNode: _endLocFocusNode, suffixIcon: _pinPickButton(forStart: false)),
           ]),
         ],
       ),
@@ -1436,7 +1474,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 children: [
                   Expanded(child: _buildDropdown(bottomMargin: 0)),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, onChanged: (_) => _captureGrossAndApplyDeductions())),
+                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, focusNode: _incomeFocusNode, onChanged: (_) => _captureGrossAndApplyDeductions())),
                 ],
               ),
               const SizedBox(height: 16),
@@ -1536,6 +1574,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
+                  focusNode: _startLocFocusNode,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
                   decoration: InputDecoration(
                     filled: true,
@@ -1550,10 +1589,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 const SizedBox(height: 16),
               ],
             ),
-            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지"),
+            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
             _buildInputField(
               _endLocCon,
               label: "도착지",
+              focusNode: _endLocFocusNode,
               suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null,
             ),
           ],
@@ -1569,7 +1609,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Widget _buildMemoSection() {
-    return _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3)]);
+    return _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3, focusNode: _memoFocusNode)]);
   }
 
   Widget _buildFormLayout() {
@@ -1675,7 +1715,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, {required String label, bool isNumber = false, VoidCallback? onTap, bool readOnly = false, double bottomMargin = 16, int maxLines = 1, Widget? suffixWidget, Widget? suffixIcon, Function(String)? onChanged}) {
+  Widget _buildInputField(TextEditingController controller, {required String label, bool isNumber = false, VoidCallback? onTap, bool readOnly = false, double bottomMargin = 16, int maxLines = 1, FocusNode? focusNode, Widget? suffixWidget, Widget? suffixIcon, Function(String)? onChanged}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1683,6 +1723,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          focusNode: focusNode,
           readOnly: readOnly,
           onTap: onTap,
           onChanged: onChanged,
