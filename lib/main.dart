@@ -140,10 +140,13 @@ class DbrosApp extends StatelessWidget {
     return ValueListenableBuilder<double>(
       valueListenable: FontSizeService.fontNotifier,
       builder: (context, fontSize, child) {
-        return GestureDetector(
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: MaterialApp(
-            navigatorKey: rootNavigatorKey,
+        return ValueListenableBuilder<bool>(
+          valueListenable: SettingsService.isOwnerModeNotifier,
+          builder: (context, isOwnerMode, child) {
+            return GestureDetector(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: MaterialApp(
+                navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
               final mq = MediaQuery.of(context);
@@ -209,6 +212,8 @@ class DbrosApp extends StatelessWidget {
             },
             home: const MainWrapper(),
           ),
+        );
+          },
         );
       },
     );

@@ -1,5 +1,7 @@
 import 'dart:io' show Platform;
 
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +50,9 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _showDeleteProgram = false;
 
   String _appVersionLabel = '';
+  
+  int _versionTapCount = 0;
+  DateTime? _lastVersionTapTime;
 
   @override
   void initState() {
@@ -270,12 +275,113 @@ class _SettingsPageState extends State<SettingsPage> {
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
-              child: Text(label, style: versionStyle),
+              child: GestureDetector(
+                onTap: _handleVersionTap,
+                child: Container(
+                  color: Colors.transparent, // 터치 영역 확보
+                  padding: const EdgeInsets.all(4.0),
+                  child: Text(label, style: versionStyle),
+                ),
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  void _handleVersionTap() {
+    final now = DateTime.now();
+    if (_lastVersionTapTime == null || now.difference(_lastVersionTapTime!).inSeconds > 2) {
+      _versionTapCount = 1;
+    } else {
+      _versionTapCount++;
+    }
+    _lastVersionTapTime = now;
+
+    if (_versionTapCount >= 5) {
+      _versionTapCount = 0;
+      _showOwnerModeDialog();
+    }
+  }
+
+  void _showOwnerModeDialog() {
+    if (SettingsService.isOwnerMode) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1F222A),
+          title: const Text('오너 모드 해제', style: TextStyle(color: Colors.white)),
+          content: const Text('오너 모드를 해제하고 퍼블릭 모드로 전환하시겠습니까?', style: TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () async {
+                await SettingsService.setIsOwnerMode(false);
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('퍼블릭 모드로 전환되었습니다.')),
+                );
+              },
+              child: const Text('해제', style: TextStyle(color: Color(0xFFFF5252))),
+            ),
+          ],
+        ),
+      );
+    } else {
+      final codeCon = TextEditingController();
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1F222A),
+          title: const Text('마스터 코드 입력', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: codeCon,
+            obscureText: true,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: '코드를 입력하세요',
+              hintStyle: TextStyle(color: Colors.white38),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white38)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소', style: TextStyle(color: Colors.white70)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final input = codeCon.text.trim();
+                final bytes = utf8.encode(input);
+                final digest = sha256.convert(bytes).toString().toLowerCase();
+                // "HYM" 의 SHA-256 해시값
+                final targetHash = '8bd584776a2317022906d3da03e66184ddee9d979bb3fde82af39748c3cae422'; 
+                
+                if (digest == targetHash) {
+                  await SettingsService.setIsOwnerMode(true);
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('오너 모드가 활성화되었습니다.')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('코드가 일치하지 않습니다.')),
+                  );
+                }
+              },
+              child: const Text('인증', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Widget _buildSettingsGroup(String title, List<Widget> children, {bool showChangeButton = false, VoidCallback? onSave}) {

@@ -11,6 +11,9 @@ import 'package:share_plus/share_plus.dart';
 import '../services/db_helper.dart';
 import '../main.dart'; 
 import 'write_log_page.dart';
+import 'stats_page.dart' show StatsRouteMapPage, TripSegment;
+import '../config/feature_flags.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/work_date_utils.dart';
@@ -117,6 +120,8 @@ class _LogListPageState extends State<LogListPage> {
     required double iconSize,
     required double spacing,
     required double innerSpacing,
+    required String dateStr,
+    required List<Map<String, dynamic>> dailyLogs,
   }) {
     final dayColor = isToday ? const Color(0xFFFFC700) : Colors.white;
     return Row(
@@ -149,6 +154,16 @@ class _LogListPageState extends State<LogListPage> {
                         ),
                         SizedBox(width: spacing),
                         Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
+                        if (kMapFeaturesEnabled && dailyLogs.any((log) => log['start_lat'] != null)) ...[
+                          const SizedBox(width: 8),
+                          InkWell(
+                            onTap: () => _openDailyRouteMap(dateStr, dailyLogs),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 16),
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -559,6 +574,46 @@ class _LogListPageState extends State<LogListPage> {
     );
   }
 
+  void _openDailyRouteMap(String dateStr, List<Map<String, dynamic>> logs) {
+    if (!kMapFeaturesEnabled) return;
+
+    final segments = <TripSegment>[];
+    for (final log in logs) {
+      final startLat = (log['start_lat'] as num?)?.toDouble();
+      final startLng = (log['start_lng'] as num?)?.toDouble();
+      final endLat = (log['end_lat'] as num?)?.toDouble();
+      final endLng = (log['end_lng'] as num?)?.toDouble();
+      final time = (log['drive_time'] ?? '').toString();
+      final program = (log['program'] ?? '').toString();
+
+      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+        segments.add(
+          TripSegment(
+            start: LatLng(startLat, startLng),
+            end: LatLng(endLat, endLng),
+            snippet: '$time · $program',
+          ),
+        );
+      }
+    }
+
+    if (segments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('해당 일자에 표시할 좌표 데이터가 없습니다.')));
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StatsRouteMapPage(
+          periodLabel: '일간',
+          dateLabel: '근무일자: $dateStr',
+          segments: segments,
+        ),
+      ),
+    );
+  }
+
   Widget _buildDailyList({
     bool masterDetailMode = false,
     String? selectedDate,
@@ -745,6 +800,16 @@ class _LogListPageState extends State<LogListPage> {
                                             ),
                                             SizedBox(width: spacing),
                                             Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
+                                            if (kMapFeaturesEnabled && dailyLogs.any((log) => log['start_lat'] != null)) ...[
+                                              const SizedBox(width: 8),
+                                              InkWell(
+                                                onTap: () => _openDailyRouteMap(dateStr, dailyLogs),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4.0),
+                                                  child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 16),
+                                                ),
+                                              ),
+                                            ],
                                           ],
                                         ),
                                       ),

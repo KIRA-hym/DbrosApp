@@ -36,6 +36,7 @@ import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
 import '../utils/formatters.dart';
+import '../utils/app_image_picker.dart';
 import 'location_pick_map_page.dart';
 import 'log_list_page.dart';
 
@@ -106,7 +107,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   String _deductionHint = "";
   String _selectedProgram =
       SettingsService.programList.isNotEmpty ? SettingsService.programList.first : "카카오(일반)";
-  final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
   bool _showWaypointField = false;
 
@@ -277,41 +277,19 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     super.dispose();
   }
 
-  Future<DateTime?> _getOriginalImageDate(File imageFile) async {
-    try {
-      final int targetLen = await imageFile.length();
-      final List<AssetPathEntity> albums = await PhotoManager.getAssetPathList(onlyAll: true, type: RequestType.image);
-      if (albums.isEmpty) return null;
-      // Search up to 200 recent images
-      final List<AssetEntity> recent = await albums.first.getAssetListPaged(page: 0, size: 200);
-      for (final asset in recent) {
-        final file = await asset.file;
-        if (file != null) {
-          final len = await file.length();
-          if (len == targetLen) {
-            return asset.createDateTime;
-          }
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
   Future<void> _openGallery() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image == null) return;
+    final result = await AppImagePicker.pickSingleGalleryImage(context);
+    if (result == null) return;
     
-    final file = File(image.path);
+    final file = result.file;
     setState(() => _capturedImage = file);
     
-    final originalDate = await _getOriginalImageDate(file);
-    
-    final inputImage = InputImage.fromFilePath(image.path);
+    final inputImage = InputImage.fromFilePath(file.path);
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
     final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
     await textRecognizer.close();
     
-    _detectProgramAndParse(recognizedText, originalDate: originalDate);
+    _detectProgramAndParse(recognizedText, originalDate: result.creationDate);
   }
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
@@ -900,13 +878,22 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   Widget _pinPickButton({required bool forStart}) {
     if (!kMapFeaturesEnabled) return const SizedBox.shrink();
+    
+    // 신규 작성(사진/수동 등) 시에는 숨기고, 수정 모드일 때 위경도 없는 경우에만 노출
+    final bool isEditMode = widget.existingLog != null;
+    if (!isEditMode) return const SizedBox.shrink();
+
     final has = forStart
         ? _startLat != null && _startLng != null
         : _endLat != null && _endLng != null;
+
+    // 이미 좌표가 등록된 경우에도 버튼을 숨깁니다 (수정 화면일 때 좌표 없는 일지일 때만)
+    if (has) return const SizedBox.shrink();
+
     return IconButton(
-      icon: Icon(
+      icon: const Icon(
         Icons.add_location_alt,
-        color: has ? Colors.redAccent : const Color(0xFFFFC700),
+        color: Color(0xFFFFC700),
         size: 22,
       ),
       onPressed: forStart ? _openStartMapPicker : _openEndMapPicker,

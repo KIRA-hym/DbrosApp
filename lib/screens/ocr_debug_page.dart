@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import '../utils/app_image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../utils/logi_colmanner_ocr.dart';
@@ -22,7 +22,6 @@ class OcrDebugPage extends StatefulWidget {
 }
 
 class _OcrDebugPageState extends State<OcrDebugPage> {
-  final ImagePicker _picker = ImagePicker();
   final List<File> _images = [];
   final List<_OcrResult> _results = [];
   bool _isProcessing = false;
@@ -83,12 +82,12 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
   }
 
   Future<void> _pickImages() async {
-    final picked = await _picker.pickMultiImage();
-    if (picked.isEmpty) return;
+    final results = await AppImagePicker.pickMultipleGalleryImages(context);
+    if (results.isEmpty) return;
     setState(() {
       _images.clear();
       _results.clear();
-      _images.addAll(picked.map((x) => File(x.path)));
+      _images.addAll(results.map((r) => r.file));
     });
     _processAll();
   }

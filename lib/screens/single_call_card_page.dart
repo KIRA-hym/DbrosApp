@@ -15,6 +15,7 @@ import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
+import '../utils/app_image_picker.dart';
 import 'log_list_page.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/drive_date_selector_bar.dart';
@@ -31,8 +32,8 @@ class SingleCallCardForm extends StatefulWidget {
 }
 
 class _SingleCallCardFormState extends State<SingleCallCardForm> {
-  final ImagePicker _picker = ImagePicker();
   File? _selectedImage;
+  DateTime? _selectedImageDate;
   bool _isProcessing = false;
   bool _isSaving = false;
   String? _lastFailureReason;
@@ -60,15 +61,15 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
   Future<void> _pickImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      final result = await AppImagePicker.pickSingleGalleryImage(context);
+      if (result == null) return;
 
-      final file = File(image.path);
       setState(() {
-        _selectedImage = file;
+        _selectedImage = result.file;
+        _selectedImageDate = result.creationDate;
       });
 
-      _processImageAndSave(file);
+      _processImageAndSave(result.file, result.creationDate);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -77,7 +78,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     }
   }
 
-  Future<void> _processImageAndSave(File imageFile) async {
+  Future<void> _processImageAndSave(File imageFile, DateTime creationDate) async {
     if (_selectedImage == null) return;
 
     setState(() => _isProcessing = true);
@@ -91,7 +92,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, imageFile);
       
       if (logData.isNotEmpty) {
-        await _saveLogData(logData, imageFile);
+        await _saveLogData(logData, imageFile, creationDate);
       } else {
         if (!mounted) return;
         OcrFailureFeedback.showUnrecognizedSnackbar(
@@ -298,15 +299,13 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
   int _calculateFee(String program, int grossFare) => SettingsService.deductionFeeFromGross(grossFare, program);
 
-  Future<void> _saveLogData(Map<String, dynamic> logData, File imageFile) async {
+  Future<void> _saveLogData(Map<String, dynamic> logData, File imageFile, DateTime creationDate) async {
     setState(() => _isSaving = true);
 
     try {
       final String nowIso = DateTime.now().toIso8601String();
       // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
-      final DateTime imageDate = imageFile.existsSync()
-          ? imageFile.lastModifiedSync()
-          : DateTime.now();
+      final DateTime imageDate = creationDate;
       final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
       final timeStr = formatDriveTimeHm(imageDate);
       final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);

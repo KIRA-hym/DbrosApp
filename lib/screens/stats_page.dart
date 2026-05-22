@@ -12,6 +12,7 @@ import '../config/feature_flags.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/marker_utils.dart';
 import '../widgets/responsive_body.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
@@ -534,8 +535,8 @@ class _StatsPageState extends State<StatsPage> {
     return out;
   }
 
-  List<_TripSegment> _buildTripSegments(List<Map<String, dynamic>> logs) {
-    final trips = <_TripSegment>[];
+  List<TripSegment> _buildTripSegments(List<Map<String, dynamic>> logs) {
+    final trips = <TripSegment>[];
     for (final log in logs) {
       final startLat = (log['start_lat'] as num?)?.toDouble();
       final startLng = (log['start_lng'] as num?)?.toDouble();
@@ -545,7 +546,7 @@ class _StatsPageState extends State<StatsPage> {
       final program = (log['program'] ?? '').toString();
       if (startLat != null && startLng != null && endLat != null && endLng != null) {
         trips.add(
-          _TripSegment(
+          TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
             snippet: '$time · $program',
@@ -570,7 +571,7 @@ class _StatsPageState extends State<StatsPage> {
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => _StatsRouteMapPage(
+        builder: (_) => StatsRouteMapPage(
           periodLabel: _selectedPeriod,
           dateLabel: _selectedPeriod == '일간'
               ? _getDailyDisplayText()
@@ -1698,8 +1699,8 @@ class _StatsPageState extends State<StatsPage> {
   }
 }
 
-class _TripSegment {
-  const _TripSegment({
+class TripSegment {
+  const TripSegment({
     required this.start,
     required this.end,
     required this.snippet,
@@ -1710,8 +1711,8 @@ class _TripSegment {
   final String snippet;
 }
 
-class _StatsRouteMapPage extends StatefulWidget {
-  const _StatsRouteMapPage({
+class StatsRouteMapPage extends StatefulWidget {
+  const StatsRouteMapPage({
     required this.periodLabel,
     required this.dateLabel,
     required this.segments,
@@ -1719,56 +1720,76 @@ class _StatsRouteMapPage extends StatefulWidget {
 
   final String periodLabel;
   final String dateLabel;
-  final List<_TripSegment> segments;
+  final List<TripSegment> segments;
 
   @override
-  State<_StatsRouteMapPage> createState() => _StatsRouteMapPageState();
+  State<StatsRouteMapPage> createState() => StatsRouteMapPageState();
 }
 
-class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
+class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   GoogleMapController? _controller;
   bool _roadRouteEnabled = false;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
+  
+  Set<Marker> _markers = {};
+  bool _markersLoading = true;
 
-  Set<Marker> _buildMarkers() {
+  @override
+  void initState() {
+    super.initState();
+    _generateNumberedMarkers();
+  }
+
+  Future<void> _generateNumberedMarkers() async {
     final markers = <Marker>{};
     for (int i = 0; i < widget.segments.length; i++) {
       final seg = widget.segments[i];
       final isFirstStart = i == 0;
       final isLastEnd = i == widget.segments.length - 1;
 
-      final startHue = _roadRouteEnabled
-          ? (isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueOrange)
-          : BitmapDescriptor.hueGreen;
-      final endHue = _roadRouteEnabled
-          ? (isLastEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueAzure)
-          : BitmapDescriptor.hueRed;
+      final startIcon = await MarkerUtils.createCustomMarkerBitmap(
+        '${i + 1}',
+        bgColor: isFirstStart ? Colors.green[800]! : Colors.green,
+      );
+      final endIcon = await MarkerUtils.createCustomMarkerBitmap(
+        '${i + 1}',
+        bgColor: isLastEnd ? Colors.red[800]! : Colors.redAccent,
+      );
 
       markers.add(
         Marker(
           markerId: MarkerId('start_$i'),
           position: seg.start,
           infoWindow: InfoWindow(
-            title: isFirstStart ? '시작' : '출발',
+            title: '${i + 1}번째 출발',
             snippet: seg.snippet,
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(startHue),
+          icon: startIcon,
+          anchor: const Offset(0.5, 0.5),
         ),
       );
+      
       markers.add(
         Marker(
           markerId: MarkerId('end_$i'),
           position: seg.end,
           infoWindow: InfoWindow(
-            title: isLastEnd ? '종료' : '도착',
+            title: '${i + 1}번째 도착',
             snippet: seg.snippet,
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(endHue),
+          icon: endIcon,
+          anchor: const Offset(0.5, 0.5),
         ),
       );
     }
-    return markers;
+    
+    if (mounted) {
+      setState(() {
+        _markers = markers;
+        _markersLoading = false;
+      });
+    }
   }
 
   List<LatLng> _orderedPathPoints() {
@@ -1907,7 +1928,6 @@ class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
 
   @override
   Widget build(BuildContext context) {
-    final markers = _buildMarkers();
     final polylines = _buildPolylines();
     final initial = widget.segments.first.start;
 
@@ -1945,16 +1965,18 @@ class _StatsRouteMapPageState extends State<_StatsRouteMapPage> {
           ),
         ),
       ),
-      body: GoogleMap(
-        initialCameraPosition: CameraPosition(target: initial, zoom: 12),
-        myLocationButtonEnabled: false,
-        markers: markers,
-        polylines: polylines,
-        onMapCreated: (controller) {
-          _controller = controller;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
-        },
-      ),
+      body: _markersLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+          : GoogleMap(
+              initialCameraPosition: CameraPosition(target: initial, zoom: 12),
+              myLocationButtonEnabled: false,
+              markers: _markers,
+              polylines: polylines,
+              onMapCreated: (controller) {
+                _controller = controller;
+                WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+              },
+            ),
     );
   }
 }

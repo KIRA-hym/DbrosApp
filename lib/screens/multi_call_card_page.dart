@@ -13,6 +13,7 @@ import '../utils/work_date_utils.dart';
 import '../utils/ocr_failure_feedback.dart';
 import 'log_list_page.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/app_image_picker.dart';
 import '../widgets/drive_date_selector_bar.dart';
 import '../widgets/responsive_body.dart';
 
@@ -27,11 +28,12 @@ class MultiCallCardForm extends StatefulWidget {
 }
 
 class _MultiCallCardFormState extends State<MultiCallCardForm> {
-  final ImagePicker _picker = ImagePicker();
   final List<File> _selectedImages = [];
+  final List<DateTime> _selectedImagesDates = [];
   final List<Map<String, dynamic>> _parsedLogs = [];
   // 파싱된 로그와 동일 순서로 원본 파일을 보관 (운행 시간 기준)
   final List<File> _parsedLogFiles = [];
+  final List<DateTime> _parsedLogDates = [];
   bool _isSaving = false;
   int _programUnrecognizedCount = 0;
   final List<String> _failedOcrTexts = [];
@@ -69,13 +71,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
   Future<void> _pickMultipleImages() async {
     try {
-      final List<XFile> images = await _picker.pickMultiImage();
-      if (images.isEmpty) return;
+      final results = await AppImagePicker.pickMultipleGalleryImages(context);
+      if (results.isEmpty) return;
 
       setState(() {
-        _selectedImages.addAll(images.map((image) => File(image.path)));
+        _selectedImages.addAll(results.map((r) => r.file));
+        _selectedImagesDates.addAll(results.map((r) => r.creationDate));
         _parsedLogs.clear();
         _parsedLogFiles.clear();
+        _parsedLogDates.clear();
         _programUnrecognizedCount = 0;
         _failedOcrTexts.clear();
       });
@@ -119,6 +123,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
         final File imageFile = _selectedImages[i];
+        final DateTime creationDate = _selectedImagesDates[i];
         
         final inputImage = InputImage.fromFilePath(imageFile.path);
         final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
@@ -129,6 +134,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           setState(() {
             _parsedLogs.add(logData);
             _parsedLogFiles.add(imageFile);
+            _parsedLogDates.add(creationDate);
           });
         } else {
           _programUnrecognizedCount++;
@@ -192,10 +198,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       for (int i = 0; i < _parsedLogs.length; i++) {
         final logData = _parsedLogs[i];
         // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
-        final File imageFile = (i < _parsedLogFiles.length) ? _parsedLogFiles[i] : File('');
-        final DateTime imageDate = imageFile.existsSync()
-            ? imageFile.lastModifiedSync()
-            : DateTime.now();
+        final DateTime imageDate = (i < _parsedLogDates.length) ? _parsedLogDates[i] : DateTime.now();
         final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
         final timeStr = formatDriveTimeHm(imageDate);
         final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);

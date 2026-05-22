@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
 import '../utils/drive_time_format.dart';
+import '../utils/geocoding_utils.dart';
 import '../utils/work_date_utils.dart';
 
 class DriveLogDatabase {
@@ -275,6 +276,32 @@ class DriveLogDatabase {
     final db = await database;
     final out = Map<String, dynamic>.from(row);
     ensureNonEmptyWorkDriveDatesInPlace(out);
+
+    // 자동 좌표 추출 (좌표가 비어있고, 주소가 있는 경우에만 실행)
+    if (!kIsWeb) {
+      final startLocStr = out['start_location']?.toString().trim() ?? '';
+      if (startLocStr.isNotEmpty && (out['start_lat'] == null || out['start_lng'] == null)) {
+        try {
+          final loc = await GeocodingUtils.getCoordinateFromAddressFallback(startLocStr);
+          if (loc != null) {
+            out['start_lat'] = loc.latitude;
+            out['start_lng'] = loc.longitude;
+          }
+        } catch (_) {}
+      }
+
+      final endLocStr = out['end_location']?.toString().trim() ?? '';
+      if (endLocStr.isNotEmpty && (out['end_lat'] == null || out['end_lng'] == null)) {
+        try {
+          final loc = await GeocodingUtils.getCoordinateFromAddressFallback(endLocStr);
+          if (loc != null) {
+            out['end_lat'] = loc.latitude;
+            out['end_lng'] = loc.longitude;
+          }
+        } catch (_) {}
+      }
+    }
+
     final int result;
     if (out.containsKey('id') && out['id'] != null) {
       result = await db.update('drive_logs', out, where: 'id = ?', whereArgs: [out['id']]);
