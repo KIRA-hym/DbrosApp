@@ -148,16 +148,13 @@ class CallCardOcrParseService {
   static Future<int?> saveLogToDatabase(
     Map<String, dynamic> logData, {
     String imagePrefix = 'ocr',
-    String? workDateYmd,
+    DateTime? originalDate,
   }) async {
     if (!isValidForAutoSave(logData)) return null;
 
-    final work = workDateYmd ?? WorkDateUtils.effectiveWorkDateYmd();
-    var timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
-    if (!hasValidDriveTimeHm(logData['drive_time'])) {
-      timeStr = formatDriveTimeHm(DateTime.now());
-      logData['drive_time'] = timeStr;
-    }
+    final dateToUse = originalDate ?? DateTime.now();
+    final work = WorkDateUtils.effectiveWorkDateYmd(dateToUse);
+    final timeStr = formatDriveTimeHm(dateToUse);
     final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
     final nowIso = DateTime.now().toIso8601String();
 

@@ -261,6 +261,7 @@ class ScreenshotAutoRegisterService {
       final insertedId = await CallCardOcrParseService.saveLogToDatabase(
         logData,
         imagePrefix: 'screenshot',
+        originalDate: file.existsSync() ? file.lastModifiedSync() : DateTime.now(),
       );
       if (insertedId == null) {
         ScreenshotAutoDebugLog.add('결과: DB 저장 호출 후 실패 처리');

@@ -63,11 +63,12 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image == null) return;
 
+      final file = File(image.path);
       setState(() {
-        _selectedImage = File(image.path);
+        _selectedImage = file;
       });
 
-      _processImageAndSave();
+      _processImageAndSave(file);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -76,21 +77,21 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     }
   }
 
-  Future<void> _processImageAndSave() async {
+  Future<void> _processImageAndSave(File imageFile) async {
     if (_selectedImage == null) return;
 
     setState(() => _isProcessing = true);
 
     try {
-      final inputImage = InputImage.fromFilePath(_selectedImage!.path);
+      final inputImage = InputImage.fromFilePath(imageFile.path);
       final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
       final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
 
-      final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, _selectedImage!);
+      final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, imageFile);
       
       if (logData.isNotEmpty) {
-        await _saveLogData(logData);
+        await _saveLogData(logData, imageFile);
       } else {
         if (!mounted) return;
         OcrFailureFeedback.showUnrecognizedSnackbar(
@@ -297,13 +298,17 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
   int _calculateFee(String program, int grossFare) => SettingsService.deductionFeeFromGross(grossFare, program);
 
-  Future<void> _saveLogData(Map<String, dynamic> logData) async {
+  Future<void> _saveLogData(Map<String, dynamic> logData, File imageFile) async {
     setState(() => _isSaving = true);
 
     try {
       final String nowIso = DateTime.now().toIso8601String();
-      final work = _driveDateStr();
-      final timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
+      // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
+      final DateTime imageDate = imageFile.existsSync()
+          ? imageFile.lastModifiedSync()
+          : DateTime.now();
+      final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
+      final timeStr = formatDriveTimeHm(imageDate);
       final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
       final imagePath = await ImageStorageService.compressAndPersistForDisplay(
         logData['image_path']?.toString(),

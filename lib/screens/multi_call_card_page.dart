@@ -30,6 +30,8 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   final ImagePicker _picker = ImagePicker();
   final List<File> _selectedImages = [];
   final List<Map<String, dynamic>> _parsedLogs = [];
+  // 파싱된 로그와 동일 순서로 원본 파일을 보관 (운행 시간 기준)
+  final List<File> _parsedLogFiles = [];
   bool _isSaving = false;
   int _programUnrecognizedCount = 0;
   final List<String> _failedOcrTexts = [];
@@ -73,6 +75,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       setState(() {
         _selectedImages.addAll(images.map((image) => File(image.path)));
         _parsedLogs.clear();
+        _parsedLogFiles.clear();
         _programUnrecognizedCount = 0;
         _failedOcrTexts.clear();
       });
@@ -125,6 +128,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         if (logData.isNotEmpty) {
           setState(() {
             _parsedLogs.add(logData);
+            _parsedLogFiles.add(imageFile);
           });
         } else {
           _programUnrecognizedCount++;
@@ -170,17 +174,6 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     );
   }
 
-  /// 운행시간 미인식 건: 저장 직전 시각 기준으로 0, +30, +60… 분(목록 순서, 인식된 건은 건너뜀).
-  void _applyFallbackDriveTimesForMulti(List<Map<String, dynamic>> logs) {
-    final base = DateTime.now();
-    var slot = 0;
-    for (final logData in logs) {
-      if (hasValidDriveTimeHm(logData['drive_time'])) continue;
-      final t = base.add(Duration(minutes: 30 * slot));
-      logData['drive_time'] = formatDriveTimeHm(t);
-      slot++;
-    }
-  }
 
   Future<void> _saveAllLogs() async {
     if (_parsedLogs.isEmpty) {
@@ -196,10 +189,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       final String nowIso = DateTime.now().toIso8601String();
       int successCount = 0;
 
-      final work = _driveDateStr();
-      _applyFallbackDriveTimesForMulti(_parsedLogs);
-      for (final logData in _parsedLogs) {
-        final timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
+      for (int i = 0; i < _parsedLogs.length; i++) {
+        final logData = _parsedLogs[i];
+        // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
+        final File imageFile = (i < _parsedLogFiles.length) ? _parsedLogFiles[i] : File('');
+        final DateTime imageDate = imageFile.existsSync()
+            ? imageFile.lastModifiedSync()
+            : DateTime.now();
+        final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
+        final timeStr = formatDriveTimeHm(imageDate);
         final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
         final imagePath = await ImageStorageService.compressAndPersistForDisplay(
           logData['image_path']?.toString(),
