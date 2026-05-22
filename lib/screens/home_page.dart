@@ -19,7 +19,7 @@ import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
-import 'ocr_debug_page.dart';
+import 'nearby_hotspot_map_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1047,14 +1047,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             padding: EdgeInsets.all(outerPadding),
             child: Row(
               children: [
-                Container(
-                  width: isTablet ? 74 : 62,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF16181D),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NearbyHotspotMapPage()),
+                      );
+                    },
+                    child: Container(
+                      width: isTablet ? 74 : 62,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16181D),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFFC700).withValues(alpha: 0.3)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
+                          SizedBox(height: isTablet ? 4 : 2),
+                          Text('주변 꿀콜', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
                   ),
-                  alignment: Alignment.center,
-                  child: Icon(Icons.receipt_long, color: const Color(0xFFFFC700), size: isTablet ? 30 : 26),
                 ),
                 SizedBox(width: isTablet ? 12 : 10),
                 Expanded(
