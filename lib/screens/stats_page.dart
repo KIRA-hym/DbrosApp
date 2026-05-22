@@ -619,7 +619,7 @@ class _StatsPageState extends State<StatsPage> {
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
                 final useExpandedSplit = isExpanded;
                 final statCardTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize = statCardTitleFontSize + (2.0 * fontScale);
+                final statCardValueFontSize = useExpandedSplit ? statCardTitleFontSize : (statCardTitleFontSize + (2.0 * fontScale));
                 final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
@@ -1423,8 +1423,13 @@ class _StatsPageState extends State<StatsPage> {
         const itemSpacing = 6.0;
 
         double itemWidthFor(Map<String, dynamic> item) {
-          final label = item[labelKey]?.toString() ?? '';
+          String label = item[labelKey]?.toString() ?? '';
           if (programLabels) {
+            label = label
+                .replaceAll('카카오(일반)', '카(일)')
+                .replaceAll('카카오(프콜)', '카(프)')
+                .replaceAll('핸들포유', '핸들')
+                .replaceAll('콜마너', '콜마');
             return math.max(
               baseMinItemWidth,
               _chartLabelColumnWidth(context, label, textFontSize, programLabels: true),
@@ -1461,7 +1466,14 @@ class _StatsPageState extends State<StatsPage> {
                 final item = data[index];
                 final value = (item[valueKey] as int?) ?? 0;
                 final count = _chartItemCount(item);
-                final label = item[labelKey]?.toString() ?? '';
+                String label = item[labelKey]?.toString() ?? '';
+                if (programLabels) {
+                  label = label
+                      .replaceAll('카카오(일반)', '카(일)')
+                      .replaceAll('카카오(프콜)', '카(프)')
+                      .replaceAll('핸들포유', '핸들')
+                      .replaceAll('콜마너', '콜마');
+                }
                 final itemWidth = (programLabels
                         ? itemWidths[index]
                         : defaultItemWidth.clamp(

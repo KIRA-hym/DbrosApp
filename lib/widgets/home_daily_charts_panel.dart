@@ -157,13 +157,6 @@ class StatsBarChartBody extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = data[index];
         String rawLabel = item[labelKey]?.toString() ?? '';
-        if (programLabels) {
-          rawLabel = rawLabel
-              .replaceAll('카카오(일반)', '카(일)')
-              .replaceAll('카카오(프콜)', '카(프)')
-              .replaceAll('핸들포유', '핸들')
-              .replaceAll('콜마너', '콜마');
-        }
         final count = item['count'];
         final value = (item[valueKey] as num?)?.toInt() ?? 0;
         final color = _colors[index % _colors.length];

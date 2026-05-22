@@ -1047,37 +1047,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             padding: EdgeInsets.all(outerPadding),
             child: Row(
               children: [
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const NearbyHotspotMapPage()),
-                      );
-                    },
-                    child: Container(
-                      width: isTablet ? 74 : 62,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16181D),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFFFC700).withValues(alpha: 0.3)),
-                      ),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
-                          SizedBox(height: isTablet ? 4 : 2),
-                          Text('지도', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
-                        ],
+                if (kMapFeaturesEnabled) ...[
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const NearbyHotspotMapPage()),
+                        );
+                      },
+                      child: Container(
+                        width: isTablet ? 74 : 62,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16181D),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFC700).withValues(alpha: 0.3)),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
+                            SizedBox(height: isTablet ? 4 : 2),
+                            Text('지도', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: isTablet ? 12 : 10),
+                  SizedBox(width: isTablet ? 12 : 10),
+                ],
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
