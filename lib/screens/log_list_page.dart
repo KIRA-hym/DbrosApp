@@ -769,6 +769,8 @@ class _LogListPageState extends State<LogListPage> {
                           iconSize: iconSize,
                           spacing: spacing,
                           innerSpacing: innerSpacing,
+                          dateStr: dateStr,
+                          dailyLogs: dailyLogs,
                         )
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.start,

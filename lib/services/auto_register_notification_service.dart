@@ -28,7 +28,7 @@ class AutoRegisterNotificationService {
 
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     await _plugin.initialize(
-      const InitializationSettings(android: androidInit),
+      settings: const InitializationSettings(android: androidInit),
       onDidReceiveNotificationResponse: (response) async {
         final payload = response.payload;
         if (payload != null && payload.isNotEmpty) {
@@ -66,7 +66,7 @@ class AutoRegisterNotificationService {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => WriteLogPage(existingLog: log, dateStr: workDate),
+            builder: (_) => DriveLogForm(existingLog: log, initialDate: workDate),
           ),
         );
       }
@@ -98,10 +98,10 @@ class AutoRegisterNotificationService {
     );
 
     await _plugin.show(
-      _notificationId,
-      '운행일지',
-      '운행일지 자동등록이 완료되었습니다.',
-      details,
+      id: _notificationId,
+      title: '운행일지',
+      body: '운행일지 자동등록이 완료되었습니다.',
+      notificationDetails: details,
       payload: logId?.toString(),
     );
   }
