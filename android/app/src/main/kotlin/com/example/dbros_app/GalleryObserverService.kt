@@ -23,8 +23,6 @@ class GalleryObserverService : Service() {
         
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.app_notification_icon)
-            .setContentTitle("운행일지 자동저장")
-            .setContentText("스크린샷 감지 대기 중...")
             .setPriority(NotificationCompat.PRIORITY_MIN) // 최소 중요도 (알림창 맨 아래 숨김)
             .setOngoing(true)
             .build()

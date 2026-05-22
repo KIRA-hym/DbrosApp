@@ -627,7 +627,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ? 1.0
             : (h / minContentH).clamp(0.72, 1.0);
         final effTitleFs = titleFs * scale;
-        final effValueFs = (isExpanded ? 16.0 : 18.0) * scale;
+        final effValueFs = effTitleFs + (2.0 * scale);
         final effVPad = (vPad * scale).clamp(2.0, vPad);
         final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
         final effGap = (innerGap * scale).clamp(1.0, innerGap);

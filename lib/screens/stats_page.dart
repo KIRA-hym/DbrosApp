@@ -618,7 +618,7 @@ class _StatsPageState extends State<StatsPage> {
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
                 final useExpandedSplit = isExpanded;
                 final statCardTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize = 16.0 * fontScale;
+                final statCardValueFontSize = statCardTitleFontSize + (2.0 * fontScale);
                 final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대

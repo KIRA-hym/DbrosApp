@@ -4,6 +4,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'package:flutter/material.dart';
+import '../app_navigator.dart';
+import '../screens/write_log_page.dart';
+import 'db_helper.dart';
+
 /// 스크린샷 자동등록 완료 등 일회성 알림.
 class AutoRegisterNotificationService {
   AutoRegisterNotificationService._();
@@ -23,7 +28,16 @@ class AutoRegisterNotificationService {
 
     const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
     await _plugin.initialize(
-      settings: const InitializationSettings(android: androidInit),
+      const InitializationSettings(android: androidInit),
+      onDidReceiveNotificationResponse: (response) async {
+        final payload = response.payload;
+        if (payload != null && payload.isNotEmpty) {
+          final logId = int.tryParse(payload);
+          if (logId != null) {
+            _navigateToLog(logId);
+          }
+        }
+      },
     );
 
     const channel = AndroidNotificationChannel(
@@ -39,6 +53,26 @@ class AutoRegisterNotificationService {
     _initialized = true;
   }
 
+  void _navigateToLog(int logId) async {
+    final context = rootNavigatorKey.currentContext;
+    if (context == null) return;
+    
+    final db = await DriveLogDatabase.instance.database;
+    final rows = await db.query('drive_logs', where: 'id = ?', whereArgs: [logId]);
+    if (rows.isNotEmpty) {
+      final log = rows.first;
+      final workDate = log['work_date']?.toString();
+      if (workDate != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => WriteLogPage(existingLog: log, dateStr: workDate),
+          ),
+        );
+      }
+    }
+  }
+
   Future<bool> ensureNotificationPermission() async {
     if (!_isAndroid) return false;
     final status = await Permission.notification.status;
@@ -47,7 +81,7 @@ class AutoRegisterNotificationService {
     return req.isGranted;
   }
 
-  Future<void> showAutoRegisterComplete() async {
+  Future<void> showAutoRegisterComplete({int? logId}) async {
     if (!_isAndroid) return;
     await initialize();
     if (!await ensureNotificationPermission()) return;
@@ -64,10 +98,11 @@ class AutoRegisterNotificationService {
     );
 
     await _plugin.show(
-      id: _notificationId,
-      title: '운행일지',
-      body: '운행일지 자동등록이 완료되었습니다.',
-      notificationDetails: details,
+      _notificationId,
+      '운행일지',
+      '운행일지 자동등록이 완료되었습니다.',
+      details,
+      payload: logId?.toString(),
     );
   }
 }

@@ -27,9 +27,14 @@ class ImageStorageService {
     final src = File(sourcePath);
     if (!await src.exists()) return null;
 
+    final outDir = await _imagesDir();
+    if (p.isWithin(outDir.path, src.path)) {
+      return src.path; // 이미 저장된 이미지인 경우 재압축/복사 생략
+    }
+
     final bytes = await src.readAsBytes();
     final decoded = img.decodeImage(bytes);
-    final outDir = await _imagesDir();
+
     final outPath = p.join(outDir.path, '${prefix}_${_timestampId()}.jpg');
     final outFile = File(outPath);
 

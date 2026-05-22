@@ -258,11 +258,11 @@ class ScreenshotAutoRegisterService {
         return;
       }
 
-      final saved = await CallCardOcrParseService.saveLogToDatabase(
+      final insertedId = await CallCardOcrParseService.saveLogToDatabase(
         logData,
         imagePrefix: 'screenshot',
       );
-      if (!saved) {
+      if (insertedId == null) {
         ScreenshotAutoDebugLog.add('결과: DB 저장 호출 후 실패 처리');
         return;
       }
@@ -277,7 +277,7 @@ class ScreenshotAutoRegisterService {
         _lastImageSampleSignatureAt = doneAt;
       }
 
-      await AutoRegisterNotificationService.instance.showAutoRegisterComplete();
+      await AutoRegisterNotificationService.instance.showAutoRegisterComplete(logId: insertedId);
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
       debugPrint('ScreenshotAutoRegister: saved successfully');
       suppressPendingRetryDueToSave = true;

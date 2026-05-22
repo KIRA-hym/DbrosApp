@@ -145,12 +145,12 @@ class CallCardOcrParseService {
     ].join('\u001f');
   }
 
-  static Future<bool> saveLogToDatabase(
+  static Future<int?> saveLogToDatabase(
     Map<String, dynamic> logData, {
     String imagePrefix = 'ocr',
     String? workDateYmd,
   }) async {
-    if (!isValidForAutoSave(logData)) return false;
+    if (!isValidForAutoSave(logData)) return null;
 
     final work = workDateYmd ?? WorkDateUtils.effectiveWorkDateYmd();
     var timeStr = resolveDriveTimeForStorage(logData['drive_time']?.toString());
@@ -192,7 +192,7 @@ class CallCardOcrParseService {
         {...row, 'id': insertedId},
       );
     }
-    return true;
+    return insertedId;
   }
 
   static String? _detectProgram(List<TextBlock> blocks, String fullText) {
