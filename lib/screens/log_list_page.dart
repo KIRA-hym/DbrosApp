@@ -154,16 +154,6 @@ class _LogListPageState extends State<LogListPage> {
                         ),
                         SizedBox(width: spacing),
                         Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
-                        if (kMapFeaturesEnabled && dailyLogs.any((log) => log['start_lat'] != null)) ...[
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () => _openDailyRouteMap(dateStr, dailyLogs),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4.0),
-                              child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 16),
-                            ),
-                          ),
-                        ],
                       ],
                     ),
                   ),
@@ -802,16 +792,6 @@ class _LogListPageState extends State<LogListPage> {
                                             ),
                                             SizedBox(width: spacing),
                                             Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
-                                            if (kMapFeaturesEnabled && dailyLogs.any((log) => log['start_lat'] != null)) ...[
-                                              const SizedBox(width: 8),
-                                              InkWell(
-                                                onTap: () => _openDailyRouteMap(dateStr, dailyLogs),
-                                                child: const Padding(
-                                                  padding: EdgeInsets.all(4.0),
-                                                  child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 16),
-                                                ),
-                                              ),
-                                            ],
                                           ],
                                         ),
                                       ),
@@ -1570,12 +1550,30 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         children: [
           SizedBox(width: sideSlot),
           Expanded(
-            child: Text(
-              widget.dateTitle,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: titleStyle,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    widget.dateTitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: titleStyle,
+                  ),
+                ),
+                if (kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null)) ...[
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _openDailyRouteMap,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4.0),
+                      child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 18),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           SizedBox(
@@ -2113,6 +2111,48 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           incomeSum: _totalIncomeSum,
           netSum: _totalNetProfitSum,
           expenseSum: _totalExpenseSum,
+        ),
+      ),
+    );
+  }
+
+  void _openDailyRouteMap() {
+    if (!kMapFeaturesEnabled) return;
+
+    final segments = <TripSegment>[];
+    for (final log in _dailyLogs) {
+      final startLat = (log['start_lat'] as num?)?.toDouble();
+      final startLng = (log['start_lng'] as num?)?.toDouble();
+      final endLat = (log['end_lat'] as num?)?.toDouble();
+      final endLng = (log['end_lng'] as num?)?.toDouble();
+
+      if (startLat != null && startLng != null) {
+        segments.add(
+          TripSegment(
+            start: LatLng(startLat, startLng),
+            end: (endLat != null && endLng != null) ? LatLng(endLat, endLng) : null,
+            program: log['program']?.toString() ?? '',
+            grossFare: _toInt(log['gross_fare']),
+            driveTime: log['drive_time']?.toString() ?? '',
+            startTimeStr: log['drive_time']?.toString() ?? '',
+          ),
+        );
+      }
+    }
+
+    if (segments.isEmpty) {
+      if (!mounted) return;
+      showDbrosSnackBar(context, '해당 날짜에 기록된 좌표가 없습니다.');
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StatsRouteMapPage(
+          periodLabel: '일간',
+          dateLabel: widget.dateTitle,
+          segments: segments,
         ),
       ),
     );

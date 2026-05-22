@@ -1071,7 +1071,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         children: [
                           Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
                           SizedBox(height: isTablet ? 4 : 2),
-                          Text('주변 꿀콜', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
+                          Text('지도', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),

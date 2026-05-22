@@ -18,7 +18,9 @@ import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
-
+import '../services/db_helper.dart';
+import '../utils/geocoding_utils.dart';
+import '../utils/snackbar_utils.dart';
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
   @override
@@ -164,6 +166,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildStorageSettings(),
       _buildOcrParseLogSettings(),
       if (!kIsWeb && Platform.isAndroid && kMapFeaturesEnabled) _buildScreenshotAutoDiagSettings(),
+      if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -1087,6 +1090,139 @@ class _SettingsPageState extends State<SettingsPage> {
               });
               SettingsService.setShowFloatingButtons(value);
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runBatchGeocodeUpdate() async {
+    final db = await DriveLogDatabase.instance.database;
+    final logs = await db.query(
+      'drive_logs',
+      where: 'start_lat IS NULL OR start_lng IS NULL OR end_lat IS NULL OR end_lng IS NULL',
+    );
+
+    if (logs.isEmpty) {
+      if (!mounted) return;
+      showDbrosSnackBar(context, '업데이트할 좌표 정보가 없습니다. (모든 데이터가 최신입니다)');
+      return;
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            int current = 0;
+            bool isFinished = false;
+            
+            Future.microtask(() async {
+              for (final log in logs) {
+                if (!mounted) break;
+                
+                final startLoc = log['start_location']?.toString() ?? '';
+                final endLoc = log['end_location']?.toString() ?? '';
+                
+                final updateData = <String, dynamic>{};
+
+                if (log['start_lat'] == null && startLoc.isNotEmpty) {
+                  final loc = await GeocodingUtils.getCoordinateFromAddressFallback(startLoc);
+                  if (loc != null) {
+                    updateData['start_lat'] = loc.latitude;
+                    updateData['start_lng'] = loc.longitude;
+                  }
+                }
+
+                if (log['end_lat'] == null && endLoc.isNotEmpty) {
+                  final loc = await GeocodingUtils.getCoordinateFromAddressFallback(endLoc);
+                  if (loc != null) {
+                    updateData['end_lat'] = loc.latitude;
+                    updateData['end_lng'] = loc.longitude;
+                  }
+                }
+                
+                if (updateData.isNotEmpty) {
+                  await db.update('drive_logs', updateData, where: 'id = ?', whereArgs: [log['id']]);
+                }
+                
+                setStateDialog(() {
+                  current++;
+                });
+                
+                await Future.delayed(const Duration(milliseconds: 500));
+              }
+              
+              setStateDialog(() {
+                isFinished = true;
+              });
+            });
+
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1F222A),
+              title: const Text('좌표 일괄 업데이트 중', style: TextStyle(color: Colors.white, fontSize: 18)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('$current / ${logs.length} 건 완료', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(
+                    value: logs.isEmpty ? 0 : current / logs.length,
+                    color: const Color(0xFFFFC700),
+                    backgroundColor: Colors.grey[800],
+                  ),
+                ],
+              ),
+              actions: [
+                if (isFinished)
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBatchGeocodeSettings() {
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '과거 데이터 좌표 일괄 업데이트',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: spacing),
+          Text(
+            '과거에 등록되어 좌표가 비어있는 운행일지 데이터들을 추려, 주소를 좌표로 자동 변환하여 채워 넣습니다.\n(구글 지오코더를 이용하며 과금되지 않습니다.)',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _runBatchGeocodeUpdate,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.pin_drop),
+              label: const Text('좌표 일괄 업데이트 시작', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
           ),
         ],
       ),
