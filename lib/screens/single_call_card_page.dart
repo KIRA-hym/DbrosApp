@@ -365,8 +365,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final titleFontSize = isTablet ? 20.0 : 18.0;
     final horizontalPadding = isTablet ? 24.0 : 20.0;
     final verticalPadding = isTablet ? 12.0 : 10.0;
@@ -456,8 +455,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   }
 
   Widget _buildEmptyState() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final iconSize = isTablet ? 100.0 : 80.0;
     final titleFontSize = isTablet ? 20.0 : 18.0;
     final subtitleFontSize = isTablet ? 16.0 : 14.0;
@@ -513,7 +511,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   }
 
   Widget _buildImagePreview({bool fillHeight = false}) {
-    final isTablet = ResponsiveLayout.isTablet(context);
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final borderRadius = isTablet ? 20.0 : 16.0;
     final borderWidth = isTablet ? 3.0 : 2.0;
     final innerBorderRadius = borderRadius - borderWidth;
@@ -548,8 +546,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   }
 
   Widget _buildProcessingState() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final titleFontSize = isTablet ? 18.0 : 16.0;
     final spacing = isTablet ? 24.0 : 16.0;
     final indicatorSize = isTablet ? 48.0 : 40.0;

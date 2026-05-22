@@ -61,6 +61,7 @@ class _LogListPageState extends State<LogListPage> {
   String? _masterDetailDate;
   /// 마스터-디테일 우측 패널 강제 갱신(하루 삭제·월 데이터 reload 등).
   int _detailRevision = 0;
+  bool? _wasExpanded;
 
   /// 펼침 마스터-디테일 기본 선택: 보는 달에 **오늘 근무일**이 있으면 그 날짜, 없으면 null(우측 빈 패널).
   String? _initialMasterDetailDateInFocusedMonth() {
@@ -82,23 +83,26 @@ class _LogListPageState extends State<LogListPage> {
     bool valueBold = false,
     TextAlign valueAlign = TextAlign.start,
   }) {
-    return Row(
-      children: [
-        Text('$label : ', style: TextStyle(color: labelColor, fontSize: 13)),
-        Expanded(
-          child: Text(
-            '$prefix${NumberFormat('#,###').format(amount)}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: valueAlign,
-            style: TextStyle(
-              color: valueColor,
-              fontSize: 13,
-              fontWeight: valueBold ? FontWeight.bold : FontWeight.normal,
-            ),
+    return Container(
+      alignment: valueAlign == TextAlign.end ? Alignment.centerRight : Alignment.centerLeft,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: '$label : ', style: TextStyle(color: labelColor, fontSize: 13)),
+              TextSpan(
+                text: '$prefix${NumberFormat('#,###').format(amount)}',
+                style: TextStyle(
+                  color: valueColor,
+                  fontSize: 13,
+                  fontWeight: valueBold ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -125,41 +129,44 @@ class _LogListPageState extends State<LogListPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: Text(
-                      '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: dayColor,
-                          ),
-                    ),
-                  ),
-                  SizedBox(width: spacing),
-                  Text('$logCount건', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
-                  const Spacer(),
-                  Flexible(
-                    fit: FlexFit.loose,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerRight,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                          Text(
-                            '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: const Color(0xFFFFC700),
                                   fontWeight: FontWeight.bold,
+                                  color: dayColor,
+                                  fontSize: 13,
                                 ),
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: spacing),
+                        Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
+                      ],
                     ),
+                  ),
+                  SizedBox(width: 8),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        TextSpan(
+                          text: '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: const Color(0xFFFFC700),
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.right,
                   ),
                 ],
               ),
@@ -208,9 +215,9 @@ class _LogListPageState extends State<LogListPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                fit: FlexFit.loose,
                 child: Text(
                   '[ 월간 합계 ]',
                   maxLines: 1,
@@ -221,9 +228,7 @@ class _LogListPageState extends State<LogListPage> {
                       ),
                 ),
               ),
-              const Spacer(),
               Flexible(
-                fit: FlexFit.loose,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
@@ -243,27 +248,36 @@ class _LogListPageState extends State<LogListPage> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _buildMasterDetailAmountRow(
-                  label: '수입',
-                  amount: _totalGross,
-                  labelColor: Colors.lightBlueAccent,
-                  valueColor: Colors.lightBlueAccent,
-                  prefix: '₩',
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildMasterDetailAmountRow(
-                  label: '지출',
-                  amount: _totalExpenses,
-                  labelColor: const Color(0xFFFF5252),
-                  valueColor: const Color(0xFFFF5252),
-                  prefix: '-₩',
-                  valueAlign: TextAlign.end,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: const TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -364,6 +378,29 @@ class _LogListPageState extends State<LogListPage> {
   @override
   Widget build(BuildContext context) {
     final isExpanded = ResponsiveLayout.isExpanded(context);
+    
+    if (_wasExpanded == true && !isExpanded && _masterDetailDate != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final date = _masterDetailDate!;
+        _masterDetailDate = null;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => DailyLogListPage(
+              dateStr: date,
+              dateTitle: '근무일자: $date',
+            ),
+          ),
+        ).then((returnedDate) {
+          if (returnedDate is String) {
+            setState(() => _masterDetailDate = returnedDate);
+          }
+          _loadMonthData();
+        });
+      });
+    }
+
     if (isExpanded && _masterDetailDate == null && !_isLoading) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -373,6 +410,8 @@ class _LogListPageState extends State<LogListPage> {
         }
       });
     }
+    
+    _wasExpanded = isExpanded;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
@@ -394,7 +433,7 @@ class _LogListPageState extends State<LogListPage> {
                 style: TextStyle(
                   color: const Color(0xFFFFC700),
                   fontWeight: FontWeight.w600,
-                  fontSize: MediaQuery.sizeOf(context).width > 600 ? 15 : 14,
+                  fontSize: ResponsiveLayout.isFoldOrTablet(context) ? 15 : 14,
                 ),
               ),
             ),
@@ -413,7 +452,10 @@ class _LogListPageState extends State<LogListPage> {
                           ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
                           : Opacity(
                               opacity: _isScrolled ? 1.0 : 0.0,
-                              child: _buildDailyList(),
+                              child: _buildDailyList(
+                                selectedDate: _masterDetailDate,
+                                masterDetailMode: false,
+                              ),
                             ),
                     ),
                   ),
@@ -436,7 +478,7 @@ class _LogListPageState extends State<LogListPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
-                      flex: 4,
+                      flex: 1,
                       child: ColoredBox(
                         color: const Color(0xFF121418),
                         child: Column(
@@ -456,7 +498,7 @@ class _LogListPageState extends State<LogListPage> {
                     ),
                     const VerticalDivider(width: 1, color: Colors.white10),
                     Expanded(
-                      flex: 6,
+                      flex: 1,
                       child: selected == null
                           ? const Center(
                               child: Text(
@@ -480,8 +522,7 @@ class _LogListPageState extends State<LogListPage> {
   }
 
   Widget _buildMonthHeader() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 12.0 : 8.0;
     final iconSize = isTablet ? 28.0 : 24.0;
 
@@ -538,11 +579,10 @@ class _LogListPageState extends State<LogListPage> {
           List<Map<String, dynamic>> dailyLogs = _groupedLogs[dateStr] ?? [];
 
           if (dailyLogs.isEmpty) {
-            final screenWidth = MediaQuery.of(context).size.width;
-            final isTablet = screenWidth > 600;
+            final isTablet = ResponsiveLayout.isFoldOrTablet(context);
             final horizontalPadding = isTablet ? 24.0 : 20.0;
             final iconSize = isTablet ? 22.0 : 20.0;
-            final isSelected = masterDetailMode && selectedDate == dateStr;
+            final isSelected = selectedDate == dateStr;
 
             return Container(
               key: isToday ? _todayKey : null,
@@ -576,14 +616,13 @@ class _LogListPageState extends State<LogListPage> {
           }
           int logCount = dailyLogs.length;
 
-          final screenWidth = MediaQuery.of(context).size.width;
-          final isTablet = screenWidth > 600;
+          final isTablet = ResponsiveLayout.isFoldOrTablet(context);
           final horizontalPadding = isTablet ? 24.0 : 20.0;
           final verticalPadding = isTablet ? 18.0 : 16.0;
           final iconSize = isTablet ? 22.0 : 20.0;
           final spacing = isTablet ? 16.0 : 12.0;
           final innerSpacing = isTablet ? 6.0 : 4.0;
-          final isSelected = masterDetailMode && selectedDate == dateStr;
+          final isSelected = selectedDate == dateStr;
                  return Container(
             key: isToday ? _todayKey : null,
             decoration: BoxDecoration(
@@ -686,41 +725,44 @@ class _LogListPageState extends State<LogListPage> {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
+                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                    textBaseline: TextBaseline.alphabetic,
                                     children: [
-                                      Flexible(
-                                        fit: FlexFit.loose,
-                                        child: Text(
-                                          '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: isToday ? const Color(0xFFFFC700) : Colors.white,
-                                              ),
-                                        ),
-                                      ),
-                                      SizedBox(width: spacing),
-                                      Text('$logCount건', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
-                                      const Spacer(),
-                                      Flexible(
-                                        fit: FlexFit.loose,
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.centerRight,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                                              Text(
-                                                '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                                      Expanded(
+                                        child: Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
                                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      color: const Color(0xFFFFC700),
                                                       fontWeight: FontWeight.bold,
+                                                      color: isToday ? const Color(0xFFFFC700) : Colors.white,
+                                                      fontSize: 13,
                                                     ),
                                               ),
-                                            ],
-                                          ),
+                                            ),
+                                            SizedBox(width: spacing),
+                                            Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white, fontSize: 13)),
+                                          ],
                                         ),
+                                      ),
+                                      SizedBox(width: 8),
+                                      Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                                            TextSpan(
+                                              text: '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: const Color(0xFFFFC700),
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                        textAlign: TextAlign.right,
                                       ),
                                     ],
                                   ),
@@ -764,8 +806,7 @@ class _LogListPageState extends State<LogListPage> {
   }
 
   Widget _buildMonthlySummaryFooter() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final horizontalPadding = isTablet ? 24.0 : 20.0;
     final verticalPadding = isTablet ? 20.0 : 16.0;
     final infoFontSize = isTablet ? 14.0 : 13.0;
@@ -777,52 +818,73 @@ class _LogListPageState extends State<LogListPage> {
       color: const Color(0xFF1F222A),
       child: SafeArea(
         top: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('[ 월간 합계 ]', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-                  SizedBox(height: spacing),
-                  _buildMasterDetailAmountRow(
-                    label: '순익',
-                    amount: _totalNet,
-                    labelColor: const Color(0xFFFFC700),
-                    valueColor: const Color(0xFFFFC700),
-                    prefix: '₩',
-                    valueBold: true,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    '[ 월간 합계 ]',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
-                ],
-              ),
+                ),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                        const SizedBox(width: 12),
+                        const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        Text(
+                          '₩${NumberFormat('#,###').format(_totalNet)}',
+                          style: TextStyle(color: const Color(0xFFFFC700), fontSize: infoFontSize, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: itemSpacing),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
-                  SizedBox(height: spacing),
-                  _buildMasterDetailAmountRow(
-                    label: '수입',
-                    amount: _totalGross,
-                    labelColor: Colors.lightBlueAccent,
-                    valueColor: Colors.lightBlueAccent,
-                    prefix: '₩',
-                    valueAlign: TextAlign.end,
+            SizedBox(height: spacing),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                          TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)),
+                        ],
+                      ),
+                    ),
                   ),
-                  SizedBox(height: spacing),
-                  _buildMasterDetailAmountRow(
-                    label: '지출',
-                    amount: _totalExpenses,
-                    labelColor: const Color(0xFFFF5252),
-                    valueColor: const Color(0xFFFF5252),
-                    prefix: '-₩',
-                    valueAlign: TextAlign.end,
+                ),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                          TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ],
         ),
@@ -1089,55 +1151,71 @@ class _LogListPageState extends State<LogListPage> {
     return Container(
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
       color: const Color(0xFF1F222A),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                '[ 월간 합계 ]',
-                style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              Flexible(
+                child: Text(
+                  '[ 월간 합계 ]',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
-              SizedBox(height: spacing),
-              Row(
-                children: [
-                  const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 14)),
-                  Text(
-                    '₩${NumberFormat('#,###').format(_totalNet)}',
-                    style: TextStyle(
-                      color: const Color(0xFFFFC700),
-                      fontSize: valueFontSize,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                      const SizedBox(width: 12),
+                      const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 14)),
+                      Text(
+                        '₩${NumberFormat('#,###').format(_totalNet)}',
+                        style: TextStyle(color: const Color(0xFFFFC700), fontSize: valueFontSize, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ],
           ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          SizedBox(height: spacing),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
-                  SizedBox(width: itemSpacing),
-                  const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                  Text(
-                    '₩${NumberFormat('#,###').format(_totalGross)}',
-                    style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
-              SizedBox(height: spacing),
-              Row(
-                children: [
-                  const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                  Text(
-                    '-₩${NumberFormat('#,###').format(_totalExpenses)}',
-                    style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -1675,22 +1753,18 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 ),
               ),
               SizedBox(width: lay.innerSpacing),
-              Flexible(
-                fit: FlexFit.loose,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                      Text(
-                        '₩${NumberFormat('#,###').format(revenue)}',
-                        style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.incomeFontSize, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+              SizedBox(width: 8),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                    TextSpan(
+                      text: '₩${NumberFormat('#,###').format(revenue)}',
+                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.incomeFontSize, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
+                textAlign: TextAlign.right,
               ),
             ],
           ),
@@ -1732,48 +1806,71 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     required int netSum,
     required int expenseSum,
   }) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text("[ 일일 합계 ]", style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-            SizedBox(height: lay.footerSpacing),
-            Row(
-              children: [
-                Text("순익 : ", style: TextStyle(color: Colors.blueAccent.shade200, fontSize: 14)),
-                Text(
-                  "₩${NumberFormat('#,###').format(netSum)}",
-                  style: TextStyle(color: Colors.blueAccent.shade200, fontSize: lay.footerValueFontSize, fontWeight: FontWeight.bold),
+            Flexible(
+              child: Text(
+                "[ 일일 합계 ]",
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("$totalCount건", style: TextStyle(color: Colors.white, fontSize: lay.footerInfoFontSize)),
+                    const SizedBox(width: 12),
+                    const Text("순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                    Text(
+                      "₩${NumberFormat('#,###').format(netSum)}",
+                      style: TextStyle(color: const Color(0xFFFFC700), fontSize: lay.footerInfoFontSize, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ],
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        SizedBox(height: lay.footerSpacing),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                Text("$totalCount건", style: TextStyle(color: Colors.white, fontSize: lay.footerInfoFontSize)),
-                SizedBox(width: lay.footerItemSpacing),
-                const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                Text(
-                  "₩${NumberFormat('#,###').format(incomeSum)}",
-                  style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: "수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                      TextSpan(text: "₩${NumberFormat('#,###').format(incomeSum)}", style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize)),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-            SizedBox(height: lay.footerSpacing),
-            Row(
-              children: [
-                const Text("지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                Text(
-                  "-₩${NumberFormat('#,###').format(expenseSum)}",
-                  style: TextStyle(color: const Color(0xFFFF5252), fontSize: lay.footerInfoFontSize),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: "지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      TextSpan(text: "-₩${NumberFormat('#,###').format(expenseSum)}", style: TextStyle(color: const Color(0xFFFF5252), fontSize: lay.footerInfoFontSize)),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -1863,9 +1960,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Flexible(
-                fit: FlexFit.loose,
                 child: Text(
                   '[ 일일 합계 ]',
                   maxLines: 1,
@@ -1876,9 +1973,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                       ),
                 ),
               ),
-              const Spacer(),
               Flexible(
-                fit: FlexFit.loose,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerRight,
@@ -1898,40 +1993,36 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                    Expanded(
-                      child: Text(
-                        '₩${NumberFormat('#,###').format(_totalIncomeSum)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13),
-                      ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalIncomeSum)}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                    Flexible(
-                      child: Text(
-                        '-₩${NumberFormat('#,###').format(_totalExpenseSum)}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(color: Color(0xFFFF5252), fontSize: 13),
-                      ),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenseSum)}', style: const TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],

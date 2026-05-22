@@ -147,61 +147,66 @@ class DbrosApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             builder: (context, child) {
               final mq = MediaQuery.of(context);
+              final isFold = mq.size.width >= 600.0; // ResponsiveLayout.breakpoint
+              final double headlineBonus = isFold ? 2.0 : 0.0;
+
               return MediaQuery(
                 data: mq.copyWith(textScaler: FontSizeService.combinedTextScaler(mq)),
-                child: child ?? const SizedBox.shrink(),
+                child: Theme(
+                  data: ThemeData(
+                    brightness: Brightness.dark,
+                    fontFamily: 'GmarketSans',
+                    scaffoldBackgroundColor: const Color(0xFF121418), 
+                    primaryColor: const Color(0xFFFFC700), 
+                    colorScheme: const ColorScheme.dark(
+                      primary: Color(0xFFFFC700),
+                      surface: Color(0xFF1F222A), 
+                    ),
+                    appBarTheme: AppBarTheme(
+                      backgroundColor: const Color(0xFF1F222A),
+                      elevation: 0,
+                      centerTitle: true,
+                      titleTextStyle: TextStyle(
+                        fontFamily: 'GmarketSans',
+                        fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), 
+                        fontWeight: FontWeight.w700, 
+                        color: Colors.white
+                      ),
+                    ),
+                    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+                      backgroundColor: const Color(0xFF121418),
+                      selectedItemColor: const Color(0xFFFFC700),
+                      unselectedItemColor: const Color(0xFF6E717C),
+                      selectedLabelStyle: TextStyle(
+                        fontFamily: 'GmarketSans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: FontSizeService.getScaledFontSize(12),
+                      ),
+                      unselectedLabelStyle: TextStyle(
+                        fontFamily: 'GmarketSans',
+                        fontWeight: FontWeight.w700,
+                        fontSize: FontSizeService.getScaledFontSize(12),
+                      ),
+                    ),
+                    textTheme: TextTheme(
+                      bodyLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16), color: Colors.white, fontWeight: FontWeight.w400),
+                      bodyMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w400),
+                      bodySmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w400),
+                      headlineLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(24 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      headlineMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(20 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      headlineSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      titleLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      titleMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      titleSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
+                      labelLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w700),
+                      labelMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w700),
+                      labelSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(10), color: Colors.white, fontWeight: FontWeight.w400),
+                    ),
+                  ),
+                  child: child ?? const SizedBox.shrink(),
+                ),
               );
             },
-            theme: ThemeData(
-              brightness: Brightness.dark,
-              fontFamily: 'GmarketSans',
-              scaffoldBackgroundColor: const Color(0xFF121418), 
-              primaryColor: const Color(0xFFFFC700), 
-              colorScheme: const ColorScheme.dark(
-                primary: Color(0xFFFFC700),
-                surface: Color(0xFF1F222A), 
-              ),
-              appBarTheme: AppBarTheme(
-                backgroundColor: const Color(0xFF1F222A),
-                elevation: 0,
-                centerTitle: true,
-                titleTextStyle: TextStyle(
-                  fontFamily: 'GmarketSans',
-                  fontSize: FontSizeService.getScaledFontSize(18), 
-                  fontWeight: FontWeight.w700, 
-                  color: Colors.white
-                ),
-              ),
-              bottomNavigationBarTheme: BottomNavigationBarThemeData(
-                backgroundColor: const Color(0xFF121418),
-                selectedItemColor: const Color(0xFFFFC700),
-                unselectedItemColor: const Color(0xFF6E717C),
-                selectedLabelStyle: TextStyle(
-                  fontFamily: 'GmarketSans',
-                  fontWeight: FontWeight.w700,
-                  fontSize: FontSizeService.getScaledFontSize(12),
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontFamily: 'GmarketSans',
-                  fontWeight: FontWeight.w700,
-                  fontSize: FontSizeService.getScaledFontSize(12),
-                ),
-              ),
-              textTheme: TextTheme(
-                bodyLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16), color: Colors.white, fontWeight: FontWeight.w400),
-                bodyMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w400),
-                bodySmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w400),
-                headlineLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(24), color: Colors.white, fontWeight: FontWeight.w700),
-                headlineMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(20), color: Colors.white, fontWeight: FontWeight.w700),
-                headlineSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18), color: Colors.white, fontWeight: FontWeight.w700),
-                titleLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18), color: Colors.white, fontWeight: FontWeight.w700),
-                titleMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16), color: Colors.white, fontWeight: FontWeight.w700),
-                titleSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w700),
-                labelLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w700),
-                labelMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w700),
-                labelSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(10), color: Colors.white, fontWeight: FontWeight.w400),
-              ),
-            ),
             home: const MainWrapper(),
           ),
         );
@@ -299,6 +304,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
       if (!kIsWeb && Platform.isAndroid) {
         unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
+        unawaited(ScreenshotAutoRegisterService.instance.checkRecentScreenshotOnResume());
       }
     }
   }

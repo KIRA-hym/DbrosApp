@@ -35,10 +35,25 @@ object GalleryMediaBridge {
                 when (call.method) {
                     "start" -> {
                         startObserver()
+                        try {
+                            val intent = Intent(appContext, GalleryObserverService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                appContext?.startForegroundService(intent)
+                            } else {
+                                appContext?.startService(intent)
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "startForegroundService failed", e)
+                        }
                         result.success(null)
                     }
                     "stop" -> {
                         stopObserver()
+                        try {
+                            appContext?.stopService(Intent(appContext, GalleryObserverService::class.java))
+                        } catch (e: Exception) {
+                            Log.e(TAG, "stopService failed", e)
+                        }
                         result.success(null)
                     }
                     "queryLatestScreenshot" -> {

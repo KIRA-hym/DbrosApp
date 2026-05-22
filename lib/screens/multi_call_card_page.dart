@@ -276,8 +276,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final titleFontSize = isTablet ? 20.0 : 18.0;
     final horizontalPadding = isTablet ? 24.0 : 20.0;
     final verticalPadding = isTablet ? 12.0 : 10.0;
@@ -374,8 +373,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Widget _buildEmptyState() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final iconSize = isTablet ? 100.0 : 80.0;
     final titleFontSize = isTablet ? 20.0 : 18.0;
     final subtitleFontSize = isTablet ? 16.0 : 14.0;
@@ -431,7 +429,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Widget _buildImagePreview({bool fillHeight = false}) {
-    final isTablet = ResponsiveLayout.isTablet(context);
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final containerHeight = fillHeight ? null : (isTablet ? 120.0 : 100.0);
     final itemWidth = fillHeight ? null : (isTablet ? 100.0 : 80.0);
     final itemMargin = isTablet ? 12.0 : 8.0;
@@ -483,8 +481,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Widget _buildSavingState() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final titleFontSize = isTablet ? 18.0 : 16.0;
     final infoFontSize = isTablet ? 14.0 : 12.0;
     final spacing = isTablet ? 20.0 : 16.0;

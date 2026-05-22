@@ -25,7 +25,7 @@ int _intField(Map<String, dynamic> log, String key) {
 int _statsRowRevenue(Map<String, dynamic> log) =>
     _intField(log, 'gross_fare') + _intField(log, 'waypoint_tip');
 
-/// 목록과 동일: 순수익 = 요금 + 경유팁 − 수수료 − 교통비 (행 단위 하한 0).
+/// 목록과 동일: 순익 = 요금 + 경유팁 − 수수료 − 교통비 (행 단위 하한 0).
 int _statsRowNet(Map<String, dynamic> log) {
   final gross = _intField(log, 'gross_fare');
   final tip = _intField(log, 'waypoint_tip');
@@ -78,6 +78,19 @@ class _StatsPageState extends State<StatsPage> {
   bool _isLoading = true;
   bool _isBarChart = true;
   DateTime _selectedDate = DateTime.now();
+
+  String _formatCurrencyK(int value) {
+    if (value == 0) return '0';
+    if (value % 1000 == 0) {
+      return '${value ~/ 1000}K';
+    } else {
+      String formatted = (value / 1000.0).toStringAsFixed(1);
+      if (formatted.endsWith('.0')) {
+        formatted = formatted.substring(0, formatted.length - 2);
+      }
+      return '${formatted}K';
+    }
+  }
   
   @override
   void initState() {
@@ -400,7 +413,7 @@ class _StatsPageState extends State<StatsPage> {
       return adjA.compareTo(adjB);
     });
     return sortedHours
-        .map((h) => {'hour': '$h시', 'revenue': byHour[h] ?? 0, 'count': countByHour[h] ?? 0})
+        .map((h) => {'hour': '${h.toString().padLeft(2, '0')}시', 'revenue': byHour[h] ?? 0, 'count': countByHour[h] ?? 0})
         .toList();
   }
 
@@ -431,7 +444,7 @@ class _StatsPageState extends State<StatsPage> {
       final slotDate = weekStart.add(Duration(days: i));
       final ymd = DateFormat('yyyy-MM-dd').format(slotDate);
       final dow = kDow[slotDate.weekday - 1];
-      final label = '${slotDate.month}/${slotDate.day}($dow)';
+      final label = '${slotDate.day}($dow)';
       out.add({
         'day': label,
         'revenue': revenueByYmd[ymd] ?? 0,
@@ -574,15 +587,14 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isTablet = ResponsiveLayout.isTablet(context);
-    final isExpanded = ResponsiveLayout.isExpanded(context);
-    final padding = isTablet ? 24.0 : math.min(16.0, screenWidth * 0.04);
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
+    final compact = !isExpanded;
+    final padding = ResponsiveLayout.horizontalPadding(context);
     final fontScale = _uiFontScale(context);
-    final buttonFontSize = (isTablet ? 14.0 : 12.0) * fontScale;
+    final buttonFontSize = (isExpanded ? 14.0 : 12.0) * fontScale;
     final sectionTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-    final chartTitleFontSize = (isTablet ? 14.0 : 12.0) * fontScale;
+    final chartTitleFontSize = (isExpanded ? 14.0 : 12.0) * fontScale;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
@@ -604,13 +616,10 @@ class _StatsPageState extends State<StatsPage> {
               builder: (context, constraints) {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
-                final compact = ResponsiveLayout.isPhoneLayout(context);
                 final useExpandedSplit = isExpanded;
-                final statCardTitleFontSize =
-                    ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize =
-                    ResponsiveLayout.summaryValueFontSize(context) * fontScale;
-                final gapMd = compact ? 10.0 : (isTablet ? 20.0 : 12.0);
+                final statCardTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
+                final statCardValueFontSize = 16.0 * fontScale;
+                final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
                 final statsFlex = compact ? 2 : 2;
@@ -711,17 +720,18 @@ class _StatsPageState extends State<StatsPage> {
                         SizedBox(height: compact ? 12 : 12),
                         Expanded(
                           flex: chartsFlex,
-                          child: Column(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Expanded(
                                 child: _buildChartPanel(
-                                  _buildProgramChart(chartTitleFontSize, compact: compact, horizontalBars: false),
+                                  _buildProgramChart(chartTitleFontSize, compact: compact, horizontalBars: true),
                                 ),
                               ),
-                              SizedBox(height: gapBetweenCharts),
+                              SizedBox(width: gapBetweenCharts),
                               Expanded(
                                 child: _buildChartPanel(
-                                  _buildSecondChart(chartTitleFontSize, compact: compact, horizontalBars: false),
+                                  _buildSecondChart(chartTitleFontSize, compact: compact, horizontalBars: true),
                                 ),
                               ),
                             ],
@@ -737,18 +747,18 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  /// 지표 카드 1장 최소 높이(홈 2×2·펼침 가로열). [textScaler] 반영.
   double _statCardMinHeight(
     BuildContext context,
     double titleFontSize,
     double valueFontSize,
   ) {
     final scaler = MediaQuery.textScalerOf(context);
-    final verticalPad = 12.0;
-    final innerGap = math.max(4.0, scaler.scale(titleFontSize) * 0.3);
+    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
+    final verticalPad = isExpanded ? 20.0 : 12.0;
+    final innerGap = isExpanded ? 16.0 : math.max(4.0, scaler.scale(titleFontSize) * 0.3);
     final titleBlock = scaler.scale(titleFontSize) * 1.12;
     final valueBlock = scaler.scale(valueFontSize) * 1.12;
-    return verticalPad + titleBlock + innerGap + valueBlock + 2.0;
+    return verticalPad * 2 + titleBlock + innerGap + valueBlock + 4.0;
   }
 
   /// 펼침: 지표 4개 가로 1열.
@@ -802,11 +812,12 @@ class _StatsPageState extends State<StatsPage> {
   ) {
     return <Widget>[
       _statMetricCard(
-        title: '총 순수익',
+        title: '총 순익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         valueColor: const Color(0xFFFFC700),
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        icon: Icons.account_balance_wallet,
       ),
       _statMetricCard(
         title: '총 매출',
@@ -814,6 +825,7 @@ class _StatsPageState extends State<StatsPage> {
         valueColor: Colors.green,
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        icon: Icons.credit_card,
       ),
       _statMetricCard(
         title: '총 지출',
@@ -821,14 +833,16 @@ class _StatsPageState extends State<StatsPage> {
         valueColor: const Color(0xFFFF5252),
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
+        icon: Icons.money_off,
       ),
       if (_selectedPeriod != '일간')
         _statMetricCard(
-          title: '근무일수 / 운행건수',
+          title: '근무·운행 건수',
           value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
           valueColor: Colors.white,
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
+          icon: Icons.local_taxi,
         )
       else
         _statMetricCard(
@@ -837,6 +851,7 @@ class _StatsPageState extends State<StatsPage> {
           valueColor: Colors.white,
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
+          icon: Icons.local_taxi,
         ),
     ];
   }
@@ -950,33 +965,38 @@ class _StatsPageState extends State<StatsPage> {
     required double statCardValueFontSize,
     required double cardGap,
   }) {
-    final metrics = <({String title, String value, Color color})>[
+    final metrics = <({String title, String value, Color color, IconData icon})>[
       (
-        title: '총 순수익',
+        title: '총 순익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         color: const Color(0xFFFFC700),
+        icon: Icons.account_balance_wallet,
       ),
       (
         title: '총 매출',
         value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
         color: Colors.green,
+        icon: Icons.credit_card,
       ),
       (
         title: '총 지출',
         value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
         color: const Color(0xFFFF5252),
+        icon: Icons.money_off,
       ),
       if (_selectedPeriod != '일간')
         (
-          title: '근무일수 / 운행건수',
+          title: '근무·운행 건수',
           value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
           color: Colors.white,
+          icon: Icons.local_taxi,
         )
       else
         (
           title: '운행 건수',
           value: '${_stats['totalCount'] ?? 0}',
           color: Colors.white,
+          icon: Icons.local_taxi,
         ),
     ];
 
@@ -996,7 +1016,8 @@ class _StatsPageState extends State<StatsPage> {
                     value: metrics[i].value,
                     valueColor: metrics[i].color,
                     titleFontSize: statCardTitleFontSize,
-                    valueFontSize: statCardValueFontSize,
+                    valueFontSize: statCardTitleFontSize,
+                    icon: metrics[i].icon,
                   ),
                 ),
               ],
@@ -1013,14 +1034,15 @@ class _StatsPageState extends State<StatsPage> {
     required Color valueColor,
     required double titleFontSize,
     required double valueFontSize,
+    IconData? icon,
   }) {
-    final hPad = 10.0;
-    final vPad = 8.0;
-    final innerGap = math.max(4.0, titleFontSize * 0.3);
-    const titleTopInset = 4.0;
-
     return LayoutBuilder(
         builder: (context, constraints) {
+          final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
+          final hPad = isExpanded ? 24.0 : 16.0;
+          final vPad = isExpanded ? 20.0 : 14.0;
+          final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFontSize * 0.3);
+          const titleTopInset = 4.0;
           final h = constraints.maxHeight;
           final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFontSize);
           final scaledValue = ResponsiveLayout.layoutFontSize(context, valueFontSize);
@@ -1041,13 +1063,26 @@ class _StatsPageState extends State<StatsPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
-                    fontSize: effTitleFs,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, color: const Color(0xFFFFC700), size: effTitleFs * 1.2),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: Text(
+                        title,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
+                          fontSize: effTitleFs,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 SizedBox(height: effGap),
                 Expanded(
@@ -1064,7 +1099,10 @@ class _StatsPageState extends State<StatsPage> {
                         style: ResponsiveLayout.summaryValueTextStyle(
                           context,
                           color: valueColor,
-                        ).copyWith(fontSize: effValueFs),
+                        ).copyWith(
+                          fontSize: effValueFs,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -1154,10 +1192,10 @@ class _StatsPageState extends State<StatsPage> {
     bool horizontalBars = false,
   }) {
     final title = _selectedPeriod == '일간'
-        ? '시간대별 순수익'
+        ? '시간대별 순익'
         : (_selectedPeriod == '주간'
-            ? '요일별 순수익 (근무일 기준)'
-            : (_selectedPeriod == '월간' ? '일자별 순수익 (근무일 기준)' : '월별 순수익 (근무일 기준)'));
+            ? '요일별 순익 (근무일 기준)'
+            : (_selectedPeriod == '월간' ? '일자별 순익 (근무일 기준)' : '월별 순익 (근무일 기준)'));
     final labelKey = _getSecondChartKey();
     final validData = _secondChartData.where((e) {
       final val = (e['revenue'] as num?)?.toInt() ?? 0;
@@ -1219,15 +1257,18 @@ class _StatsPageState extends State<StatsPage> {
               height: titleH,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  maxLines: maxTitleLines,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: titleFontSize,
-                    height: 1.1,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 8.0),
+                  child: Text(
+                    title,
+                    maxLines: maxTitleLines,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: titleFontSize,
+                      height: 1.1,
+                    ),
                   ),
                 ),
               ),
@@ -1242,7 +1283,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _buildChartPanel(Widget chart) {
     return BorderedSection(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 2),
       child: chart,
     );
   }
@@ -1293,7 +1334,7 @@ class _StatsPageState extends State<StatsPage> {
     String valueKey, {
     bool programLabels = false,
   }) {
-    final textFontSize = (9 * _uiFontScale(context)).clamp(8.0, 13.0);
+    final textFontSize = (11 * _uiFontScale(context)).clamp(10.0, 15.0);
     final labelHeight = programLabels ? textFontSize * 2.35 + 8 : textFontSize + 6.0;
     final valueHeight = textFontSize + 6.0;
     final countHeight = textFontSize + 2.0;
@@ -1301,7 +1342,7 @@ class _StatsPageState extends State<StatsPage> {
     final availH = constraints.maxHeight;
     final bottomLabels = labelHeight + valueHeight + gapPlotLabels;
     final plotHeight = availH.isFinite && availH > 0
-        ? (availH - bottomLabels - countHeight).clamp(24.0, 120.0)
+        ? math.max(24.0, availH - bottomLabels - countHeight - 12.0)
         : 68.0;
     return (
       textFontSize: textFontSize,
@@ -1373,7 +1414,7 @@ class _StatsPageState extends State<StatsPage> {
         final gapPlotLabels = layout.gapPlotLabels;
         final plotHeight = layout.plotHeight;
         final longestValueLen = data
-            .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
+            .map((item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length)
             .fold<int>(1, (a, b) => a > b ? a : b);
         final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
         final baseMinItemWidth = math.max(30.0, valueWidthByText);
@@ -1464,32 +1505,32 @@ class _StatsPageState extends State<StatsPage> {
                         ),
                         SizedBox(height: gapPlotLabels),
                         SizedBox(
-                          height: labelHeight,
-                          child: Align(
-                            alignment: Alignment.topCenter,
-                            child: Text(
-                              label,
-                              style: TextStyle(
-                                color: const Color(0xFF6E717C),
-                                fontSize: textFontSize,
+                          height: labelHeight + valueHeight,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  color: const Color(0xFF6E717C),
+                                  fontSize: textFontSize,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: programLabels ? 2 : 1,
+                                overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
+                                softWrap: true,
                               ),
-                              textAlign: TextAlign.center,
-                              maxLines: programLabels ? 2 : 1,
-                              overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
-                              softWrap: true,
-                            ),
-                          ),
-                        ),
-                        SizedBox(
-                          height: valueHeight,
-                          child: Text(
-                            NumberFormat('#,###').format(value),
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: textFontSize,
-                            ),
-                            textAlign: TextAlign.center,
-                            maxLines: 1,
+                              const SizedBox(height: 2),
+                              Text(
+                                NumberFormat('#,###').format(value),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: textFontSize,
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -1529,7 +1570,7 @@ class _StatsPageState extends State<StatsPage> {
         final gapPlotLabels = layout.gapPlotLabels;
         final plotHeight = layout.plotHeight;
         final longestValueLen = data
-            .map((item) => NumberFormat('#,###').format((item[valueKey] as int?) ?? 0).length)
+            .map((item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length)
             .fold<int>(1, (a, b) => a > b ? a : b);
         final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
         final baseMinItemWidth = math.max(30.0, valueWidthByText);
@@ -1615,32 +1656,32 @@ class _StatsPageState extends State<StatsPage> {
                       child: Column(
                         children: [
                           SizedBox(
-                            height: labelHeight,
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              child: Text(
-                                label,
-                                style: TextStyle(
-                                  color: const Color(0xFF6E717C),
-                                  fontSize: textFontSize,
+                            height: labelHeight + valueHeight,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: const Color(0xFF6E717C),
+                                    fontSize: textFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: programLabels ? 2 : 1,
+                                  overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
+                                  softWrap: true,
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines: programLabels ? 2 : 1,
-                                overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
-                                softWrap: true,
-                              ),
-                            ),
-                          ),
-                          SizedBox(
-                            height: valueHeight,
-                            child: Text(
-                              NumberFormat('#,###').format(value),
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: textFontSize,
-                              ),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
+                                const SizedBox(height: 2),
+                                Text(
+                                  _formatCurrencyK(value),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: textFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                ),
+                              ],
                             ),
                           ),
                         ],

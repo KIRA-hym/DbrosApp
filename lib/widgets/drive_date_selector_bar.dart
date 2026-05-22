@@ -154,8 +154,7 @@ class DriveDateSelectorBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final iconSize = isTablet ? 24.0 : 20.0;
     final padding = isTablet ? 12.0 : 8.0;
     final buttonSize = isTablet ? 40.0 : 32.0;

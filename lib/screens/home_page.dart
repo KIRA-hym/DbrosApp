@@ -208,11 +208,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final isTablet = ResponsiveLayout.isTablet(context);
-    final isExpanded = ResponsiveLayout.isExpanded(context);
+    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
     final padding = ResponsiveLayout.horizontalPadding(context);
-    final titleFontSize = isTablet ? 20.0 : 18.0;
-    final sectionGap = isExpanded ? 14.0 : (isTablet ? 12.0 : 10.0);
+    final titleFontSize = isExpanded ? 20.0 : 18.0;
+    final sectionGap = isExpanded ? 14.0 : 10.0;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
@@ -254,12 +253,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         },
                         child: Text(
                           "운행 일지 관리",
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: const Color(0xFFFFC700),
                                 fontWeight: FontWeight.bold,
+                                color: const Color(0xFFFFC700),
+                                fontSize: 20.0,
                               ),
                         ),
                       ),
@@ -285,7 +282,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Expanded(
-                            flex: 11,
+                            flex: 1,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -303,7 +300,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           ),
                           SizedBox(width: sectionGap),
                           Expanded(
-                            flex: 13,
+                            flex: 1,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -391,7 +388,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       cell: cell,
       rowGap: rowGap,
       colGap: colGap,
-      innerPad: (cell * 0.06).clamp(6.0, 12.0),
+      innerPad: (cell * 0.06).clamp(16.0, 20.0),
       titleTopInset: titleTopInset,
       titleFs: titleFs,
       valueFs: valueFs,
@@ -406,7 +403,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   TextStyle _homeSummaryValueStyle(BuildContext context, {required Color color}) {
-    return ResponsiveLayout.summaryValueTextStyle(context, color: color).copyWith(
+    return ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
+      color: color,
+      fontWeight: FontWeight.bold,
       letterSpacing: -0.5,
     );
   }
@@ -477,13 +476,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  String _formatCurrencyK(int value) {
+    if (value == 0) return '0';
+    if (value % 1000 == 0) {
+      return '${value ~/ 1000}K';
+    } else {
+      String formatted = (value / 1000.0).toStringAsFixed(1);
+      if (formatted.endsWith('.0')) {
+        formatted = formatted.substring(0, formatted.length - 2);
+      }
+      return '${formatted}K';
+    }
+  }
+
   Widget _buildTodaySummaryCard() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final outerPad = isTablet ? 22.0 : 16.0;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final outerPad = isTablet ? 24.0 : 16.0;
 
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final String dateCompact = DateFormat('yyyy.MM.dd').format(workDay);
+    final String dateCompact = DateFormat('M월 d일').format(workDay);
     final String weekdayLong = DateFormat('EEEE', 'ko').format(workDay);
 
     return Container(
@@ -520,9 +531,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           child: _buildSummaryTextCell(
                             context: context,
                             metrics: m,
-                            title: '오늘의 순수익',
-                            value: '${NumberFormat('#,###').format(_todayNet)}원',
+                            title: '오늘 순익',
+                            value: NumberFormat('#,###').format(_todayNet),
                             valueColor: const Color(0xFFFFC700),
+                            icon: Icons.account_balance_wallet,
                           ),
                         ),
                         SizedBox(width: m.colGap),
@@ -533,6 +545,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             title: dateCompact,
                             value: weekdayLong,
                             valueColor: Colors.white,
+                            icon: Icons.calendar_today,
                           ),
                         ),
                       ],
@@ -559,7 +572,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             context: context,
                             icon: Icons.payments_outlined,
                             label: '오늘 지출',
-                            value: '${NumberFormat('#,###').format(_todayExpenses)}원',
+                            value: NumberFormat('#,###').format(_todayExpenses),
                             valueColor: const Color(0xFFFF5252),
                             metrics: m,
                           ),
@@ -594,35 +607,89 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     required String title,
     required String value,
     required Color valueColor,
+    IconData? icon,
   }) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF16181D),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(metrics.innerPad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _homeSummaryHeaderBlock(
-              metrics: metrics,
-              titleRow: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _homeSummaryTitleStyle(context),
+    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
+    final titleFs = metrics.titleFs + (isExpanded ? 0.0 : 2.0);
+    final valueFs = metrics.valueFs + (isExpanded ? 0.0 : 2.0);
+    final hPad = isExpanded ? 24.0 : 16.0;
+    final vPad = isExpanded ? 20.0 : 14.0;
+    final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFs * 0.3);
+    const titleTopInset = 4.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFs);
+        final scaledValue = ResponsiveLayout.layoutFontSize(context, valueFs);
+        final minContentH = scaledTitle * 1.12 + innerGap + scaledValue * 1.12 + vPad * 2 + titleTopInset;
+        final scale = (!h.isFinite || h <= 0 || h >= minContentH)
+            ? 1.0
+            : (h / minContentH).clamp(0.72, 1.0);
+        final effTitleFs = titleFs * scale;
+        final effValueFs = (isExpanded ? 16.0 : 18.0) * scale;
+        final effVPad = (vPad * scale).clamp(2.0, vPad);
+        final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
+        final effGap = (innerGap * scale).clamp(1.0, innerGap);
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFF16181D),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, color: const Color(0xFFFFC700), size: effTitleFs * 1.2),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _homeSummaryTitleStyle(context).copyWith(
+                        fontSize: effTitleFs,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            _homeSummaryValueLine(
-              context: context,
-              metrics: metrics,
-              value: value,
-              valueColor: valueColor,
-            ),
-          ],
-        ),
-      ),
+              SizedBox(height: effGap),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.bottomRight,
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _homeSummaryValueStyle(context, color: valueColor).copyWith(
+                            fontSize: effValueFs,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -645,47 +712,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       double valueGap,
     }) metrics,
   }) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFF16181D),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(metrics.innerPad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _homeSummaryHeaderBlock(
-              metrics: metrics,
-              titleRow: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    width: metrics.iconSz,
-                    height: ResponsiveLayout.layoutFontSize(context, metrics.titleFs) * 1.12,
-                    child: Icon(icon, color: const Color(0xFFFFC700), size: metrics.iconSz),
-                  ),
-                  SizedBox(width: (metrics.cell * 0.03).clamp(6.0, 10.0)),
-                  Expanded(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _homeSummaryTitleStyle(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _homeSummaryValueLine(
-              context: context,
-              metrics: metrics,
-              value: value,
-              valueColor: valueColor,
-            ),
-          ],
-        ),
-      ),
+    return _buildSummaryTextCell(
+      context: context,
+      metrics: metrics,
+      title: label,
+      value: value,
+      valueColor: valueColor,
+      icon: icon,
     );
   }
 
@@ -704,7 +737,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildQuickActions() {
-    final outerPadding = ResponsiveLayout.isTablet(context) ? 14.0 : 12.0;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final outerPadding = isTablet ? 20.0 : 16.0;
 
     return Container(
       decoration: BorderedSection.decoration(),
@@ -713,6 +747,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final q = _homeQuickActionsMetrics(constraints.maxWidth, constraints.maxHeight);
+          final textFs = isTablet ? q.textFs + 5.0 : q.textFs;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -724,7 +759,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: _quickActionButton(
                         Icons.credit_card,
                         '콜카드\n단건등록',
-                        q.textFs,
+                        textFs,
                         q.iconSz,
                     () async {
                       await Navigator.push(
@@ -742,7 +777,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       child: _quickActionButton(
                         Icons.credit_card,
                         '콜카드\n다중등록',
-                        q.textFs,
+                        textFs,
                         q.iconSz,
                     () async {
                       await Navigator.push(
@@ -761,16 +796,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               SizedBox(height: q.gap),
               SizedBox(
                 height: q.waitingBtnH,
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFFFC700),
                     side: const BorderSide(color: Color(0xFFFFC700)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () => WaitingFeeBottomSheet.show(context),
-                  child: Text(
+                  icon: Icon(Icons.timer_outlined, size: textFs * 1.2),
+                  label: Text(
                     '대기비용 계산',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: q.textFs),
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: textFs),
                   ),
                 ),
               ),
@@ -782,9 +818,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildYoutubeSection() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final outerPadding = isTablet ? 12.0 : 10.0;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final outerPadding = 16.0;
     final titleFs = isTablet ? 13.5 : 12.0;
 
     return Container(
@@ -943,7 +978,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final isTablet = ResponsiveLayout.isTablet(context);
     final isPhoneFolded = ResponsiveLayout.isPhoneLayout(context);
     final outerPadding = isTablet ? 14.0 : 12.0;
-    final recentTitleFs = ResponsiveLayout.sectionTitleFontSize(context);
+    final recentTitleFs = ResponsiveLayout.sectionTitleFontSize(context) + (isTablet ? 2.0 : 0.0);
     final bodyFs = ResponsiveLayout.summaryValueFontSize(context);
     final titleStyle = TextStyle(
       fontFamily: 'GmarketSans',
@@ -1103,30 +1138,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
-                                child: Text(
-                                  '수입 ${NumberFormat('#,###').format(income)}원',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: moneyBaseStyle.copyWith(color: Colors.lightBlueAccent),
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        '수입 ${NumberFormat('#,###').format(income)}',
+                                        style: moneyBaseStyle.copyWith(color: Colors.lightBlueAccent),
+                                      ),
+                                      if (expense > 0) ...[
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          '지출 ${NumberFormat('#,###').format(expense)}',
+                                          style: moneyBaseStyle.copyWith(color: const Color(0xFFFF5252)),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  '지출 ${NumberFormat('#,###').format(expense)}원',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: moneyBaseStyle.copyWith(color: const Color(0xFFFF5252)),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  '순익 ${NumberFormat('#,###').format(net)}원',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: moneyBaseStyle.copyWith(color: const Color(0xFFFFC700)),
-                                ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '순익 ${NumberFormat('#,###').format(net)}',
+                                style: moneyBaseStyle.copyWith(color: const Color(0xFFFFC700)),
                               ),
                             ],
                           ),

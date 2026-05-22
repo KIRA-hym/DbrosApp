@@ -64,7 +64,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
         const SizedBox(height: 10),
         Expanded(
           child: _chartCard(
-            title: '시간대별 순수익',
+            title: '시간대별 순익',
             data: _hourlyData,
             labelKey: 'hour',
           ),
@@ -105,7 +105,12 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
                 ? const Center(
                     child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
                   )
-                : StatsBarChartBody(data: validData, labelKey: labelKey, valueKey: 'revenue'),
+                : StatsBarChartBody(
+                    data: validData,
+                    labelKey: labelKey,
+                    valueKey: 'revenue',
+                    programLabels: labelKey == 'program',
+                  ),
           ),
         ],
       ),
@@ -151,7 +156,14 @@ class StatsBarChartBody extends StatelessWidget {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = data[index];
-        final rawLabel = item[labelKey]?.toString() ?? '';
+        String rawLabel = item[labelKey]?.toString() ?? '';
+        if (programLabels) {
+          rawLabel = rawLabel
+              .replaceAll('카카오(일반)', '카(일)')
+              .replaceAll('카카오(프콜)', '카(프)')
+              .replaceAll('핸들포유', '핸들')
+              .replaceAll('콜마너', '콜마');
+        }
         final count = item['count'];
         final value = (item[valueKey] as num?)?.toInt() ?? 0;
         final color = _colors[index % _colors.length];
@@ -172,12 +184,17 @@ class StatsBarChartBody extends StatelessWidget {
                   ),
                 ),
                 if (count != null)
-                  Text(
-                    '${count}건',
-                    style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
+                  SizedBox(
+                    width: 36,
+                    child: Text(
+                      '${count}건',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
+                    ),
                   ),
                 const SizedBox(width: 8),
-                Flexible(
+                SizedBox(
+                  width: 64,
                   child: Text(
                     NumberFormat('#,###').format(value),
                     maxLines: 1,

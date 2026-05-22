@@ -183,17 +183,23 @@ class _SettingsPageState extends State<SettingsPage> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Wrap(
-                  spacing: gridGap,
-                  runSpacing: gridGap,
-                  children: gridSections
-                      .map((section) => SizedBox(width: itemWidth, child: section))
-                      .toList(),
+            for (int i = 0; i < gridSections.length; i += 2)
+              Padding(
+                padding: EdgeInsets.only(bottom: gridGap),
+                child: IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: gridSections[i]),
+                      SizedBox(width: gridGap),
+                      Expanded(
+                        child: i + 1 < gridSections.length ? gridSections[i + 1] : const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
                 ),
-                if (versionSection != null) ...[
-                  SizedBox(height: gridGap),
-                  versionSection,
-                ],
+              ),
+            if (versionSection != null) versionSection,
               ],
             );
           },
@@ -250,8 +256,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildVersionInfoSection(TextStyle versionStyle) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
     final label = _appVersionLabel.isEmpty ? '…' : _appVersionLabel;
@@ -274,8 +279,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildSettingsGroup(String title, List<Widget> children, {bool showChangeButton = false, VoidCallback? onSave}) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -311,8 +315,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildRadioTile(String title, String value, {Widget? child}) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final leftPadding = isTablet ? 40.0 : 32.0;
     final bottomPadding = isTablet ? 16.0 : 12.0;
 
@@ -337,8 +340,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildTextField(TextEditingController con, String label, {VoidCallback? onChanged}) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final borderRadius = isTablet ? 16.0 : 12.0;
     final horizontalPadding = isTablet ? 20.0 : 16.0;
     final verticalPadding = isTablet ? 16.0 : 12.0;
@@ -367,8 +369,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildProgramListSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -476,8 +477,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
   Widget _buildAddProgramField() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final borderRadius = isTablet ? 16.0 : 12.0;
     final horizontalPadding = isTablet ? 20.0 : 16.0;
     final verticalPadding = isTablet ? 16.0 : 12.0;
@@ -537,8 +537,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildScreenshotAutoRegisterSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
 
@@ -583,8 +582,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildScreenshotAutoDiagSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
 
@@ -681,8 +679,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildOcrParseLogSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -728,8 +725,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildBackupRestoreSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -811,8 +807,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildStorageSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -909,8 +904,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildStatusBarQuickSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;
@@ -962,8 +956,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildFloatingButtonSettings() {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
     final borderRadius = isTablet ? 24.0 : 20.0;

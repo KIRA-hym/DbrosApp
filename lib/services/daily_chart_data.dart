@@ -80,7 +80,7 @@ class DailyChartData {
     });
     return sorted
         .map((h) => {
-              'hour': '$h시',
+              'hour': '${h.toString().padLeft(2, '0')}시',
               'revenue': byHour[h] ?? 0,
               'count': countByHour[h] ?? 0,
             })

@@ -950,7 +950,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   
   int _currentFeeFromGross() => SettingsService.deductionFeeFromGross(_grossIncome, _selectedProgram);
   
-  /// 경유비(팁)는 수수료·교통비처럼 차감이 아니라 순수익에 **가산**됩니다.
+  /// 경유비(팁)는 수수료·교통비처럼 차감이 아니라 순익에 **가산**됩니다.
   int _currentNetIncomeFromGross() => (_grossIncome - _currentFeeFromGross() - _parseMoney(_transportCon.text) + _parseMoney(_waypointTipCon.text)).clamp(0, 999999999);
 
   void _captureGrossAndApplyDeductions() { _grossIncome = _parseMoney(_incomeCon.text); _applyDeductions(); }
@@ -963,7 +963,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final int deductOnly = fee + transport;
     setState(() {
       _deductionHint = _grossIncome > 0
-          ? "순수익 ${_formatMoney(net)}원 (차감 ${_formatMoney(deductOnly)}원)"
+          ? "순익 ${_formatMoney(net)}원 (차감 ${_formatMoney(deductOnly)}원)"
           : "";
     });
   }

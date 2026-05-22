@@ -57,6 +57,13 @@ class ScreenshotAutoRegisterService {
     await start();
   }
 
+  /// 앱이 포그라운드로 돌아왔을 때, 백그라운드 상태여서 감지하지 못한 최신 스크린샷이 있는지 수동으로 1회 확인.
+  Future<void> checkRecentScreenshotOnResume() async {
+    if (!_isAndroid || !SettingsService.screenshotAutoRegisterEnabled) return;
+    ScreenshotAutoDebugLog.add('앱 재개(resumed)됨: 백그라운드에서 놓친 스크린샷 1회 확인');
+    _scheduleHandle();
+  }
+
   /// 권한·리스너 설정. 거부 시 false (재시도 가능).
   Future<bool> start() async {
     if (!_isAndroid) return false;
