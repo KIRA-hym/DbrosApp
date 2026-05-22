@@ -242,10 +242,10 @@ class _LogListPageState extends State<LogListPage> {
                     children: [
                       Text('$_totalCount건', style: const TextStyle(color: Colors.white, fontSize: 13)),
                       const SizedBox(width: 10),
-                      const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                      const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                       Text(
-                        '₩${NumberFormat('#,###').format(_totalNet)}',
-                        style: const TextStyle(color: Color(0xFFFFC700), fontSize: 13, fontWeight: FontWeight.bold),
+                        '₩${NumberFormat('#,###').format(_totalGross)}',
+                        style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -264,8 +264,8 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalNet)}', style: const TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
                       ],
                     ),
                   ),
@@ -517,6 +517,16 @@ class _LogListPageState extends State<LogListPage> {
                               dateTitle: '근무일자: $selected',
                               embedded: true,
                               onLogsChanged: _loadMonthData,
+                              onDateChanged: (newDate) {
+                                final parsed = DateTime.tryParse(newDate);
+                                if (parsed != null) {
+                                  if (parsed.year != _selectedMonth.year || parsed.month != _selectedMonth.month) {
+                                    _selectedMonth = DateTime(parsed.year, parsed.month, 1);
+                                    _loadMonthData();
+                                  }
+                                }
+                                setState(() => _masterDetailDate = newDate);
+                              },
                             ),
                     ),
                   ],
@@ -1341,11 +1351,13 @@ class DailyLogListPage extends StatefulWidget {
     this.snackMessage,
     this.embedded = false,
     this.onLogsChanged,
+    this.onDateChanged,
   });
 
   /// 목록 마스터-디테일 오른쪽 패널용.
   final bool embedded;
   final VoidCallback? onLogsChanged;
+  final ValueChanged<String>? onDateChanged;
 
   @override
   State<DailyLogListPage> createState() => _DailyLogListPageState();
@@ -1369,9 +1381,14 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     return int.tryParse(value.toString()) ?? 0;
   }
 
+  late String _currentDateStr;
+  late String _currentDateTitle;
+
   @override
   void initState() {
     super.initState();
+    _currentDateStr = widget.dateStr;
+    _currentDateTitle = widget.dateTitle;
     _loadData();
     final msg = widget.snackMessage?.trim();
     if (msg != null && msg.isNotEmpty) {
@@ -1383,6 +1400,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   }
 
   @override
+  void didUpdateWidget(DailyLogListPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.dateStr != widget.dateStr) {
+      _currentDateStr = widget.dateStr;
+      _currentDateTitle = widget.dateTitle;
+      _loadData();
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (widget.embedded || _poppingForExpandedLayout) return;
@@ -1390,14 +1417,14 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     _poppingForExpandedLayout = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      Navigator.pop(context, widget.dateStr);
+      Navigator.pop(context, _currentDateStr);
     });
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     try {
-      final rawLogs = await DriveLogDatabase.instance.getLogsForWorkDate(widget.dateStr);
+      final rawLogs = await DriveLogDatabase.instance.getLogsForWorkDate(_currentDateStr);
       final logs = List<Map<String, dynamic>>.from(rawLogs);
       
       int incomeSum = 0;
@@ -1554,14 +1581,26 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.chevron_left, color: Colors.white),
+                  onPressed: () => _goToAdjacentDay(false),
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
                 Flexible(
                   child: Text(
-                    widget.dateTitle,
+                    _currentDateTitle,
                     textAlign: TextAlign.center,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: titleStyle,
                   ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right, color: Colors.white),
+                  onPressed: () => _goToAdjacentDay(true),
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
                 if (kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null)) ...[
                   const SizedBox(width: 8),
@@ -1894,10 +1933,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   children: [
                     Text("$totalCount건", style: TextStyle(color: Colors.white, fontSize: lay.footerInfoFontSize)),
                     const SizedBox(width: 12),
-                    const Text("순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                    const Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                     Text(
-                      "₩${NumberFormat('#,###').format(netSum)}",
-                      style: TextStyle(color: const Color(0xFFFFC700), fontSize: lay.footerInfoFontSize, fontWeight: FontWeight.bold),
+                      "₩${NumberFormat('#,###').format(incomeSum)}",
+                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -1916,8 +1955,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 child: Text.rich(
                   TextSpan(
                     children: [
-                      const TextSpan(text: "수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                      TextSpan(text: "₩${NumberFormat('#,###').format(incomeSum)}", style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize)),
+                      const TextSpan(text: "순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                      TextSpan(text: "₩${NumberFormat('#,###').format(netSum)}", style: TextStyle(color: Color(0xFFFFC700), fontSize: lay.footerInfoFontSize)),
                     ],
                   ),
                 ),
@@ -2151,10 +2190,41 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       MaterialPageRoute(
         builder: (_) => StatsRouteMapPage(
           periodLabel: '일간',
-          dateLabel: widget.dateTitle,
+          dateLabel: _currentDateTitle,
           segments: segments,
         ),
       ),
     );
+  }
+
+  Future<void> _goToAdjacentDay(bool isNext) async {
+    final db = await DriveLogDatabase.instance.database;
+    final operator = isNext ? '>' : '<';
+    final order = isNext ? 'ASC' : 'DESC';
+    final res = await db.query(
+      'drive_logs',
+      columns: ['drive_date'],
+      where: 'drive_date $operator ?',
+      whereArgs: [_currentDateStr],
+      orderBy: 'drive_date $order',
+      limit: 1,
+    );
+
+    if (res.isNotEmpty) {
+      final newDate = res.first['drive_date'] as String;
+      if (widget.embedded && widget.onDateChanged != null) {
+        widget.onDateChanged!(newDate);
+      } else {
+        setState(() {
+          _currentDateStr = newDate;
+          _currentDateTitle = '근무일자: $newDate';
+          _isLoading = true;
+        });
+        _loadData();
+      }
+    } else {
+      if (!mounted) return;
+      showDbrosSnackBar(context, isNext ? '다음 근무일지가 없습니다.' : '이전 근무일지가 없습니다.');
+    }
   }
 }
