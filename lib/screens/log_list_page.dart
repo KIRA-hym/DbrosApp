@@ -1565,17 +1565,35 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final compact = widget.embedded;
     final padding = compact ? 6.0 : (isTablet ? 12.0 : 8.0);
     final hPad = compact ? 8.0 : (isTablet ? 12.0 : 8.0);
+    
+    final showMapBtn = kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null);
     /// embedded 시 우측 `입력` 과 대칭을 맞춰 제목 시각적 중앙 유지
-    final sideSlot = compact ? 96.0 : 0.0;
+    final sideSlot = compact ? (showMapBtn ? 136.0 : 96.0) : (showMapBtn ? 48.0 : 0.0);
+    
     final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
         ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white);
+        
+    final mapBtn = InkWell(
+      onTap: _openDailyRouteMap,
+      child: const Padding(
+        padding: EdgeInsets.all(4.0),
+        child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 18),
+      ),
+    );
+
     return Container(
       color: const Color(0xFF1F222A),
       padding: EdgeInsets.symmetric(vertical: padding, horizontal: hPad),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(width: sideSlot),
+          SizedBox(
+            width: sideSlot,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: (!compact && showMapBtn) ? mapBtn : const SizedBox.shrink(),
+            ),
+          ),
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1602,39 +1620,33 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                 ),
-                if (kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null)) ...[
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: _openDailyRouteMap,
-                    child: const Padding(
-                      padding: EdgeInsets.all(4.0),
-                      child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 18),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
           SizedBox(
             width: sideSlot,
             child: compact
-                ? Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: _openAddLogForm,
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ? Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      if (showMapBtn) mapBtn,
+                      if (showMapBtn) const SizedBox(width: 8),
+                      TextButton.icon(
+                        onPressed: _openAddLogForm,
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                        label: const Text(
+                          '입력',
+                          style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
+                        ),
                       ),
-                      icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
-                      label: const Text(
-                        '입력',
-                        style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
-                      ),
-                    ),
+                    ],
                   )
-                : null,
+                : const SizedBox.shrink(),
           ),
         ],
       ),
