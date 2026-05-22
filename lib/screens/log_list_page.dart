@@ -1562,13 +1562,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   Widget _buildDailyDetailDateHeader() {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isTablet = screenWidth > 600;
-    final compact = widget.embedded;
+    final compact = widget.embedded; // true=펼친화면(embedded), false=접힌화면(단독)
     final padding = compact ? 6.0 : (isTablet ? 12.0 : 8.0);
     final hPad = compact ? 8.0 : (isTablet ? 12.0 : 8.0);
     
     final showMapBtn = kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null);
-    /// embedded 시 우측 `입력` 과 대칭을 맞춰 제목 시각적 중앙 유지
-    final sideSlot = compact ? (showMapBtn ? 136.0 : 96.0) : (showMapBtn ? 48.0 : 0.0);
+    
+    // 펼친화면(embedded): 좌측에 지도버튼 슬롯 / 우측에 [+입력] 슬롯
+    // 접힌화면(단독):     좌측 슬롯 없음 / 우측에 지도버튼(맨 끝)
+    final leftSlot  = compact ? (showMapBtn ? 36.0 : 0.0) : 0.0;
+    final rightSlot = compact ? 96.0 : (showMapBtn ? 36.0 : 0.0);
     
     final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
         ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white);
@@ -1587,12 +1590,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // 좌측 슬롯: 펼친화면에서만 지도버튼 노출
           SizedBox(
-            width: sideSlot,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: (!compact && showMapBtn) ? mapBtn : const SizedBox.shrink(),
-            ),
+            width: leftSlot,
+            child: compact && showMapBtn
+                ? Align(alignment: Alignment.centerLeft, child: mapBtn)
+                : const SizedBox.shrink(),
           ),
           Expanded(
             child: Row(
@@ -1623,30 +1626,27 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               ],
             ),
           ),
+          // 우측 슬롯: 펼친화면=[+입력], 접힌화면=지도버튼(맨 끝)
           SizedBox(
-            width: sideSlot,
-            child: compact
-                ? Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      if (showMapBtn) mapBtn,
-                      if (showMapBtn) const SizedBox(width: 8),
-                      TextButton.icon(
-                        onPressed: _openAddLogForm,
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
-                        label: const Text(
-                          '입력',
-                          style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
-                        ),
+            width: rightSlot,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: compact
+                  ? TextButton.icon(
+                      onPressed: _openAddLogForm,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
+                      icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                      label: const Text(
+                        '입력',
+                        style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
+                      ),
+                    )
+                  : (showMapBtn ? mapBtn : const SizedBox.shrink()),
+            ),
           ),
         ],
       ),
