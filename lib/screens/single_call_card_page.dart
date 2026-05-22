@@ -89,7 +89,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       final Map<String, dynamic> logData = await CallCardOcrParseService.parseRecognizedText(
         recognizedText,
         imageFile,
-        'single_call_card',
+        ocrSource: 'single_call_card',
       );
       
       if (logData.isEmpty) {

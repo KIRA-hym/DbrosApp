@@ -520,8 +520,8 @@ class _LogListPageState extends State<LogListPage> {
                               onDateChanged: (newDate) {
                                 final parsed = DateTime.tryParse(newDate);
                                 if (parsed != null) {
-                                  if (parsed.year != _selectedMonth.year || parsed.month != _selectedMonth.month) {
-                                    _selectedMonth = DateTime(parsed.year, parsed.month, 1);
+                                  if (parsed.year != _focusedMonth.year || parsed.month != _focusedMonth.month) {
+                                    _focusedMonth = DateTime(parsed.year, parsed.month, 1);
                                     _loadMonthData();
                                   }
                                 }
@@ -2178,14 +2178,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final endLng = (log['end_lng'] as num?)?.toDouble();
 
       if (startLat != null && startLng != null) {
+        final endLatLng = (endLat != null && endLng != null) ? LatLng(endLat, endLng) : null;
+        final fare = _toInt(log['gross_fare']);
+        final time = log['drive_time']?.toString() ?? '';
+        final prog = log['program']?.toString() ?? '';
+        final snippet = '$prog $time (${fare > 0 ? fare.toString() : '-'}원)';
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
-            end: (endLat != null && endLng != null) ? LatLng(endLat, endLng) : null,
-            program: log['program']?.toString() ?? '',
-            grossFare: _toInt(log['gross_fare']),
-            driveTime: log['drive_time']?.toString() ?? '',
-            startTimeStr: log['drive_time']?.toString() ?? '',
+            end: endLatLng,
+            snippet: snippet,
           ),
         );
       }
