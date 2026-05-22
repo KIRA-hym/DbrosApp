@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
 import '../services/db_helper.dart';
+import '../services/expense_repository.dart';
 import '../config/feature_flags.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
@@ -273,10 +274,11 @@ class _StatsPageState extends State<StatsPage> {
   Future<Map<String, dynamic>> _getDailyStats(DateTime date) async {
     final String dateStr = DateFormat('yyyy-MM-dd').format(date);
     final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(dateStr);
+    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDate(dateStr);
     return {
       'totalRevenue': stats['gross'] ?? 0,
       'totalNet': stats['net'] ?? 0,
-      'totalExpenses': stats['expenses'] ?? 0,
+      'totalExpenses': (stats['expenses'] ?? 0) + extraExpenses,
       'workDays': 1,
       'totalCount': stats['count'] ?? 0,
     };
@@ -287,7 +289,8 @@ class _StatsPageState extends State<StatsPage> {
     final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
     final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
     final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = 0;
+    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDateRange(startStr, endStr);
+    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses;
     for (final log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
@@ -305,7 +308,8 @@ class _StatsPageState extends State<StatsPage> {
   Future<Map<String, dynamic>> _getMonthlyStats(DateTime date) async {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
     final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = 0;
+    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
+    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses;
     for (var log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
@@ -326,6 +330,8 @@ class _StatsPageState extends State<StatsPage> {
     for (int month = 1; month <= 12; month++) {
       final String yearMonth = DateFormat('yyyy-MM').format(DateTime(date.year, month));
       final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
+      final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
+      totalExpenses += extraExpenses;
       for (var log in logs) {
         totalRevenue += _statsRowRevenue(log);
         totalNet += _statsRowNet(log);
@@ -619,7 +625,7 @@ class _StatsPageState extends State<StatsPage> {
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
                 final useExpandedSplit = isExpanded;
                 final statCardTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize = useExpandedSplit ? statCardTitleFontSize : (statCardTitleFontSize + (2.0 * fontScale));
+                final statCardValueFontSize = statCardTitleFontSize;
                 final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
@@ -813,7 +819,7 @@ class _StatsPageState extends State<StatsPage> {
   ) {
     return <Widget>[
       _statMetricCard(
-        title: '총 순익',
+        title: '순이익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         valueColor: const Color(0xFFFFC700),
         titleFontSize: titleFontSize,
@@ -821,7 +827,7 @@ class _StatsPageState extends State<StatsPage> {
         icon: Icons.account_balance_wallet,
       ),
       _statMetricCard(
-        title: '총 매출',
+        title: '수입',
         value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
         valueColor: Colors.green,
         titleFontSize: titleFontSize,
@@ -829,7 +835,7 @@ class _StatsPageState extends State<StatsPage> {
         icon: Icons.credit_card,
       ),
       _statMetricCard(
-        title: '총 지출',
+        title: '지출/부수익',
         value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
         valueColor: const Color(0xFFFF5252),
         titleFontSize: titleFontSize,
@@ -968,19 +974,19 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     final metrics = <({String title, String value, Color color, IconData icon})>[
       (
-        title: '총 순익',
+        title: '순익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         color: const Color(0xFFFFC700),
         icon: Icons.account_balance_wallet,
       ),
       (
-        title: '총 매출',
+        title: '수입',
         value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
         color: Colors.green,
         icon: Icons.credit_card,
       ),
       (
-        title: '총 지출',
+        title: '지출/부수익',
         value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
         color: const Color(0xFFFF5252),
         icon: Icons.money_off,

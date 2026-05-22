@@ -105,6 +105,15 @@ class ExpenseRepository {
     return (r.first['s'] as num?)?.toInt() ?? 0;
   }
 
+  static Future<int> sumAmountForExpenseDateRange(String startYmd, String endYmd) async {
+    final db = await _db;
+    final r = await db.rawQuery(
+      'SELECT COALESCE(SUM(amount), 0) AS s FROM expense_entries WHERE expense_date >= ? AND expense_date <= ?',
+      [startYmd, endYmd],
+    );
+    return (r.first['s'] as num?)?.toInt() ?? 0;
+  }
+
   static Future<int> countForExpenseDate(String ymd) async {
     final db = await _db;
     final r = await db.rawQuery(
