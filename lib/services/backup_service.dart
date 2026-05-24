@@ -109,6 +109,7 @@ class BackupService {
       await batch.commit(noResult: true);
     });
     await DriveLogDatabase.instance.normalizeStoredWorkDriveDates();
+    await DriveLogDatabase.instance.syncCallPointsFromDriveLogs();
   }
 
   static String _backupFileName([DateTime? now]) {

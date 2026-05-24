@@ -11,6 +11,7 @@ import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart
 import 'package:geocoding/geocoding.dart';
 
 import '../services/db_helper.dart';
+import '../utils/call_map_placemark_title.dart';
 
 class CallPointData with ClusterItem {
   final Map<String, dynamic> data;
@@ -22,7 +23,7 @@ class CallPointData with ClusterItem {
   LatLng get location => position;
 }
 
-enum MapFilterMode { radar, reference }
+enum MapFilterMode { all, radar, reference }
 
 class CallPointMapPage extends StatefulWidget {
   const CallPointMapPage({super.key});
@@ -37,11 +38,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   Set<Marker> _markers = {};
   Position? _currentPosition;
   bool _loading = true;
-  String _mapTitle = "주변 콜맵";
-  
-  MapFilterMode _currentMode = MapFilterMode.radar;
+  String _areaTitle = '';
+  String _areaSubline = '';
+
+  MapFilterMode _currentMode = MapFilterMode.all;
   List<CallPointData> _allPoints = [];
-  
+  bool _pendingInitialBoundsFit = false;
+  bool _initialBoundsApplied = false;
+
   @override
   void initState() {
     super.initState();
@@ -99,11 +103,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
       if (placemarks.isNotEmpty) {
-        final pm = placemarks.first;
-        final String locality = pm.locality ?? pm.administrativeArea ?? '';
-        final String subLocality = pm.subLocality ?? pm.thoroughfare ?? '';
+        final (line1, dong) = callMapTitlesFromPlacemark(placemarks.first);
         setState(() {
-          _mapTitle = "${locality} ${subLocality} 주변 콜맵".trim();
+          _areaTitle = line1;
+          _areaSubline = dong;
         });
       }
     } catch (e) {
@@ -136,7 +139,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   Future<void> _loadData() async {
     final db = await DriveLogDatabase.instance.database;
     final List<Map<String, dynamic>> rows = await db.query('call_points');
-    
+
     List<CallPointData> points = [];
     for (var row in rows) {
       final lat = row['start_lat'] as num?;
@@ -151,16 +154,88 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     _allPoints = points;
     _applyFilter();
+    _scheduleInitialBoundsFit();
+  }
+
+  void _scheduleInitialBoundsFit() {
+    if (_initialBoundsApplied || _allPoints.isEmpty) return;
+    if (_controller.isCompleted) {
+      _fitCameraToAllPoints();
+    } else {
+      _pendingInitialBoundsFit = true;
+    }
+  }
+
+  LatLngBounds _boundsForPoints(List<LatLng> points) {
+    var minLat = points.first.latitude;
+    var maxLat = points.first.latitude;
+    var minLng = points.first.longitude;
+    var maxLng = points.first.longitude;
+    for (final p in points.skip(1)) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
+  }
+
+  Future<void> _fitCameraToAllPoints() async {
+    if (kIsWeb || _allPoints.isEmpty || _initialBoundsApplied) return;
+    if (!_controller.isCompleted) {
+      _pendingInitialBoundsFit = true;
+      return;
+    }
+
+    final controller = await _controller.future;
+    final positions = _allPoints.map((p) => p.position).toList();
+    try {
+      if (positions.length == 1) {
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(positions.first, 13),
+        );
+      } else {
+        final bounds = _boundsForPoints(positions);
+        await controller.animateCamera(
+          CameraUpdate.newLatLngBounds(bounds, 56),
+        );
+      }
+      _initialBoundsApplied = true;
+      _pendingInitialBoundsFit = false;
+      _manager.updateMap();
+    } catch (e) {
+      debugPrint('지도 bounds 맞춤 오류: $e');
+    }
   }
 
   void _applyFilter() {
-    List<CallPointData> filtered = [];
-    if (_currentMode == MapFilterMode.radar) {
-      filtered = _allPoints.where((p) => p.data['type'] == 'log').toList();
-    } else {
-      filtered = _allPoints.where((p) => p.data['type'] == 'reference').toList();
+    final List<CallPointData> filtered;
+    switch (_currentMode) {
+      case MapFilterMode.all:
+        filtered = List<CallPointData>.from(_allPoints);
+        break;
+      case MapFilterMode.radar:
+        filtered = _allPoints.where((p) => p.data['type'] == 'log').toList();
+        break;
+      case MapFilterMode.reference:
+        filtered = _allPoints.where((p) => p.data['type'] == 'reference').toList();
+        break;
     }
     _manager.setItems(filtered);
+  }
+
+  void _onFilterTap(MapFilterMode mode) {
+    setState(() {
+      if (_currentMode == mode) {
+        _currentMode = MapFilterMode.all;
+      } else {
+        _currentMode = mode;
+      }
+    });
+    _applyFilter();
   }
 
   Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
@@ -184,11 +259,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         icon: await _getMarkerBitmap(80, color: color, isHeart: isHeart, isStar: isStar),
       );
     } else {
-      // Cluster
-      if (_currentMode == MapFilterMode.radar) {
-        color = const Color(0xFFFFC700); // 옐로우 계열로 클러스터 표시
-      } else {
+      if (_currentMode == MapFilterMode.reference) {
         color = Colors.purple;
+      } else {
+        color = const Color(0xFFFFC700);
       }
       return Marker(
         markerId: MarkerId(cluster.getId()),
@@ -205,7 +279,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     final PictureRecorder pictureRecorder = PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     final Paint paint = Paint()..color = color;
-    
+
     if (text != null) {
       canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint);
       TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
@@ -217,7 +291,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
     } else {
       if (isStar) {
-        _drawStar(canvas, Offset(size/2, size/2), size/2.0, paint);
+        _drawStar(canvas, Offset(size / 2, size / 2), size / 2.0, paint);
       } else if (isHeart) {
         _drawHeart(canvas, size.toDouble(), paint);
       } else {
@@ -239,8 +313,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       double theta = i * angle / 2 - math.pi / 2;
       double x = center.dx + r * math.cos(theta);
       double y = center.dy + r * math.sin(theta);
-      if (i == 0) path.moveTo(x, y);
-      else path.lineTo(x, y);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
     }
     path.close();
     canvas.drawPath(path, paint);
@@ -283,7 +360,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
                     final endLoc = data['end_location'] ?? '';
                     final isMine = data['is_mine'] == 1;
                     final driveTime = data['drive_time']?.toString() ?? '';
-                    
+
                     String displayLoc = startLoc;
                     if (data['type'] == 'reference' && startLoc.contains('(') && startLoc.contains(')')) {
                       final match = RegExp(r'\((.*?)\)').firstMatch(startLoc);
@@ -299,22 +376,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
                         if (hour < 6 || hour >= 18) isNight = true;
                       } catch (_) {}
                     }
-                    
+
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: Icon(
-                        data['type'] == 'log' 
-                          ? (isMine ? Icons.favorite : Icons.favorite_border)
-                          : Icons.star,
-                        color: data['type'] == 'log' 
-                          ? (isMine ? const Color(0xFFFF5252) : Colors.lightBlueAccent)
-                          : Colors.purpleAccent,
+                        data['type'] == 'log'
+                            ? (isMine ? Icons.favorite : Icons.favorite_border)
+                            : Icons.star,
+                        color: data['type'] == 'log'
+                            ? (isMine ? const Color(0xFFFF5252) : Colors.lightBlueAccent)
+                            : Colors.purpleAccent,
                       ),
                       title: Text(
                         data['type'] == 'log' ? '$startLoc -> $endLoc' : displayLoc,
                         style: const TextStyle(color: Colors.white, fontSize: 14),
                       ),
-                      trailing: data['type'] == 'log' 
+                      trailing: data['type'] == 'log'
                           ? Text(
                               isNight ? '🌙' : '🌞',
                               style: const TextStyle(fontSize: 18),
@@ -331,14 +408,39 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
+  Widget _buildAppBarTitle() {
+    final primary = _areaTitle.isNotEmpty ? _areaTitle : '주변';
+    final subtitle = _areaSubline.isNotEmpty ? '$_areaSubline · 주변 콜맵' : '주변 콜맵';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          primary,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        ),
+        Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFFFC700).withValues(alpha: 0.9),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
-        title: Text(_mapTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        title: _buildAppBarTitle(),
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
+        centerTitle: false,
+        titleSpacing: 16,
         actions: [
           _buildFilterTabs(),
         ],
@@ -359,8 +461,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _tabButton("콜레이더", MapFilterMode.radar),
-        _tabButton("콜포인트", MapFilterMode.reference),
+        _tabButton('콜레이더', MapFilterMode.radar),
+        _tabButton('콜포인트', MapFilterMode.reference),
         const SizedBox(width: 8),
       ],
     );
@@ -369,12 +471,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   Widget _tabButton(String text, MapFilterMode mode) {
     final isSelected = _currentMode == mode;
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentMode = mode;
-        });
-        _applyFilter();
-      },
+      onTap: () => _onFilterTap(mode),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -409,23 +506,32 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     return Stack(
       children: [
-        GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: initialPos,
-            zoom: 13.0,
+        Positioned.fill(
+          child: GoogleMap(
+            initialCameraPosition: CameraPosition(
+              target: initialPos,
+              zoom: 13.0,
+            ),
+            onMapCreated: (GoogleMapController controller) async {
+              if (!_controller.isCompleted) {
+                _controller.complete(controller);
+              }
+              await _manager.setMapId(controller.mapId);
+              if (_pendingInitialBoundsFit) {
+                await _fitCameraToAllPoints();
+              } else {
+                _manager.updateMap();
+              }
+            },
+            onCameraMove: _manager.onCameraMove,
+            onCameraIdle: _manager.updateMap,
+            markers: _markers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            compassEnabled: true,
+            mapToolbarEnabled: false,
+            zoomControlsEnabled: false,
           ),
-          onMapCreated: (GoogleMapController controller) {
-            _controller.complete(controller);
-            _manager.setMapId(controller.mapId);
-          },
-          onCameraMove: _manager.onCameraMove,
-          onCameraIdle: _manager.updateMap,
-          markers: _markers,
-          myLocationEnabled: true,
-          myLocationButtonEnabled: true,
-          compassEnabled: true,
-          mapToolbarEnabled: false,
-          zoomControlsEnabled: false,
         ),
         _buildLegend(),
       ],
@@ -433,7 +539,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Widget _buildLegend() {
-    if (_currentMode != MapFilterMode.radar) return const SizedBox.shrink();
+    if (_currentMode == MapFilterMode.reference) return const SizedBox.shrink();
 
     return Positioned(
       top: 16,
@@ -441,7 +547,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF16181D).withOpacity(0.9),
+          color: const Color(0xFF16181D).withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: Colors.white24),
         ),
@@ -452,6 +558,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             _legendItem(const Color(0xFFFF5252), '내 좌표 (일지)'),
             const SizedBox(height: 4),
             _legendItem(Colors.lightBlueAccent, '공유된 좌표 (가져오기)'),
+            if (_currentMode == MapFilterMode.all) ...[
+              const SizedBox(height: 4),
+              _legendItem(Colors.purpleAccent, '콜포인트 (레퍼런스)'),
+            ],
           ],
         ),
       ),
@@ -462,7 +572,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.favorite, color: color, size: 16),
+        Icon(
+          color == Colors.purpleAccent ? Icons.star : Icons.favorite,
+          color: color,
+          size: 16,
+        ),
         const SizedBox(width: 6),
         Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
       ],

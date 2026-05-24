@@ -171,6 +171,20 @@ class DriveLogDatabase {
     ''');
   }
 
+  /// `drive_logs`에 좌표가 있는 일지를 `call_points`(type=log)와 동기화합니다.
+  /// 백업 복원·스키마 복구 시 사용합니다.
+  Future<void> syncCallPointsFromDriveLogs() async {
+    if (kIsWeb) return;
+    final db = await database;
+    await db.delete('call_points', where: 'type = ?', whereArgs: ['log']);
+    await db.execute('''
+      INSERT INTO call_points (type, is_mine, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, log_id)
+      SELECT 'log', 1, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, id
+      FROM drive_logs
+      WHERE start_lat IS NOT NULL AND start_lng IS NOT NULL
+    ''');
+  }
+
   Future<void> _ensureCallPointsTable(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS call_points (

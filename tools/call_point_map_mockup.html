@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>주변 콜맵 변경 시안</title>
+<style>
+:root{--bg:#121418;--card:#1f222a;--g:#ffc700;--b:rgba(255,255,255,.12)}
+*{box-sizing:border-box}body{margin:0;padding:20px 14px 40px;font-family:system-ui,sans-serif;background:#0a0c0f;color:#eee}
+h1{color:var(--g);font-size:1.05rem}p.lead{color:#999;font-size:.82rem;max-width:720px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;max-width:920px;margin-top:16px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--bg);border:1px solid var(--b);border-radius:12px;overflow:hidden}
+.label{font-size:.72rem;color:#888;padding:8px 12px;border-bottom:1px solid var(--b)}
+.appbar{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg);border-bottom:1px solid var(--b)}
+.title-main{font-weight:700;font-size:1rem}
+.title-sub{font-size:.72rem;color:var(--g);margin-top:2px}
+.tabs{display:flex;gap:6px}
+.tab{font-size:.65rem;padding:5px 10px;border-radius:16px;border:1px solid var(--g);color:var(--g)}
+.tab.on{background:var(--g);color:#000;font-weight:700}
+.map{height:220px;background:linear-gradient(160deg,#1a2332,#0e1218);position:relative}
+.map::after{content:'전체 좌표 bounds 맞춤';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#6a7a8a;font-size:.75rem}
+.legend{position:absolute;top:10px;left:10px;background:rgba(22,24,29,.92);border:1px solid var(--b);border-radius:8px;padding:8px 10px;font-size:.62rem}
+.legend div{margin:3px 0}
+.tag{display:inline-block;font-size:.6rem;padding:2px 6px;border-radius:4px;margin-left:4px}
+.new{background:#1e3a28;color:#9fdf9f}
+</style>
+</head>
+<body>
+<h1>주변 콜맵 UI 변경</h1>
+<p class="lead">필터 3상태(전체·콜레이더·콜포인트) · 탭 재탭 시 전체 · 첫 진입 bounds · 타이틀 2줄 · 백업 복원 시 call_points 동기화</p>
+<div class="grid">
+  <div class="panel">
+    <div class="label">이전 <span class="tag">radar 기본</span></div>
+    <div class="appbar">
+      <div><div class="title-main" style="font-size:.85rem;color:#aaa">부천시 원미구 주변 콜맵…</div></div>
+      <div class="tabs">
+        <span class="tab on">콜레이더</span>
+        <span class="tab">콜포인트</span>
+      </div>
+    </div>
+    <div class="map"></div>
+  </div>
+  <div class="panel">
+    <div class="label">변경안 <span class="tag new">all 기본</span></div>
+    <div class="appbar">
+      <div>
+        <div class="title-main">경기도 부천시</div>
+        <div class="title-sub">중동 · 주변 콜맵</div>
+      </div>
+      <div class="tabs">
+        <span class="tab">콜레이더</span>
+        <span class="tab">콜포인트</span>
+      </div>
+    </div>
+    <div class="map">
+      <div class="legend">
+        <div>♥ 내 좌표 (일지)</div>
+        <div>♥ 공유된 좌표</div>
+        <div>★ 콜포인트 (전체 모드)</div>
+      </div>
+    </div>
+    <p style="font-size:.68rem;color:#888;padding:8px 12px">탭 한 번: 해당 필터 · 같은 탭 재탭: 전체(둘 다 비선택)</p>
+  </div>
+</div>
+</body>
+</html>
