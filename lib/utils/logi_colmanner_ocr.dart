@@ -631,6 +631,12 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'\[.*?\]'), ' ');
     res = res.replaceAll(RegExp(r'\{.*?\]'), ' ');
     res = res.replaceAll(RegExp(r'\{.*?\}'), ' ');
+    
+    // 50K] 20분후입금, 35K] 결재 등 요금/결제 정보 제거
+    res = res.replaceAll(RegExp(r'\b\d+[Kk]\].*$'), ' ');
+    res = res.replaceAll(RegExp(r'\d+분후입금.*$'), ' ');
+    res = res.replaceAll(RegExp(r'결재.*$'), ' ');
+    res = res.replaceAll(RegExp(r'\s+\d-\d\s*$'), ' ');
 
     // 인천송도동+푸르지오… → 인천 송도동 푸르지오…
     res = res.replaceAllMapped(

@@ -493,7 +493,7 @@ class KakaoCallCardOcr {
 
   static bool _hasLeadingClockToken(String line) {
     final t = _normalizeOcrLine(line);
-    return RegExp(r'^\d{1,2}[:：.]').hasMatch(t) || RegExp(r'^\d{1,2}시').hasMatch(t);
+    return RegExp(r'^[^0-9]{0,3}\d{1,2}[:：.]').hasMatch(t) || RegExp(r'^[^0-9]{0,3}\d{1,2}시').hasMatch(t);
   }
 
   /// 상단 운행시간·일자 줄(`19:32 5월 11일`, `19.32` 등). 출발지 후보에서 제외한다.

@@ -1,0 +1,26 @@
+feat: 주변 콜맵, 좌표 CSV 내보내기/가져오기 및 레퍼런스 데이터 셋업
+
+- lib/screens/call_point_map_page.dart (신규):
+  - 주변 콜맵 화면 신규 추가
+  - 마커 클러스터링(google_maps_cluster_manager_2) 도입
+  - 콜레이더(내 좌표) / 콜포인트(공유 좌표) 필터링 UI 및 분기 처리 구현
+  - 위치 정보를 가져올 때 무한 로딩(돌기) 방지를 위한 타임아웃 추가 및 예외 처리
+- lib/services/call_point_export_service.dart (신규):
+  - 파일 탐색기(file_picker)를 이용한 CSV 데이터 내보내기/가져오기 서비스 구현
+  - 레퍼런스(공유 좌표) 데이터는 덮어쓰기 로직, 로그 데이터는 중복 허용 로직 분리
+- lib/services/db_helper.dart (수정):
+  - `call_points` 테이블 스키마 신규 추가 (type: 'log', 'reference' 구분)
+  - 앱 초기화 시 서울, 인천, 경기권 주요 레퍼런스(추천 콜포인트) 좌표 120여 개 자동 세팅(Seed) 삽입
+- lib/screens/home_page.dart (수정):
+  - 홈 화면의 '지도' 버튼을 '주변 콜맵'으로 명칭 변경 후 레이아웃 우측으로 이동 및 너비 조정
+- lib/screens/settings_page.dart (수정):
+  - 설정 화면에 콜포인트 좌표 데이터 가져오기 및 내보내기 버튼/UI 추가
+- lib/screens/nearby_hotspot_map_page.dart (삭제):
+  - 신규 `call_point_map_page.dart`로 기능이 완벽히 대체됨에 따라 기존 파일 삭제
+- pubspec.yaml & pubspec.lock (수정):
+  - google_maps_cluster_manager_2, csv, file_picker 등 신규 라이브러리 추가
+- reference_template.csv (신규):
+  - 추후 사용자 커스텀 레퍼런스 좌표 가져오기 시 참고할 수 있는 CSV 양식 템플릿 파일 추가
+- 그 외:
+  - scratch/ 및 test/ 폴더에 OCR 파싱, UI 레이아웃, 카카오 캡쳐 테스트 코드들 추가 및 보존
+  - feature_flags.dart 등에 맵 관련 플래그 수정

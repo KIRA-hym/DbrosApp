@@ -19,7 +19,7 @@ import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
-import 'nearby_hotspot_map_page.dart';
+import 'call_point_map_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1047,39 +1047,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             padding: EdgeInsets.all(outerPadding),
             child: Row(
               children: [
-                if (kMapFeaturesEnabled) ...[
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const NearbyHotspotMapPage()),
-                        );
-                      },
-                      child: Container(
-                        width: isTablet ? 74 : 62,
-                        height: double.infinity,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF16181D),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFFFC700).withValues(alpha: 0.3)),
-                        ),
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
-                            SizedBox(height: isTablet ? 4 : 2),
-                            Text('지도', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isTablet ? 12 : 10),
-                ],
+
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
@@ -1212,6 +1180,39 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     },
                   ),
                 ),
+                if (kMapFeaturesEnabled) ...[
+                  SizedBox(width: isTablet ? 12 : 10),
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CallPointMapPage()),
+                        );
+                      },
+                      child: Container(
+                        width: isTablet ? 86 : 76,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16181D),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFFFC700).withValues(alpha: 0.3)),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.map, color: const Color(0xFFFFC700), size: isTablet ? 26 : 22),
+                            SizedBox(height: isTablet ? 4 : 2),
+                            Text('주변 콜맵', style: TextStyle(color: const Color(0xFFFFC700), fontSize: isTablet ? 11 : 10, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

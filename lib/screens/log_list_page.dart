@@ -13,7 +13,8 @@ import '../main.dart';
 import 'write_log_page.dart';
 import 'stats_page.dart' show StatsRouteMapPage, TripSegment;
 import '../config/feature_flags.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart'
+    if (dart.library.html) '../utils/maps_web_stub.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/work_date_utils.dart';
@@ -2177,8 +2178,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final endLat = (log['end_lat'] as num?)?.toDouble();
       final endLng = (log['end_lng'] as num?)?.toDouble();
 
-      if (startLat != null && startLng != null) {
-        final endLatLng = (endLat != null && endLng != null) ? LatLng(endLat, endLng) : null;
+      if (startLat != null && startLng != null && endLat != null && endLng != null) {
         final fare = _toInt(log['gross_fare']);
         final time = log['drive_time']?.toString() ?? '';
         final prog = log['program']?.toString() ?? '';
@@ -2186,7 +2186,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
-            end: endLatLng,
+            end: LatLng(endLat, endLng),
             snippet: snippet,
           ),
         );

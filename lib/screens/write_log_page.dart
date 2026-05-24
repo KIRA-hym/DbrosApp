@@ -879,7 +879,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   Widget _pinPickButton({required bool forStart}) {
     if (!kMapFeaturesEnabled) return const SizedBox.shrink();
     
-    // 신규 작성(사진/수동 등) 시에는 숨기고, 수정 모드일 때 위경도 없는 경우에만 노출
+    // 신규 작성(사진/수동 등) 시에는 숨기고, 수정 모드일 때만 노출
     final bool isEditMode = widget.existingLog != null;
     if (!isEditMode) return const SizedBox.shrink();
 
@@ -887,19 +887,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         ? _startLat != null && _startLng != null
         : _endLat != null && _endLng != null;
 
-    // 이미 좌표가 등록된 경우에도 버튼을 숨깁니다 (수정 화면일 때 좌표 없는 일지일 때만)
-    if (has) return const SizedBox.shrink();
-
     return IconButton(
-      icon: const Icon(
-        Icons.add_location_alt,
-        color: Color(0xFFFFC700),
+      icon: Icon(
+        has ? Icons.edit_location_alt : Icons.add_location_alt,
+        color: has ? const Color(0xFF4CAF50) : const Color(0xFFFFC700),
         size: 22,
       ),
       onPressed: forStart ? _openStartMapPicker : _openEndMapPicker,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-      tooltip: forStart ? '출발 좌표' : '도착 좌표',
+      tooltip: forStart ? (has ? '출발 좌표 수정' : '출발 좌표 등록') : (has ? '도착 좌표 수정' : '도착 좌표 등록'),
     );
   }
 

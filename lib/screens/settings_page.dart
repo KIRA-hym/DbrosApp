@@ -21,6 +21,8 @@ import 'ocr_debug_page.dart';
 import '../services/db_helper.dart';
 import '../utils/geocoding_utils.dart';
 import '../utils/snackbar_utils.dart';
+import '../services/call_point_export_service.dart';
+
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
   @override
@@ -162,6 +164,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildProgramListSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
       _buildFloatingButtonSettings(),
+      _buildCallPointShareSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildStorageSettings(),
       _buildOcrParseLogSettings(),
@@ -909,6 +912,64 @@ class _SettingsPageState extends State<SettingsPage> {
                 _autoBackupEnabled = value;
               });
             },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCallPointShareSettings() {
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final padding = isTablet ? 20.0 : 16.0;
+    final spacing = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("콜포인트(좌표) 공유", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          SizedBox(height: spacing),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await CallPointExportService.exportToCsv(context);
+                  },
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  label: const Text("내보내기"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF4CAF50),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
+                  ),
+                ),
+              ),
+              SizedBox(width: spacing),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await CallPointExportService.importFromCsv(context);
+                  },
+                  icon: const Icon(Icons.download, color: Colors.white),
+                  label: const Text("가져오기"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2196F3),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: spacing),
+          Text(
+            "• 내보내기 : 내 앱에 저장된 콜포인트를 CSV 파일로 추출하여 공유합니다.\n• 가져오기 : 다른 사람이 공유한 콜포인트 CSV 파일을 내 지도에 추가합니다.",
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
       ),

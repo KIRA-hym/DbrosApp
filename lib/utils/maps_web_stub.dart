@@ -3,6 +3,7 @@
 
 library maps_web_stub;
 
+import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
 
 // 기본 좌표
@@ -22,6 +23,7 @@ class BitmapDescriptor {
   const BitmapDescriptor._();
   static const BitmapDescriptor defaultMarker = BitmapDescriptor._();
   static BitmapDescriptor defaultMarkerWithHue(double hue) => BitmapDescriptor._();
+  static BitmapDescriptor fromBytes(Uint8List byteData) => BitmapDescriptor._();
   static const double hueGreen = 120.0;
   static const double hueOrange = 30.0;
   static const double hueRed = 0.0;
@@ -58,6 +60,7 @@ class Marker {
     this.position = const LatLng(0, 0),
     this.infoWindow = InfoWindow.noText,
     this.icon,
+    this.anchor = const Offset(0.5, 1.0),
     this.draggable = false,
     this.onDragEnd,
   });
@@ -65,6 +68,7 @@ class Marker {
   final LatLng position;
   final InfoWindow infoWindow;
   final BitmapDescriptor? icon;
+  final Offset anchor;
   final bool draggable;
   final void Function(LatLng)? onDragEnd;
 }

@@ -279,6 +279,7 @@ class _StatsPageState extends State<StatsPage> {
       'totalRevenue': stats['gross'] ?? 0,
       'totalNet': stats['net'] ?? 0,
       'totalExpenses': (stats['expenses'] ?? 0) + extraExpenses,
+      'totalExtraIncome': stats['extra_income'] ?? 0,
       'workDays': 1,
       'totalCount': stats['count'] ?? 0,
     };
@@ -290,16 +291,18 @@ class _StatsPageState extends State<StatsPage> {
     final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
     final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
     final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDateRange(startStr, endStr);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses;
+    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses, totalExtraIncome = 0;
     for (final log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
       totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+      totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
     return {
       'totalRevenue': totalRevenue,
       'totalNet': totalNet,
       'totalExpenses': totalExpenses,
+      'totalExtraIncome': totalExtraIncome,
       'workDays': _distinctWorkDateCount(logs),
       'totalCount': logs.length,
     };
@@ -309,23 +312,25 @@ class _StatsPageState extends State<StatsPage> {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
     final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
     final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses;
+    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses, totalExtraIncome = 0;
     for (var log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
       totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+      totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
     return {
       'totalRevenue': totalRevenue,
       'totalNet': totalNet,
       'totalExpenses': totalExpenses,
+      'totalExtraIncome': totalExtraIncome,
       'workDays': _distinctWorkDateCount(logs),
       'totalCount': logs.length,
     };
   }
 
   Future<Map<String, dynamic>> _getYearlyStats(DateTime date) async {
-    int totalRevenue = 0, totalNet = 0, totalExpenses = 0, totalCount = 0;
+    int totalRevenue = 0, totalNet = 0, totalExpenses = 0, totalCount = 0, totalExtraIncome = 0;
     final Set<String> distinctWorkDates = {};
     for (int month = 1; month <= 12; month++) {
       final String yearMonth = DateFormat('yyyy-MM').format(DateTime(date.year, month));
@@ -336,6 +341,7 @@ class _StatsPageState extends State<StatsPage> {
         totalRevenue += _statsRowRevenue(log);
         totalNet += _statsRowNet(log);
         totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+        totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
         totalCount++;
         _addDistinctWorkDate(distinctWorkDates, log);
       }
@@ -344,6 +350,7 @@ class _StatsPageState extends State<StatsPage> {
       'totalRevenue': totalRevenue,
       'totalNet': totalNet,
       'totalExpenses': totalExpenses,
+      'totalExtraIncome': totalExtraIncome,
       'workDays': distinctWorkDates.length,
       'totalCount': totalCount,
     };
@@ -836,8 +843,19 @@ class _StatsPageState extends State<StatsPage> {
       ),
       _statMetricCard(
         title: '지출/부수익',
-        value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
-        valueColor: const Color(0xFFFF5252),
+        customValueWidget: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), style: const TextStyle(color: Color(0xFFFF5252))),
+              const TextSpan(text: ' / ', style: TextStyle(color: Colors.white)),
+              TextSpan(text: NumberFormat('#,###').format(_stats['totalExtraIncome'] ?? 0), style: const TextStyle(color: Colors.lightBlueAccent)),
+            ],
+          ),
+          style: ResponsiveLayout.summaryValueTextStyle(context).copyWith(
+            fontSize: valueFontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
         icon: Icons.money_off,
@@ -966,30 +984,44 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  /// 펼침 좌측: 날짜 선택 상단 = 우측 차트 패널 상단, 아래 지표 카드.
   Widget _buildExpandedStatsMetricsColumn({
     required double statCardTitleFontSize,
     required double statCardValueFontSize,
     required double cardGap,
   }) {
-    final metrics = <({String title, String value, Color color, IconData icon})>[
+    final metrics = <({String title, String? value, Color? color, IconData icon, Widget? customWidget})>[
       (
         title: '순익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
         color: const Color(0xFFFFC700),
         icon: Icons.account_balance_wallet,
+        customWidget: null,
       ),
       (
         title: '수입',
         value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
         color: Colors.green,
         icon: Icons.credit_card,
+        customWidget: null,
       ),
       (
         title: '지출/부수익',
-        value: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
-        color: const Color(0xFFFF5252),
+        value: null,
+        color: null,
         icon: Icons.money_off,
+        customWidget: Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), style: const TextStyle(color: Color(0xFFFF5252))),
+              const TextSpan(text: ' / ', style: TextStyle(color: Colors.white)),
+              TextSpan(text: NumberFormat('#,###').format(_stats['totalExtraIncome'] ?? 0), style: const TextStyle(color: Colors.lightBlueAccent)),
+            ],
+          ),
+          style: ResponsiveLayout.summaryValueTextStyle(context).copyWith(
+            fontSize: statCardTitleFontSize,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
       if (_selectedPeriod != '일간')
         (
@@ -997,6 +1029,7 @@ class _StatsPageState extends State<StatsPage> {
           value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
           color: Colors.white,
           icon: Icons.local_taxi,
+          customWidget: null,
         )
       else
         (
@@ -1004,6 +1037,7 @@ class _StatsPageState extends State<StatsPage> {
           value: '${_stats['totalCount'] ?? 0}',
           color: Colors.white,
           icon: Icons.local_taxi,
+          customWidget: null,
         ),
     ];
 
@@ -1025,6 +1059,7 @@ class _StatsPageState extends State<StatsPage> {
                     titleFontSize: statCardTitleFontSize,
                     valueFontSize: statCardTitleFontSize,
                     icon: metrics[i].icon,
+                    customValueWidget: metrics[i].customWidget,
                   ),
                 ),
               ],
@@ -1037,11 +1072,12 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _statMetricCard({
     required String title,
-    required String value,
-    required Color valueColor,
+    String? value,
+    Color? valueColor,
     required double titleFontSize,
     required double valueFontSize,
     IconData? icon,
+    Widget? customValueWidget,
   }) {
     return LayoutBuilder(
         builder: (context, constraints) {
@@ -1098,14 +1134,14 @@ class _StatsPageState extends State<StatsPage> {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.bottomRight,
-                      child: Text(
-                        value,
+                      child: customValueWidget ?? Text(
+                        value ?? '',
                         textAlign: TextAlign.right,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: ResponsiveLayout.summaryValueTextStyle(
                           context,
-                          color: valueColor,
+                          color: valueColor ?? Colors.white,
                         ).copyWith(
                           fontSize: effValueFs,
                           fontWeight: FontWeight.bold,
