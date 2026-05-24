@@ -36,6 +36,7 @@ object GalleryMediaBridge {
                 when (call.method) {
                     "start" -> {
                         startObserver()
+                        appContext?.let { GalleryObserverActiveStore.setActive(it, true) }
                         try {
                             val intent = Intent(appContext, GalleryObserverService::class.java)
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -50,6 +51,7 @@ object GalleryMediaBridge {
                     }
                     "stop" -> {
                         stopObserver()
+                        appContext?.let { GalleryObserverActiveStore.setActive(it, false) }
                         try {
                             appContext?.stopService(Intent(appContext, GalleryObserverService::class.java))
                         } catch (e: Exception) {
@@ -69,7 +71,10 @@ object GalleryMediaBridge {
                     }
                     "showToast" -> {
                         val msg = call.argument<String>("message") ?: ""
-                        android.widget.Toast.makeText(appContext, msg, android.widget.Toast.LENGTH_LONG).show()
+                        val ctx = appContext
+                        if (ctx != null && msg.isNotEmpty()) {
+                            AutoRegisterFeedback.showComplete(ctx, msg)
+                        }
                         result.success(null)
                     }
                     else -> result.notImplemented()

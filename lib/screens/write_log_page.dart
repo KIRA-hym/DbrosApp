@@ -1155,7 +1155,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       MaterialPageRoute<void>(
         builder: (_) => DailyLogListPage(
           dateStr: workStr,
-          dateTitle: '근무일자: $workStr',
+          dateTitle: workStr,
           snackMessage: savedMsg,
         ),
       ),

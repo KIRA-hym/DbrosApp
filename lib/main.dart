@@ -21,6 +21,7 @@ import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
 import 'services/today_stats_notification_service.dart';
+import 'services/notification_permission_service.dart';
 import 'services/backup_service.dart';
 import 'services/screenshot_auto_register_service.dart';
 import 'utils/work_date_utils.dart';
@@ -43,6 +44,9 @@ void main() async {
   ExpenseRepository.afterExpensesChanged = () {
     ExpenseHomePage.requestRefresh();
   };
+  if (!kIsWeb && Platform.isAndroid) {
+    await NotificationPermissionService.ensureForEnabledFeatures();
+  }
   await TodayStatsNotificationService.instance.initialize();
 
   if (!kIsWeb && Platform.isAndroid) {
@@ -305,6 +309,9 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       final next = WorkDateUtils.effectiveWorkDateYmd();
       if (next != _lastNotifiedWorkDateYmd) {
         _lastNotifiedWorkDateYmd = next;
+      }
+      if (!kIsWeb && Platform.isAndroid) {
+        unawaited(NotificationPermissionService.ensureForEnabledFeatures());
       }
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
       if (!kIsWeb && Platform.isAndroid) {

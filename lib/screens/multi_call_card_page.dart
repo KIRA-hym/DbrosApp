@@ -247,7 +247,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           MaterialPageRoute<void>(
             builder: (_) => DailyLogListPage(
               dateStr: workStr,
-              dateTitle: '근무일자: $workStr',
+              dateTitle: workStr,
               snackMessage: snack,
             ),
           ),

@@ -674,6 +674,18 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
+              if (value) {
+                final status = await Permission.notification.request();
+                if (!status.isGranted) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('알림 권한이 필요합니다. 허용해야 백그라운드 감지 알림이 표시됩니다.'),
+                    ),
+                  );
+                  return;
+                }
+              }
               await SettingsService.setScreenshotAutoRegisterEnabled(value);
               await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
               if (!mounted) return;
@@ -1171,82 +1183,10 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     if (!mounted) return;
-    showDialog(
+    await showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            int current = 0;
-            bool isFinished = false;
-            
-            Future.microtask(() async {
-              for (final log in logs) {
-                if (!mounted) break;
-                
-                final startLoc = log['start_location']?.toString() ?? '';
-                final endLoc = log['end_location']?.toString() ?? '';
-                
-                final updateData = <String, dynamic>{};
-
-                if (log['start_lat'] == null && startLoc.isNotEmpty) {
-                  final loc = await GeocodingUtils.getCoordinateFromAddressFallback(startLoc);
-                  if (loc != null) {
-                    updateData['start_lat'] = loc.latitude;
-                    updateData['start_lng'] = loc.longitude;
-                  }
-                }
-
-                if (log['end_lat'] == null && endLoc.isNotEmpty) {
-                  final loc = await GeocodingUtils.getCoordinateFromAddressFallback(endLoc);
-                  if (loc != null) {
-                    updateData['end_lat'] = loc.latitude;
-                    updateData['end_lng'] = loc.longitude;
-                  }
-                }
-                
-                if (updateData.isNotEmpty) {
-                  await db.update('drive_logs', updateData, where: 'id = ?', whereArgs: [log['id']]);
-                }
-                
-                setStateDialog(() {
-                  current++;
-                });
-                
-                await Future.delayed(const Duration(milliseconds: 500));
-              }
-              
-              setStateDialog(() {
-                isFinished = true;
-              });
-            });
-
-            return AlertDialog(
-              backgroundColor: const Color(0xFF1F222A),
-              title: const Text('좌표 일괄 업데이트 중', style: TextStyle(color: Colors.white, fontSize: 18)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('$current / ${logs.length} 건 완료', style: const TextStyle(color: Colors.white, fontSize: 16)),
-                  const SizedBox(height: 16),
-                  LinearProgressIndicator(
-                    value: logs.isEmpty ? 0 : current / logs.length,
-                    color: const Color(0xFFFFC700),
-                    backgroundColor: Colors.grey[800],
-                  ),
-                ],
-              ),
-              actions: [
-                if (isFinished)
-                  TextButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
-                  ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (ctx) => _BatchGeocodeProgressDialog(logs: logs),
     );
   }
 
@@ -1287,6 +1227,121 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 좌표 일괄 업데이트 진행 다이얼로그 (진행 상태는 State에 보관).
+class _BatchGeocodeProgressDialog extends StatefulWidget {
+  const _BatchGeocodeProgressDialog({required this.logs});
+
+  final List<Map<String, dynamic>> logs;
+
+  @override
+  State<_BatchGeocodeProgressDialog> createState() => _BatchGeocodeProgressDialogState();
+}
+
+class _BatchGeocodeProgressDialogState extends State<_BatchGeocodeProgressDialog> {
+  int _processed = 0;
+  int _updated = 0;
+  bool _isFinished = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runBatch());
+  }
+
+  Future<void> _runBatch() async {
+    final db = await DriveLogDatabase.instance.database;
+
+    for (final log in widget.logs) {
+      if (!mounted) break;
+
+      final startLoc = log['start_location']?.toString() ?? '';
+      final endLoc = log['end_location']?.toString() ?? '';
+      final updateData = <String, dynamic>{};
+
+      if (log['start_lat'] == null && startLoc.isNotEmpty) {
+        final loc = await GeocodingUtils.getCoordinateFromAddressFallback(startLoc);
+        if (loc != null) {
+          updateData['start_lat'] = loc.latitude;
+          updateData['start_lng'] = loc.longitude;
+        }
+      }
+
+      if (log['end_lat'] == null && endLoc.isNotEmpty) {
+        final loc = await GeocodingUtils.getCoordinateFromAddressFallback(endLoc);
+        if (loc != null) {
+          updateData['end_lat'] = loc.latitude;
+          updateData['end_lng'] = loc.longitude;
+        }
+      }
+
+      if (updateData.isNotEmpty) {
+        await db.update('drive_logs', updateData, where: 'id = ?', whereArgs: [log['id']]);
+        _updated++;
+      }
+
+      if (mounted) {
+        setState(() => _processed++);
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    if (!kIsWeb) {
+      await DriveLogDatabase.instance.syncCallPointsFromDriveLogs();
+    }
+
+    if (mounted) {
+      setState(() => _isFinished = true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.logs.length;
+    final progress = total == 0 ? 0.0 : (_processed / total).clamp(0.0, 1.0);
+
+    return AlertDialog(
+      backgroundColor: const Color(0xFF1F222A),
+      title: Text(
+        _isFinished ? '좌표 일괄 업데이트 완료' : '좌표 일괄 업데이트 중',
+        style: const TextStyle(color: Colors.white, fontSize: 18),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '$_processed / $total 건 처리',
+            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            _isFinished ? '좌표 반영 $_updated건' : '주소를 좌표로 변환하는 중입니다…',
+            style: const TextStyle(color: Color(0xFF9FA3AE), fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _isFinished ? 1.0 : progress,
+              minHeight: 8,
+              color: const Color(0xFFFFC700),
+              backgroundColor: Colors.grey[800],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        if (_isFinished)
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+          ),
+      ],
     );
   }
 }

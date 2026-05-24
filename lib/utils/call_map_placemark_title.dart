@@ -58,6 +58,14 @@ String _provinceAndCityLine(
     parts.add(cityOrCounty);
   }
 
+  final gu = _firstSegmentEndingWith(
+    [subAdmin, pm.subLocality, pm.locality, pm.subAdministrativeArea],
+    '구',
+  );
+  if (gu != null && !parts.any((p) => p == gu || p.endsWith(gu))) {
+    parts.add(gu);
+  }
+
   if (parts.isNotEmpty) return parts.join(' ');
   if (locality.isNotEmpty) return locality;
   return admin;

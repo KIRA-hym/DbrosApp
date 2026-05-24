@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>콜맵 마커 상세 — InfoWindow</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", "Malgun Gothic", sans-serif; background: #121418; color: #e8eaed; padding: 24px; }
+    h1 { color: #ffc700; font-size: 1.2rem; }
+    .map { position: relative; height: 220px; background: #2a3a2a; border-radius: 12px; margin: 16px 0; }
+    .pin { position: absolute; left: 50%; top: 55%; width: 24px; height: 24px; margin: -12px 0 0 -12px; background: #ff5252; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); }
+    .bubble {
+      position: absolute; left: 50%; top: 28%; transform: translateX(-50%);
+      background: #fff; color: #222; border-radius: 8px; padding: 10px 14px; min-width: 200px;
+      box-shadow: 0 4px 12px rgba(0,0,0,.35); font-size: 13px; line-height: 1.45;
+    }
+    .bubble::after {
+      content: ""; position: absolute; bottom: -8px; left: 50%; margin-left: -8px;
+      border: 8px solid transparent; border-top-color: #fff;
+    }
+    .t { font-weight: 700; }
+    .s { color: #444; margin-top: 4px; }
+    .card { background: #1f222a; border-radius: 10px; padding: 14px; max-width: 480px; }
+    .bad { opacity: 0.6; text-decoration: line-through; }
+  </style>
+</head>
+<body>
+  <h1>마커 탭 상세 — 변경 후</h1>
+  <div class="map">
+    <div class="bubble">
+      <div class="t">🌞 14:30 · 카카오T</div>
+      <div class="s">강서구 화곡동 → 마곡역</div>
+    </div>
+    <div class="pin"></div>
+  </div>
+  <div class="card">
+    <p><strong>일지(log)</strong> · 🌞 09~18 / 🌙 18~09 + 운행시간 · 프로그램</p>
+    <p><strong>레퍼런스</strong> · 낮/밤 아이콘 없음</p>
+    <p><strong>묶음 마커</strong> · 탭 시 확대 → 개별 InfoWindow</p>
+    <p class="bad">하단 시트(상세 정보) 제거</p>
+  </div>
+</body>
+</html>

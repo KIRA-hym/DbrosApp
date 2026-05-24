@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>일지목록 합계 레이아웃</title>
+<style>
+:root{--bg:#121418;--card:#1f222a;--g:#ffc700;--bl:#64b5f6;--r:#ff5252;--b:rgba(255,255,255,.1)}
+*{box-sizing:border-box}body{margin:0;padding:16px;font-family:system-ui,sans-serif;background:#0a0c0f;color:#eee}
+h1{color:var(--g);font-size:1rem}p{color:#999;font-size:.8rem}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:720px;margin-top:12px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+.box{background:var(--bg);border:1px solid var(--b);border-radius:10px;overflow:hidden}
+.label{font-size:.7rem;color:#888;padding:8px 10px;border-bottom:1px solid var(--b)}
+.sum{background:var(--card);padding:10px 12px;font-size:.72rem}
+.row{display:flex;justify-content:space-between;align-items:center;margin:4px 0}
+.r2{margin-top:8px}
+.tag{font-size:.6rem;padding:2px 6px;border-radius:4px;margin-left:6px}
+.ok{background:#1e3a28;color:#9fdf9f}
+</style>
+</head>
+<body>
+<h1>일지목록 합계 — 수입/순익 위치 변경</h1>
+<p>접음: 월간합계만 · 펼침: 우측 일일합계만 (일지상세와 동일 2줄)</p>
+<div class="grid">
+  <div class="box">
+    <div class="label">접음 · [ 월간 합계 ] <span class="tag ok">변경</span></div>
+    <div class="sum">
+      <div class="row"><span>[ 월간 합계 ]</span><span>12건 <span style="color:var(--bl)">수입 ₩1,200,000</span></span></div>
+      <div class="row r2"><span style="color:var(--g)">순익 ₩850,000</span><span style="color:var(--r)">지출 -₩350,000</span></div>
+    </div>
+  </div>
+  <div class="box">
+    <div class="label">펼침 우측 · [ 일일 합계 ] <span class="tag ok">변경</span></div>
+    <div class="sum">
+      <div class="row"><span>[ 일일 합계 ]</span><span>3건 <span style="color:var(--bl)">수입 ₩120,000</span></span></div>
+      <div class="row r2"><span style="color:var(--g)">순익 ₩85,000</span><span style="color:var(--r)">지출 -₩35,000</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -8,15 +8,17 @@ import android.content.Intent
 import android.os.Build
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import java.text.DecimalFormat
 import java.util.concurrent.atomic.AtomicReference
 
 /** 오늘 요약 알림 — 접힌: 근무일자/순익 2줄, 펼침: 동일 2줄 + 수입·지출 한 줄 + 퀵등록. */
 object TodaySummaryNotifier {
 
-    // v2: 무음/무진동 채널로 분리 (기존 채널 중요도/진동 설정은 OS가 고정 보관)
-    private const val CHANNEL_ID = "dbros_today_summary_silent_v2"
+    // v3: 오늘 요약을 자동감지 FGS보다 알림창 상단에 두기 위해 중요도·sortKey 상향
+    private const val CHANNEL_ID = "dbros_today_summary_v3"
     private const val CHANNEL_NAME = "오늘 요약"
+    private const val SORT_KEY = "0_today_summary"
     private const val NOTIFICATION_ID = 94001
     private const val RC_SUMMARY_BODY = 94002
     private const val RC_QUICK = 94003
@@ -25,6 +27,9 @@ object TodaySummaryNotifier {
     private val lastSnapshot = AtomicReference<Triple<Int, Int, String>?>(null)
 
     fun show(context: Context, income: Int, expense: Int, workDate: String) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+            return
+        }
         ensureChannel(context)
         lastSnapshot.set(Triple(income, expense, workDate))
 
@@ -92,7 +97,8 @@ object TodaySummaryNotifier {
             .setOngoing(false)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setSortKey(SORT_KEY)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -114,14 +120,20 @@ object TodaySummaryNotifier {
         nm.cancel(NOTIFICATION_ID)
     }
 
+    /** 스와이프 제거 직후 — 마지막 요약이 있고 앱이 살아 있으면 즉시 다시 표시. */
+    fun reshowAfterDismiss(context: Context) {
+        val snap = lastSnapshot.get() ?: return
+        show(context, snap.first, snap.second, snap.third)
+    }
+
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val ch = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_DEFAULT
+                NotificationManager.IMPORTANCE_HIGH,
             ).apply {
-                description = "오늘 수입·지출 합계 (일지 등록·수정 시 갱신)"
+                description = "오늘 수입·지출 합계 (일지 등록·수정 시 갱신). 알림창 상단에 표시됩니다."
                 setShowBadge(true)
                 enableVibration(false)
                 enableLights(false)

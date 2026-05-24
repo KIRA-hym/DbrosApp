@@ -11,6 +11,7 @@ import '../screens/write_log_page.dart';
 import '../utils/work_date_utils.dart';
 import '../main.dart' show MainWrapper;
 import 'db_helper.dart';
+import 'notification_permission_service.dart';
 import 'settings_service.dart';
 
 /// 알림 패널 고정 알림: 오늘 수입·지출.
@@ -124,6 +125,10 @@ class TodayStatsNotificationService {
   Future<void> refreshFromDbIfEnabled() async {
     if (!_isAndroid || !_initialized) return;
     if (!SettingsService.statusBarQuickEnabled) return;
+    if (!await NotificationPermissionService.isGranted()) {
+      await NotificationPermissionService.requestIfNeeded();
+      if (!await NotificationPermissionService.isGranted()) return;
+    }
 
     final String displayDay = WorkDateUtils.effectiveWorkDateYmd();
     final totals = await DriveLogDatabase.instance.getTodayIncomeExpenseByWorkDate(displayDay);

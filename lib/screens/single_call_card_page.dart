@@ -170,7 +170,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         MaterialPageRoute<void>(
           builder: (_) => DailyLogListPage(
             dateStr: workStr,
-            dateTitle: '근무일자: $workStr',
+            dateTitle: workStr,
             snackMessage: "운행일지가 등록되었습니다.",
           ),
         ),

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>알림 순서·제거 동작</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", "Malgun Gothic", sans-serif; background: #121418; color: #e8eaed; padding: 24px; line-height: 1.55; }
+    h1 { color: #ffc700; font-size: 1.25rem; margin: 0 0 8px; }
+    .shade { max-width: 360px; background: #1f222a; border-radius: 16px; border: 1px solid #2a2e38; overflow: hidden; margin: 16px 0; }
+    .n { padding: 12px 14px; border-bottom: 1px solid #2a2e38; }
+    .n.top { background: #2a2410; border-left: 3px solid #ffc700; }
+    .n.low { opacity: 0.75; font-size: 0.9rem; }
+    .n strong { display: block; color: #fff; }
+    .n span { color: #9fa3ae; font-size: 0.85rem; }
+    .card { background: #1f222a; border-radius: 12px; padding: 16px; max-width: 640px; margin-top: 12px; }
+    .card h2 { color: #ffc700; font-size: 0.95rem; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <h1>알림창 순서 (변경 후)</h1>
+  <div class="shade">
+    <div class="n top"><strong>오늘 요약 · 순익</strong><span>채널 HIGH · sortKey 0 — 상단</span></div>
+    <div class="n low"><strong>자동감지 실행중</strong><span>FGS MIN · sortKey 9 — 하단</span></div>
+  </div>
+  <div class="card">
+    <h2>오늘 순익 (고정 알림)</h2>
+    <p>스와이프 제거 시 <strong>deleteIntent → 즉시 재표시</strong> (앱 프로세스 살아 있을 때).</p>
+  </div>
+  <div class="card">
+    <h2>자동등록 완료 Toast</h2>
+    <p>화면 <strong>상단</strong>(상태바 아래) + 짧은 <strong>진동</strong> (~90ms).</p>
+  </div>
+  <div class="card">
+    <h2>자동감지 실행중</h2>
+    <p>제거 가능한 기기에서는 스와이프 후 <strong>즉시 FGS 알림 복구</strong> (자동저장 ON·서비스 유지 시).</p>
+    <p>ongoing 이라 제거가 안 되는 기기도 있음. 앱 강제 종료 후에는 재실행·재개 시 복구.</p>
+  </div>
+</body>
+</html>

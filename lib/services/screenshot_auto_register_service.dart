@@ -9,6 +9,7 @@ import 'package:photo_manager/photo_manager.dart';
 import 'package:screenshot_callback/screenshot_callback.dart';
 
 import 'auto_register_notification_service.dart';
+import 'notification_permission_service.dart';
 import 'call_card_ocr_parse_service.dart';
 import 'settings_service.dart';
 import 'screenshot_auto_debug_log.dart';
@@ -72,6 +73,12 @@ class ScreenshotAutoRegisterService {
     if (!await _ensureMediaPermissions()) {
       ScreenshotAutoDebugLog.add('실패: 미디어 권한 없음(사진 접근을 허용했는지 확인)');
       debugPrint('ScreenshotAutoRegister: media permission denied');
+      return false;
+    }
+
+    if (!await NotificationPermissionService.requestIfNeeded()) {
+      ScreenshotAutoDebugLog.add('실패: 알림 권한 없음(설정에서 알림을 허용해 주세요)');
+      debugPrint('ScreenshotAutoRegister: notification permission denied');
       return false;
     }
 

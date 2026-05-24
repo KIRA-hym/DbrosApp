@@ -15,6 +15,19 @@ void main() {
     expect(dong, '화곡동');
   });
 
+  test('부천: 경기도 + 시 + 구, 동', () {
+    final (line1, dong) = callMapTitlesFromPlacemark(
+      Placemark(
+        administrativeArea: '경기도',
+        locality: '부천시',
+        subAdministrativeArea: '오정구',
+        subLocality: '여월동',
+      ),
+    );
+    expect(line1, '경기도 부천시 오정구');
+    expect(dong, '여월동');
+  });
+
   test('경기: 경기도 + 시, 동', () {
     final (line1, dong) = callMapTitlesFromPlacemark(
       Placemark(

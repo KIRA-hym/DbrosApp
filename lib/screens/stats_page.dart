@@ -631,8 +631,13 @@ class _StatsPageState extends State<StatsPage> {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
                 final useExpandedSplit = isExpanded;
-                final statCardTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize = statCardTitleFontSize;
+                // 펼침: 제목·값 동일 14px(×스케일). 접힘: 제목 16 / 값 14.
+                final expandedMetricFs =
+                    ResponsiveLayout.summaryValueFontSize(context) * fontScale;
+                final statCardTitleFontSize = isExpanded
+                    ? expandedMetricFs
+                    : ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
+                final statCardValueFontSize = expandedMetricFs;
                 final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
@@ -843,19 +848,7 @@ class _StatsPageState extends State<StatsPage> {
       ),
       _statMetricCard(
         title: '지출/부수익',
-        customValueWidget: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), style: const TextStyle(color: Color(0xFFFF5252))),
-              const TextSpan(text: ' / ', style: TextStyle(color: Colors.white)),
-              TextSpan(text: NumberFormat('#,###').format(_stats['totalExtraIncome'] ?? 0), style: const TextStyle(color: Colors.lightBlueAccent)),
-            ],
-          ),
-          style: ResponsiveLayout.summaryValueTextStyle(context).copyWith(
-            fontSize: valueFontSize,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        valueBuilder: _expenseExtraIncomeRich,
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
         icon: Icons.money_off,
@@ -1009,19 +1002,7 @@ class _StatsPageState extends State<StatsPage> {
         value: null,
         color: null,
         icon: Icons.money_off,
-        customWidget: Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(text: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0), style: const TextStyle(color: Color(0xFFFF5252))),
-              const TextSpan(text: ' / ', style: TextStyle(color: Colors.white)),
-              TextSpan(text: NumberFormat('#,###').format(_stats['totalExtraIncome'] ?? 0), style: const TextStyle(color: Colors.lightBlueAccent)),
-            ],
-          ),
-          style: ResponsiveLayout.summaryValueTextStyle(context).copyWith(
-            fontSize: statCardTitleFontSize,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        customWidget: _expenseExtraIncomeRich(statCardTitleFontSize),
       ),
       if (_selectedPeriod != '일간')
         (
@@ -1070,6 +1051,84 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
+  Widget _expenseExtraIncomeRich(double fontSize) {
+    final base = _statMetricUnifiedTextStyle(fontSize: fontSize);
+    return Text.rich(
+      TextSpan(
+        style: base,
+        children: [
+          TextSpan(
+            text: NumberFormat('#,###').format(_stats['totalExpenses'] ?? 0),
+            style: base.copyWith(color: const Color(0xFFFF5252)),
+          ),
+          TextSpan(text: ' / ', style: base),
+          TextSpan(
+            text: NumberFormat('#,###').format(_stats['totalExtraIncome'] ?? 0),
+            style: base.copyWith(color: Colors.lightBlueAccent),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.right,
+    );
+  }
+
+  /// 펼침 전체통계 카드: 제목·표시값 동일 폰트(크기·패밀리·굵기).
+  TextStyle _statMetricUnifiedTextStyle({
+    required double fontSize,
+    Color color = Colors.white,
+  }) {
+    return TextStyle(
+      fontFamily: 'GmarketSans',
+      fontWeight: FontWeight.w700,
+      fontSize: fontSize,
+      height: 1.12,
+      color: color,
+    );
+  }
+
+  Widget _buildStatMetricValueChild({
+    required bool isExpanded,
+    required double effValueFs,
+    required double valueFontSize,
+    String? value,
+    Color? valueColor,
+    Widget? customValueWidget,
+    Widget Function(double fontSize)? valueBuilder,
+  }) {
+    final displayFs = isExpanded ? effValueFs : valueFontSize;
+    final Widget content;
+    if (valueBuilder != null) {
+      content = valueBuilder(displayFs);
+    } else if (customValueWidget != null) {
+      content = customValueWidget;
+    } else {
+      content = Text(
+        value ?? '',
+        textAlign: TextAlign.right,
+        maxLines: isExpanded ? 2 : 1,
+        overflow: TextOverflow.ellipsis,
+        style: isExpanded
+            ? _statMetricUnifiedTextStyle(fontSize: displayFs, color: valueColor ?? Colors.white)
+            : ResponsiveLayout.summaryValueTextStyle(
+                context,
+                color: valueColor ?? Colors.white,
+              ).copyWith(
+                fontSize: displayFs,
+                fontWeight: FontWeight.bold,
+              ),
+      );
+    }
+
+    if (isExpanded) {
+      return content;
+    }
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.bottomRight,
+      child: content,
+    );
+  }
+
   Widget _statMetricCard({
     required String title,
     String? value,
@@ -1078,6 +1137,7 @@ class _StatsPageState extends State<StatsPage> {
     required double valueFontSize,
     IconData? icon,
     Widget? customValueWidget,
+    Widget Function(double fontSize)? valueBuilder,
   }) {
     return LayoutBuilder(
         builder: (context, constraints) {
@@ -1087,14 +1147,15 @@ class _StatsPageState extends State<StatsPage> {
           final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFontSize * 0.3);
           const titleTopInset = 4.0;
           final h = constraints.maxHeight;
+          final layoutValueFs = isExpanded ? titleFontSize : valueFontSize;
           final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFontSize);
-          final scaledValue = ResponsiveLayout.layoutFontSize(context, valueFontSize);
+          final scaledValue = ResponsiveLayout.layoutFontSize(context, layoutValueFs);
           final minContentH = scaledTitle * 1.12 + innerGap + scaledValue * 1.12 + vPad * 2 + titleTopInset;
           final scale = (!h.isFinite || h <= 0 || h >= minContentH)
               ? 1.0
               : (h / minContentH).clamp(0.72, 1.0);
           final effTitleFs = titleFontSize * scale;
-          final effValueFs = valueFontSize * scale;
+          final effValueFs = isExpanded ? effTitleFs : layoutValueFs * scale;
           final effVPad = (vPad * scale).clamp(2.0, vPad);
           final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
           final effGap = (innerGap * scale).clamp(1.0, innerGap);
@@ -1110,7 +1171,7 @@ class _StatsPageState extends State<StatsPage> {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (icon != null) ...[
-                      Icon(icon, color: const Color(0xFFFFC700), size: effTitleFs * 1.2),
+                      Icon(icon, color: const Color(0xFFFFC700), size: effTitleFs),
                       const SizedBox(width: 8),
                     ],
                     Expanded(
@@ -1119,10 +1180,12 @@ class _StatsPageState extends State<StatsPage> {
                         textAlign: TextAlign.right,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
-                          fontSize: effTitleFs,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: isExpanded
+                            ? _statMetricUnifiedTextStyle(fontSize: effTitleFs)
+                            : ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
+                                fontSize: effTitleFs,
+                                fontWeight: FontWeight.bold,
+                              ),
                       ),
                     ),
                   ],
@@ -1131,22 +1194,14 @@ class _StatsPageState extends State<StatsPage> {
                 Expanded(
                   child: Align(
                     alignment: Alignment.bottomRight,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.bottomRight,
-                      child: customValueWidget ?? Text(
-                        value ?? '',
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ResponsiveLayout.summaryValueTextStyle(
-                          context,
-                          color: valueColor ?? Colors.white,
-                        ).copyWith(
-                          fontSize: effValueFs,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                    child: _buildStatMetricValueChild(
+                      isExpanded: isExpanded,
+                      effValueFs: effValueFs,
+                      valueFontSize: valueFontSize,
+                      value: value,
+                      valueColor: valueColor,
+                      customValueWidget: customValueWidget,
+                      valueBuilder: valueBuilder,
                     ),
                   ),
                 ),

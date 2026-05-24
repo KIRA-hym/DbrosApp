@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>통계 펼침 전체통계 폰트</title>
+<style>
+:root{--bg:#121418;--card:#1f222a;--g:#ffc700;--b:rgba(255,255,255,.1)}
+body{margin:0;padding:16px;font-family:GmarketSans,system-ui,sans-serif;background:#0a0c0f;color:#eee;font-size:.8rem}
+h1{color:#ffc700;font-size:1rem}
+.row{display:flex;gap:8px;margin-top:12px}
+.card{flex:1;background:var(--card);border:1px solid var(--b);border-radius:10px;padding:12px 14px;text-align:right}
+.t,.v{font-size:14px;font-weight:700;line-height:1.12}
+.t{color:#fff;margin-bottom:10px}
+.v.gold{color:#ffc700}.v.green{color:#4caf50}.v.red{color:#ff5252}
+</style>
+</head>
+<body>
+<h1>펼침 · 전체통계 4칸 — 제목·값 GmarketSans 14px w700 (접힘: 제목 16 / 값 14)</h1>
+<p style="color:#9aa0a6;margin:0 0 12px">화면: 하단 탭 「통계」(운행 일지 통계) · 폴드·태블릿 펼침</p>
+<div class="row">
+  <div class="card"><div class="t">순이익</div><div class="v gold">850,000</div></div>
+  <div class="card"><div class="t">수입</div><div class="v green">1,200,000</div></div>
+  <div class="card"><div class="t">지출/부수익</div><div class="v"><span class="red">350,000</span> / <span style="color:#64b5f6">50,000</span></div></div>
+  <div class="card"><div class="t">근무·운행 건수</div><div class="v">22 / 100</div></div>
+</div>
+</body>
+</html>

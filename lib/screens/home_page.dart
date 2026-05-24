@@ -201,7 +201,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     Navigator.push(
       context,
       MaterialPageRoute<void>(
-        builder: (_) => DailyLogListPage(dateStr: dateStr, dateTitle: '근무일자: $dateStr'),
+        builder: (_) => DailyLogListPage(dateStr: dateStr, dateTitle: dateStr),
       ),
     );
   }

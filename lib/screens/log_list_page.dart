@@ -395,7 +395,7 @@ class _LogListPageState extends State<LogListPage> {
           MaterialPageRoute(
             builder: (_) => DailyLogListPage(
               dateStr: date,
-              dateTitle: '근무일자: $date',
+              dateTitle: date,
             ),
           ),
         ).then((returnedDate) {
@@ -515,7 +515,7 @@ class _LogListPageState extends State<LogListPage> {
                           : DailyLogListPage(
                               key: ValueKey('${selected}_$_detailRevision'),
                               dateStr: selected,
-                              dateTitle: '근무일자: $selected',
+                              dateTitle: selected,
                               embedded: true,
                               onLogsChanged: _loadMonthData,
                               onDateChanged: (newDate) {
@@ -745,7 +745,7 @@ class _LogListPageState extends State<LogListPage> {
                     MaterialPageRoute(
                       builder: (_) => DailyLogListPage(
                         dateStr: dateStr,
-                        dateTitle: '근무일자: $dateStr',
+                        dateTitle: dateStr,
                       ),
                     ),
                   ).then((result) {
@@ -899,10 +899,10 @@ class _LogListPageState extends State<LogListPage> {
                       children: [
                         Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
                         const SizedBox(width: 12),
-                        const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                         Text(
-                          '₩${NumberFormat('#,###').format(_totalNet)}',
-                          style: TextStyle(color: const Color(0xFFFFC700), fontSize: infoFontSize, fontWeight: FontWeight.bold),
+                          '₩${NumberFormat('#,###').format(_totalGross)}',
+                          style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize, fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -921,8 +921,8 @@ class _LogListPageState extends State<LogListPage> {
                     child: Text.rich(
                       TextSpan(
                         children: [
-                          const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                          TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)),
+                          const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                          TextSpan(text: '₩${NumberFormat('#,###').format(_totalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: infoFontSize)),
                         ],
                       ),
                     ),
@@ -2099,10 +2099,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                     children: [
                       Text('$_totalCount건', style: const TextStyle(color: Colors.white, fontSize: 13)),
                       const SizedBox(width: 10),
-                      const Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                      const Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                       Text(
-                        '₩${NumberFormat('#,###').format(_totalNetProfitSum)}',
-                        style: const TextStyle(color: Color(0xFFFFC700), fontSize: 13, fontWeight: FontWeight.bold),
+                        '₩${NumberFormat('#,###').format(_totalIncomeSum)}',
+                        style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -2121,8 +2121,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalIncomeSum)}', style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalNetProfitSum)}', style: const TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
                       ],
                     ),
                   ),
@@ -2231,7 +2231,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       } else {
         setState(() {
           _currentDateStr = newDate;
-          _currentDateTitle = '근무일자: $newDate';
+          _currentDateTitle = newDate;
           _isLoading = true;
         });
         _loadData();

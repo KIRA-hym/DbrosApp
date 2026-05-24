@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>알림 권한·표시 수정 시안</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Segoe UI", "Malgun Gothic", sans-serif; background: #121418; color: #e8eaed; padding: 24px; line-height: 1.5; }
+    h1 { color: #ffc700; font-size: 1.3rem; margin: 0 0 8px; }
+    .sub { color: #9aa0a6; font-size: 0.9rem; margin-bottom: 20px; }
+    .grid { display: grid; gap: 16px; max-width: 920px; }
+    @media (min-width: 700px) { .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background: #1f222a; border: 1px solid #2a2e38; border-radius: 12px; padding: 18px; }
+    .card h2 { color: #ffc700; font-size: 0.95rem; margin: 0 0 12px; }
+  </style>
+</head>
+<body>
+  <h1>알림이 안 보이던 문제 — 수정 요약</h1>
+  <p class="sub">Android 13+ POST_NOTIFICATIONS · 고정 알림 · 스크린샷 FGS</p>
+  <div class="grid">
+    <section class="card">
+      <h2>오늘 순익 고정 알림</h2>
+      <p>설정 → <strong>상태바 퀵기능</strong> → 「고정 알림」 ON 필요.</p>
+      <p>앱 시작·재개 시 알림 권한 요청 후 표시.</p>
+    </section>
+    <section class="card">
+      <h2>스크린샷 자동저장</h2>
+      <p>기본 ON. 알림 권한 허용 시 알림창에 「자동감지 실행중」 표시 (채널 중요도 LOW).</p>
+      <p>권한 거부 시 FGS 미시작 → 감지 불안정.</p>
+    </section>
+  </div>
+</body>
+</html>

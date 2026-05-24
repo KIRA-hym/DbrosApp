@@ -43,8 +43,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   MapFilterMode _currentMode = MapFilterMode.all;
   List<CallPointData> _allPoints = [];
-  bool _pendingInitialBoundsFit = false;
-  bool _initialBoundsApplied = false;
+
+  /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
+  static const double _localDetailZoom = 15.5;
 
   @override
   void initState() {
@@ -154,60 +155,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     _allPoints = points;
     _applyFilter();
-    _scheduleInitialBoundsFit();
+    await _focusOnCurrentLocation();
   }
 
-  void _scheduleInitialBoundsFit() {
-    if (_initialBoundsApplied || _allPoints.isEmpty) return;
-    if (_controller.isCompleted) {
-      _fitCameraToAllPoints();
-    } else {
-      _pendingInitialBoundsFit = true;
-    }
-  }
-
-  LatLngBounds _boundsForPoints(List<LatLng> points) {
-    var minLat = points.first.latitude;
-    var maxLat = points.first.latitude;
-    var minLng = points.first.longitude;
-    var maxLng = points.first.longitude;
-    for (final p in points.skip(1)) {
-      if (p.latitude < minLat) minLat = p.latitude;
-      if (p.latitude > maxLat) maxLat = p.latitude;
-      if (p.longitude < minLng) minLng = p.longitude;
-      if (p.longitude > maxLng) maxLng = p.longitude;
-    }
-    return LatLngBounds(
-      southwest: LatLng(minLat, minLng),
-      northeast: LatLng(maxLat, maxLng),
-    );
-  }
-
-  Future<void> _fitCameraToAllPoints() async {
-    if (kIsWeb || _allPoints.isEmpty || _initialBoundsApplied) return;
-    if (!_controller.isCompleted) {
-      _pendingInitialBoundsFit = true;
-      return;
-    }
-
-    final controller = await _controller.future;
-    final positions = _allPoints.map((p) => p.position).toList();
+  Future<void> _focusOnCurrentLocation() async {
+    if (kIsWeb || _currentPosition == null || !_controller.isCompleted) return;
     try {
-      if (positions.length == 1) {
-        await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(positions.first, 13),
-        );
-      } else {
-        final bounds = _boundsForPoints(positions);
-        await controller.animateCamera(
-          CameraUpdate.newLatLngBounds(bounds, 56),
-        );
-      }
-      _initialBoundsApplied = true;
-      _pendingInitialBoundsFit = false;
+      final controller = await _controller.future;
+      await controller.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
+          _localDetailZoom,
+        ),
+      );
       _manager.updateMap();
     } catch (e) {
-      debugPrint('지도 bounds 맞춤 오류: $e');
+      debugPrint('현재 위치 카메라 이동 오류: $e');
     }
   }
 
@@ -238,10 +201,98 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     _applyFilter();
   }
 
+  /// 운행시간 기준 낮(09~18) / 밤(18~09) — 일지 말풍선 제목 좌측.
+  String _dayNightLeadingIcon(String? driveTime) {
+    final t = driveTime?.trim() ?? '';
+    if (t.isEmpty) return '';
+    try {
+      final hour = int.parse(t.split(':').first);
+      if (hour >= 9 && hour < 18) return '🌞 ';
+      return '🌙 ';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  String _referenceDisplayLocation(String startLoc) {
+    if (startLoc.contains('(') && startLoc.contains(')')) {
+      final match = RegExp(r'\((.*?)\)').firstMatch(startLoc);
+      if (match != null) {
+        return match.group(1)?.trim() ?? startLoc;
+      }
+    }
+    return startLoc;
+  }
+
+  /// 마커 탭 시 Google Maps 기본 말풍선(마커 바로 아래).
+  InfoWindow _infoWindowForCluster(Cluster<CallPointData> cluster) {
+    if (!cluster.isMultiple) {
+      return _infoWindowForPoint(cluster.items.first);
+    }
+    final first = cluster.items.first;
+    final base = _infoWindowForPoint(first);
+    final extra = cluster.count - 1;
+    if (extra <= 0) return base;
+    return InfoWindow(
+      title: base.title,
+      snippet: '${base.snippet ?? ''} · 외 $extra건',
+    );
+  }
+
+  InfoWindow _infoWindowForPoint(CallPointData point) {
+    final data = point.data;
+    if (data['type'] == 'reference') {
+      final loc = _referenceDisplayLocation(data['start_location']?.toString() ?? '');
+      final name = loc.isNotEmpty ? loc : '콜포인트';
+      return InfoWindow(
+        title: name,
+        snippet: '레퍼런스 좌표',
+      );
+    }
+
+    final driveTime = data['drive_time']?.toString().trim() ?? '';
+    final dayNight = _dayNightLeadingIcon(driveTime.isNotEmpty ? driveTime : null);
+    final program = data['program']?.toString().trim() ?? '';
+    final startLoc = data['start_location']?.toString().trim() ?? '';
+    final endLoc = data['end_location']?.toString().trim() ?? '';
+    final timeLine = driveTime.isNotEmpty ? driveTime : '—';
+    final programLine = program.isNotEmpty ? program : '—';
+    final routeLine = startLoc.isNotEmpty || endLoc.isNotEmpty
+        ? '${startLoc.isNotEmpty ? startLoc : '—'} → ${endLoc.isNotEmpty ? endLoc : '—'}'
+        : '출발·도착 정보 없음';
+    return InfoWindow(
+      title: '$dayNight$timeLine · $programLine',
+      snippet: routeLine,
+    );
+  }
+
+  Future<void> _onMarkerTap(Cluster<CallPointData> cluster) async {
+    if (!_controller.isCompleted) return;
+    try {
+      final controller = await _controller.future;
+      if (cluster.isMultiple) {
+        final zoom = await controller.getZoomLevel();
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            cluster.location,
+            (zoom + 1.5).clamp(_localDetailZoom, 20.0),
+          ),
+        );
+        _manager.updateMap();
+        return;
+      }
+      await controller.showMarkerInfoWindow(MarkerId(cluster.getId()));
+    } catch (e) {
+      debugPrint('마커 InfoWindow 표시 오류: $e');
+    }
+  }
+
   Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
     Color color = Colors.red;
     bool isHeart = false;
     bool isStar = false;
+    final infoWindow = _infoWindowForCluster(cluster);
+    final markerId = MarkerId(cluster.getId());
 
     if (!cluster.isMultiple) {
       final data = cluster.items.first.data;
@@ -253,9 +304,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         color = Colors.purpleAccent;
       }
       return Marker(
-        markerId: MarkerId(cluster.getId()),
+        markerId: markerId,
         position: cluster.location,
-        onTap: () => _showClusterDetails(cluster),
+        infoWindow: infoWindow,
+        onTap: () => _onMarkerTap(cluster),
         icon: await _getMarkerBitmap(80, color: color, isHeart: isHeart, isStar: isStar),
       );
     } else {
@@ -265,11 +317,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         color = const Color(0xFFFFC700);
       }
       return Marker(
-        markerId: MarkerId(cluster.getId()),
+        markerId: markerId,
         position: cluster.location,
-        onTap: () {
-          _showClusterDetails(cluster);
-        },
+        infoWindow: infoWindow,
+        onTap: () => _onMarkerTap(cluster),
         icon: await _getMarkerBitmap(100, text: cluster.count.toString(), color: color),
       );
     }
@@ -333,81 +384,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     canvas.drawPath(path, paint);
   }
 
-  void _showClusterDetails(Cluster<CallPointData> cluster) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: const Color(0xFF1E2128),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          height: 300,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                cluster.isMultiple ? '선택된 좌표 목록 (${cluster.count}건)' : '상세 정보',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: cluster.items.length,
-                  separatorBuilder: (_, __) => const Divider(color: Colors.white12),
-                  itemBuilder: (context, index) {
-                    final data = cluster.items.toList()[index].data;
-                    final startLoc = data['start_location'] ?? '';
-                    final endLoc = data['end_location'] ?? '';
-                    final isMine = data['is_mine'] == 1;
-                    final driveTime = data['drive_time']?.toString() ?? '';
-
-                    String displayLoc = startLoc;
-                    if (data['type'] == 'reference' && startLoc.contains('(') && startLoc.contains(')')) {
-                      final match = RegExp(r'\((.*?)\)').firstMatch(startLoc);
-                      if (match != null) {
-                        displayLoc = match.group(1) ?? startLoc;
-                      }
-                    }
-
-                    bool isNight = false;
-                    if (driveTime.isNotEmpty) {
-                      try {
-                        final hour = int.parse(driveTime.split(':')[0]);
-                        if (hour < 6 || hour >= 18) isNight = true;
-                      } catch (_) {}
-                    }
-
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        data['type'] == 'log'
-                            ? (isMine ? Icons.favorite : Icons.favorite_border)
-                            : Icons.star,
-                        color: data['type'] == 'log'
-                            ? (isMine ? const Color(0xFFFF5252) : Colors.lightBlueAccent)
-                            : Colors.purpleAccent,
-                      ),
-                      title: Text(
-                        data['type'] == 'log' ? '$startLoc -> $endLoc' : displayLoc,
-                        style: const TextStyle(color: Colors.white, fontSize: 14),
-                      ),
-                      trailing: data['type'] == 'log'
-                          ? Text(
-                              isNight ? '🌙' : '🌞',
-                              style: const TextStyle(fontSize: 18),
-                            )
-                          : null,
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildAppBarTitle() {
     final primary = _areaTitle.isNotEmpty ? _areaTitle : '주변';
     final subtitle = _areaSubline.isNotEmpty ? '$_areaSubline · 주변 콜맵' : '주변 콜맵';
@@ -436,24 +412,35 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
+        toolbarHeight: 56,
         title: _buildAppBarTitle(),
+        titleSpacing: 16,
+        centerTitle: false,
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
-        centerTitle: false,
-        titleSpacing: 16,
-        actions: [
-          _buildFilterTabs(),
-        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(44),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _buildFilterTabs(),
+            ),
+          ),
+        ),
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-            )
-          : _currentPosition == null
-              ? const Center(
-                  child: Text('위치 정보를 가져올 수 없습니다.', style: TextStyle(color: Colors.white)),
-                )
-              : _buildMap(),
+      body: SafeArea(
+        top: false,
+        child: _loading
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+              )
+            : _currentPosition == null
+                ? const Center(
+                    child: Text('위치 정보를 가져올 수 없습니다.', style: TextStyle(color: Colors.white)),
+                  )
+                : _buildMap(),
+      ),
     );
   }
 
@@ -503,6 +490,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
 
     final initialPos = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    final viewPadding = MediaQuery.paddingOf(context);
 
     return Stack(
       children: [
@@ -510,18 +498,15 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           child: GoogleMap(
             initialCameraPosition: CameraPosition(
               target: initialPos,
-              zoom: 13.0,
+              zoom: _localDetailZoom,
             ),
+            padding: EdgeInsets.only(bottom: viewPadding.bottom),
             onMapCreated: (GoogleMapController controller) async {
               if (!_controller.isCompleted) {
                 _controller.complete(controller);
               }
               await _manager.setMapId(controller.mapId);
-              if (_pendingInitialBoundsFit) {
-                await _fitCameraToAllPoints();
-              } else {
-                _manager.updateMap();
-              }
+              await _focusOnCurrentLocation();
             },
             onCameraMove: _manager.onCameraMove,
             onCameraIdle: _manager.updateMap,

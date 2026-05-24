@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>콜맵 AppBar·줌</title>
+<style>
+:root{--bg:#121418;--card:#1f222a;--g:#ffc700;--b:rgba(255,255,255,.12)}
+body{margin:0;padding:16px;font-family:system-ui,sans-serif;background:#0a0c0f;color:#eee;font-size:.8rem}
+h1{color:var(--g);font-size:1rem}
+.phone{max-width:360px;border:1px solid var(--b);border-radius:14px;overflow:hidden;background:var(--bg)}
+.bar{padding:12px 14px 0;border-bottom:1px solid var(--b)}
+.l1{font-weight:700;font-size:1rem}
+.l2{font-size:.75rem;color:var(--g);margin-top:4px}
+.tabs{display:flex;justify-content:flex-end;gap:6px;padding:8px 12px 10px}
+.tab{font-size:.65rem;padding:5px 10px;border-radius:14px;border:1px solid var(--g);color:var(--g)}
+.tab.on{background:var(--g);color:#000}
+.map{height:200px;background:#1a2332;margin:0 0 28px;position:relative}
+.nav{height:28px;background:#000;position:absolute;left:0;right:0;bottom:-28px;opacity:.5}
+ul{color:#aaa;padding-left:1.2rem}
+</style>
+</head>
+<body>
+<h1>주변 콜맵 변경</h1>
+<ul>
+<li>현재 위치 줌 15.5 (마커 식별)</li>
+<li>SafeArea + 지도 bottom padding (시스템 네비 가림 방지)</li>
+<li>타이틀 2줄 / 필터는 AppBar 아래 줄</li>
+<li>부천: 경기도 부천시 오정구 + 여월동 · 주변 콜맵</li>
+<li>필터 기본: 전체 (탭 비선택)</li>
+</ul>
+<div class="phone">
+  <div class="bar">
+    <div class="l1">경기도 부천시 오정구</div>
+    <div class="l2">여월동 · 주변 콜맵</div>
+  </div>
+  <div class="tabs">
+    <span class="tab">콜레이더</span>
+    <span class="tab">콜포인트</span>
+  </div>
+  <div class="map">지도 (근접 줌)<div class="nav">시스템 네비</div></div>
+</div>
+</body>
+</html>
