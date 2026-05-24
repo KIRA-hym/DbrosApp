@@ -19,10 +19,11 @@ plugins {
 }
 
 // PC·CI 공통 release 서명 (android/key.properties + keys/dbros-release.jks)
+// ⚠️ key.properties 가 없으면 릴리즈 빌드가 즉시 실패합니다 (디버그 키로 대체하지 않음)
+val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties().apply {
-    val f = rootProject.file("key.properties")
-    if (f.exists()) {
-        f.inputStream().use { load(it) }
+    if (keystorePropertiesFile.exists()) {
+        keystorePropertiesFile.inputStream().use { load(it) }
     }
 }
 
@@ -67,27 +68,30 @@ android {
     signingConfigs {
         create("release") {
             val store = keystoreProperties.getProperty("storeFile")
-            if (store != null) {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = rootProject.file(store)
-                storePassword = keystoreProperties.getProperty("storePassword")
-            }
+                ?: error(
+                    "\n\n" +
+                    "===================================================\n" +
+                    "릴리즈 서명 키가 없습니다!\n" +
+                    "android/key.properties 와 android/keys/dbros-release.jks\n" +
+                    "파일을 회사 PC에서 복사해 이 PC의 동일한 위치에 붙여넣고\n" +
+                    "다시 빌드하세요.\n" +
+                    "===================================================\n"
+                )
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = rootProject.file(store)
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 
     buildTypes {
         getByName("release") {
-            signingConfig = if (keystoreProperties.getProperty("storeFile") != null) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            // 항상 release 서명 설정 사용 (키 없으면 위 signingConfigs 에서 빌드 중단)
+            signingConfig = signingConfigs.getByName("release")
 
             isMinifyEnabled = true   // minifyEnabled -> isMinifyEnabled
             isShrinkResources = true // shrinkResources -> isShrinkResources
-            
-            // [수정됨] 홑따옴표(' ') 대신 쌍따옴표(" ")를 사용하고 괄호로 감싸야 함
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
