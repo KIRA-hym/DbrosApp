@@ -68,9 +68,16 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
+      final buildNumVal = int.tryParse(info.buildNumber);
+      final String displayBuild;
+      if (buildNumVal != null) {
+        final buildNum = buildNumVal % 100;
+        displayBuild = buildNum.toString().padLeft(2, '0');
+      } else {
+        displayBuild = info.buildNumber.padLeft(2, '0');
+      }
       setState(() {
-        _appVersionLabel =
-            'v${info.version}.${info.buildNumber.padLeft(2, '0')}';
+        _appVersionLabel = 'v${info.version}.$displayBuild';
       });
     } catch (_) {
       if (mounted) setState(() => _appVersionLabel = '');

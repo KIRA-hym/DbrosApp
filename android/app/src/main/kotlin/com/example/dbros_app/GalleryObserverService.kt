@@ -84,7 +84,6 @@ class GalleryObserverService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.app_notification_icon)
             .setContentTitle("자동감지 실행중")
-            .setContentText("스크린샷 콜카드 자동저장 대기 중")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setSortKey(SORT_KEY)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' hide Cluster, ClusterManager;
@@ -38,6 +37,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   Set<Marker> _markers = {};
   Position? _currentPosition;
   bool _loading = true;
+  bool _permissionGranted = false;
   String _areaTitle = '';
   String _areaSubline = '';
 
@@ -45,7 +45,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   List<CallPointData> _allPoints = [];
 
   /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
-  static const double _localDetailZoom = 15.5;
+  static const double _localDetailZoom = 16.0;
 
   @override
   void initState() {
@@ -71,25 +71,33 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<void> _initMap() async {
     try {
-      final hasPermission = await _handleLocationPermission();
-      if (!hasPermission) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('위치 권한이 거부되어 지도를 사용할 수 없습니다.')),
+      _permissionGranted = await _handleLocationPermission();
+      
+      // 항상 DB 데이터 먼저 로드하여 마커를 표시할 수 있게 함
+      await _loadData();
+
+      if (_permissionGranted) {
+        Position? pos;
+        try {
+          pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 10),
+            ),
           );
+        } catch (_) {
+          try {
+            pos = await Geolocator.getLastKnownPosition();
+          } catch (_) {}
         }
-        setState(() => _loading = false);
-        return;
-      }
 
-      _currentPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      ).catchError((_) => Geolocator.getLastKnownPosition());
-
-      if (_currentPosition != null) {
-        await _reverseGeocode(_currentPosition!);
-        await _loadData();
+        if (pos != null) {
+          setState(() {
+            _currentPosition = pos;
+          });
+          await _reverseGeocode(pos);
+          await _focusOnCurrentLocation();
+        }
       }
     } catch (e) {
       debugPrint('위치 가져오기 오류: $e');
@@ -246,7 +254,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       final name = loc.isNotEmpty ? loc : '콜포인트';
       return InfoWindow(
         title: name,
-        snippet: '레퍼런스 좌표',
+        snippet: '콜포인트',
       );
     }
 
@@ -418,16 +426,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         centerTitle: false,
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(44),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: _buildFilterTabs(),
-            ),
-          ),
-        ),
+        actions: [
+          _buildFilterTabs(),
+        ],
       ),
       body: SafeArea(
         top: false,
@@ -435,11 +436,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             ? const Center(
                 child: CircularProgressIndicator(color: Color(0xFFFFC700)),
               )
-            : _currentPosition == null
-                ? const Center(
-                    child: Text('위치 정보를 가져올 수 없습니다.', style: TextStyle(color: Colors.white)),
-                  )
-                : _buildMap(),
+            : _buildMap(),
       ),
     );
   }
@@ -489,7 +486,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       );
     }
 
-    final initialPos = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+    final initialPos = _currentPosition != null
+        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
+        : const LatLng(37.5665, 126.9780); // 서울시청 폴백
     final viewPadding = MediaQuery.paddingOf(context);
 
     return Stack(
@@ -511,8 +510,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             onCameraMove: _manager.onCameraMove,
             onCameraIdle: _manager.updateMap,
             markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: true,
+            myLocationEnabled: _permissionGranted,
+            myLocationButtonEnabled: _permissionGranted,
             compassEnabled: true,
             mapToolbarEnabled: false,
             zoomControlsEnabled: false,
@@ -540,12 +539,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _legendItem(const Color(0xFFFF5252), '내 좌표 (일지)'),
+            _legendItem(const Color(0xFFFF5252), '내 좌표'),
             const SizedBox(height: 4),
-            _legendItem(Colors.lightBlueAccent, '공유된 좌표 (가져오기)'),
+            _legendItem(Colors.lightBlueAccent, '공유된 좌표'),
             if (_currentMode == MapFilterMode.all) ...[
               const SizedBox(height: 4),
-              _legendItem(Colors.purpleAccent, '콜포인트 (레퍼런스)'),
+              _legendItem(Colors.purpleAccent, '콜포인트'),
             ],
           ],
         ),

@@ -229,7 +229,7 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
             Expanded(
               child: Stack(
                 children: [
-                  if (!_loading)
+                  if (!_loading) ...[
                     GoogleMap(
                       initialCameraPosition: CameraPosition(
                         target: _markerPosition,
@@ -247,8 +247,29 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                       onTap: (latLng) {
                         setState(() => _markerPosition = latLng);
                       },
-                    )
-                  else
+                    ),
+                    Positioned(
+                      top: 12,
+                      left: 12,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16181D).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: const Text(
+                          '좌표가 조회되지 않는 경우\n주변 역이나, 동명으로 검색해주세요',
+                          style: TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else
                     const Center(
                       child: CircularProgressIndicator(color: Color(0xFFFFC700)),
                     ),

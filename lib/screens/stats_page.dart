@@ -628,16 +628,15 @@ class _StatsPageState extends State<StatsPage> {
             ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
             : LayoutBuilder(
               builder: (context, constraints) {
-                final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
                 // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
                 final useExpandedSplit = isExpanded;
-                // 펼침: 제목·값 동일 14px(×스케일). 접힘: 제목 16 / 값 14.
-                final expandedMetricFs =
-                    ResponsiveLayout.summaryValueFontSize(context) * fontScale;
+                // 펼침: 제목 14px / 값 16px. 접힘: 제목 15px / 값 18px.
                 final statCardTitleFontSize = isExpanded
-                    ? expandedMetricFs
-                    : ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
-                final statCardValueFontSize = expandedMetricFs;
+                    ? 14.0 * fontScale
+                    : 15.0 * fontScale;
+                final statCardValueFontSize = isExpanded
+                    ? 16.0 * fontScale
+                    : 18.0 * fontScale;
                 final gapMd = compact ? 10.0 : 20.0;
                 final gapBetweenCharts = compact ? 8.0 : 12.0;
                 // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
@@ -772,11 +771,10 @@ class _StatsPageState extends State<StatsPage> {
     double valueFontSize,
   ) {
     final scaler = MediaQuery.textScalerOf(context);
-    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
-    final verticalPad = isExpanded ? 20.0 : 12.0;
-    final innerGap = isExpanded ? 16.0 : math.max(4.0, scaler.scale(titleFontSize) * 0.3);
-    final titleBlock = scaler.scale(titleFontSize) * 1.12;
-    final valueBlock = scaler.scale(valueFontSize) * 1.12;
+    final verticalPad = 10.0;
+    final innerGap = math.max(4.0, scaler.scale(titleFontSize) * 0.3);
+    final titleBlock = scaler.scale(titleFontSize) * 1.25;
+    final valueBlock = scaler.scale(valueFontSize) * 1.25;
     return verticalPad * 2 + titleBlock + innerGap + valueBlock + 4.0;
   }
 
@@ -1038,7 +1036,7 @@ class _StatsPageState extends State<StatsPage> {
                     value: metrics[i].value,
                     valueColor: metrics[i].color,
                     titleFontSize: statCardTitleFontSize,
-                    valueFontSize: statCardTitleFontSize,
+                    valueFontSize: statCardValueFontSize,
                     icon: metrics[i].icon,
                     customValueWidget: metrics[i].customWidget,
                   ),
@@ -1081,13 +1079,12 @@ class _StatsPageState extends State<StatsPage> {
       fontFamily: 'GmarketSans',
       fontWeight: FontWeight.w700,
       fontSize: fontSize,
-      height: 1.12,
+      height: 1.25,
       color: color,
     );
   }
 
   Widget _buildStatMetricValueChild({
-    required bool isExpanded,
     required double effValueFs,
     required double valueFontSize,
     String? value,
@@ -1095,7 +1092,7 @@ class _StatsPageState extends State<StatsPage> {
     Widget? customValueWidget,
     Widget Function(double fontSize)? valueBuilder,
   }) {
-    final displayFs = isExpanded ? effValueFs : valueFontSize;
+    final displayFs = effValueFs;
     final Widget content;
     if (valueBuilder != null) {
       content = valueBuilder(displayFs);
@@ -1105,23 +1102,12 @@ class _StatsPageState extends State<StatsPage> {
       content = Text(
         value ?? '',
         textAlign: TextAlign.right,
-        maxLines: isExpanded ? 2 : 1,
+        maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: isExpanded
-            ? _statMetricUnifiedTextStyle(fontSize: displayFs, color: valueColor ?? Colors.white)
-            : ResponsiveLayout.summaryValueTextStyle(
-                context,
-                color: valueColor ?? Colors.white,
-              ).copyWith(
-                fontSize: displayFs,
-                fontWeight: FontWeight.bold,
-              ),
+        style: _statMetricUnifiedTextStyle(fontSize: displayFs, color: valueColor ?? Colors.white),
       );
     }
 
-    if (isExpanded) {
-      return content;
-    }
     return FittedBox(
       fit: BoxFit.scaleDown,
       alignment: Alignment.bottomRight,
@@ -1141,21 +1127,20 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     return LayoutBuilder(
         builder: (context, constraints) {
-          final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
-          final hPad = isExpanded ? 24.0 : 16.0;
-          final vPad = isExpanded ? 20.0 : 14.0;
-          final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFontSize * 0.3);
+          final hPad = 12.0;
+          final vPad = 10.0;
+          final innerGap = math.max(4.0, titleFontSize * 0.3);
           const titleTopInset = 4.0;
           final h = constraints.maxHeight;
-          final layoutValueFs = isExpanded ? titleFontSize : valueFontSize;
+          final layoutValueFs = valueFontSize;
           final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFontSize);
           final scaledValue = ResponsiveLayout.layoutFontSize(context, layoutValueFs);
-          final minContentH = scaledTitle * 1.12 + innerGap + scaledValue * 1.12 + vPad * 2 + titleTopInset;
+          final minContentH = scaledTitle * 1.25 + innerGap + scaledValue * 1.25 + vPad * 2 + titleTopInset;
           final scale = (!h.isFinite || h <= 0 || h >= minContentH)
               ? 1.0
               : (h / minContentH).clamp(0.72, 1.0);
           final effTitleFs = titleFontSize * scale;
-          final effValueFs = isExpanded ? effTitleFs : layoutValueFs * scale;
+          final effValueFs = layoutValueFs * scale;
           final effVPad = (vPad * scale).clamp(2.0, vPad);
           final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
           final effGap = (innerGap * scale).clamp(1.0, innerGap);
@@ -1180,12 +1165,11 @@ class _StatsPageState extends State<StatsPage> {
                         textAlign: TextAlign.right,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: isExpanded
-                            ? _statMetricUnifiedTextStyle(fontSize: effTitleFs)
-                            : ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
-                                fontSize: effTitleFs,
-                                fontWeight: FontWeight.bold,
-                              ),
+                        style: ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
+                          fontSize: effTitleFs,
+                          fontWeight: FontWeight.bold,
+                          height: 1.25,
+                        ),
                       ),
                     ),
                   ],
@@ -1195,7 +1179,6 @@ class _StatsPageState extends State<StatsPage> {
                   child: Align(
                     alignment: Alignment.bottomRight,
                     child: _buildStatMetricValueChild(
-                      isExpanded: isExpanded,
                       effValueFs: effValueFs,
                       valueFontSize: valueFontSize,
                       value: value,

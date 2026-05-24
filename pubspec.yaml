@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # 화면 표시: v{version}.{build 2자리} → 예) 1.0.02+1 → v1.0.02.01, 1.0.02+9 → v1.0.02.09
 # +9 다음: 1.0.03+1 → v1.0.03.01 (Android versionCode는 gradle에서 이름+빌드로 단조 증가)
 # APK 릴리스 빌드 시 버전 자동 증가: tools/build_release_apk.ps1 또는 `dart run tool/bump_pubspec_version.dart` 후 flutter build apk
-version: 1.0.03+8
+version: 1.0.04+2
 environment:
   sdk: ^3.11.5
 
