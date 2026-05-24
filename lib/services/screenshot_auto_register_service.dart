@@ -279,6 +279,11 @@ class ScreenshotAutoRegisterService {
       }
 
       await AutoRegisterNotificationService.instance.showAutoRegisterComplete(logId: insertedId);
+      try {
+        await _nativeGalleryObserver.invokeMethod<void>('showToast', {
+          'message': '자동스샷: 일지가 저장되었습니다.'
+        });
+      } catch (_) {}
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
       debugPrint('ScreenshotAutoRegister: saved successfully');
       suppressPendingRetryDueToSave = true;

@@ -67,6 +67,11 @@ object GalleryMediaBridge {
                             result.error("query_failed", e.message, null)
                         }
                     }
+                    "showToast" -> {
+                        val msg = call.argument<String>("message") ?: ""
+                        android.widget.Toast.makeText(appContext, msg, android.widget.Toast.LENGTH_LONG).show()
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
