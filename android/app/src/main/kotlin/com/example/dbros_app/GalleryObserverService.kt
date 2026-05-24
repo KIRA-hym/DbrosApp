@@ -24,7 +24,6 @@ class GalleryObserverService : Service() {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.app_notification_icon)
             .setContentTitle("자동감지 실행중")
-            .setContentText("스크린샷이 캡처되면 자동으로 일지를 기록합니다.")
             .setPriority(NotificationCompat.PRIORITY_MIN) // 최소 중요도 (알림창 맨 아래 숨김)
             .setOngoing(true)
             .build()
