@@ -351,6 +351,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
           }
         },
         child: Scaffold(
+      resizeToAvoidBottomInset: false,
       body: _pages[_selectedIndex],
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
