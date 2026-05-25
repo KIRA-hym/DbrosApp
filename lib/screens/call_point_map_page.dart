@@ -44,6 +44,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   MapFilterMode _currentMode = MapFilterMode.all;
   List<CallPointData> _allPoints = [];
 
+  // 캐싱된 마커 비트맵
+  BitmapDescriptor? _logIconMine;
+  BitmapDescriptor? _logIconOther;
+  BitmapDescriptor? _refIcon;
+  final Map<String, BitmapDescriptor> _clusterIcons = {};
+
   /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
   static const double _localDetailZoom = 16.0;
 
@@ -59,7 +65,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       [],
       _updateMarkers,
       markerBuilder: _markerBuilder,
-      stopClusteringZoom: 16.0,
+      stopClusteringZoom: 14.5,
     );
   }
 
@@ -297,26 +303,30 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
     Color color = Colors.red;
-    bool isHeart = false;
-    bool isStar = false;
     final infoWindow = _infoWindowForCluster(cluster);
     final markerId = MarkerId(cluster.getId());
 
     if (!cluster.isMultiple) {
       final data = cluster.items.first.data;
+      BitmapDescriptor icon;
       if (data['type'] == 'log') {
-        isHeart = true;
-        color = (data['is_mine'] == 1) ? const Color(0xFFFF5252) : Colors.lightBlueAccent;
+        if (data['is_mine'] == 1) {
+          _logIconMine ??= await _getMarkerBitmap(80, color: const Color(0xFFFF5252), isHeart: true);
+          icon = _logIconMine!;
+        } else {
+          _logIconOther ??= await _getMarkerBitmap(80, color: Colors.lightBlueAccent, isHeart: true);
+          icon = _logIconOther!;
+        }
       } else {
-        isStar = true;
-        color = Colors.purpleAccent;
+        _refIcon ??= await _getMarkerBitmap(80, color: Colors.purpleAccent, isStar: true);
+        icon = _refIcon!;
       }
       return Marker(
         markerId: markerId,
         position: cluster.location,
         infoWindow: infoWindow,
         onTap: () => _onMarkerTap(cluster),
-        icon: await _getMarkerBitmap(80, color: color, isHeart: isHeart, isStar: isStar),
+        icon: icon,
       );
     } else {
       if (_currentMode == MapFilterMode.reference) {
@@ -324,12 +334,16 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       } else {
         color = const Color(0xFFFFC700);
       }
+      final cacheKey = '${cluster.count}_${color.value}';
+      if (!_clusterIcons.containsKey(cacheKey)) {
+        _clusterIcons[cacheKey] = await _getMarkerBitmap(100, text: cluster.count.toString(), color: color);
+      }
       return Marker(
         markerId: markerId,
         position: cluster.location,
         infoWindow: infoWindow,
         onTap: () => _onMarkerTap(cluster),
-        icon: await _getMarkerBitmap(100, text: cluster.count.toString(), color: color),
+        icon: _clusterIcons[cacheKey]!,
       );
     }
   }

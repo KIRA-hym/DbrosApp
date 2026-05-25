@@ -3,10 +3,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
+import '../services/remote_config_service.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
@@ -24,21 +27,13 @@ import 'call_point_map_page.dart';
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  /// DB 일지 저장·삭제 후 홈 요약·최근일지 갱신 (탭 전환 없이도 반영)
-  static void requestRefresh() {
-    _HomePageState._active?.requestLoadHomeData();
-  }
-
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   static _HomePageState? _active;
-  int _todayCount = 0;
-  int _todayNet = 0;
-  int _todayExpenses = 0;
-  bool _isLoading = true;
+  bool _isLoading = false;
   Timer? _workDateTick;
   /// 홈 상단·DB 집계: 유효 근무일 `yyyy-MM-dd` (근무일 `work_date` 기준)
   String _homeCalendarYmd = '';
@@ -55,16 +50,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    _active = this;
     WidgetsBinding.instance.addObserver(this);
     _workDateTick = Timer.periodic(const Duration(minutes: 1), (_) => _rollWorkDateIfNeeded());
-    _loadHomeData();
+    
+    // 초기 데이터 수동 요청 대신 Provider가 이미 데이터 갱신을 하도록 main에서 처리함.
+    // Provider 초기 로딩 기다림
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restartRecentLogTicker();
+    });
     _loadYoutubeBanner();
   }
 
   @override
   void dispose() {
-    if (_active == this) _active = null;
     WidgetsBinding.instance.removeObserver(this);
     _workDateTick?.cancel();
     _recentLogTicker?.cancel();
@@ -74,21 +72,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _loadHomeData();
+      TodayStatsProvider.instance.refresh();
       _loadYoutubeBanner();
       _chartsKey.currentState?.reload();
     }
   }
 
-  void requestLoadHomeData() {
-    if (mounted) _loadHomeData();
-    _chartsKey.currentState?.reload();
-  }
-
   void _rollWorkDateIfNeeded() {
     final cal = WorkDateUtils.effectiveWorkDateYmd();
-    if (cal != _homeCalendarYmd) {
-      _loadHomeData();
+    if (cal != TodayStatsProvider.instance.currentWorkDateYmd) {
+      TodayStatsProvider.instance.refresh();
     }
   }
 
@@ -104,30 +97,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
   }
 
-  Future<void> _loadHomeData() async {
-    final String cal = WorkDateUtils.effectiveWorkDateYmd();
-    Map<String, dynamic> stats = {'count': 0, 'net': 0, 'expenses': 0};
-    List<Map<String, dynamic>> recent = [];
-
-    try {
-      stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(cal);
-      recent = await DriveLogDatabase.instance.getRecentLogs(limit: 5);
-    } catch (e) {
-      debugPrint('Web/Mock fallback DB error: $e');
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _homeCalendarYmd = cal;
-      _todayCount = (stats['count'] as int?) ?? 0;
-      _todayNet = (stats['net'] as int?) ?? 0;
-      _todayExpenses = (stats['expenses'] as int?) ?? 0;
-      _recentLogs = recent;
-      _recentLogIndex = 0;
-      _isLoading = false;
-    });
-    _restartRecentLogTicker();
-  }
+  // _loadHomeData() is now replaced by TodayStatsProvider.refresh()
 
   Future<void> _loadYoutubeBanner() async {
     final raw = kHomeYoutubeVideoId.trim();
@@ -208,6 +178,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final statsProvider = Provider.of<TodayStatsProvider>(context);
+    final String cal = statsProvider.currentWorkDateYmd;
+    final int displayNet = statsProvider.todayNet - statsProvider.todayExpenses;
+    
+    // Ensure ticker updates if recentLogs changes
+    if (_recentLogs.length != statsProvider.recentLogs.length) {
+      _recentLogs = statsProvider.recentLogs;
+      _restartRecentLogTicker();
+    } else {
+      _recentLogs = statsProvider.recentLogs;
+    }
+
     final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
     final padding = ResponsiveLayout.horizontalPadding(context);
     final titleFontSize = isExpanded ? 20.0 : 18.0;
@@ -269,89 +251,125 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         centerTitle: false,
       ),
-      body: ResponsiveBody(
-        fullWidthWhenExpanded: true,
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-            : Padding(
-                padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (isExpanded) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: Column(
+      body: Column(
+        children: [
+          _buildNoticeBanner(),
+          Expanded(
+            child: ResponsiveBody(
+              fullWidthWhenExpanded: true,
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                  : Padding(
+                      padding: EdgeInsets.fromLTRB(padding, 8, padding, 8),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          if (isExpanded) {
+                            return Row(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
-                                  flex: 11,
-                                  child: _buildTodaySummaryCard(),
+                                  flex: 1,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        flex: 11,
+                                        child: _buildTodaySummaryCard(),
+                                      ),
+                                      SizedBox(height: sectionGap),
+                                      Expanded(
+                                        flex: 13,
+                                        child: HomeDailyChartsPanel(key: _chartsKey),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                SizedBox(height: sectionGap),
+                                SizedBox(width: sectionGap),
                                 Expanded(
-                                  flex: 13,
-                                  child: HomeDailyChartsPanel(key: _chartsKey),
+                                  flex: 1,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        flex: 10,
+                                        child: _buildQuickActions(),
+                                      ),
+                                      SizedBox(height: sectionGap),
+                                      Expanded(
+                                        flex: 10,
+                                        child: _buildRecentLogSection(),
+                                      ),
+                                      SizedBox(height: sectionGap),
+                                      Expanded(
+                                        flex: 6,
+                                        child: _buildYoutubeSection(),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ],
-                            ),
-                          ),
-                          SizedBox(width: sectionGap),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  flex: 10,
-                                  child: _buildQuickActions(),
-                                ),
-                                SizedBox(height: sectionGap),
-                                Expanded(
-                                  flex: 10,
-                                  child: _buildRecentLogSection(),
-                                ),
-                                SizedBox(height: sectionGap),
-                                Expanded(
-                                  flex: 6,
-                                  child: _buildYoutubeSection(),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    }
+                            );
+                          }
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          flex: 34,
-                          child: _buildTodaySummaryCard(),
-                        ),
-                        SizedBox(height: sectionGap),
-                        Expanded(
-                          flex: 24,
-                                  child: _buildQuickActions(),
-                        ),
-                        SizedBox(height: sectionGap),
-                        Expanded(
-                          flex: 20,
-                          child: _buildRecentLogSection(),
-                        ),
-                        SizedBox(height: sectionGap),
-                        Expanded(
-                          flex: 14,
-                          child: _buildYoutubeSection(),
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 34,
+                                child: _buildTodaySummaryCard(),
+                              ),
+                              SizedBox(height: sectionGap),
+                              Expanded(
+                                flex: 24,
+                                child: _buildQuickActions(),
+                              ),
+                              SizedBox(height: sectionGap),
+                              Expanded(
+                                flex: 20,
+                                child: _buildRecentLogSection(),
+                              ),
+                              SizedBox(height: sectionGap),
+                              Expanded(
+                                flex: 14,
+                                child: _buildYoutubeSection(),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoticeBanner() {
+    final noticeMsg = RemoteConfigService().appNoticeMessage;
+    if (noticeMsg.trim().isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFF5252).withValues(alpha: 0.15),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.campaign, color: Color(0xFFFF5252), size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              noticeMsg,
+              style: const TextStyle(
+                color: Color(0xFFFF5252),
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
               ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -490,6 +508,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Widget _buildTodaySummaryCard() {
+    final statsProvider = Provider.of<TodayStatsProvider>(context);
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final outerPad = isTablet ? 24.0 : 16.0;
 
@@ -532,7 +551,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             context: context,
                             metrics: m,
                             title: '오늘 순익',
-                            value: NumberFormat('#,###').format(_todayNet),
+                            value: NumberFormat('#,###').format(statsProvider.todayNet),
                             valueColor: const Color(0xFFFFC700),
                             icon: Icons.account_balance_wallet,
                           ),
@@ -561,7 +580,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             context: context,
                             icon: Icons.local_taxi,
                             label: '운행 건수',
-                            value: '$_todayCount건',
+                            value: '${statsProvider.todayLogs}건',
                             valueColor: const Color(0xFFFFC700),
                             metrics: m,
                           ),
@@ -572,7 +591,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             context: context,
                             icon: Icons.payments_outlined,
                             label: '오늘 지출',
-                            value: NumberFormat('#,###').format(_todayExpenses),
+                            value: NumberFormat('#,###').format(statsProvider.todayExpenses),
                             valueColor: const Color(0xFFFF5252),
                             metrics: m,
                           ),
@@ -768,7 +787,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           builder: (_) => const SingleCallCardForm(),
                         ),
                       );
-                      _loadHomeData();
+                      TodayStatsProvider.instance.refresh();
                     },
                   ),
                 ),
@@ -786,7 +805,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           builder: (_) => const MultiCallCardForm(),
                         ),
                       );
-                      _loadHomeData();
+                      TodayStatsProvider.instance.refresh();
                     },
                   ),
                 ),

@@ -76,3 +76,7 @@ tools/ocr_parse_log.txt
 tools/ocr_input.json
 tools/ocr_diag_*.json
 tools/ocr_diag_log.txt
+
+# Firebase Functions
+functions/node_modules/
+functions/.runtimeconfig.json

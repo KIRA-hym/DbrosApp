@@ -79,7 +79,7 @@
             android:name=".TodaySummaryRefreshReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.dbros_app.REFRESH_TODAY_SUMMARY" />
+                <action android:name="com.dbros.drive.REFRESH_TODAY_SUMMARY" />
             </intent-filter>
         </receiver>
         <receiver

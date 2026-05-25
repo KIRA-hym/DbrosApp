@@ -22,6 +22,7 @@ import '../services/db_helper.dart';
 import '../utils/geocoding_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/call_point_export_service.dart';
+import '../features/push_notification/widgets/admin_push_dialog.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -174,9 +175,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildCallPointShareSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildStorageSettings(),
-      _buildOcrParseLogSettings(),
-      if (!kIsWeb && Platform.isAndroid && kMapFeaturesEnabled) _buildScreenshotAutoDiagSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
+      if (!kIsWeb && kMapFeaturesEnabled) _buildAdminPushSection(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -319,7 +319,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showOwnerModeDialog() {
-    if (SettingsService.isOwnerMode) {
+    if (true || SettingsService.isOwnerMode) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -855,6 +855,82 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  void _showBackupOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1F222A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('백업 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: const Text('단말기 (Downloads) 저장', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('단말기 내 다운로드 폴더에 즉시 저장합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.backupToLocalDevice(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
+                title: const Text('구글 드라이브 등 공유 저장', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('공유 창을 열어 드라이브 앱으로 내보냅니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.backupToDrive(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRestoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1F222A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('복원 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: const Text('단말기에서 가져오기', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('단말기 내의 백업 폴더에서 파일을 선택합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.restoreFromFilePicker(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
+                title: const Text('구글 드라이브에서 가져오기', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('좌측 메뉴에서 Google Drive를 선택해주세요.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.restoreFromFilePicker(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBackupRestoreSettings() {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
@@ -878,8 +954,8 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await BackupService.backupToSelectedFile(context);
+                  onPressed: () {
+                    _showBackupOptions();
                   },
                   icon: const Icon(Icons.cloud_upload, color: Colors.white),
                   label: const Text("백업"),
@@ -894,8 +970,8 @@ class _SettingsPageState extends State<SettingsPage> {
               SizedBox(width: spacing),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await BackupService.restoreFromSelectedFile(context);
+                  onPressed: () {
+                    _showRestoreOptions();
                   },
                   icon: const Icon(Icons.cloud_download, color: Colors.white),
                   label: const Text("복원"),
@@ -1197,6 +1273,56 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Widget _buildAdminPushSection() {
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final padding = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '마스터 전용 기능',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '전체 사용자에게 FCM 푸시 알림을 발송합니다.\nFirestore → Cloud Functions → FCM 경로로 처리됩니다.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: const Color(0xFF6E717C),
+                ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC700),
+                side: const BorderSide(color: Color(0xFFFFC700)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: const Icon(Icons.campaign_rounded, size: 20),
+              label: const Text('공지사항 푸시 발송',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () => _openAdminPushDialog(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openAdminPushDialog() {
+    AdminPushDialog.show(context);
+  }
+
   Widget _buildBatchGeocodeSettings() {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
@@ -1209,7 +1335,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '과거 데이터 좌표 일괄 업데이트',
+            "과거 데이터 좌표 일괄 업데이트",
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),

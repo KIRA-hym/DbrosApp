@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 
@@ -637,6 +637,19 @@ class DriveLogDatabase {
   }
 
   /// 운행일(`drive_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
+  Future<int> getTotalLogCount() async {
+    final db = await database;
+    try {
+      final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM drive_logs'));
+      return count ?? 0;
+    } catch (e) {
+      if (kDebugMode) {
+        print('getTotalLogCount error: $e');
+      }
+      return 0;
+    }
+  }
+
   Future<Map<String, dynamic>> getTodayStats(String driveDateYmd) async {
     if (kIsWeb) {
       final logs = _mockLogsForWeb(driveDateYmd: driveDateYmd);

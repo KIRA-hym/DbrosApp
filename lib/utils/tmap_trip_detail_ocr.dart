@@ -1,6 +1,7 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
-
+import '../services/remote_config_service.dart';
+import '../services/ocr_error_logger.dart';
 import 'drive_time_format.dart';
 
 /// T맵 대리 「운행 상세 정보」 파싱 결과
@@ -105,6 +106,14 @@ class TmapTripDetailOcr {
         endAddress.isEmpty) {
       return null;
     }
+
+      if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0 || driveDateYmd.isEmpty) {
+        OcrErrorLoggerService.instance.logError(
+          platform: 'tmap',
+          rawText: fullText,
+          errorReason: 'Missing critical fields. start: $startAddress, end: $endAddress, fare: $grossFare, date: $driveDateYmd',
+        );
+      }
 
     return TmapTripDetailParsed(
       driveDateYmd: driveDateYmd,
@@ -276,7 +285,7 @@ class TmapTripDetailOcr {
     if (candidates.isEmpty) return ('', '', '');
 
     final RegExp addressStartPattern = RegExp(
-      r'^[o0•*·\-\s]*(?:서울|경기|인천|강원|충북|충남|전북|전남|경북|경남|세종|제주|부산|대구|광주|대전|울산|[가-힣]+[시도군구])',
+      RemoteConfigService().tmapAddressPattern,
     );
 
     final List<List<String>> locations = [];
@@ -285,6 +294,21 @@ class TmapTripDetailOcr {
       if (cleaned.isEmpty) continue;
 
       if (addressStartPattern.hasMatch(line)) {
+        bool isDuplicate = false;
+        if (locations.isNotEmpty) {
+          final lastPrimary = locations.last.first;
+          final s1 = cleaned.replaceAll(RegExp(r'\s'), '');
+          final s2 = lastPrimary.replaceAll(RegExp(r'\s'), '');
+          // 이전 위치의 첫 줄과 문자열이 포함 관계인지 확인 (중복 스캔 방지)
+          if (s1.contains(s2) || s2.contains(s1)) {
+            isDuplicate = true;
+            if (s1.length > s2.length) {
+              locations.last[0] = cleaned; // 더 긴(정확한) 문자열로 교체
+            }
+          }
+        }
+        if (isDuplicate) continue;
+
         locations.add([cleaned]);
       } else {
         if (locations.isNotEmpty) {

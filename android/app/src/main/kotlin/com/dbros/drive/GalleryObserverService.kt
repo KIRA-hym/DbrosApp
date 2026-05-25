@@ -1,4 +1,4 @@
-package com.example.dbros_app
+package com.dbros.drive
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -14,7 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 
 class GalleryObserverService : Service() {
     companion object {
-        const val ACTION_RESTORE_FOREGROUND = "com.example.dbros_app.RESTORE_GALLERY_FG"
+        const val ACTION_RESTORE_FOREGROUND = "com.dbros.drive.RESTORE_GALLERY_FG"
 
         /** v2: IMPORTANCE_MIN — 오늘 요약 알림보다 아래에 두기 위함 */
         private const val CHANNEL_ID = "dbros_gallery_observer_channel_v2"

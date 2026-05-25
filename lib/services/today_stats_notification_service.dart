@@ -23,8 +23,8 @@ class TodayStatsNotificationService {
   static const MethodChannel _androidChannel = MethodChannel('dbros.app/today_summary');
 
   /// [TodaySummaryRefreshReceiver] 와 동일 (오버레이 엔진에서도 알림 갱신)
-  static const String _refreshBroadcastAction = 'com.example.dbros_app.REFRESH_TODAY_SUMMARY';
-  static const String _applicationId = 'com.example.dbros_app';
+  static const String _refreshBroadcastAction = 'com.dbros.drive.REFRESH_TODAY_SUMMARY';
+  static const String _applicationId = 'com.dbros.drive';
 
   bool _initialized = false;
 

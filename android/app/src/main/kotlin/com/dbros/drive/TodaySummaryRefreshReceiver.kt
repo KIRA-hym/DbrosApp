@@ -1,4 +1,4 @@
-package com.example.dbros_app
+package com.dbros.drive
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -18,7 +18,7 @@ class TodaySummaryRefreshReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION = "com.example.dbros_app.REFRESH_TODAY_SUMMARY"
+        const val ACTION = "com.dbros.drive.REFRESH_TODAY_SUMMARY"
         const val EXTRA_INCOME = "income"
         const val EXTRA_EXPENSE = "expense"
         const val EXTRA_WORK_DATE = "workDate"

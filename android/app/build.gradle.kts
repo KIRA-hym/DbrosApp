@@ -3,7 +3,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Properties
 
-// Maps SDK 키: local.properties 를 읽은 뒤 secret.properties 가 있으면 MAPS_API_KEY 를 덮어씀(우선)
+// Maps SDK ?? local.properties 瑜??쎌? ??secret.properties 媛 ?덉쑝硫?MAPS_API_KEY 瑜???뼱?(?곗꽑)
 val mapsApiKey: String = run {
     val p = Properties()
     rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { p.load(it) }
@@ -16,10 +16,11 @@ plugins {
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
-// PC·CI 공통 release 서명 (android/key.properties + keys/dbros-release.jks)
-// ⚠️ key.properties 가 없으면 릴리즈 빌드가 즉시 실패합니다 (디버그 키로 대체하지 않음)
+// PC쨌CI 怨듯넻 release ?쒕챸 (android/key.properties + keys/dbros-release.jks)
+// ?좑툘 key.properties 媛 ?놁쑝硫?由대━利?鍮뚮뱶媛 利됱떆 ?ㅽ뙣?⑸땲??(?붾쾭洹??ㅻ줈 ?泥댄븯吏 ?딆쓬)
 val keystorePropertiesFile = rootProject.file("key.properties")
 val keystoreProperties = Properties().apply {
     if (keystorePropertiesFile.exists()) {
@@ -38,14 +39,14 @@ fun monotonicVersionCode(): Int {
 }
 
 android {
-    namespace = "com.example.dbros_app"
+    namespace = "com.dbros.drive"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // flutter_local_notifications 등이 요구 (java.time 등 최신 API 백포트)
+        // flutter_local_notifications ?깆씠 ?붽뎄 (java.time ??理쒖떊 API 諛깊룷??
         isCoreLibraryDesugaringEnabled = true
     }
 
@@ -55,7 +56,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.dbros_app"
+        applicationId = "com.dbros.drive"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -71,10 +72,10 @@ android {
                 ?: error(
                     "\n\n" +
                     "===================================================\n" +
-                    "릴리즈 서명 키가 없습니다!\n" +
-                    "android/key.properties 와 android/keys/dbros-release.jks\n" +
-                    "파일을 회사 PC에서 복사해 이 PC의 동일한 위치에 붙여넣고\n" +
-                    "다시 빌드하세요.\n" +
+                    "由대━利??쒕챸 ?ㅺ? ?놁뒿?덈떎!\n" +
+                    "android/key.properties ? android/keys/dbros-release.jks\n" +
+                    "?뚯씪???뚯궗 PC?먯꽌 蹂듭궗????PC???숈씪???꾩튂??遺숈뿬?ｊ퀬\n" +
+                    "?ㅼ떆 鍮뚮뱶?섏꽭??\n" +
                     "===================================================\n"
                 )
             keyAlias = keystoreProperties.getProperty("keyAlias")
@@ -86,7 +87,7 @@ android {
 
     buildTypes {
         getByName("release") {
-            // 항상 release 서명 설정 사용 (키 없으면 위 signingConfigs 에서 빌드 중단)
+            // ??긽 release ?쒕챸 ?ㅼ젙 ?ъ슜 (???놁쑝硫???signingConfigs ?먯꽌 鍮뚮뱶 以묐떒)
             signingConfig = signingConfigs.getByName("release")
 
             isMinifyEnabled = true   // minifyEnabled -> isMinifyEnabled
@@ -110,7 +111,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition-korean:16.0.1")
 }
 
-// release APK 복사: 날짜 + pubspec 버전 (bump 는 tools/build_release_apk.ps1 로 선행)
+// release APK 蹂듭궗: ?좎쭨 + pubspec 踰꾩쟾 (bump ??tools/build_release_apk.ps1 濡??좏뻾)
 tasks.matching { it.name == "assembleRelease" }.configureEach {
     doLast {
         val date = LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE) // yyyyMMdd

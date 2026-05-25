@@ -1,6 +1,13 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
+import 'services/remote_config_service.dart';
+import 'features/push_notification/services/fcm_service.dart';
+import 'providers/today_stats_provider.dart';
+import 'dart:io' show Platform;
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -28,6 +35,14 @@ import 'utils/work_date_utils.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  try {
+    await Firebase.initializeApp();
+    await RemoteConfigService().initialize();
+    await FcmService.instance.init();
+  } catch (e) {
+    debugPrint('Firebase init error (Web preview?): $e');
+  }
+  
   // 폴드 펼침·태블릿 가로 모드 포함 (Z Fold 6 등)
   await SystemChrome.setPreferredOrientations(const [
     DeviceOrientation.portraitUp,
@@ -39,7 +54,7 @@ void main() async {
 
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
-    HomePage.requestRefresh();
+    TodayStatsProvider.instance.refresh();
   };
   ExpenseRepository.afterExpensesChanged = () {
     ExpenseHomePage.requestRefresh();
@@ -53,7 +68,12 @@ void main() async {
     unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
   }
 
-  runApp(const DbrosApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => TodayStatsProvider.instance..refresh(),
+      child: const DbrosApp(),
+    ),
+  );
 
   Future.microtask(() async {
     try {
@@ -172,6 +192,8 @@ class DbrosApp extends StatelessWidget {
                     appBarTheme: AppBarTheme(
                       backgroundColor: const Color(0xFF1F222A),
                       elevation: 0,
+                      scrolledUnderElevation: 0,
+                      surfaceTintColor: Colors.transparent,
                       centerTitle: true,
                       titleTextStyle: TextStyle(
                         fontFamily: 'GmarketSans',
@@ -305,7 +327,11 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.detached) {
+      if (!kIsWeb && Platform.isAndroid) {
+        FlutterOverlayWindow.closeOverlay().catchError((_) => false);
+      }
+    } else if (state == AppLifecycleState.resumed) {
       final next = WorkDateUtils.effectiveWorkDateYmd();
       if (next != _lastNotifiedWorkDateYmd) {
         _lastNotifiedWorkDateYmd = next;
@@ -343,7 +369,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       selectTab: (index) {
         if (index >= 0 && index < _pages.length) {
           setState(() => _selectedIndex = index);
-          if (index == 0) HomePage.requestRefresh();
+          if (index == 0) TodayStatsProvider.instance.refresh();
         }
       },
       child: PopScope(
@@ -352,7 +378,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
           if (didPop) return;
           if (_selectedIndex != 0) {
             setState(() => _selectedIndex = 0);
-            HomePage.requestRefresh();
+            TodayStatsProvider.instance.refresh();
           } else {
             SystemNavigator.pop();
           }
@@ -398,7 +424,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
               currentIndex: _selectedIndex,
               onTap: (index) {
                 setState(() => _selectedIndex = index);
-                if (index == 0) HomePage.requestRefresh();
+                if (index == 0) TodayStatsProvider.instance.refresh();
               },
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: '홈'),

@@ -1,5 +1,7 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import '../services/ocr_error_logger.dart';
 
+import '../services/remote_config_service.dart';
 import 'drive_time_format.dart';
 import 'logi_fare_parse.dart';
 import 'ocr_address_normalize.dart';
@@ -456,7 +458,7 @@ class KakaoCallCardOcr {
 
     res = res.replaceAllMapped(RegExp(r'([가-힣\s])나(\d)'), (m) => '${m.group(1)}4${m.group(2)}');
 
-    res = res.replaceAll(RegExp(r'^(출발지|도착지|위치|경유지|출발|도착|추천가)\s*'), '').trim();
+    res = res.replaceAll(RegExp(RemoteConfigService().kakaoAddressPattern), '').trim();
     if (res.contains('상세:')) {
       res = res.split('상세:').last.trim();
     }
@@ -888,13 +890,24 @@ class KakaoCallCardOcr {
     cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\s*Q$'), '');
     cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'^Q\s*'), '');
     cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final finalStart = startBuf.toString().trim();
+    final finalEnd = endBuf.toString().trim();
+    
+    final safeDate = parsedDate ?? '';
+    if (finalStart.isEmpty || finalEnd.isEmpty || safeDate.isEmpty || (parsedIncome ?? 0) == 0) {
+      OcrErrorLoggerService.instance.logError(
+        platform: 'kakao',
+        rawText: fullText,
+        errorReason: 'Missing critical fields. start: $finalStart, end: $finalEnd, fare: $parsedIncome, date: $safeDate',
+      );
+    }
 
     return KakaoScreenParsed(
       driveDateYmd: parsedDate,
       driveTimeHm: parsedTime,
       waypoint: cleanedWaypoint,
-      startLocation: startBuf.toString().trim(),
-      endLocation: endBuf.toString().trim(),
+      startLocation: finalStart,
+      endLocation: finalEnd,
       grossFare: parsedIncome,
     );
   }

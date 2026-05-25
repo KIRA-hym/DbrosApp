@@ -147,8 +147,8 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    await BackupService.backupToSelectedFile(context);
+                  onPressed: () {
+                    _showBackupOptions();
                   },
                   icon: const Icon(Icons.cloud_upload, color: Colors.white),
                   label: const Text('백업'),
@@ -163,9 +163,8 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
               SizedBox(width: spacing),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async {
-                    final ok = await BackupService.restoreFromSelectedFile(context);
-                    if (ok && mounted) await _loadCategories();
+                  onPressed: () {
+                    _showRestoreOptions();
                   },
                   icon: const Icon(Icons.cloud_download, color: Colors.white),
                   label: const Text('복원'),
@@ -185,6 +184,84 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showBackupOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1F222A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('백업 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: const Text('단말기 (Downloads) 저장', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('단말기 내 다운로드 폴더에 즉시 저장합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.backupToLocalDevice(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
+                title: const Text('구글 드라이브 등 공유 저장', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('공유 창을 열어 드라이브 앱으로 내보냅니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  BackupService.backupToDrive(context);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRestoreOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1F222A),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('복원 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: const Text('단말기에서 가져오기', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('단말기 내의 백업 폴더에서 파일을 선택합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final ok = await BackupService.restoreFromFilePicker(context);
+                  if (ok && mounted) await _loadCategories();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
+                title: const Text('구글 드라이브에서 가져오기', style: TextStyle(color: Colors.white)),
+                subtitle: const Text('좌측 메뉴에서 Google Drive를 선택해주세요.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final ok = await BackupService.restoreFromFilePicker(context);
+                  if (ok && mounted) await _loadCategories();
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -1,5 +1,7 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-
+import '../services/ocr_error_logger.dart';
+import 'package:intl/intl.dart';
+import '../services/remote_config_service.dart';
 import 'drive_time_format.dart';
 import 'logi_fare_parse.dart';
 
@@ -30,6 +32,14 @@ class LogiColmannerOcr {
 
     final locations = _parseLogiLocationsMerged(lines);
 
+    if (locations.start.isEmpty || locations.end.isEmpty || time.isEmpty || fare == 0) {
+      OcrErrorLoggerService.instance.logError(
+        platform: 'logi',
+        rawText: fullText,
+        errorReason: 'Missing fields. start: ${locations.start}, end: ${locations.end}, fare: $fare, time: $time',
+      );
+    }
+
     return PartnerCallParsed(
       driveTimeHm: time,
       grossFare: fare,
@@ -53,6 +63,14 @@ class LogiColmannerOcr {
     waypoint = waypoint.replaceAllMapped(RegExp(r'([그기])(\d{2,})'), (m) => '7${m.group(2)}');
     final start = _cleanAddr(loc.start, isLogi: false, isStart: true);
     final end = _cleanAddr(loc.end, isLogi: false, isStart: false);
+
+    if (start.isEmpty || end.isEmpty || time.isEmpty || fare == 0) {
+      OcrErrorLoggerService.instance.logError(
+        platform: 'colmanner',
+        rawText: fullText,
+        errorReason: 'Missing fields. start: $start, end: $end, fare: $fare, time: $time',
+      );
+    }
 
     return PartnerCallParsed(
       driveTimeHm: time,
@@ -438,7 +456,7 @@ class LogiColmannerOcr {
   static String? _leadingMetroProvinceToken(String line) {
     final t = line.trim();
     final m = RegExp(
-      r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)(?=\s)',
+      r'^${RemoteConfigService().regionPattern}(?=\s)',
     ).firstMatch(t);
     return m?.group(1);
   }
@@ -447,7 +465,7 @@ class LogiColmannerOcr {
   static String? _provincialCityKey(String line) {
     final t = line.trim();
     final m = RegExp(
-      r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+([가-힣\d]+(?:시|군|구|도)?)',
+      r'^${RemoteConfigService().regionPattern}\s+([가-힣\d]+(?:시|군|구|도)?)',
     ).firstMatch(t);
     if (m == null) return null;
     return '${m.group(1)}:${m.group(2)}';
@@ -490,7 +508,7 @@ class LogiColmannerOcr {
   static String _injectSpaceBeforeProvinceToken(String s) {
     return s.replaceAllMapped(
       RegExp(
-        r'([가-힣0-9\)\]\}\.])(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)(?=\s)',
+        r'([가-힣0-9\)\]\}\.])${RemoteConfigService().regionPattern}(?=\s)',
       ),
       (m) => '${m[1]} ${m[2]}',
     );
@@ -546,7 +564,7 @@ class LogiColmannerOcr {
     if (splitIdx == -1) {
       // 패턴: 출발지의 끝부분(동/읍/면/리/로/길/번지/층/호/지하 또는 번지숫자) 뒤에 공백이 있고, 도착지의 시작부분(광역지명)이 오는 경계 탐색
       final boundaryRx = RegExp(
-        r'([가-힣\d]+(?:동|읍|면|리|로|길|번지|층|호|지하|\d+(?:-\d+)?)\s*(?:[A-Za-z\d@ⓞ]+)?(?:스타)?)\s+(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s',
+        r'([가-힣\d]+(?:동|읍|면|리|로|길|번지|층|호|지하|\d+(?:-\d+)?)\s*(?:[A-Za-z\d@ⓞ]+)?(?:스타)?)\s+${RemoteConfigService().regionPattern}\s',
       );
       final boundaryMatch = boundaryRx.firstMatch(joined);
 
@@ -555,7 +573,7 @@ class LogiColmannerOcr {
         splitIdx = boundaryMatch.end - boundaryMatch.group(2)!.length - 1;
       } else {
         // 3단계 폴백: 기존 광역지명 2번째 출현 위치 탐색
-        final regionRx = RegExp(r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)');
+        final regionRx = RegExp(r'${RemoteConfigService().regionPattern}');
         final matches = regionRx.allMatches(joined).toList();
         if (matches.length >= 2) {
           for (var i = 1; i < matches.length; i++) {
@@ -641,7 +659,7 @@ class LogiColmannerOcr {
     // 인천송도동+푸르지오… → 인천 송도동 푸르지오…
     res = res.replaceAllMapped(
       RegExp(
-        r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)([가-힣])',
+        r'^${RemoteConfigService().regionPattern}([가-힣])',
       ),
       (m) => '${m.group(1)} ${m.group(2)}',
     );
@@ -756,7 +774,7 @@ class LogiColmannerOcr {
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       final n = _normalizeKey(line);
-      if (!inBlock && (n.startsWith('출발지') || RegExp(r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)').hasMatch(line))) {
+      if (!inBlock && (n.startsWith('출발지') || RegExp(r'^${RemoteConfigService().regionPattern}').hasMatch(line))) {
         inBlock = true;
       }
       if (!inBlock) continue;
@@ -813,7 +831,7 @@ class LogiColmannerOcr {
         } else if ((n.startsWith('지사명') || n.startsWith('고객명') || n.startsWith('위치')) && i + 1 < lines.length) {
           inBlock = true;
           continue;
-        } else if (RegExp(r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)').hasMatch(line)) {
+        } else if (RegExp(r'^${RemoteConfigService().regionPattern}').hasMatch(line)) {
           inBlock = true;
         }
       }
@@ -833,7 +851,7 @@ class LogiColmannerOcr {
       if (n.startsWith('지사명') || n.startsWith('고객명')) continue;
 
       final startsWithMetro = RegExp(
-        r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
+        r'^${RemoteConfigService().regionPattern}',
       ).hasMatch(line);
 
       if (n.startsWith('출발지') || n.startsWith('도착지') || n.startsWith('위치') || startsWithMetro) {
@@ -856,7 +874,7 @@ class LogiColmannerOcr {
     final e = end.trim();
     final probe = ' $s';
     final re = RegExp(
-      r'\s(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)\s+',
+      r'\s${RemoteConfigService().regionPattern}\s+',
     );
     final matches = re.allMatches(probe).toList();
     if (matches.length < 2) return (start: s, end: e);
@@ -975,7 +993,7 @@ class LogiColmannerOcr {
 
       final n = _normalizeKey(t);
       final startsWithMetro = RegExp(
-        r'^(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
+        r'^${RemoteConfigService().regionPattern}',
       ).hasMatch(t);
 
       if (n.startsWith('출발지') || n.startsWith('도착지') || n.startsWith('위치') || startsWithMetro) {
@@ -1012,7 +1030,7 @@ class LogiColmannerOcr {
       if (RegExp(r'^0\d{1,2}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
 
       final hasMetro = _leadingMetroProvinceToken(t) != null ||
-          RegExp(r'(?:^|\s)(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)').hasMatch(t);
+          RegExp(r'(?:^|\s)${RemoteConfigService().regionPattern}').hasMatch(t);
       final isSangse = t.contains('상세:');
 
       if (hasMetro || isSangse) {
@@ -1440,7 +1458,7 @@ class LogiColmannerOcr {
 
   static bool _looksLikeDestinationLead(String line) {
     if (RegExp(
-      r'^(서울|경기|인천|대전|대구|부산|광주|울산|세종|제주|강원|충북|충남|전북|전남|경북|경남)',
+      r'^${RemoteConfigService().regionPattern}',
     ).hasMatch(line)) {
       return true;
     }

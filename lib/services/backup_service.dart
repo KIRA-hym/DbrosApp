@@ -245,7 +245,35 @@ class BackupService {
     await _restoreExpenseIfPresent(payload);
   }
 
-  static Future<bool> backupToSelectedFile(BuildContext context) async {
+  static Future<bool> backupToLocalDevice(BuildContext context) async {
+    File? backupFile;
+    try {
+      backupFile = await _writeTempBackupZipFile();
+      
+      final now = DateTime.now();
+      final dateStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+      final downloadPath = '/storage/emulated/0/Download';
+      final destFile = File('$downloadPath/dbros_backup_$dateStr.zip');
+      
+      await backupFile.copy(destFile.path);
+      
+      if (!context.mounted) return true;
+      _maybeShowSnackBar(context, '단말기 Downloads 폴더에 백업되었습니다.\n($destFile)');
+      return true;
+    } catch (e) {
+      if (!context.mounted) return false;
+      _maybeShowSnackBar(context, '단말기 백업 중 오류: $e');
+      return false;
+    } finally {
+      if (backupFile != null && await backupFile.exists()) {
+        try {
+          await backupFile.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
+  static Future<bool> backupToDrive(BuildContext context) async {
     File? backupFile;
     try {
       backupFile = await _writeTempBackupZipFile();
@@ -256,14 +284,13 @@ class BackupService {
       );
 
       if (!context.mounted) return true;
-      _maybeShowSnackBar(context, '백업 파일 공유를 열었습니다.');
+      _maybeShowSnackBar(context, '백업 파일을 공유/드라이브에 저장할 수 있습니다.');
       return true;
     } catch (e) {
       if (!context.mounted) return false;
-      _maybeShowSnackBar(context, '파일 백업 중 오류: $e');
+      _maybeShowSnackBar(context, '드라이브 백업 중 오류: $e');
       return false;
     } finally {
-      // Delay the deletion slightly to allow the OS and target app to finish reading from temp file
       Future.delayed(const Duration(seconds: 15), () async {
         try {
           if (backupFile != null && await backupFile.exists()) {
@@ -274,7 +301,7 @@ class BackupService {
     }
   }
 
-  static Future<bool> restoreFromSelectedFile(BuildContext context) async {
+  static Future<bool> restoreFromFilePicker(BuildContext context) async {
     try {
       final pickedPath = await FlutterFileDialog.pickFile(
         params: const OpenFileDialogParams(
