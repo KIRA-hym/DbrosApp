@@ -66,6 +66,7 @@ class _AdminPushDialogState extends State<AdminPushDialog> {
         labelStyle: const TextStyle(color: Color(0xFF9FA3AE)),
         hintText: hint,
         hintStyle: const TextStyle(color: Color(0xFF5C6070)),
+        counterStyle: const TextStyle(color: Color(0xFF5C6070)),
         filled: true,
         fillColor: const Color(0xFF121418),
         enabledBorder: OutlineInputBorder(
@@ -122,7 +123,6 @@ class _AdminPushDialogState extends State<AdminPushDialog> {
               style: const TextStyle(color: Colors.white),
               decoration: _inputDeco('제목', '알림 제목을 입력하세요'),
               maxLength: 60,
-              counterStyle: const TextStyle(color: Color(0xFF5C6070)),
               textInputAction: TextInputAction.next,
               enabled: !_sending,
               validator: (v) {
@@ -137,7 +137,6 @@ class _AdminPushDialogState extends State<AdminPushDialog> {
               decoration: _inputDeco('내용', '공지 내용을 입력하세요'),
               maxLines: 4,
               maxLength: 300,
-              counterStyle: const TextStyle(color: Color(0xFF5C6070)),
               enabled: !_sending,
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return '내용을 입력해 주세요.';

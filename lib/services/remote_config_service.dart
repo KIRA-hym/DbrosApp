@@ -74,7 +74,12 @@ class RemoteConfigService {
 
   String get appNoticeMessage {
     final rc = _remoteConfig;
-    if (rc == null) return '';
+    if (rc == null) {
+      if (kIsWeb) {
+        return '[테스트 공지] 웹 프리뷰 환경입니다. 실제 앱에서는 파이어베이스 Remote Config에서 설정한 내용이 여기에 표시됩니다.';
+      }
+      return '';
+    }
     return rc.getString('app_notice_message');
   }
 }

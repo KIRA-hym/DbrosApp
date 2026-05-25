@@ -176,7 +176,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildStorageSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
-      if (!kIsWeb && kMapFeaturesEnabled) _buildAdminPushSection(),
+      _buildAdminPushSection(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
