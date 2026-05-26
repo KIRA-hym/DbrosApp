@@ -4,21 +4,41 @@ $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 Set-Location $root
 
-Write-Host ">>> Bump pubspec version (tool/bump_pubspec_version.dart)..." -ForegroundColor Cyan
-dart run tool/bump_pubspec_version.dart
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+$pubspecPath = Join-Path $root "pubspec.yaml"
+$backupPath = Join-Path $root "pubspec.yaml.bak"
 
-Write-Host ">>> Validate notification icon..." -ForegroundColor Cyan
-dart run tool/validate_notification_icon.dart
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+# Backup pubspec.yaml
+Copy-Item -Path $pubspecPath -Destination $backupPath -Force
 
-Write-Host ">>> flutter pub get..." -ForegroundColor Cyan
-cmd.exe /c "flutter pub get"
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+try {
+    Write-Host ">>> Bump pubspec version (tool/bump_pubspec_version.dart)..." -ForegroundColor Cyan
+    dart run tool/bump_pubspec_version.dart
+    if ($LASTEXITCODE -ne 0) { throw "Version bump failed." }
 
-Write-Host ">>> flutter build apk --release..." -ForegroundColor Cyan
-cmd.exe /c "flutter build apk --release"
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    Write-Host ">>> Validate notification icon..." -ForegroundColor Cyan
+    dart run tool/validate_notification_icon.dart
+    if ($LASTEXITCODE -ne 0) { throw "Icon validation failed." }
+
+    Write-Host ">>> flutter pub get..." -ForegroundColor Cyan
+    cmd.exe /c "flutter pub get"
+    if ($LASTEXITCODE -ne 0) { throw "Pub get failed." }
+
+    Write-Host ">>> flutter build apk --release..." -ForegroundColor Cyan
+    cmd.exe /c "flutter build apk --release"
+    if ($LASTEXITCODE -ne 0) { throw "APK Build failed." }
+}
+catch {
+    Write-Host ">>> Build failed! Restoring original pubspec.yaml..." -ForegroundColor Red
+    Copy-Item -Path $backupPath -Destination $pubspecPath -Force
+    Remove-Item -Path $backupPath -Force
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
+}
+
+# If build successful, remove backup
+if (Test-Path $backupPath) {
+    Remove-Item -Path $backupPath -Force
+}
 
 $outDir = Join-Path $root "build\app\outputs\flutter-apk"
 $named = Get-ChildItem -Path $outDir -Filter "DbrosInstall_*.apk" -ErrorAction SilentlyContinue |
