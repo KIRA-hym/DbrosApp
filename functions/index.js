@@ -114,19 +114,6 @@ exports.sendAdminPush = onDocumentCreated(
       completed_at: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    // ── 5. 공지사항 이력 저장 (admin_notices) ──────────────────────────
-    if (successCount > 0) {
-      try {
-        await db.collection('admin_notices').add({
-          title,
-          body,
-          created_at: admin.firestore.FieldValue.serverTimestamp(),
-        });
-      } catch (err) {
-        console.error(`[${docId}] admin_notices save error:`, err);
-      }
-    }
-
     console.log(`[${docId}] done — sent: ${successCount}/${tokens.length}, failed: ${failedTokens.length}`);
   },
 );

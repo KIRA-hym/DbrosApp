@@ -6,10 +6,20 @@ import '../repositories/push_repository.dart';
 import '../../../app_navigator.dart';
 import 'package:flutter/material.dart';
 
+import '../../../services/db_helper.dart';
+
 /// 백그라운드 메시지 핸들러 — top-level 함수여야 합니다.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   debugPrint('[FcmService] bg message: ${message.notification?.title}');
+  final title = message.notification?.title;
+  final body = message.notification?.body;
+  if (title != null && body != null) {
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      await DriveLogDatabase.instance.insertNotice(title, body);
+    } catch (_) {}
+  }
 }
 
 /// Firebase Cloud Messaging 기기 제어 전담.
@@ -66,10 +76,14 @@ class FcmService {
     });
 
     // 포그라운드 메시지 수신
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
       final title = message.notification?.title ?? '새로운 알림';
       final body = message.notification?.body ?? '';
       debugPrint('[FcmService] fg message: $title');
+      
+      try {
+        await DriveLogDatabase.instance.insertNotice(title, body);
+      } catch (_) {}
       
       final context = rootNavigatorKey.currentContext;
       if (context != null) {

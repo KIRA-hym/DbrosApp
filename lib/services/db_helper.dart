@@ -76,7 +76,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 8,
+      version: 9,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -107,6 +107,7 @@ class DriveLogDatabase {
         await _ensureDriveLogsSchema(db);
         await _ensureExpenseTables(db);
         await _ensureCallPointsTable(db);
+        await _ensureLocalNoticesTable(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -137,14 +138,29 @@ class DriveLogDatabase {
             WHERE start_lat IS NOT NULL AND start_lng IS NOT NULL
           ''');
         }
+        if (oldVersion < 9) {
+          await _ensureLocalNoticesTable(db);
+        }
       },
       onOpen: (db) async {
         // 일부 기존 설치본은 버전/스키마가 불일치할 수 있어 실행 시점에 자체 복구.
         await _ensureDriveLogsSchema(db);
         await _ensureExpenseTables(db);
         await _ensureCallPointsTable(db);
+        await _ensureLocalNoticesTable(db);
       },
     );
+  }
+
+  Future<void> _ensureLocalNoticesTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS local_notices (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        body TEXT,
+        received_at TEXT
+      )
+    ''');
   }
 
   Future<void> _ensureExpenseTables(Database db) async {
@@ -834,5 +850,26 @@ class DriveLogDatabase {
     await db.delete('call_points', where: 'log_id = ? AND type = ?', whereArgs: [id, 'log']);
     afterLogsChanged?.call();
     return n;
+  }
+
+  // ── Local Notices (공지사항 푸시) ──────────────────────────────────
+  Future<int> insertNotice(String title, String body) async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    final Map<String, dynamic> data = {
+      'title': title,
+      'body': body,
+      'received_at': DateTime.now().toIso8601String(),
+    };
+    return await db.insert('local_notices', data);
+  }
+
+  Future<List<Map<String, dynamic>>> getNotices() async {
+    if (kIsWeb) return [];
+    final db = await database;
+    return await db.query(
+      'local_notices',
+      orderBy: 'received_at DESC',
+    );
   }
 }
