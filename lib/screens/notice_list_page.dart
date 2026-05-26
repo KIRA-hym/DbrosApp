@@ -67,14 +67,17 @@ class _NoticeListPageState extends State<NoticeListPage> {
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         final data = _notices[index];
+        final id = data['id'] as int? ?? 0;
         final title = data['title'] as String? ?? '제목 없음';
         final body = data['body'] as String? ?? '내용 없음';
         final receivedAt = data['received_at'] as String?;
+        final isRead = (data['is_read'] as int? ?? 0) == 1;
+
         String dateStr = '';
         if (receivedAt != null && receivedAt.isNotEmpty) {
           try {
             final dt = DateTime.parse(receivedAt).toLocal();
-            dateStr = DateFormat('yyyy.MM.dd HH:mm').format(dt);
+            dateStr = DateFormat('yyyy-MM-dd HH:mm').format(dt);
           } catch (_) {}
         }
 
@@ -85,6 +88,16 @@ class _NoticeListPageState extends State<NoticeListPage> {
             border: Border.all(color: const Color(0xFF2C2F36)),
           ),
           child: ExpansionTile(
+            onExpansionChanged: (expanded) async {
+              if (expanded && !isRead) {
+                await DriveLogDatabase.instance.markNoticeAsRead(id);
+                if (mounted) {
+                  setState(() {
+                    _notices[index]['is_read'] = 1;
+                  });
+                }
+              }
+            },
             shape: const RoundedRectangleBorder(side: BorderSide.none),
             collapsedShape: const RoundedRectangleBorder(side: BorderSide.none),
             iconColor: const Color(0xFFFFC700),
@@ -93,19 +106,38 @@ class _NoticeListPageState extends State<NoticeListPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${_notices.length - index}.',
+                  '$id.',
                   style: const TextStyle(color: Color(0xFFFFC700), fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      height: 1.3,
-                    ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(
+                            color: isRead ? Colors.white70 : Colors.white,
+                            fontSize: 16,
+                            fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                            height: 1.3,
+                          ),
+                        ),
+                      ),
+                      if (!isRead)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'N',
+                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],

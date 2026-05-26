@@ -76,7 +76,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -141,6 +141,11 @@ class DriveLogDatabase {
         if (oldVersion < 9) {
           await _ensureLocalNoticesTable(db);
         }
+        if (oldVersion < 10) {
+          try {
+            await db.execute('ALTER TABLE local_notices ADD COLUMN is_read INTEGER DEFAULT 0');
+          } catch (_) {}
+        }
       },
       onOpen: (db) async {
         // 일부 기존 설치본은 버전/스키마가 불일치할 수 있어 실행 시점에 자체 복구.
@@ -158,9 +163,13 @@ class DriveLogDatabase {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT,
         body TEXT,
-        received_at TEXT
+        received_at TEXT,
+        is_read INTEGER DEFAULT 0
       )
     ''');
+    try {
+      await db.execute('ALTER TABLE local_notices ADD COLUMN is_read INTEGER DEFAULT 0');
+    } catch (_) {}
   }
 
   Future<void> _ensureExpenseTables(Database db) async {
@@ -860,8 +869,30 @@ class DriveLogDatabase {
       'title': title,
       'body': body,
       'received_at': DateTime.now().toIso8601String(),
+      'is_read': 0,
     };
     return await db.insert('local_notices', data);
+  }
+
+  Future<int> getUnreadNoticeCount() async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM local_notices WHERE is_read = 0');
+    if (result.isNotEmpty) {
+      return Sqflite.firstIntValue(result) ?? 0;
+    }
+    return 0;
+  }
+
+  Future<int> markNoticeAsRead(int id) async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    return await db.update(
+      'local_notices',
+      {'is_read': 1},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getNotices() async {

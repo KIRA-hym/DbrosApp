@@ -6,16 +6,23 @@ import 'package:geocoding/geocoding.dart';
   final locality = (pm.locality ?? '').trim();
   final subAdmin = (pm.subAdministrativeArea ?? '').trim();
 
+  final dong = _localityLine2Name(pm);
+
   if (_isSeoul(admin, locality)) {
     final gu = _firstSegmentEndingWith(
       [pm.subLocality, pm.locality, pm.subAdministrativeArea, pm.name],
       '구',
     );
-    return (gu != null ? '서울시 $gu' : '서울시', _localityLine2Name(pm));
+    final parts = <String>[];
+    if (gu != null) parts.add(gu);
+    if (dong.isNotEmpty) parts.add(dong);
+    
+    final line1 = parts.isNotEmpty ? parts.join(' ') : '서울시';
+    return (line1, '');
   }
 
   final line1 = _provinceAndCityLine(admin, locality, subAdmin, pm);
-  return (line1, _localityLine2Name(pm));
+  return (line1, dong);
 }
 
 bool _isSeoul(String admin, String locality) =>
@@ -30,7 +37,7 @@ String _provinceAndCityLine(
   final parts = <String>[];
 
   if (admin.endsWith('도')) {
-    parts.add(admin);
+    // 도 단위(경기도 등)는 생략
   } else if (admin.endsWith('광역시')) {
     parts.add(admin.replaceFirst('광역시', '시'));
     final gu = _firstSegmentEndingWith(
@@ -42,6 +49,7 @@ String _provinceAndCityLine(
     }
     return parts.first;
   } else if (admin.isNotEmpty && !admin.contains('서울')) {
+    // 세종특별자치시, 제주특별자치도 등 기타 지역
     parts.add(admin);
   }
 

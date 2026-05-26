@@ -418,9 +418,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Widget _buildAppBarTitle() {
     final primary = _areaTitle.isNotEmpty ? _areaTitle : '주변';
-    final subtitle = _areaSubline.isNotEmpty ? '$_areaSubline · 주변 콜맵' : '주변 콜맵';
+    final subtitle = _areaSubline.isNotEmpty ? '$_areaSubline 주변 콜맵' : '주변 콜맵';
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
@@ -447,12 +447,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         toolbarHeight: 56,
         title: _buildAppBarTitle(),
         titleSpacing: 16,
-        centerTitle: false,
+        centerTitle: true,
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
-        actions: [
-          _buildFilterTabs(),
-        ],
       ),
       body: SafeArea(
         top: false,

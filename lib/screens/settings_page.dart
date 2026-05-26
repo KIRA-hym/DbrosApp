@@ -60,10 +60,18 @@ class _SettingsPageState extends State<SettingsPage> {
   int _versionTapCount = 0;
   DateTime? _lastVersionTapTime;
 
+  int _unreadNoticeCount = 0;
+
   @override
   void initState() {
     super.initState();
     _loadAppVersionLabel();
+    _loadUnreadNoticeCount();
+  }
+
+  Future<void> _loadUnreadNoticeCount() async {
+    final count = await DriveLogDatabase.instance.getUnreadNoticeCount();
+    if (mounted) setState(() => _unreadNoticeCount = count);
   }
 
   Future<void> _loadAppVersionLabel() async {
@@ -116,6 +124,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
+      _buildNoticeSection(),
       _buildBackupRestoreSettings(),
       _buildSettingsGroup(
         "수수료 설정",
@@ -1295,34 +1304,62 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               icon: const Icon(Icons.campaign_rounded, size: 20),
-              label: const Text('공지사항 푸시 발송',
+              label: const Text('공지사항 푸시 발송 (관리자)',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => _openAdminPushDialog(),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white54),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              icon: const Icon(Icons.list_alt, size: 20),
-              label: const Text('공지사항 내역 보기',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const NoticeListPage()),
-                );
-              },
-            ),
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNoticeSection() {
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final padding = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(borderRadius: 12),
+      padding: EdgeInsets.all(padding),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.white,
+            side: const BorderSide(color: Colors.white54),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onPressed: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NoticeListPage()),
+            );
+            _loadUnreadNoticeCount();
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.campaign, size: 20),
+              const SizedBox(width: 8),
+              const Text('공지사항', style: TextStyle(fontWeight: FontWeight.bold)),
+              if (_unreadNoticeCount > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$_unreadNoticeCount',
+                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
