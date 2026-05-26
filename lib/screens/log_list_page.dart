@@ -587,12 +587,16 @@ class _LogListPageState extends State<LogListPage> {
       final time = (log['drive_time'] ?? '').toString();
       final program = (log['program'] ?? '').toString();
 
+      final startLoc = (log['start_location'] ?? '').toString();
+      final endLoc = (log['end_location'] ?? '').toString();
+
       if (startLat != null && startLng != null && endLat != null && endLng != null) {
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            snippet: '$time · $program',
+            startSnippet: '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet: '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }
@@ -2178,16 +2182,19 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final endLat = (log['end_lat'] as num?)?.toDouble();
       final endLng = (log['end_lng'] as num?)?.toDouble();
 
+      final startLoc = (log['start_location'] ?? '').toString();
+      final endLoc = (log['end_location'] ?? '').toString();
+
       if (startLat != null && startLng != null && endLat != null && endLng != null) {
-        final fare = _toInt(log['gross_fare']);
         final time = log['drive_time']?.toString() ?? '';
         final prog = log['program']?.toString() ?? '';
-        final snippet = '$prog $time (${fare > 0 ? fare.toString() : '-'}원)';
+        
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            snippet: snippet,
+            startSnippet: '$prog · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet: '$prog · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }

@@ -254,7 +254,11 @@ class BackupService {
       final now = DateTime.now();
       final dateStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
       final downloadPath = '/storage/emulated/0/Download';
-      final destFile = File('$downloadPath/dbros_backup_$dateStr.zip');
+      final targetDir = Directory('$downloadPath/운행일지관리');
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+      final destFile = File('${targetDir.path}/dbros_backup_$dateStr.zip');
       
       await backupFile.copy(destFile.path);
       
