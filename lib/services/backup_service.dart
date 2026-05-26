@@ -253,17 +253,20 @@ class BackupService {
       
       final now = DateTime.now();
       final dateStr = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      final downloadPath = '/storage/emulated/0/Download';
-      final targetDir = Directory('$downloadPath/운행일지관리');
-      if (!await targetDir.exists()) {
-        await targetDir.create(recursive: true);
-      }
-      final destFile = File('${targetDir.path}/dbros_backup_$dateStr.zip');
+      final fileName = 'dbros_backup_$dateStr.zip';
       
-      await backupFile.copy(destFile.path);
+      final params = SaveFileDialogParams(
+        sourceFilePath: backupFile.path,
+        fileName: fileName,
+      );
+      final filePath = await FlutterFileDialog.saveFile(params: params);
       
       if (!context.mounted) return true;
-      _maybeShowSnackBar(context, '단말기 Downloads 폴더에 백업되었습니다.\n($destFile)');
+      if (filePath != null) {
+        _maybeShowSnackBar(context, '지정하신 위치에 백업 파일이 저장되었습니다.');
+      } else {
+        _maybeShowSnackBar(context, '백업 저장이 취소되었습니다.');
+      }
       return true;
     } catch (e) {
       if (!context.mounted) return false;

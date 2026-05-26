@@ -3,8 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io' show Platform;
 
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
 class PushNotificationService {
   static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
 
   static Future<void> initialize() async {
     try {
@@ -19,12 +22,35 @@ class PushNotificationService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+        const iosInit = DarwinInitializationSettings();
+        const initSettings = InitializationSettings(android: androidInit, iOS: iosInit);
+        await _localNotifications.initialize(initSettings);
+
         // Handle foreground messages
         FirebaseMessaging.onMessage.listen((RemoteMessage message) {
           debugPrint('Got a message whilst in the foreground!');
-          debugPrint('Message data: ${message.data}');
-          if (message.notification != null) {
-            debugPrint('Message also contained a notification: ${message.notification}');
+          final notification = message.notification;
+          if (notification != null) {
+            _localNotifications.show(
+              notification.hashCode,
+              notification.title,
+              notification.body,
+              const NotificationDetails(
+                android: AndroidNotificationDetails(
+                  'default_channel_id',
+                  '기본 알림',
+                  importance: Importance.max,
+                  priority: Priority.high,
+                  icon: '@mipmap/ic_launcher',
+                ),
+                iOS: DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: true,
+                ),
+              ),
+            );
           }
         });
 

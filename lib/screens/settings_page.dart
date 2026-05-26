@@ -23,6 +23,7 @@ import '../utils/geocoding_utils.dart';
 import '../utils/snackbar_utils.dart';
 import '../services/call_point_export_service.dart';
 import '../features/push_notification/widgets/admin_push_dialog.dart';
+import 'notice_list_page.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -1297,6 +1298,28 @@ class _SettingsPageState extends State<SettingsPage> {
               label: const Text('공지사항 푸시 발송',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => _openAdminPushDialog(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white54),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: const Icon(Icons.list_alt, size: 20),
+              label: const Text('공지사항 내역 보기',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NoticeListPage()),
+                );
+              },
             ),
           ),
         ],

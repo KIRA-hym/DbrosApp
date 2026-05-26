@@ -162,7 +162,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<void> _loadData() async {
     final db = await DriveLogDatabase.instance.database;
-    final List<Map<String, dynamic>> rows = await db.query('call_points');
+    final List<Map<String, dynamic>> rows = await db.query(
+      'call_points',
+      orderBy: 'created_at DESC',
+      limit: 500,
+    );
 
     List<CallPointData> points = [];
     for (var row in rows) {

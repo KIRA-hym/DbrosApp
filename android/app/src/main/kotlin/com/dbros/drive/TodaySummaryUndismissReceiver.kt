@@ -10,6 +10,8 @@ import android.content.Intent
  */
 class TodaySummaryUndismissReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        TodaySummaryNotifier.reshowAfterDismiss(context.applicationContext)
+        if (MainActivity.isAppRunning) {
+            TodaySummaryNotifier.reshowAfterDismiss(context.applicationContext)
+        }
     }
 }

@@ -884,14 +884,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         child: _latestYoutubeVideoId == null
                             ? Container(
                                 color: const Color(0xFF16181D),
-                                child: const Icon(Icons.ondemand_video, color: Color(0xFFFFC700)),
+                                alignment: Alignment.center,
+                                child: const Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.open_in_new, color: Color(0xFF9FA3AE), size: 28),
+                                    SizedBox(height: 6),
+                                    Text('채널 방문하기', style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 11, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
                               )
                             : Image.network(
                                 'https://i.ytimg.com/vi/$_latestYoutubeVideoId/mqdefault.jpg',
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => Container(
                                   color: const Color(0xFF16181D),
-                                  child: const Icon(Icons.ondemand_video, color: Color(0xFFFFC700)),
+                                  alignment: Alignment.center,
+                                  child: const Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.open_in_new, color: Color(0xFF9FA3AE), size: 28),
+                                      SizedBox(height: 6),
+                                      Text('채널 방문하기', style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 11, fontWeight: FontWeight.bold)),
+                                    ],
+                                  ),
                                 ),
                               ),
                       ),

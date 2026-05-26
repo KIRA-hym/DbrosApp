@@ -15,12 +15,9 @@ typedef YoutubeLatestVideoMeta = ({
 class YoutubeRssService {
   YoutubeRssService._();
 
-  /// 기본 Dart UA는 YouTube RSS/oEmbed에서 거절되는 경우가 있어 브라우저형으로 통일.
   static const Map<String, String> _rssHeaders = {
-    'Accept': 'application/atom+xml, application/xml, text/xml, */*',
-    'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-    'User-Agent':
-        'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+    'Accept': 'application/xml, text/xml, */*',
+    'User-Agent': 'Mozilla/5.0 (compatible; DbrosApp RSS/1.0; +https://www.youtube.com/)',
   };
 
   static final Map<String, String> _oembedHeaders = {

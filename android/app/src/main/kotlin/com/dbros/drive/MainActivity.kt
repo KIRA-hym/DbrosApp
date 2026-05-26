@@ -10,8 +10,9 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
 
-    private companion object {
+    companion object {
         private const val CHANNEL = "dbros.app/today_summary"
+        var isAppRunning = false
     }
 
     private var summaryChannel: MethodChannel? = null
@@ -79,9 +80,11 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        isAppRunning = true
     }
 
     override fun onDestroy() {
+        isAppRunning = false
         GalleryMediaBridge.dispose()
         summaryChannel = null
         super.onDestroy()
