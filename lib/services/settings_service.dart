@@ -132,7 +132,7 @@ class SettingsService {
   }
 
   /// 상태바 고정 알림 + 이후 퀵 기능 마스터 (Android 중심).
-  static bool get statusBarQuickEnabled => _prefs.getBool('statusBarQuickEnabled') ?? false;
+  static bool get statusBarQuickEnabled => _prefs.getBool('statusBarQuickEnabled') ?? true;
   static Future<void> setStatusBarQuickEnabled(bool value) async =>
       await _prefs.setBool('statusBarQuickEnabled', value);
 

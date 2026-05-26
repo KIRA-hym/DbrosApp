@@ -79,7 +79,7 @@ class BackupLogRow {
         case 'transport_cost':
         case 'waypoint_tip':
         case 'net_income':
-          out[key] = (v as num).toInt();
+          out[key] = v is num ? v.toInt() : int.tryParse(v.toString()) ?? 0;
         case 'start_lat':
         case 'start_lng':
         case 'end_lat':

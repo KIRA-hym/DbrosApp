@@ -127,7 +127,7 @@ tasks.matching { it.name == "assembleRelease" }.configureEach {
                 suffix = "_v${vName}_$bNum"
             }
         }
-        val outDir = layout.buildDirectory.dir("outputs/flutter-apk").get().asFile
+        val outDir = project.projectDir.resolve("../../build/app/outputs/flutter-apk").normalize()
         val defaultApk = File(outDir, "app-release.apk")
         val namedApk = File(outDir, "DbrosInstall_${date}${suffix}.apk")
         if (defaultApk.exists()) {
