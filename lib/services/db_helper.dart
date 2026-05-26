@@ -900,7 +900,7 @@ class DriveLogDatabase {
     final db = await database;
     return await db.query(
       'local_notices',
-      orderBy: 'received_at DESC',
+      orderBy: 'id DESC',
     );
   }
 }
