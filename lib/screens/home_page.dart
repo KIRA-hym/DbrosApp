@@ -224,7 +224,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       alignment: Alignment.centerRight,
                       child: InkWell(
                         onTap: () {
-                          if (!kExpenseOwnerOnly) return;
                           Navigator.push<void>(
                             context,
                             MaterialPageRoute<void>(

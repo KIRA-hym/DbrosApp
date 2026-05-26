@@ -5,4 +5,4 @@ import '../services/settings_service.dart';
 bool get kMapFeaturesEnabled => true;
 
 /// 개인지출관리 등 오너 전용 빌드 여부
-bool get kExpenseOwnerOnly => true;
+bool get kExpenseOwnerOnly => SettingsService.isOwnerMode;
