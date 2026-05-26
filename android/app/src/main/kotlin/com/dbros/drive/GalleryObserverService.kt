@@ -39,6 +39,23 @@ class GalleryObserverService : Service() {
         super.onDestroy()
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        super.onTaskRemoved(rootIntent)
+        try {
+            // 포그라운드 서비스 알림 제거 및 서비스 종료
+            stopForeground(true)
+            stopSelf()
+            
+            // 등록된 모든 알림(투데이 요약, 퀵등록 등) 싹 제거
+            NotificationManagerCompat.from(this).cancelAll()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            // 프로세스 강제 종료 (flutter_overlay_window 등 함께 죽임)
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createNotificationChannel()
 
