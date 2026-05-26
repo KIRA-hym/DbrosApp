@@ -70,13 +70,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   void _updateMarkers(Set<Marker> markers) {
-    setState(() {
-      _markers = markers;
-    });
+    if (mounted) {
+      setState(() {
+        _markers = markers;
+      });
+    }
+  }
+
+  Future<void> _precacheIcons() async {
+    _logIconMine ??= await _getMarkerBitmap(80, color: const Color(0xFFFF5252), isHeart: true);
+    _logIconOther ??= await _getMarkerBitmap(80, color: Colors.lightBlueAccent, isHeart: true);
+    _refIcon ??= await _getMarkerBitmap(80, color: Colors.purpleAccent, isStar: true);
   }
 
   Future<void> _initMap() async {
     try {
+      await _precacheIcons();
       _permissionGranted = await _handleLocationPermission();
       
       // 항상 DB 데이터 먼저 로드하여 마커를 표시할 수 있게 함
@@ -311,14 +320,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       BitmapDescriptor icon;
       if (data['type'] == 'log') {
         if (data['is_mine'] == 1) {
-          _logIconMine ??= await _getMarkerBitmap(80, color: const Color(0xFFFF5252), isHeart: true);
           icon = _logIconMine!;
         } else {
-          _logIconOther ??= await _getMarkerBitmap(80, color: Colors.lightBlueAccent, isHeart: true);
           icon = _logIconOther!;
         }
       } else {
-        _refIcon ??= await _getMarkerBitmap(80, color: Colors.purpleAccent, isStar: true);
         icon = _refIcon!;
       }
       return Marker(
