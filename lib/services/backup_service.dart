@@ -308,8 +308,10 @@ class BackupService {
 
   static Future<bool> restoreFromFilePicker(BuildContext context) async {
     try {
-      final result = await FilePicker.pickFiles(
+      final targetDir = Directory('/storage/emulated/0/Download/운행일지관리');
+      final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
+        initialDirectory: (await targetDir.exists()) ? targetDir.path : null,
       );
 
       if (result == null || result.files.isEmpty) {
