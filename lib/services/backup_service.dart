@@ -329,8 +329,9 @@ class BackupService {
 
       if (!isZip) {
         try {
-          final fileStream = pickedFile.openRead(0, 4);
-          final bytes = await fileStream.first;
+          final raf = await pickedFile.open(mode: FileMode.read);
+          final bytes = await raf.read(4);
+          await raf.close();
           if (bytes.length >= 4 && bytes[0] == 80 && bytes[1] == 75 && bytes[2] == 3 && bytes[3] == 4) {
             isZip = true;
           }
