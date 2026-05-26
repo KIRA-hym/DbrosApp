@@ -51,6 +51,23 @@ class RemoteConfigService {
     }
   }
 
+  Future<bool> forceFetch() async {
+    final rc = _remoteConfig;
+    if (rc == null) return false;
+    try {
+      await rc.setConfigSettings(RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 10),
+        minimumFetchInterval: Duration.zero,
+      ));
+      return await rc.fetchAndActivate();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Remote Config force fetch failed: $e');
+      }
+      return false;
+    }
+  }
+
   String get tmapAddressPattern {
     final rc = _remoteConfig;
     if (rc == null) return _defaultTmapRegex;

@@ -336,6 +336,11 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       if (next != _lastNotifiedWorkDateYmd) {
         _lastNotifiedWorkDateYmd = next;
       }
+      RemoteConfigService().forceFetch().then((updated) {
+        if (updated && mounted) {
+          setState(() {});
+        }
+      });
       if (!kIsWeb && Platform.isAndroid) {
         unawaited(NotificationPermissionService.ensureForEnabledFeatures());
       }
@@ -423,8 +428,13 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
               ),
               currentIndex: _selectedIndex,
               onTap: (index) {
+                if (index == 0) {
+                  TodayStatsProvider.instance.refresh();
+                  RemoteConfigService().forceFetch().then((updated) {
+                    if (updated && mounted) setState(() {});
+                  });
+                }
                 setState(() => _selectedIndex = index);
-                if (index == 0) TodayStatsProvider.instance.refresh();
               },
               items: const [
                 BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: '홈'),
