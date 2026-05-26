@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'dart:io' show Platform;
 
 import '../repositories/push_repository.dart';
+import '../../../app_navigator.dart';
+import 'package:flutter/material.dart';
 
 /// 백그라운드 메시지 핸들러 — top-level 함수여야 합니다.
 @pragma('vm:entry-point')
@@ -65,7 +67,27 @@ class FcmService {
 
     // 포그라운드 메시지 수신
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('[FcmService] fg message: ${message.notification?.title}');
+      final title = message.notification?.title ?? '새로운 알림';
+      final body = message.notification?.body ?? '';
+      debugPrint('[FcmService] fg message: $title');
+      
+      final context = rootNavigatorKey.currentContext;
+      if (context != null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1F222A),
+            title: Text(title, style: const TextStyle(color: Colors.white)),
+            content: Text(body, style: const TextStyle(color: Colors.white70)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+              ),
+            ],
+          ),
+        );
+      }
     });
 
     // 알림 탭으로 앱이 열린 경우 (terminated)

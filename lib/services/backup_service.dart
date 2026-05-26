@@ -325,7 +325,19 @@ class BackupService {
       }
 
       final lower = pickedPath.toLowerCase();
-      if (lower.endsWith('.zip')) {
+      bool isZip = lower.endsWith('.zip');
+
+      if (!isZip) {
+        try {
+          final fileStream = pickedFile.openRead(0, 4);
+          final bytes = await fileStream.first;
+          if (bytes.length >= 4 && bytes[0] == 80 && bytes[1] == 75 && bytes[2] == 3 && bytes[3] == 4) {
+            isZip = true;
+          }
+        } catch (_) {}
+      }
+
+      if (isZip) {
         await _restoreFromBackupZip(pickedFile);
       } else {
         final jsonData = await pickedFile.readAsString();
