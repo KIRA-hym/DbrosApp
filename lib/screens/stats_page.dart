@@ -557,12 +557,16 @@ class _StatsPageState extends State<StatsPage> {
       final endLng = (log['end_lng'] as num?)?.toDouble();
       final time = (log['drive_time'] ?? '').toString();
       final program = (log['program'] ?? '').toString();
+      final startLoc = (log['start_location'] ?? '').toString();
+      final endLoc = (log['end_location'] ?? '').toString();
+      
       if (startLat != null && startLng != null && endLat != null && endLng != null) {
         trips.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            snippet: '$time · $program',
+            startSnippet: '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet: '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }
@@ -1795,12 +1799,14 @@ class TripSegment {
   const TripSegment({
     required this.start,
     required this.end,
-    required this.snippet,
+    required this.startSnippet,
+    required this.endSnippet,
   });
 
   final LatLng start;
   final LatLng end;
-  final String snippet;
+  final String startSnippet;
+  final String endSnippet;
 }
 
 class StatsRouteMapPage extends StatefulWidget {
@@ -1855,7 +1861,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
           position: seg.start,
           infoWindow: InfoWindow(
             title: '${i + 1}번째 출발',
-            snippet: seg.snippet,
+            snippet: seg.startSnippet,
           ),
           icon: startIcon,
           anchor: const Offset(0.5, 0.5),
@@ -1868,7 +1874,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
           position: seg.end,
           infoWindow: InfoWindow(
             title: '${i + 1}번째 도착',
-            snippet: seg.snippet,
+            snippet: seg.endSnippet,
           ),
           icon: endIcon,
           anchor: const Offset(0.5, 0.5),
