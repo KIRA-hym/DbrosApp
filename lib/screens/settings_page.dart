@@ -319,7 +319,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _showOwnerModeDialog() {
-    if (true || SettingsService.isOwnerMode) {
+    if (SettingsService.isOwnerMode) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(

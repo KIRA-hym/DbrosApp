@@ -305,8 +305,6 @@ class BackupService {
     try {
       final pickedPath = await FlutterFileDialog.pickFile(
         params: const OpenFileDialogParams(
-          fileExtensionsFilter: <String>['zip', 'json'],
-          mimeTypesFilter: <String>['application/zip', 'application/json', 'text/plain'],
           localOnly: false,
           copyFileToCacheDir: true,
         ),
