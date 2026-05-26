@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -303,17 +304,18 @@ class BackupService {
 
   static Future<bool> restoreFromFilePicker(BuildContext context) async {
     try {
-      final pickedPath = await FlutterFileDialog.pickFile(
-        params: const OpenFileDialogParams(
-          localOnly: false,
-          copyFileToCacheDir: true,
-        ),
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
       );
 
-      if (pickedPath == null) {
+      if (result == null || result.files.isEmpty) {
         if (!context.mounted) return false;
         _maybeShowSnackBar(context, '복원 파일 선택이 취소되었습니다.');
         return false;
+      }
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null) {
+        throw const FormatException('파일 경로를 가져올 수 없습니다. 파일이 유효한지 확인해주세요.');
       }
 
       final fileName = _safeFileNameFromPath(pickedPath);
