@@ -162,11 +162,11 @@ class _LogListPageState extends State<LogListPage> {
                   Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                         TextSpan(
-                          text: '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                          text: '₩${NumberFormat('#,###').format(dailyIncome)}',
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: const Color(0xFFFFC700),
+                                color: Colors.lightBlueAccent,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
@@ -181,10 +181,10 @@ class _LogListPageState extends State<LogListPage> {
                 children: [
                   Expanded(
                     child: _buildMasterDetailAmountRow(
-                      label: '수입',
-                      amount: dailyIncome,
-                      labelColor: Colors.lightBlueAccent,
-                      valueColor: Colors.lightBlueAccent,
+                      label: '순익',
+                      amount: dailyNetProfit,
+                      labelColor: const Color(0xFFFFC700),
+                      valueColor: const Color(0xFFFFC700),
                       prefix: '₩',
                     ),
                   ),
@@ -810,11 +810,11 @@ class _LogListPageState extends State<LogListPage> {
                                       Text.rich(
                                         TextSpan(
                                           children: [
-                                            const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                                            const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                                             TextSpan(
-                                              text: '₩${NumberFormat('#,###').format(dailyNetProfit)}',
+                                              text: '₩${NumberFormat('#,###').format(dailyIncome)}',
                                               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                    color: const Color(0xFFFFC700),
+                                                    color: Colors.lightBlueAccent,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                             ),
@@ -829,10 +829,10 @@ class _LogListPageState extends State<LogListPage> {
                                     children: [
                                       Expanded(
                                         child: _buildMasterDetailAmountRow(
-                                          label: '수입',
-                                          amount: dailyIncome,
-                                          labelColor: Colors.lightBlueAccent,
-                                          valueColor: Colors.lightBlueAccent,
+                                          label: '순익',
+                                          amount: dailyNetProfit,
+                                          labelColor: const Color(0xFFFFC700),
+                                          valueColor: const Color(0xFFFFC700),
                                           prefix: '₩',
                                         ),
                                       ),
