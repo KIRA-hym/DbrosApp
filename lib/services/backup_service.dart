@@ -281,7 +281,7 @@ class BackupService {
 
       await Share.shareXFiles(
         [XFile(backupFile.path, mimeType: 'application/zip')],
-        subject: '디브로스 백업 파일',
+        subject: p.basename(backupFile.path),
       );
 
       if (!context.mounted) return true;
