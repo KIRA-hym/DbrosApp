@@ -817,9 +817,9 @@ class _StatsPageState extends State<StatsPage> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: cards[2]),
-              SizedBox(width: gap),
               Expanded(child: cards[3]),
+              SizedBox(width: gap),
+              Expanded(child: cards[2]),
             ],
           ),
         ),
