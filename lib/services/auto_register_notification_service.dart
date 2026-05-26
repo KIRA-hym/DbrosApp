@@ -26,7 +26,7 @@ class AutoRegisterNotificationService {
   Future<void> initialize() async {
     if (!_isAndroid || _initialized) return;
 
-    const androidInit = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidInit = AndroidInitializationSettings('@drawable/app_notification_icon');
     await _plugin.initialize(
       settings: const InitializationSettings(android: androidInit),
       onDidReceiveNotificationResponse: (response) async {
@@ -93,7 +93,7 @@ class AutoRegisterNotificationService {
         channelDescription: '스크린샷 콜카드 자동등록 완료 알림',
         importance: Importance.defaultImportance,
         priority: Priority.defaultPriority,
-        icon: '@mipmap/launcher_icon',
+        icon: '@drawable/app_notification_icon',
       ),
     );
 
