@@ -903,4 +903,10 @@ class DriveLogDatabase {
       orderBy: 'id DESC',
     );
   }
+
+  Future<int> deleteAllNotices() async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    return await db.delete('local_notices');
+  }
 }

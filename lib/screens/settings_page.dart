@@ -1340,9 +1340,9 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.campaign, size: 20),
+              const Icon(Icons.notifications, size: 20),
               const SizedBox(width: 8),
-              const Text('공지사항', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('알림목록', style: TextStyle(fontWeight: FontWeight.bold)),
               if (_unreadNoticeCount > 0) ...[
                 const SizedBox(width: 8),
                 Container(

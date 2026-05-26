@@ -42,10 +42,44 @@ class _NoticeListPageState extends State<NoticeListPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
-        title: const Text('공지사항', style: TextStyle(fontFamily: 'GmarketSans', fontWeight: FontWeight.bold)),
+        title: const Text('알림목록', style: TextStyle(fontFamily: 'GmarketSans', fontWeight: FontWeight.bold)),
         backgroundColor: const Color(0xFF1F222A),
         elevation: 0,
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.white70),
+            onPressed: () async {
+              if (_notices.isEmpty) return;
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  backgroundColor: const Color(0xFF1F222A),
+                  title: const Text('알림목록 삭제', style: TextStyle(color: Colors.white)),
+                  content: const Text('알림목록을 삭제하시겠습니까?', style: TextStyle(color: Colors.white70)),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('아니오', style: TextStyle(color: Colors.white70)),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('예', style: TextStyle(color: Color(0xFFFF5252))),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await DriveLogDatabase.instance.deleteAllNotices();
+                if (mounted) {
+                  setState(() {
+                    _notices.clear();
+                  });
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: _buildBody(),
     );
@@ -57,7 +91,7 @@ class _NoticeListPageState extends State<NoticeListPage> {
     }
     if (_notices.isEmpty) {
       return const Center(
-        child: Text('수신된 공지사항이 없습니다.', style: TextStyle(color: Colors.white70)),
+        child: Text('수신된 알림목록이 없습니다.', style: TextStyle(color: Colors.white70)),
       );
     }
 
