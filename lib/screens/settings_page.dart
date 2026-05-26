@@ -176,7 +176,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildStorageSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
-      _buildAdminPushSection(),
+      if (SettingsService.isOwnerMode) _buildAdminPushSection(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -1283,21 +1283,6 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '마스터 전용 기능',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '전체 사용자에게 FCM 푸시 알림을 발송합니다.\nFirestore → Cloud Functions → FCM 경로로 처리됩니다.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: const Color(0xFF6E717C),
-                ),
-          ),
-          const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
