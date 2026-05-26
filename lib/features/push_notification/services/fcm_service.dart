@@ -5,6 +5,7 @@ import 'dart:io' show Platform;
 import '../repositories/push_repository.dart';
 import '../../../app_navigator.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../../../services/db_helper.dart';
 
@@ -64,6 +65,19 @@ class FcmService {
         badge: true,
         sound: true,
       );
+
+      final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+      const androidChannel = AndroidNotificationChannel(
+        'fcm_default_channel',
+        '공지사항 알림',
+        description: '중요 공지사항 알림을 받습니다.',
+        importance: Importance.max,
+        enableVibration: true,
+        playSound: true,
+      );
+      await flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidChannel);
     }
 
     // 토큰 발급 및 저장

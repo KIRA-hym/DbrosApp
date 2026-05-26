@@ -68,6 +68,14 @@ exports.sendAdminPush = onDocumentCreated(
 
       const message = {
         notification: { title, body },
+        android: {
+          priority: 'high',
+          notification: {
+            channelId: 'fcm_default_channel',
+            defaultSound: true,
+            defaultVibrateTimings: true,
+          }
+        },
         tokens: chunk,
       };
 
