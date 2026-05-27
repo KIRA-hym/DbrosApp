@@ -45,7 +45,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubeChannelName = '';
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
-  bool _isNoticeClosed = false;
+  static bool _isNoticeClosed = false;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
   @override
