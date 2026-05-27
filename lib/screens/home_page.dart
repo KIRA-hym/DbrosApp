@@ -45,6 +45,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubeChannelName = '';
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
+  bool _isNoticeClosed = false;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
   @override
@@ -250,10 +251,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         centerTitle: false,
       ),
-      body: Column(
+      body: Stack(
         children: [
-          _buildNoticeBanner(),
-          Expanded(
+          Positioned.fill(
             child: ResponsiveBody(
               fullWidthWhenExpanded: true,
               child: _isLoading
@@ -339,36 +339,71 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
             ),
           ),
+          _buildFloatingNoticeBanner(),
         ],
       ),
     );
   }
 
-  Widget _buildNoticeBanner() {
+  Widget _buildFloatingNoticeBanner() {
     final noticeMsg = RemoteConfigService().appNoticeMessage;
-    if (noticeMsg.trim().isEmpty) return const SizedBox.shrink();
+    if (noticeMsg.trim().isEmpty || _isNoticeClosed) return const SizedBox.shrink();
 
-    return Container(
-      width: double.infinity,
-      color: const Color(0xFFFF5252).withValues(alpha: 0.15),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.campaign, color: Color(0xFFFF5252), size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              noticeMsg,
-              style: const TextStyle(
-                color: Color(0xFFFF5252),
-                fontSize: 14,
-                height: 1.4,
-                fontWeight: FontWeight.w600,
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: 24,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF1F222A).withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFFF5252).withValues(alpha: 0.5)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
-            ),
+            ],
           ),
-        ],
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.campaign, color: Color(0xFFFF5252), size: 22),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1.0),
+                  child: Text(
+                    noticeMsg,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _isNoticeClosed = true;
+                  });
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Icon(Icons.close, color: Color(0xFF9FA3AE), size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
