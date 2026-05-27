@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import '../config/feature_flags.dart';
 
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -187,7 +188,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildStorageSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
       if (SettingsService.isOwnerMode) _buildAdminPushSection(),
-      _buildProModeTestToggle(),
+      if (kMonetizationEnabled) _buildProModeTestToggle(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -692,7 +693,7 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
-              if (value && !SettingsService.isPremiumUser) {
+              if (kMonetizationEnabled && value && !SettingsService.isPremiumUser) {
                 showDialog(
                   context: context,
                   builder: (ctx) => AlertDialog(

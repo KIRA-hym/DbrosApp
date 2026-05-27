@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import '../services/feature_usage_service.dart';
 import '../services/rewarded_ad_service.dart';
+import '../config/feature_flags.dart';
 
 class ProFeatureGuard {
   static Future<void> checkAndRun({
@@ -11,6 +12,11 @@ class ProFeatureGuard {
     required Future<bool> Function() canUseWithAd,
     required VoidCallback onGranted,
   }) async {
+    if (!kMonetizationEnabled) {
+      onGranted();
+      return;
+    }
+
     if (SettingsService.isPremiumUser) {
       onGranted();
       return;

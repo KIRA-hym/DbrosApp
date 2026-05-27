@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
+import '../config/feature_flags.dart';
 
 class AdBannerWidget extends StatefulWidget {
   const AdBannerWidget({super.key});
@@ -56,7 +57,9 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 향후 isPremiumUser 조건 등을 추가하여 Premium 유저는 빈 Container 반환하도록 처리 예정
+    if (!kMonetizationEnabled) {
+      return const SizedBox.shrink();
+    }
     
     if (_bannerAd != null && _isLoaded) {
       return Container(
