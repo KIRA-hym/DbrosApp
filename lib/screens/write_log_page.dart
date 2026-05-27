@@ -129,8 +129,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final FocusNode _memoFocusNode = FocusNode();
 
   // Category selections
-  String _selectedExpenseCategory = "킥/자전거";
-  String _selectedExtraIncomeCategory = "경유비";
+  String _selectedExpenseCategory = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList.first : '기타';
+  String _selectedExtraIncomeCategory = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList.first : '기타';
 
   /// 신규 작성: false면 저장 시 운행시각을 **등록 시점**으로 쓴다. OCR 비어 있음·갤러리 폴백 시각은 여기 해당.
   /// true: OCR이 운행시각을 채웠거나 사용자가 시간 피커로 고른 경우 → [_timeCon] 사용.
@@ -965,6 +965,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     });
   }
 
+  /// 저장된 선택값이 현재 설정 목록에 없으면 첫 번째 항목으로 보정
+  String _safeExpenseCategory() {
+    final list = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList : ['기타'];
+    return list.contains(_selectedExpenseCategory) ? _selectedExpenseCategory : list.first;
+  }
+
+  String _safeIncomeCategory() {
+    final list = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList : ['기타'];
+    return list.contains(_selectedExtraIncomeCategory) ? _selectedExtraIncomeCategory : list.first;
+  }
+
   int _parseMoney(String value) => int.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
   String _formatMoney(int value) => NumberFormat('#,###').format(value);
   String? _normalizeYmdForStorage(String raw) {
@@ -1475,8 +1486,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               _buildComboInputField(
                 _transportCon,
                 label: "지출",
-                selectedValue: _selectedExpenseCategory,
-                dropdownItems: const ["킥/자전거", "택틀", "택복", "식비", "기타"],
+                selectedValue: _safeExpenseCategory(),
+                dropdownItems: SettingsService.expenseList.isNotEmpty
+                    ? SettingsService.expenseList
+                    : const ['기타'],
                 focusNode: _transportFocusNode,
                 isNumber: true,
                 onDropdownChanged: (value) {
@@ -1488,9 +1501,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               ),
               _buildComboInputField(
                 _waypointTipCon,
-                label: "부가수입",
-                selectedValue: _selectedExtraIncomeCategory,
-                dropdownItems: const ["경유비", "팁", "기타"],
+                label: "수익",
+                selectedValue: _safeIncomeCategory(),
+                dropdownItems: SettingsService.incomeList.isNotEmpty
+                    ? SettingsService.incomeList
+                    : const ['기타'],
                 focusNode: _waypointTipFocusNode,
                 isNumber: true,
                 onDropdownChanged: (value) {

@@ -26,6 +26,10 @@ import 'call_point_map_page.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 
+/// 앱 프로세스 생존 동안 공지 닫힘 상태를 유지하는 최상위 전역 변수.
+/// static 필드를 State 안에 두면 핫리스타트 등으로 초기화될 수 있으므로 파일 레벨로 분리.
+bool _homeNoticeClosed = false;
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -47,7 +51,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubeChannelName = '';
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
-  static bool _isNoticeClosed = false;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
   @override
@@ -346,7 +349,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ],
       ),
     ),
-    if (!_isNoticeClosed && RemoteConfigService().appNoticeMessage.trim().isNotEmpty)
+    if (!_homeNoticeClosed && RemoteConfigService().appNoticeMessage.trim().isNotEmpty)
       _buildFloatingNoticeBanner(),
     ],
   );
@@ -398,7 +401,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               InkWell(
                 onTap: () {
                   setState(() {
-                    _isNoticeClosed = true;
+                    _homeNoticeClosed = true;
                   });
                 },
                 borderRadius: BorderRadius.circular(20),

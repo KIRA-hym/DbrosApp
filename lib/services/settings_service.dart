@@ -19,6 +19,20 @@ class SettingsService {
     '기타',
   ];
 
+  static const List<String> _defaultExpenseList = <String>[
+    '킥/자전거',
+    '택틀',
+    '택복',
+    '식비',
+    '기타',
+  ];
+
+  static const List<String> _defaultIncomeList = <String>[
+    '경유비',
+    '팁',
+    '기타',
+  ];
+
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
     // 월/년 일할 보험은 UI·로직에서 제거됨. 기존 'monthly' 선택은 'none'으로 이전.
@@ -129,10 +143,50 @@ class SettingsService {
   }
 
   static List<String> get defaultProgramList => List<String>.from(_defaultProgramList);
+  static List<String> get defaultExpenseList => List<String>.from(_defaultExpenseList);
+  static List<String> get defaultIncomeList => List<String>.from(_defaultIncomeList);
 
   static List<String> get programList =>
       _prefs.getStringList('programList') ?? defaultProgramList;
   static Future<void> setProgramList(List<String> value) async => await _prefs.setStringList('programList', value);
+
+  static List<String> get expenseList =>
+      _prefs.getStringList('expenseList') ?? defaultExpenseList;
+  static Future<void> setExpenseList(List<String> value) async =>
+      await _prefs.setStringList('expenseList', value);
+
+  static Future<void> addExpenseItem(String item) async {
+    final list = expenseList;
+    if (!list.contains(item)) {
+      list.add(item);
+      await setExpenseList(list);
+    }
+  }
+
+  static Future<void> removeExpenseItem(String item) async {
+    final list = expenseList;
+    list.remove(item);
+    await setExpenseList(list);
+  }
+
+  static List<String> get incomeList =>
+      _prefs.getStringList('incomeList') ?? defaultIncomeList;
+  static Future<void> setIncomeList(List<String> value) async =>
+      await _prefs.setStringList('incomeList', value);
+
+  static Future<void> addIncomeItem(String item) async {
+    final list = incomeList;
+    if (!list.contains(item)) {
+      list.add(item);
+      await setIncomeList(list);
+    }
+  }
+
+  static Future<void> removeIncomeItem(String item) async {
+    final list = incomeList;
+    list.remove(item);
+    await setIncomeList(list);
+  }
 
   static bool get showFloatingButtons => _prefs.getBool('showFloatingButtons') ?? true;
   static Future<void> setShowFloatingButtons(bool value) async {

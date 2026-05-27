@@ -848,12 +848,15 @@ class _StatsPageState extends State<StatsPage> {
         valueFontSize: valueFontSize,
         icon: Icons.credit_card,
       ),
-      _statMetricCard(
-        title: '지출/부수익',
-        valueBuilder: _expenseExtraIncomeRich,
-        titleFontSize: titleFontSize,
-        valueFontSize: valueFontSize,
-        icon: Icons.money_off,
+      GestureDetector(
+        onTap: _showExpenseIncomeDetailPopup,
+        child: _statMetricCard(
+          title: '지출/수익',
+          valueBuilder: _expenseExtraIncomeRich,
+          titleFontSize: titleFontSize,
+          valueFontSize: valueFontSize,
+          icon: Icons.money_off,
+        ),
       ),
       if (_selectedPeriod != '일간')
         _statMetricCard(
@@ -1000,7 +1003,7 @@ class _StatsPageState extends State<StatsPage> {
         customWidget: null,
       ),
       (
-        title: '지출/부수익',
+        title: '지출/수익',
         value: null,
         color: null,
         icon: Icons.money_off,
@@ -1035,21 +1038,254 @@ class _StatsPageState extends State<StatsPage> {
               for (var i = 0; i < metrics.length; i++) ...[
                 if (i > 0) SizedBox(height: cardGap),
                 Expanded(
-                  child: _statMetricCard(
-                    title: metrics[i].title,
-                    value: metrics[i].value,
-                    valueColor: metrics[i].color,
-                    titleFontSize: statCardTitleFontSize,
-                    valueFontSize: statCardValueFontSize,
-                    icon: metrics[i].icon,
-                    customValueWidget: metrics[i].customWidget,
-                  ),
+                  child: metrics[i].title == '지출/수익'
+                      ? GestureDetector(
+                          onTap: _showExpenseIncomeDetailPopup,
+                          child: _statMetricCard(
+                            title: metrics[i].title,
+                            value: metrics[i].value,
+                            valueColor: metrics[i].color,
+                            titleFontSize: statCardTitleFontSize,
+                            valueFontSize: statCardValueFontSize,
+                            icon: metrics[i].icon,
+                            customValueWidget: metrics[i].customWidget,
+                          ),
+                        )
+                      : _statMetricCard(
+                          title: metrics[i].title,
+                          value: metrics[i].value,
+                          valueColor: metrics[i].color,
+                          titleFontSize: statCardTitleFontSize,
+                          valueFontSize: statCardValueFontSize,
+                          icon: metrics[i].icon,
+                          customValueWidget: metrics[i].customWidget,
+                        ),
                 ),
               ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  /// 현재 조회 기간에 해당하는 날짜 범위 반환 (start, end in yyyy-MM-dd)
+  ({String start, String end}) _currentDateRange() {
+    if (_selectedPeriod == '일간') {
+      final d = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      return (start: d, end: d);
+    } else if (_selectedPeriod == '주간') {
+      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      return (
+        start: DateFormat('yyyy-MM-dd').format(weekStart),
+        end: DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6))),
+      );
+    } else if (_selectedPeriod == '월간') {
+      final ym = DateFormat('yyyy-MM').format(_selectedDate);
+      final last = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
+      return (
+        start: '$ym-01',
+        end: DateFormat('yyyy-MM-dd').format(last),
+      );
+    } else {
+      // 연간
+      final year = _selectedDate.year;
+      return (start: '$year-01-01', end: '$year-12-31');
+    }
+  }
+
+  Future<void> _showExpenseIncomeDetailPopup() async {
+    final range = _currentDateRange();
+    final db = await DriveLogDatabase.instance.database;
+
+    // 수수료(fee) + 운행지출(transport_cost) 합계 from drive_logs
+    final feeRows = await db.rawQuery(
+      'SELECT COALESCE(SUM(fee),0) AS fee, COALESCE(SUM(transport_cost),0) AS transport FROM drive_logs WHERE work_date >= ? AND work_date <= ?',
+      [range.start, range.end],
+    );
+    final totalFee = (feeRows.first['fee'] as num?)?.toInt() ?? 0;
+    final totalTransport = (feeRows.first['transport'] as num?)?.toInt() ?? 0;
+
+    // 부가수익(waypoint_tip) 합계 from drive_logs
+    final tipRows = await db.rawQuery(
+      'SELECT COALESCE(SUM(waypoint_tip),0) AS tip FROM drive_logs WHERE work_date >= ? AND work_date <= ?',
+      [range.start, range.end],
+    );
+    final totalTip = (tipRows.first['tip'] as num?)?.toInt() ?? 0;
+
+    // 별도 지출 항목별 합계 from expense_entries
+    List<Map<String, dynamic>> extraExpenseCategories = [];
+    try {
+      extraExpenseCategories = await ExpenseRepository.aggregateByCategoryForRange(
+        range.start,
+        range.end,
+        includeAllDefinedCategories: false,
+      );
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final fmt = NumberFormat('#,###');
+
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xCC1F222A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.white10),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.receipt_long, color: Color(0xFFFFC700), size: 22),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '지출 / 수익 세부 내역',
+                      style: const TextStyle(
+                        fontFamily: 'GmarketSans',
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                    onPressed: () => Navigator.pop(ctx),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              // 지출 섹션
+              _buildDetailSection(
+                title: '지출 세부',
+                color: const Color(0xFFFF5252),
+                rows: [
+                  if (totalFee > 0) _buildDetailRow('수수료', fmt.format(totalFee), const Color(0xFFFF5252)),
+                  if (totalTransport > 0) _buildDetailRow('운행 지출', fmt.format(totalTransport), const Color(0xFFFF5252)),
+                  for (final cat in extraExpenseCategories)
+                    _buildDetailRow(
+                      cat['label']?.toString() ?? '기타',
+                      fmt.format((cat['amount'] as num?)?.toInt() ?? 0),
+                      const Color(0xFFFF5252),
+                    ),
+                  if (totalFee == 0 && totalTransport == 0 && extraExpenseCategories.isEmpty)
+                    _buildDetailRow('내역 없음', '-', Colors.white38),
+                ],
+                total: fmt.format(_stats['totalExpenses'] ?? 0),
+              ),
+              const SizedBox(height: 12),
+              // 수익 섹션
+              _buildDetailSection(
+                title: '수익 세부',
+                color: Colors.lightBlueAccent,
+                rows: [
+                  if (totalTip > 0) _buildDetailRow('부가수입', fmt.format(totalTip), Colors.lightBlueAccent),
+                  if (totalTip == 0) _buildDetailRow('내역 없음', '-', Colors.white38),
+                ],
+                total: fmt.format(_stats['totalExtraIncome'] ?? 0),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC700),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('확인', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailSection({
+    required String title,
+    required Color color,
+    required List<Widget> rows,
+    required String total,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$total원',
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+          const Divider(color: Colors.white12, height: 16),
+          ...rows,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(String label, String amount, Color amountColor) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        children: [
+          const SizedBox(width: 4),
+          Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(color: amountColor.withValues(alpha: 0.7), shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+          Text(
+            amount == '-' ? '-' : '$amount원',
+            style: TextStyle(color: amountColor, fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 
