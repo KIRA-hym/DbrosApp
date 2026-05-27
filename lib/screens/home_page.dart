@@ -196,8 +196,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final titleFontSize = isExpanded ? 20.0 : 18.0;
     final sectionGap = isExpanded ? 14.0 : 10.0;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
@@ -339,12 +341,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
             ),
           ),
-          if (!_isNoticeClosed && RemoteConfigService().appNoticeMessage.trim().isNotEmpty)
-            _buildFloatingNoticeBanner(),
         ],
       ),
-    );
-  }
+    ),
+    if (!_isNoticeClosed && RemoteConfigService().appNoticeMessage.trim().isNotEmpty)
+      _buildFloatingNoticeBanner(),
+    ],
+  );
+}
 
   Widget _buildFloatingNoticeBanner() {
     final noticeMsg = RemoteConfigService().appNoticeMessage;
@@ -352,7 +356,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Positioned(
       left: 16,
       right: 16,
-      top: 16,
+      top: MediaQuery.of(context).padding.top + 8,
       child: Material(
         color: Colors.transparent,
         child: Container(
