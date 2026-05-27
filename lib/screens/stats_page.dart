@@ -10,6 +10,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart'
 import '../services/db_helper.dart';
 import '../services/expense_repository.dart';
 import '../config/feature_flags.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../utils/responsive_layout.dart';
@@ -1127,91 +1128,47 @@ class _StatsPageState extends State<StatsPage> {
 
     final fmt = NumberFormat('#,###');
 
-    showDialog<void>(
+    AppGlassDialog.show<void>(
       context: context,
-      barrierColor: Colors.black54,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xCC1F222A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Colors.white10),
+      dialog: AppGlassDialog(
+        icon: Icons.receipt_long,
+        title: '지출 / 수익 세부 내역',
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailSection(
+              title: '지출 세부',
+              color: const Color(0xFFFF5252),
+              rows: [
+                if (totalFee > 0) _buildDetailRow('수수료', fmt.format(totalFee), const Color(0xFFFF5252)),
+                if (totalTransport > 0) _buildDetailRow('운행 지출', fmt.format(totalTransport), const Color(0xFFFF5252)),
+                for (final cat in extraExpenseCategories)
+                  _buildDetailRow(
+                    cat['label']?.toString() ?? '기타',
+                    fmt.format((cat['amount'] as num?)?.toInt() ?? 0),
+                    const Color(0xFFFF5252),
+                  ),
+                if (totalFee == 0 && totalTransport == 0 && extraExpenseCategories.isEmpty)
+                  _buildDetailRow('내역 없음', '-', Colors.white38),
+              ],
+              total: fmt.format(_stats['totalExpenses'] ?? 0),
+            ),
+            const SizedBox(height: 12),
+            _buildDetailSection(
+              title: '수익 세부',
+              color: Colors.lightBlueAccent,
+              rows: [
+                if (totalTip > 0) _buildDetailRow('부가수입', fmt.format(totalTip), Colors.lightBlueAccent),
+                if (totalTip == 0) _buildDetailRow('내역 없음', '-', Colors.white38),
+              ],
+              total: fmt.format(_stats['totalExtraIncome'] ?? 0),
+            ),
+          ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.receipt_long, color: Color(0xFFFFC700), size: 22),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '지출 / 수익 세부 내역',
-                      style: const TextStyle(
-                        fontFamily: 'GmarketSans',
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                    onPressed: () => Navigator.pop(ctx),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              // 지출 섹션
-              _buildDetailSection(
-                title: '지출 세부',
-                color: const Color(0xFFFF5252),
-                rows: [
-                  if (totalFee > 0) _buildDetailRow('수수료', fmt.format(totalFee), const Color(0xFFFF5252)),
-                  if (totalTransport > 0) _buildDetailRow('운행 지출', fmt.format(totalTransport), const Color(0xFFFF5252)),
-                  for (final cat in extraExpenseCategories)
-                    _buildDetailRow(
-                      cat['label']?.toString() ?? '기타',
-                      fmt.format((cat['amount'] as num?)?.toInt() ?? 0),
-                      const Color(0xFFFF5252),
-                    ),
-                  if (totalFee == 0 && totalTransport == 0 && extraExpenseCategories.isEmpty)
-                    _buildDetailRow('내역 없음', '-', Colors.white38),
-                ],
-                total: fmt.format(_stats['totalExpenses'] ?? 0),
-              ),
-              const SizedBox(height: 12),
-              // 수익 섹션
-              _buildDetailSection(
-                title: '수익 세부',
-                color: Colors.lightBlueAccent,
-                rows: [
-                  if (totalTip > 0) _buildDetailRow('부가수입', fmt.format(totalTip), Colors.lightBlueAccent),
-                  if (totalTip == 0) _buildDetailRow('내역 없음', '-', Colors.white38),
-                ],
-                total: fmt.format(_stats['totalExtraIncome'] ?? 0),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFC700),
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text('확인', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ),
-              ),
-            ],
-          ),
-        ),
+        actions: [
+          Builder(builder: (ctx) => GlassDialogConfirmButton(filled: true, onPressed: () => Navigator.pop(ctx))),
+        ],
       ),
     );
   }

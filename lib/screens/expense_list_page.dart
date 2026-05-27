@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../expense_nav_bus.dart';
 import '../services/expense_repository.dart';
 import '../utils/responsive_layout.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/responsive_body.dart';
 import 'expense_write_page.dart';
 
@@ -836,24 +837,15 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
             ),
           ),
           confirmDismiss: (_) async {
-            return await showDialog<bool>(
+            return await AppGlassDialog.show<bool>(
                   context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1F222A),
-                    title: const Text('지출 삭제', style: TextStyle(color: Colors.white)),
-                    content: Text(
-                      '이 지출을 삭제하시겠습니까?\n\n$cat ${NumberFormat('#,###').format(amount)}원',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
+                  dialog: AppGlassDialog(
+                    icon: Icons.delete_outline,
+                    title: '지출 삭제',
+                    content: '이 지출을 삭제하시겠습니까?\n\n$cat ${NumberFormat('#,###').format(amount)}원',
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text('취소', style: TextStyle(color: Color(0xFF6E717C))),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        child: const Text('삭제', style: TextStyle(color: Colors.red)),
-                      ),
+                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+                      Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
                     ],
                   ),
                 ) ??

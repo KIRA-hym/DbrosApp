@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/db_helper.dart';
+import '../widgets/app_glass_dialog.dart';
 
 class NoticeListPage extends StatefulWidget {
   const NoticeListPage({super.key});
@@ -51,21 +52,15 @@ class _NoticeListPageState extends State<NoticeListPage> {
             icon: const Icon(Icons.delete_outline, color: Colors.white70),
             onPressed: () async {
               if (_notices.isEmpty) return;
-              final confirm = await showDialog<bool>(
+              final confirm = await AppGlassDialog.show<bool>(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  backgroundColor: const Color(0xFF1F222A),
-                  title: const Text('알림목록 삭제', style: TextStyle(color: Colors.white)),
-                  content: const Text('알림목록을 삭제하시겠습니까?', style: TextStyle(color: Colors.white70)),
+                dialog: AppGlassDialog(
+                  icon: Icons.delete_outline,
+                  title: '알림목록 삭제',
+                  content: '알림목록을 삭제하시겠습니까?',
                   actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, false),
-                      child: const Text('아니오', style: TextStyle(color: Colors.white70)),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('예', style: TextStyle(color: Color(0xFFFF5252))),
-                    ),
+                    Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false), label: '아니오')),
+                    Builder(builder: (ctx) => GlassDialogDestructiveButton(label: '예', onPressed: () => Navigator.pop(ctx, true))),
                   ],
                 ),
               );

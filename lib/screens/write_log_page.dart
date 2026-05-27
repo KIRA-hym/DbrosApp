@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:ui';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -26,6 +25,7 @@ import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
@@ -1035,43 +1035,32 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final fare = _parseMoney(_incomeCon.text);
     if (_selectedProgram.contains('카카오') && fare < 12000) {
       if (!mounted) return;
-      final bool proceed = await showDialog<bool>(
+      final bool proceed = await AppGlassDialog.show<bool>(
         context: context,
         barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            backgroundColor: const Color(0xFF1F222A),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text(
-              "알림",
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'GmarketSans'),
-            ),
-            content: const Text(
-              "입력된 요금이 너무 낮습니다. 계속 진행하시겠습니까?",
-              style: TextStyle(color: Color(0xFFD1D2D4), fontSize: 14),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text(
-                  "아니오",
-                  style: TextStyle(color: Color(0xFF6E717C), fontWeight: FontWeight.bold),
-                ),
+        dialog: AppGlassDialog(
+          icon: Icons.warning_amber_rounded,
+          title: '알림',
+          content: '입력된 요금이 너무 낮습니다. 계속 진행하시겠습니까?',
+          actions: [
+            Builder(
+              builder: (ctx) => GlassDialogCancelButton(
+                label: '아니오',
+                onPressed: () => Navigator.of(ctx).pop(false),
               ),
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(true),
+            ),
+            Builder(
+              builder: (ctx) => TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
                 style: TextButton.styleFrom(
                   backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.15),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text(
-                  "예",
-                  style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
-                ),
+                child: const Text('예', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
               ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ) ?? false;
       if (!proceed) return;
     }
@@ -1880,103 +1869,34 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   void _showOcrHelpDialog() {
-    showDialog<void>(
+    AppGlassDialog.show<void>(
       context: context,
-      barrierDismissible: true,
-      builder: (BuildContext context) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Dialog(
-              backgroundColor: const Color(0xCC1F222A),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: Colors.white10),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Color(0xFFFFC700), size: 22),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text(
-                            "콜카드 인식 시 주의사항",
-                            style: TextStyle(
-                              fontFamily: 'GmarketSans',
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                          onPressed: () => Navigator.pop(context),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildOcrHelpItem(
-                      "1",
-                      "상단 시간 포함 필수",
-                      "캡처 이미지 상단의 상태바 시간까지 함께 캡처되어야 운행 시간이 자동으로 셋팅됩니다. (기기 시간은 24시 설정 기준)",
-                      Icons.access_time,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildOcrHelpItem(
-                      "2",
-                      "로지 앱 캡처 범위",
-                      "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.",
-                      Icons.crop_free,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildOcrHelpItem(
-                      "3",
-                      "콜마너 앱 캡처 범위",
-                      "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.",
-                      Icons.location_on_outlined,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildOcrHelpItem(
-                      "4",
-                      "미니 팝업/스티커 주의",
-                      "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
-                      Icons.warning_amber_rounded,
-                    ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFFFC700),
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text(
-                          "확인",
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+      dialog: AppGlassDialog(
+        icon: Icons.info_outline,
+        title: '콜카드 인식 시 주의사항',
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildOcrHelpItem("1", "상단 시간 포함 필수",
+                "캡처 이미지 상단의 상태바 시간까지 함께 캡처되어야 운행 시간이 자동으로 셋팅됩니다. (기기 시간은 24시 설정 기준)",
+                Icons.access_time),
+            const SizedBox(height: 12),
+            _buildOcrHelpItem("2", "로지 앱 캡처 범위",
+                "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.", Icons.crop_free),
+            const SizedBox(height: 12),
+            _buildOcrHelpItem("3", "콜마너 앱 캡처 범위",
+                "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.", Icons.location_on_outlined),
+            const SizedBox(height: 12),
+            _buildOcrHelpItem("4", "미니 팝업/스티커 주의",
+                "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
+                Icons.warning_amber_rounded),
+          ],
+        ),
+        actions: [
+          Builder(builder: (ctx) => GlassDialogConfirmButton(filled: true, onPressed: () => Navigator.pop(ctx))),
+        ],
+      ),
     );
   }
 

@@ -1,5 +1,4 @@
 import 'dart:io' show Platform;
-import '../config/feature_flags.dart';
 
 import 'dart:convert';
 import 'package:crypto/crypto.dart';
@@ -15,6 +14,7 @@ import '../services/screenshot_auto_debug_log.dart';
 import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
 import '../utils/responsive_layout.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../services/today_stats_notification_service.dart';
@@ -346,39 +346,38 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _showOwnerModeDialog() {
     if (SettingsService.isOwnerMode) {
-      showDialog(
+      AppGlassDialog.show(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1F222A),
-          title: const Text('오너 모드 해제', style: TextStyle(color: Colors.white)),
-          content: const Text('오너 모드를 해제하고 퍼블릭 모드로 전환하시겠습니까?', style: TextStyle(color: Colors.white70)),
+        dialog: AppGlassDialog(
+          icon: Icons.admin_panel_settings,
+          title: '오너 모드 해제',
+          content: '오너 모드를 해제하고 퍼블릭 모드로 전환하시겠습니까?',
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소', style: TextStyle(color: Colors.white70)),
-            ),
-            TextButton(
-              onPressed: () async {
-                await SettingsService.setIsOwnerMode(false);
-                if (!mounted) return;
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('퍼블릭 모드로 전환되었습니다.')),
-                );
-              },
-              child: const Text('해제', style: TextStyle(color: Color(0xFFFF5252))),
+            Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx))),
+            Builder(
+              builder: (ctx) => GlassDialogDestructiveButton(
+                label: '해제',
+                onPressed: () async {
+                  await SettingsService.setIsOwnerMode(false);
+                  if (!mounted) return;
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('퍼블릭 모드로 전환되었습니다.')),
+                  );
+                },
+              ),
             ),
           ],
         ),
       );
     } else {
       final codeCon = TextEditingController();
-      showDialog(
+      AppGlassDialog.show(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1F222A),
-          title: const Text('마스터 코드 입력', style: TextStyle(color: Colors.white)),
-          content: TextField(
+        dialog: AppGlassDialog(
+          icon: Icons.lock_outline,
+          title: '마스터 코드 입력',
+          contentWidget: TextField(
             controller: codeCon,
             obscureText: true,
             style: const TextStyle(color: Colors.white),
@@ -390,32 +389,31 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소', style: TextStyle(color: Colors.white70)),
-            ),
-            TextButton(
-              onPressed: () async {
-                final input = codeCon.text.trim();
-                final bytes = utf8.encode(input);
-                final digest = sha256.convert(bytes).toString().toLowerCase();
-                // "HYM" 의 SHA-256 해시값
-                final targetHash = '8bd584776a2317022906d3da03e66184ddee9d979bb3fde82af39748c3cae422'; 
-                
-                if (digest == targetHash) {
-                  await SettingsService.setIsOwnerMode(true);
-                  if (!mounted) return;
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('오너 모드가 활성화되었습니다.')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('코드가 일치하지 않습니다.')),
-                  );
-                }
-              },
-              child: const Text('인증', style: TextStyle(color: Color(0xFFFFC700))),
+            Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx))),
+            Builder(
+              builder: (ctx) => GlassDialogConfirmButton(
+                label: '인증',
+                onPressed: () async {
+                  final input = codeCon.text.trim();
+                  final bytes = utf8.encode(input);
+                  final digest = sha256.convert(bytes).toString().toLowerCase();
+                  // "HYM" 의 SHA-256 해시값
+                  final targetHash = '8bd584776a2317022906d3da03e66184ddee9d979bb3fde82af39748c3cae422';
+                  if (digest == targetHash) {
+                    await SettingsService.setIsOwnerMode(true);
+                    if (!mounted) return;
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('오너 모드가 활성화되었습니다.')),
+                    );
+                  } else {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('코드가 일치하지 않습니다.')),
+                    );
+                  }
+                },
+              ),
             ),
           ],
         ),
@@ -1008,27 +1006,31 @@ class _SettingsPageState extends State<SettingsPage> {
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
               if (kMonetizationEnabled && value && !SettingsService.isPremiumUser) {
-                showDialog(
+                AppGlassDialog.show(
                   context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1F222A),
-                    title: const Text('👑 구독 전용 기능', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
-                    content: const Text(
-                      '구독 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+                  dialog: AppGlassDialog(
+                    icon: Icons.workspace_premium,
+                    titleWidget: const Text(
+                      '👑 구독 전용 기능',
+                      style: TextStyle(
+                        fontFamily: 'GmarketSans',
+                        color: Color(0xFFFFC700),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC700), foregroundColor: Colors.black),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          // TODO: Navigate to PRO purchase page
-                        },
-                        child: const Text('구독 알아보기'),
+                    ),
+                    content: '구독 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
+                    actions: [
+                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
+                      Builder(
+                        builder: (ctx) => ElevatedButton(
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC700), foregroundColor: Colors.black),
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            // TODO: Navigate to PRO purchase page
+                          },
+                          child: const Text('구독 알아보기'),
+                        ),
                       ),
                     ],
                   ),
@@ -1113,12 +1115,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final text = ScreenshotAutoDebugLog.newestFirstText();
     final body = text.isEmpty ? '(아직 기록 없음 — 앱 실행 후 캡처를 한 번 시도해 보세요.)' : text;
 
-    showDialog<void>(
+    AppGlassDialog.show<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
-        title: const Text('스크린샷 자동등록 진단', style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: SizedBox(
+      dialog: AppGlassDialog(
+        icon: Icons.photo_camera_outlined,
+        title: '스크린샷 자동등록 진단',
+        contentWidget: SizedBox(
           width: double.maxFinite,
           height: MediaQuery.sizeOf(context).height * 0.5,
           child: SingleChildScrollView(
@@ -1134,31 +1136,32 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: body));
-              if (!mounted) return;
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('진단 로그를 클립보드에 복사했습니다.')),
-              );
-            },
-            child: const Text('복사 후 닫기', style: TextStyle(color: Color(0xFFFFC700))),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              label: '복사 후 닫기',
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: body));
+                if (!mounted) return;
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('진단 로그를 클립보드에 복사했습니다.')),
+                );
+              },
+            ),
           ),
-          TextButton(
-            onPressed: () {
-              ScreenshotAutoDebugLog.clear();
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('진단 로그를 비웠습니다.')),
-              );
-            },
-            child: const Text('비우기', style: TextStyle(color: Color(0xFFFF5252))),
+          Builder(
+            builder: (ctx) => GlassDialogDestructiveButton(
+              label: '비우기',
+              onPressed: () {
+                ScreenshotAutoDebugLog.clear();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('진단 로그를 비웠습니다.')),
+                );
+              },
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('닫기', style: TextStyle(color: Colors.white70)),
-          ),
+          Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
         ],
       ),
     );
@@ -1471,26 +1474,22 @@ class _SettingsPageState extends State<SettingsPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () async {
-                final confirm = await showDialog<bool>(
+                final confirm = await AppGlassDialog.show<bool>(
                   context: context,
-                  builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1F222A),
-                    title: const Text("이미지 정리", style: TextStyle(color: Colors.white, fontFamily: 'GmarketSans', fontWeight: FontWeight.w700)),
-                    content: Text(
-                      _imagePurgePeriod == 'none'
-                          ? "설정된 정리 기준이 없습니다. 정리 기준을 '3개월 이전' 또는 '6개월 이전'으로 선택한 뒤 다시 시도해 주세요."
-                          : "선택한 이미지 정리 기준(${_imagePurgePeriod == '3_months' ? '3개월' : '6개월'} 이전)에 따라 오래된 원본 이미지를 디스크에서 제거하시겠습니까?\n\n※ 정산 및 운행일지 기록은 그대로 보존됩니다.",
-                      style: const TextStyle(color: Color(0xFF8A8D96)),
-                    ),
+                  dialog: AppGlassDialog(
+                    icon: Icons.cleaning_services_outlined,
+                    title: '이미지 정리',
+                    content: _imagePurgePeriod == 'none'
+                        ? "설정된 정리 기준이 없습니다. 정리 기준을 '3개월 이전' 또는 '6개월 이전'으로 선택한 뒤 다시 시도해 주세요."
+                        : "선택한 이미지 정리 기준(${_imagePurgePeriod == '3_months' ? '3개월' : '6개월'} 이전)에 따라 오래된 원본 이미지를 디스크에서 제거하시겠습니까?\n\n※ 정산 및 운행일지 기록은 그대로 보존됩니다.",
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: const Text("취소", style: TextStyle(color: Color(0xFF6E717C))),
-                      ),
+                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
                       if (_imagePurgePeriod != 'none')
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text("지금 정리", style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                        Builder(
+                          builder: (ctx) => GlassDialogConfirmButton(
+                            label: '지금 정리',
+                            onPressed: () => Navigator.pop(ctx, true),
+                          ),
                         ),
                     ],
                   ),
@@ -1849,13 +1848,10 @@ class _BatchGeocodeProgressDialogState extends State<_BatchGeocodeProgressDialog
     final total = widget.logs.length;
     final progress = total == 0 ? 0.0 : (_processed / total).clamp(0.0, 1.0);
 
-    return AlertDialog(
-      backgroundColor: const Color(0xFF1F222A),
-      title: Text(
-        _isFinished ? '좌표 일괄 업데이트 완료' : '좌표 일괄 업데이트 중',
-        style: const TextStyle(color: Colors.white, fontSize: 18),
-      ),
-      content: Column(
+    return AppGlassDialog(
+      icon: Icons.place_outlined,
+      title: _isFinished ? '좌표 일괄 업데이트 완료' : '좌표 일괄 업데이트 중',
+      contentWidget: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1882,9 +1878,10 @@ class _BatchGeocodeProgressDialogState extends State<_BatchGeocodeProgressDialog
       ),
       actions: [
         if (_isFinished)
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
       ],
     );

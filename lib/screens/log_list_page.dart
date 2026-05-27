@@ -18,6 +18,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart'
 import '../utils/responsive_layout.dart';
 import '../utils/snackbar_utils.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
 
@@ -706,21 +707,15 @@ class _LogListPageState extends State<LogListPage> {
                 ),
               ),
               confirmDismiss: (direction) async {
-                return await showDialog(
+                return await AppGlassDialog.show<bool>(
                   context: context,
-                  builder: (context) => AlertDialog(
-                    backgroundColor: const Color(0xFF1F222A),
-                    title: const Text("하루 일지 삭제", style: TextStyle(color: Colors.white)),
-                    content: Text("$dateStr의 운행일지 $logCount건을 모두 삭제하시겠습니까?", style: const TextStyle(color: Colors.white70)),
+                  dialog: AppGlassDialog(
+                    icon: Icons.delete_outline,
+                    title: '하루 일지 삭제',
+                    content: '$dateStr의 운행일지 $logCount건을 모두 삭제하시겠습니까?',
                     actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, false),
-                        child: const Text("취소", style: TextStyle(color: Color(0xFF6E717C))),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context, true),
-                        child: const Text("삭제", style: TextStyle(color: Colors.red)),
-                      ),
+                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+                      Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
                     ],
                   ),
                 );
@@ -2024,21 +2019,15 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             ),
           ),
           confirmDismiss: (direction) async {
-            return await showDialog(
+            return await AppGlassDialog.show<bool>(
               context: context,
-              builder: (context) => AlertDialog(
-                backgroundColor: const Color(0xFF1F222A),
-                title: const Text("운행일지 삭제", style: TextStyle(color: Colors.white)),
-                content: Text("이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}", style: const TextStyle(color: Colors.white70)),
+              dialog: AppGlassDialog(
+                icon: Icons.delete_outline,
+                title: '운행일지 삭제',
+                content: '이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}',
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text("취소", style: TextStyle(color: Color(0xFF6E717C))),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: const Text("삭제", style: TextStyle(color: Colors.red)),
-                  ),
+                  Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+                  Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
                 ],
               ),
             );
