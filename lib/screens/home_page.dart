@@ -766,6 +766,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         builder: (context, constraints) {
           final q = _homeQuickActionsMetrics(constraints.maxWidth, constraints.maxHeight);
           final textFs = isTablet ? q.textFs + 5.0 : q.textFs;
+          
+          final isNarrow = constraints.maxHeight < 140;
+          final singleLabel = isNarrow ? '콜카드 단건등록' : '콜카드\n단건등록';
+          final multiLabel = isNarrow ? '콜카드 다중등록' : '콜카드\n다중등록';
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -776,7 +781,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Expanded(
                       child: _quickActionButton(
                         Icons.credit_card,
-                        '콜카드\n단건등록',
+                        singleLabel,
                         textFs,
                         q.iconSz,
                     () async {
@@ -794,7 +799,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Expanded(
                       child: _quickActionButton(
                         Icons.credit_card,
-                        '콜카드\n다중등록',
+                        multiLabel,
                         textFs,
                         q.iconSz,
                     () async {
@@ -1276,16 +1281,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               children: [
                 Icon(icon, color: const Color(0xFFFFC700), size: iconSz),
                 SizedBox(height: (textFs * 0.25).clamp(4.0, 8.0)),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: textFs,
-                    height: 1.15,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: label.contains('\n') ? 2 : 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: textFs,
+                      height: 1.15,
+                    ),
                   ),
                 ),
               ],
