@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z Fold 6 (커버 화면) 광고 적용 레이아웃</title>
+    <style>
+        /* Z Fold 6 커버 화면 비율(약 22:9) 및 기본 테마 설정 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+        }
+
+        /* 스마트폰 목업 프레임 */
+        .device {
+            width: 380px; /* Fold 6 커버 화면 가로 해상도 비율 */
+            height: 850px; /* 세로가 긴 형태 */
+            background-color: #121418;
+            border-radius: 30px;
+            border: 8px solid #333;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 시스템 상태바 (시간, 배터리 등) */
+        .status-bar {
+            height: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #aaa;
+        }
+
+        /* 반투명 플로팅 공지사항 배너 (방금 작업한 부분) */
+        .floating-notice {
+            position: absolute;
+            top: 70px;
+            left: 16px;
+            right: 16px;
+            background-color: rgba(31, 34, 42, 0.85);
+            border: 1px solid rgba(255, 82, 82, 0.5);
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            font-size: 13px;
+        }
+        .notice-icon { color: #FF5252; font-size: 16px; margin-right: 8px; }
+        .notice-close { font-size: 12px; color: #fff; cursor: pointer; padding: 4px; }
+
+        /* 앱바 영역 */
+        .app-bar {
+            height: 60px;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .logo { font-size: 20px; font-weight: bold; color: #FFC700; }
+        .app-title { font-size: 16px; font-weight: bold; color: #FFC700; }
+
+        /* 본문 영역 (Flex 비율 기반 찌그러짐 시뮬레이션) */
+        .body-content {
+            flex: 1; /* 남은 공간을 꽉 채움 */
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            gap: 12px;
+            overflow-y: hidden;
+        }
+
+        /* 각 섹션 공통 스타일 */
+        .card {
+            background-color: #1F222A;
+            border-radius: 16px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* 1. 오늘의 요약 카드 */
+        .summary-card { flex: 2; /* 20% 공간 */ align-items: center; }
+        .summary-title { font-size: 14px; color: #aaa; margin-bottom: 8px;}
+        .summary-money { font-size: 28px; font-weight: bold; color: #fff; }
+
+        /* 2. 주간 차트 영역 */
+        .chart-card { flex: 3; /* 30% 공간 */ position: relative; }
+        .chart-bar { background-color: #FFC700; width: 100%; height: 50%; border-radius: 4px; position: absolute; bottom: 16px; }
+
+        /* 3. 퀵 액션 (콜카드 등록 버튼 등) */
+        .action-card { flex: 2; /* 20% 공간 */ flex-direction: row; gap: 12px; }
+        .action-btn { flex: 1; background-color: #FFC700; color: #000; border-radius: 12px; display: flex; justify-content: center; align-items: center; font-weight: bold; text-align: center; font-size: 14px; }
+        .action-btn.secondary { background-color: #2C2F36; color: #fff; }
+
+        /* 4. 최근 일지 롤링 및 유튜브 */
+        .recent-card { flex: 1; font-size: 13px; color: #ccc; }
+        .youtube-card { flex: 1.5; background-color: #2b1d1d; border: 1px solid #FF5252; color: #FF5252; font-weight: bold; display:flex; align-items:center; justify-content:center; }
+
+        /* === 1안: 하단 고정 배너 광고 (중요) === */
+        .admob-banner {
+            height: 50px; /* 고정 50px */
+            background-color: #ffffff;
+            color: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 14px;
+            border-top: 1px solid #333;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="device">
+        <!-- 시스템 바 -->
+        <div class="status-bar">
+            <span>11:20</span>
+            <span>5G 🔋 98%</span>
+        </div>
+
+        <!-- 공지사항 팝업 (방금 수정된 부분) -->
+        <div class="floating-notice">
+            <div style="display:flex; align-items:center;">
+                <span class="notice-icon">📢</span>
+                <span>업데이트 공지사항 내용...</span>
+            </div>
+            <span class="notice-close">✕ 닫기</span>
+        </div>
+
+        <!-- 상단 앱바 -->
+        <div class="app-bar">
+            <div class="logo">Dbros</div>
+            <div class="app-title">운행 일지 관리</div>
+        </div>
+
+        <!-- 본문 (여기에 Flex가 적용되어 남은 공간에 맞게 자동 축소됨) -->
+        <div class="body-content">
+            <div class="card summary-card">
+                <div class="summary-title">오늘의 순수익</div>
+                <div class="summary-money">154,000원</div>
+            </div>
+            
+            <div class="card chart-card">
+                <div style="font-size: 12px; color: #aaa; margin-bottom: 20px;">주간 수익 차트</div>
+                <div style="display: flex; align-items: flex-end; height: 100%; gap: 8px;">
+                    <div style="flex:1; background:#444; height: 30%; border-radius:4px;"></div>
+                    <div style="flex:1; background:#444; height: 50%; border-radius:4px;"></div>
+                    <div style="flex:1; background:#444; height: 40%; border-radius:4px;"></div>
+                    <div style="flex:1; background:#FFC700; height: 90%; border-radius:4px;"></div>
+                    <div style="flex:1; background:#444; height: 20%; border-radius:4px;"></div>
+                </div>
+            </div>
+
+            <div class="action-card">
+                <div class="action-btn">콜카드<br>수동등록</div>
+                <div class="action-btn secondary">대기비용<br>계산기</div>
+            </div>
+
+            <div class="card recent-card">
+                🔄 [21:05] 강남역 ➔ 판교역 (완료)
+            </div>
+
+            <div class="card youtube-card">
+                ▶ 유튜브 추천 영상 영역
+            </div>
+        </div>
+
+        <!-- 하단 고정 광고 (50px) -->
+        <div class="admob-banner">
+            [Google AdMob 배너 광고 (320x50)]
+        </div>
+    </div>
+
+</body>
+</html>

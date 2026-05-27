@@ -16,6 +16,7 @@ import '../utils/responsive_layout.dart';
 import '../utils/app_image_picker.dart';
 import '../widgets/drive_date_selector_bar.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/ad_banner_widget.dart';
 
 class MultiCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -307,6 +308,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             ),
         ],
       ),
+      bottomNavigationBar: const AdBannerWidget(),
       body: ResponsiveBody(
         fullWidthWhenExpanded: true,
         maxWidth: ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context)),

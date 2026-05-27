@@ -10,6 +10,7 @@ import 'screens/expense_stats_page.dart';
 import 'screens/expense_settings_page.dart';
 import 'services/font_size_service.dart';
 import 'services/settings_service.dart';
+import 'widgets/ad_banner_widget.dart';
 
 /// 개인지출관리 전용 하단 탭 셸 (운행일지 [MainWrapper]와 동일 구조).
 class ExpenseMainWrapper extends StatefulWidget {
@@ -105,6 +106,7 @@ class _ExpenseMainWrapperState extends State<ExpenseMainWrapper> {
           bottomNavigationBar: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const AdBannerWidget(),
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(

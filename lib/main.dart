@@ -27,6 +27,8 @@ import 'services/expense_repository.dart';
 import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'widgets/ad_banner_widget.dart';
 import 'services/today_stats_notification_service.dart';
 import 'services/notification_permission_service.dart';
 import 'services/backup_service.dart';
@@ -41,6 +43,12 @@ void main() async {
     await FcmService.instance.init();
   } catch (e) {
     debugPrint('Firebase init error (Web preview?): $e');
+  }
+
+  try {
+    await MobileAds.instance.initialize();
+  } catch (e) {
+    debugPrint('AdMob init error: $e');
   }
   
   // 폴드 펼침·태블릿 가로 모드 포함 (Z Fold 6 등)
@@ -394,6 +402,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          const AdBannerWidget(),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: Text(
