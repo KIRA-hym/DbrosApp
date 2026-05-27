@@ -72,9 +72,14 @@ class _NoticeListPageState extends State<NoticeListPage> {
               if (confirm == true) {
                 await DriveLogDatabase.instance.deleteAllNotices();
                 if (mounted) {
-                  setState(() {
-                    _notices.clear();
-                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('알림목록이 성공적으로 삭제되었습니다.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      backgroundColor: Color(0xFFFFC700),
+                      duration: Duration(seconds: 2),
+                    ),
+                  );
+                  await _loadNotices();
                 }
               }
             },
