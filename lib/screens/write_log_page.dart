@@ -37,6 +37,8 @@ import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
 import '../utils/formatters.dart';
 import '../utils/app_image_picker.dart';
+import '../utils/pro_feature_guard.dart';
+import '../services/feature_usage_service.dart';
 import 'location_pick_map_page.dart';
 import 'log_list_page.dart';
 
@@ -278,18 +280,26 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _openGallery() async {
-    final result = await AppImagePicker.pickSingleGalleryImage(context);
-    if (result == null) return;
-    
-    final file = result.file;
-    setState(() => _capturedImage = file);
-    
-    final inputImage = InputImage.fromFilePath(file.path);
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-    final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-    await textRecognizer.close();
-    
-    _detectProgramAndParse(recognizedText, originalDate: result.creationDate);
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'single_ocr',
+      canUseFree: FeatureUsageService.canUseSingleOcrFree,
+      canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
+      onGranted: () async {
+        final result = await AppImagePicker.pickSingleGalleryImage(context);
+        if (result == null) return;
+        
+        final file = result.file;
+        setState(() => _capturedImage = file);
+        
+        final inputImage = InputImage.fromFilePath(file.path);
+        final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
+        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+        await textRecognizer.close();
+        
+        _detectProgramAndParse(recognizedText, originalDate: result.creationDate);
+      },
+    );
   }
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)

@@ -697,9 +697,9 @@ class _SettingsPageState extends State<SettingsPage> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     backgroundColor: const Color(0xFF1F222A),
-                    title: const Text('👑 PRO 전용 기능', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                    title: const Text('👑 구독 전용 기능', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
                     content: const Text(
-                      '백그라운드 스크린샷 자동 일지 등록은 PRO(구독) 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
+                      '구독 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
                       style: TextStyle(color: Colors.white),
                     ),
                     actions: [
@@ -713,7 +713,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           Navigator.pop(ctx);
                           // TODO: Navigate to PRO purchase page
                         },
-                        child: const Text('PRO 알아보기'),
+                        child: const Text('구독 알아보기'),
                       ),
                     ],
                   ),
