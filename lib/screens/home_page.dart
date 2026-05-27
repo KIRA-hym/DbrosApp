@@ -351,7 +351,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 }
 
   Widget _buildFloatingNoticeBanner() {
-    final noticeMsg = RemoteConfigService().appNoticeMessage;
+    final noticeMsg = RemoteConfigService().appNoticeMessage.replaceAll('\\n', '\n');
 
     return Positioned(
       left: 16,
