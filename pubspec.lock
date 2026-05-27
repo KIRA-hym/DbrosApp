@@ -1224,6 +1224,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.8.1"
+  restart_app:
+    dependency: "direct main"
+    description:
+      name: restart_app
+      sha256: "400dd401b77b599e2defef55fd4c22af3ff80af48616a82f01c2a07070e3e368"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.8.3"
   rxdart:
     dependency: transitive
     description:
@@ -1328,6 +1336,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.1"
+  shorebird_code_push:
+    dependency: "direct main"
+    description:
+      name: shorebird_code_push
+      sha256: "55d5eea098a4293199d22dfd263ce1d6c10820ceb42c2acb950f971a8bcee0ce"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.6"
   sky_engine:
     dependency: transitive
     description: flutter

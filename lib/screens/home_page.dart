@@ -4,12 +4,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:restart_app/restart_app.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
 import '../services/remote_config_service.dart';
+import '../services/shorebird_update_service.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
@@ -53,6 +55,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
+  /// Shorebird 업데이트 알림 구독
+  StreamSubscription<void>? _updateSub;
+
   @override
   void initState() {
     super.initState();
@@ -65,10 +70,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _restartRecentLogTicker();
     });
     _loadYoutubeBanner();
+    _initShorebirdUpdate();
   }
 
   @override
   void dispose() {
+    _updateSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _workDateTick?.cancel();
     _recentLogTicker?.cancel();
@@ -82,6 +89,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _loadYoutubeBanner();
       _chartsKey.currentState?.reload();
     }
+  }
+
+  // ─── Shorebird OTA 업데이트 ────────────────────────────────────────────
+
+  /// 앱 시작 직후 Shorebird 패치를 백그라운드에서 확인·다운로드한다.
+  /// UI 스레드를 블로킹하지 않기 위해 완전히 비동기로 실행한다.
+  void _initShorebirdUpdate() {
+    _updateSub = ShorebirdUpdateService.instance.onRestartNeeded.listen((_) {
+      if (mounted) _showUpdateReadyBanner();
+    });
+    // checkAndUpdate 는 내부적으로 try-catch 처리되어 있어 await 불필요
+    ShorebirdUpdateService.instance.checkAndUpdate();
+  }
+
+  /// 패치 다운로드 완료 후 사용자에게 재시작을 안내하는 고급 SnackBar.
+  void _showUpdateReadyBanner() {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 12),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        padding: EdgeInsets.zero,
+        content: _UpdateReadySnackContent(
+          onRestart: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            Restart.restartApp();
+          },
+        ),
+      ),
+    );
   }
 
   void _rollWorkDateIfNeeded() {
@@ -1351,6 +1389,90 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Shorebird 업데이트 알림 SnackBar 콘텐츠 ────────────────────────────────
+
+class _UpdateReadySnackContent extends StatelessWidget {
+  const _UpdateReadySnackContent({required this.onRestart});
+
+  final VoidCallback onRestart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xF01F222A),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFFC700).withAlpha(80), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(100),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.system_update_alt_rounded, color: Color(0xFFFFC700), size: 26),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '최적화 패치 적용 완료',
+                    style: TextStyle(
+                      fontFamily: 'GmarketSans',
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    '새로운 최적화 패치가 적용되었습니다.\n원활한 사용을 위해 앱을 재시작해 주세요.',
+                    style: TextStyle(
+                      color: Color(0xFFB0B3BB),
+                      fontSize: 12,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            TextButton(
+              onPressed: onRestart,
+              style: TextButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text(
+                '지금\n재시작',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
