@@ -415,7 +415,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
 
     if (originalDate != null) {
+      // Exif 메타데이터 기준 날짜/시간 설정 — OCR 파서가 더 이상 시간을 추출하지 않으므로
+      // 여기서 _useFormDriveTimeOnSave = true 로 명시해 저장 시 Exif 시각이 쓰이도록 한다.
       _timeCon.text = formatDriveTimeHm(originalDate);
+      _useFormDriveTimeOnSave = true;
       final workYmd = WorkDateUtils.effectiveWorkDateYmd(originalDate);
       _workDateCon.text = workYmd;
       _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(workYmd, _timeCon.text);
@@ -453,22 +456,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   void _parseKakaoCustom(List<TextBlock> blocks, {required String fullText}) {
     final p = KakaoCustomCallOcr.parseScreen(blocks, fullText);
-    final parsedDate = p.driveDateYmd;
-    final parsedTime = p.driveTimeHm;
+    // driveDateYmd/driveTimeHm은 항상 null (Exif 메타데이터로 대체됨)
     String? parsedIncome;
     if (p.grossFare != null) {
       parsedIncome = NumberFormat('#,###').format(p.grossFare!);
     }
 
     setState(() {
-      if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null && parsedTime.isNotEmpty) {
-        _timeCon.text = parsedTime;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
       _waypointCon.text = '';
       _startLocCon.text = p.startLocation;
       _endLocCon.text = p.endLocation;
@@ -481,28 +475,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   void _parseKakao(List<TextBlock> blocks, {required String fullText}) {
     final p = KakaoCallCardOcr.parseScreen(blocks, fullText);
-    final parsedDate = p.driveDateYmd;
-    final parsedTime = p.driveTimeHm;
-    final parsedWaypoint = p.waypoint;
-    final startLocBuffer = p.startLocation;
-    final endLocBuffer = p.endLocation;
+    // driveDateYmd/driveTimeHm은 항상 null (Exif 메타데이터로 대체됨)
     String? parsedIncome;
     if (p.grossFare != null) {
       parsedIncome = NumberFormat('#,###').format(p.grossFare!);
     }
 
     setState(() {
-      if (parsedDate != null) _dateCon.text = parsedDate;
-      if (parsedTime != null && parsedTime.isNotEmpty) {
-        _timeCon.text = parsedTime;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
-      _waypointCon.text = parsedWaypoint;
-      _startLocCon.text = startLocBuffer;
-      _endLocCon.text = endLocBuffer;
+      _waypointCon.text = p.waypoint;
+      _startLocCon.text = p.startLocation;
+      _endLocCon.text = p.endLocation;
       if (parsedIncome != null) _incomeCon.text = parsedIncome;
     });
   }
@@ -514,10 +496,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
 
     setState(() {
-      if (p.driveTimeHm.isNotEmpty) {
-        _timeCon.text = p.driveTimeHm;
-        _useFormDriveTimeOnSave = true;
-      }
+      // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
       if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
       if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
       if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
@@ -532,13 +511,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
 
     setState(() {
-      if (p.driveTimeHm.isNotEmpty) {
-        _timeCon.text = p.driveTimeHm;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
+      // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
       if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
       if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
       if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
@@ -553,17 +526,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
     if (r == null) return;
     setState(() {
-      if (r.driveDateYmd.isNotEmpty) {
-        _dateCon.text = r.driveDateYmd;
-      }
-      if (r.driveStartTimeHm.isNotEmpty) {
-        _timeCon.text = r.driveStartTimeHm;
-        _useFormDriveTimeOnSave = true;
-      } else {
-        final now = DateTime.now();
-        _timeCon.text =
-            "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
-      }
+      // driveDateYmd/driveStartTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
       if (r.grossFare > 0) {
         _incomeCon.text = NumberFormat('#,###').format(r.grossFare);
       }

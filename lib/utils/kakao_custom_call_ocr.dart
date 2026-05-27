@@ -1,6 +1,5 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
-import 'drive_time_format.dart';
 import 'kakao_call_card_ocr.dart';
 
 /// 카카오 **맞춤콜** 배차 화면 (일반·프콜과 다른 UI).
@@ -150,49 +149,11 @@ class KakaoCustomCallOcr {
     return null;
   }
 
-  /// 상단(y&lt;200) 날짜·시:분, 출발/도착 라벨, 실제 수익 줄의 P 앞 숫자.
-  /// 운행시간은 **약 N분 운행**이 아니라 상단 시각만 사용.
+  /// 출발/도착 라벨, 실제 수익 줄의 P 앞 숫자를 파싱한다.
+  /// 날짜/시간은 이미지 Exif 메타데이터를 사용하므로 OCR에서 추출하지 않는다.
   static KakaoScreenParsed parseScreen(List<TextBlock> blocks, String fullText) {
-    String? parsedDate;
-    String? parsedTime;
-
     final sorted = List<TextBlock>.from(blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-
-    for (final b in sorted) {
-      final y = b.boundingBox.top;
-      final text = b.text.trim();
-      if (y < 200) {
-        final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(text);
-        if (dateMatch != null) {
-          parsedDate =
-              '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
-        }
-        final timeMatch = RegExp(r'\d{1,2}:\d{1,2}').firstMatch(text);
-        if (timeMatch != null) {
-          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
-        }
-      }
-    }
-
-    // Text-based fallback for date/time if blocks list is empty or bounding box is missing
-    if (parsedDate == null) {
-      final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(fullText);
-      if (dateMatch != null) {
-        parsedDate =
-            '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
-      }
-    }
-    if (parsedTime == null) {
-      final lines = fullText.split('\n');
-      for (var i = 0; i < lines.length && i < 5; i++) {
-        final timeMatch = RegExp(r'\b\d{1,2}:\d{1,2}\b').firstMatch(lines[i]);
-        if (timeMatch != null) {
-          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
-          break;
-        }
-      }
-    }
 
     var start = _extractLabeledPlace(sorted, '출발', fullText) ?? '';
     var endRaw = _extractLabeledPlace(sorted, '도착', fullText) ?? '';
@@ -218,8 +179,8 @@ class KakaoCustomCallOcr {
     final fare = income.amount ?? parseProfitBeforeP(fullText);
 
     return KakaoScreenParsed(
-      driveDateYmd: parsedDate,
-      driveTimeHm: parsedTime,
+      driveDateYmd: null,
+      driveTimeHm: null,
       waypoint: '',
       startLocation: start,
       endLocation: end,

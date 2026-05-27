@@ -1,11 +1,10 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/ocr_error_logger.dart';
-import 'package:intl/intl.dart';
 import '../services/remote_config_service.dart';
-import 'drive_time_format.dart';
 import 'logi_fare_parse.dart';
 
 class PartnerCallParsed {
+  // 날짜/시간은 이미지 Exif 메타데이터를 사용하므로 항상 빈 문자열
   final String driveTimeHm;
   final int grossFare;
   final String startLocation;
@@ -13,7 +12,7 @@ class PartnerCallParsed {
   final String waypoint;
 
   const PartnerCallParsed({
-    required this.driveTimeHm,
+    this.driveTimeHm = '',
     required this.grossFare,
     required this.startLocation,
     required this.endLocation,
@@ -26,22 +25,30 @@ class LogiColmannerOcr {
 
   static PartnerCallParsed parseLogi(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
-    final time = _parseTime(lines, blocks: blocks);
     final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: false);
     final waypoint = _parseLogiWaypointFromJeoyo(lines);
 
-    final locations = _parseLogiLocationsMerged(lines);
+    var locations = _parseLogiLocationsMerged(lines);
 
-    if (locations.start.isEmpty || locations.end.isEmpty || time.isEmpty || fare == 0) {
+    // Y좌표 기반 폴백: 텍스트 키워드 파싱 실패 시 블록 위치로 분류
+    if ((locations.start.isEmpty || locations.end.isEmpty) && blocks != null && blocks.isNotEmpty) {
+      final fallback = _yCoordLocationFallback(blocks, isLogi: true);
+      if (fallback.start.isNotEmpty || fallback.end.isNotEmpty) {
+        locations = (start: fallback.start.isNotEmpty ? fallback.start : locations.start,
+                     end: fallback.end.isNotEmpty ? fallback.end : locations.end);
+      }
+    }
+
+    // 날짜/시간은 Exif 메타데이터로 결정 — 출발지·도착지·요금만 필수 검증
+    if (locations.start.isEmpty || locations.end.isEmpty || fare == 0) {
       OcrErrorLoggerService.instance.logError(
         platform: 'logi',
         rawText: fullText,
-        errorReason: 'Missing fields. start: ${locations.start}, end: ${locations.end}, fare: $fare, time: $time',
+        errorReason: 'Missing fields. start: ${locations.start}, end: ${locations.end}, fare: $fare',
       );
     }
 
     return PartnerCallParsed(
-      driveTimeHm: time,
       grossFare: fare,
       startLocation: locations.start,
       endLocation: locations.end,
@@ -51,7 +58,6 @@ class LogiColmannerOcr {
 
   static PartnerCallParsed parseColmanner(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
-    final time = _parseTime(lines, blocks: blocks);
     final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: true);
 
     final loc = _parseColmannerLocationsMerged(lines);
@@ -61,19 +67,26 @@ class LogiColmannerOcr {
       waypoint = waypoint.split(')').first.trim();
     }
     waypoint = waypoint.replaceAllMapped(RegExp(r'([그기])(\d{2,})'), (m) => '7${m.group(2)}');
-    final start = _cleanAddr(loc.start, isLogi: false, isStart: true);
-    final end = _cleanAddr(loc.end, isLogi: false, isStart: false);
+    var start = _cleanAddr(loc.start, isLogi: false, isStart: true);
+    var end = _cleanAddr(loc.end, isLogi: false, isStart: false);
 
-    if (start.isEmpty || end.isEmpty || time.isEmpty || fare == 0) {
+    // Y좌표 기반 폴백: 텍스트 키워드 파싱 실패 시 블록 위치로 분류
+    if ((start.isEmpty || end.isEmpty) && blocks != null && blocks.isNotEmpty) {
+      final fallback = _yCoordLocationFallback(blocks, isLogi: false);
+      if (fallback.start.isNotEmpty && start.isEmpty) start = fallback.start;
+      if (fallback.end.isNotEmpty && end.isEmpty) end = fallback.end;
+    }
+
+    // 날짜/시간은 Exif 메타데이터로 결정 — 출발지·도착지·요금만 필수 검증
+    if (start.isEmpty || end.isEmpty || fare == 0) {
       OcrErrorLoggerService.instance.logError(
         platform: 'colmanner',
         rawText: fullText,
-        errorReason: 'Missing fields. start: $start, end: $end, fare: $fare, time: $time',
+        errorReason: 'Missing fields. start: $start, end: $end, fare: $fare',
       );
     }
 
     return PartnerCallParsed(
-      driveTimeHm: time,
       grossFare: fare,
       startLocation: start,
       endLocation: end,
@@ -92,30 +105,6 @@ class LogiColmannerOcr {
   }
 
   static String _normalizeKey(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase();
-
-  static String _parseTime(List<String> lines, {List<TextBlock>? blocks}) {
-    if (blocks != null && blocks.isNotEmpty) {
-      final sorted = List<TextBlock>.from(blocks)
-        ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-      for (final block in sorted) {
-        if (block.boundingBox.top >= 200) break;
-        final m = RegExp(r'(\d{1,2})[:：\.](\d{1,2})').firstMatch(block.text);
-        if (m != null) {
-          final raw = '${m.group(1)}:${m.group(2)}';
-          return normalizeDriveTimeHm(raw) ?? raw;
-        }
-      }
-    }
-
-    for (final l in lines.take(3)) {
-      final m = RegExp(r'(\d{1,2})[:：\.](\d{1,2})').firstMatch(l);
-      if (m != null) {
-        final raw = '${m.group(1)}:${m.group(2)}';
-        return normalizeDriveTimeHm(raw) ?? raw;
-      }
-    }
-    return '';
-  }
 
   /// 입금·정산 줄 — 총요금(요금) 스캔에서 제외한다.
   static bool _isLogiDepositOrSettlementAmountLine(String line) {
@@ -1784,6 +1773,84 @@ class LogiColmannerOcr {
       }
     }
     return '';
+  }
+
+  // ─── Y좌표 기반 출발지/도착지 분류 폴백 ────────────────────────────────
+
+  /// 텍스트 키워드 파싱이 실패했을 때 블록의 Y좌표를 기반으로 출발지/도착지를 분류한다.
+  ///
+  /// 전략:
+  /// 1. 주소 후보 블록을 Y좌표 오름차순으로 정렬한다.
+  /// 2. 인접 블록 사이의 최대 세로 간격(gap)을 찾아 그 지점에서 분할한다.
+  ///    gap이 미미하면 단순 중간값 분할을 사용한다.
+  /// 3. 위쪽(Y값이 작은) 그룹 → 출발지, 아래쪽(Y값이 큰) 그룹 → 도착지.
+  static ({String start, String end}) _yCoordLocationFallback(
+    List<TextBlock> blocks, {
+    required bool isLogi,
+  }) {
+    // 주소 후보 블록 필터링 및 Y 오름차순 정렬
+    final sorted = List<TextBlock>.from(blocks)
+      ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
+
+    final candidates = <TextBlock>[];
+    for (final b in sorted) {
+      final text = b.text.trim();
+      if (text.isEmpty) continue;
+      // 시간 패턴 제외 (상단 상태바 시각 등)
+      if (RegExp(r'^\d{1,2}[:：.]\d{2}').hasMatch(text)) continue;
+      // 요금·UI 노이즈 블록 제외
+      if (_isLogiNoiseLine(text) || _isLogiUiNoiseLine(text)) continue;
+      if (_isCustomerMetaLine(text) || _isOrphanCustomerNumber(text)) continue;
+      if (_isLogiCountdownRemainLine(text) || _isLogiFareClassNoiseLine(text)) continue;
+      // 순수 숫자(요금) 라인 제외
+      if (RegExp(r'^\d{3,7}\s*원?$').hasMatch(text.replaceAll(',', ''))) continue;
+      // 주소처럼 생긴 블록만 포함
+      if (!_looksLikeAddressLine(text)) continue;
+      candidates.add(b);
+    }
+
+    if (candidates.isEmpty) return (start: '', end: '');
+    if (candidates.length == 1) {
+      return (
+        start: _cleanAddr(candidates.first.text.trim(), isLogi: isLogi, isStart: true),
+        end: '',
+      );
+    }
+
+    // 인접 블록 간 최대 수직 간격 위치를 분할 지점으로 사용
+    var maxGap = 0.0;
+    var splitIdx = candidates.length ~/ 2; // 기본값: 절반 분할
+
+    for (var i = 0; i < candidates.length - 1; i++) {
+      final gap = (candidates[i + 1].boundingBox.top - candidates[i].boundingBox.bottom)
+          .toDouble();
+      if (gap > maxGap) {
+        maxGap = gap;
+        splitIdx = i + 1;
+      }
+    }
+
+    // gap이 충분하지 않으면 Y 중앙값 기준 분할로 대체
+    if (maxGap < 20.0) {
+      final topY = candidates.first.boundingBox.top.toDouble();
+      final bottomY = candidates.last.boundingBox.bottom.toDouble();
+      final midY = (topY + bottomY) / 2;
+      final found = candidates.indexWhere(
+        (b) => (b.boundingBox.top + b.boundingBox.bottom) / 2 >= midY,
+      );
+      splitIdx = found >= 1 ? found : candidates.length ~/ 2;
+    }
+
+    final startBlocks = candidates.sublist(0, splitIdx);
+    final endBlocks = candidates.sublist(splitIdx);
+
+    final startRaw = startBlocks.map((b) => b.text.trim()).join(' ');
+    final endRaw = endBlocks.map((b) => b.text.trim()).join(' ');
+
+    return (
+      start: _cleanAddr(startRaw, isLogi: isLogi, isStart: true),
+      end: _cleanAddr(endRaw, isLogi: isLogi, isStart: false),
+    );
   }
 }
 

@@ -2,7 +2,6 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import '../services/ocr_error_logger.dart';
 
 import '../services/remote_config_service.dart';
-import 'drive_time_format.dart';
 import 'logi_fare_parse.dart';
 import 'ocr_address_normalize.dart';
 
@@ -513,53 +512,6 @@ class KakaoCallCardOcr {
     return false;
   }
 
-  static (String?, String?) _extractDriveMetaFromLine(String line) {
-    final t = _normalizeOcrLine(line);
-    if (t.isEmpty) return (null, null);
-    if (!_isDateTimeMetaLine(line) && !_hasLeadingClockToken(line)) return (null, null);
-
-    String? date;
-    final iso = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(t);
-    if (iso != null) {
-      date =
-          '${iso.group(1)}-${iso.group(2)!.padLeft(2, '0')}-${iso.group(3)!.padLeft(2, '0')}';
-    }
-
-    String? time;
-    final colon = RegExp(r'(\d{1,2})[:：.](\d{1,2})').firstMatch(t);
-    if (colon != null) {
-      time = normalizeDriveTimeHm('${colon.group(1)}:${colon.group(2)}');
-    }
-    if (time == null) {
-      final ko = RegExp(r'(\d{1,2})시\s*(\d{1,2})분?').firstMatch(t);
-      if (ko != null) {
-        time = normalizeDriveTimeHm('${ko.group(1)}:${ko.group(2)}');
-      }
-    }
-
-    if (date == null && time == null) return (null, null);
-    return (date, time);
-  }
-
-  /// 요금·주소 구간 이전 상단에서 처음 나오는 시각·일자를 운행 메타로 쓴다.
-  static (String?, String?) _parseDriveMetaFromLines(List<String> lines) {
-    final payIdx = _findPaymentLineIndex(lines);
-    final bound = payIdx >= 0 ? payIdx : lines.length;
-    final scanLimit = bound < 12 ? bound : 12;
-
-    String? parsedDate;
-    String? parsedTime;
-    for (var i = 0; i < scanLimit; i++) {
-      final meta = _extractDriveMetaFromLine(lines[i]);
-      if (parsedDate == null && meta.$1 != null) parsedDate = meta.$1;
-      if (parsedTime == null && meta.$2 != null) {
-        parsedTime = meta.$2;
-        break;
-      }
-    }
-    return (parsedDate, parsedTime);
-  }
-
   static bool _looksLikeAddressLine(String line) {
     final t = line.trim();
     if (t.length < 2) return false;
@@ -769,8 +721,6 @@ class KakaoCallCardOcr {
 
   /// 카카오(일반)·카카오(프콜) 동일 레이아웃 가정 — 카드/현금 요금만 다름.
   static KakaoScreenParsed parseScreen(List<TextBlock> blocks, String fullText) {
-    String? parsedDate;
-    String? parsedTime;
     var parsedWaypoint = '';
     final startBuf = StringBuffer();
     final endBuf = StringBuffer();
@@ -787,24 +737,6 @@ class KakaoCallCardOcr {
       final y = b.boundingBox.top;
       final text = b.text.trim();
 
-      if (i < 12) {
-        final meta = _extractDriveMetaFromLine(text);
-        if (parsedDate == null && meta.$1 != null) parsedDate = meta.$1;
-        if (parsedTime == null && meta.$2 != null) parsedTime = meta.$2;
-      }
-
-      if (y < 200) {
-        final dateMatch = RegExp(r'(\d{4})[-./](\d{1,2})[-./](\d{1,2})').firstMatch(text);
-        if (dateMatch != null && parsedDate == null) {
-          parsedDate =
-              '${dateMatch.group(1)}-${dateMatch.group(2)!.padLeft(2, '0')}-${dateMatch.group(3)!.padLeft(2, '0')}';
-        }
-        final timeMatch = RegExp(r'\d{1,2}:\d{1,2}').firstMatch(text);
-        if (timeMatch != null && parsedTime == null) {
-          parsedTime = normalizeDriveTimeHm(timeMatch.group(0)!) ?? timeMatch.group(0)!;
-        }
-      }
-
       if (!useKakaoT) {
         if (y > 500 && y < 900 && !_excludeFromStartLocation(text)) {
           startBuf.write('$text ');
@@ -814,10 +746,6 @@ class KakaoCallCardOcr {
         }
       }
     }
-
-    final driveMeta = _parseDriveMetaFromLines(lines);
-    if (driveMeta.$1 != null) parsedDate = driveMeta.$1;
-    if (driveMeta.$2 != null) parsedTime = driveMeta.$2;
 
     if (useKakaoT) {
       final kt = _parseKakaoT(lines, fullText);
@@ -892,19 +820,19 @@ class KakaoCallCardOcr {
     cleanedWaypoint = cleanedWaypoint.replaceAll(RegExp(r'\s+'), ' ').trim();
     final finalStart = startBuf.toString().trim();
     final finalEnd = endBuf.toString().trim();
-    
-    final safeDate = parsedDate ?? '';
-    if (finalStart.isEmpty || finalEnd.isEmpty || safeDate.isEmpty || (parsedIncome ?? 0) == 0) {
+
+    // 날짜/시간은 이미지 Exif 메타데이터로 결정하므로 출발지·도착지·요금만 필수 검증
+    if (finalStart.isEmpty || finalEnd.isEmpty || (parsedIncome ?? 0) == 0) {
       OcrErrorLoggerService.instance.logError(
         platform: 'kakao',
         rawText: fullText,
-        errorReason: 'Missing critical fields. start: $finalStart, end: $finalEnd, fare: $parsedIncome, date: $safeDate',
+        errorReason: 'Missing critical fields. start: $finalStart, end: $finalEnd, fare: $parsedIncome',
       );
     }
 
     return KakaoScreenParsed(
-      driveDateYmd: parsedDate,
-      driveTimeHm: parsedTime,
+      driveDateYmd: null,
+      driveTimeHm: null,
       waypoint: cleanedWaypoint,
       startLocation: finalStart,
       endLocation: finalEnd,

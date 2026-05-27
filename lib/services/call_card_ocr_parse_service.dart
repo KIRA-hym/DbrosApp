@@ -277,7 +277,7 @@ class CallCardOcrParseService {
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     final full = sortedBlocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
     final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
-    if (p.driveTimeHm.isNotEmpty) logData['drive_time'] = p.driveTimeHm;
+    // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
     if (p.grossFare > 0) logData['gross_fare'] = p.grossFare;
     if (p.startLocation.isNotEmpty) logData['start_location'] = p.startLocation;
     if (p.endLocation.isNotEmpty) logData['end_location'] = p.endLocation;
@@ -289,7 +289,7 @@ class CallCardOcrParseService {
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     final full = sorted.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
     final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
-    if (p.driveTimeHm.isNotEmpty) logData['drive_time'] = p.driveTimeHm;
+    // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
     if (p.grossFare > 0) logData['gross_fare'] = p.grossFare;
     if (p.startLocation.isNotEmpty) logData['start_location'] = p.startLocation;
     if (p.endLocation.isNotEmpty) logData['end_location'] = p.endLocation;

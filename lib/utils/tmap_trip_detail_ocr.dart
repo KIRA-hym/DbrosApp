@@ -1,18 +1,17 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:intl/intl.dart';
 import '../services/remote_config_service.dart';
 import '../services/ocr_error_logger.dart';
-import 'drive_time_format.dart';
 
 /// T맵 대리 「운행 상세 정보」 파싱 결과
 class TmapTripDetailParsed {
   TmapTripDetailParsed({
-    required this.driveDateYmd,
-    required this.driveStartTimeHm,
     required this.grossFare,
     required this.startAddress,
     required this.endAddress,
     this.waypoint,
+    // 날짜/시간은 이미지 Exif 메타데이터를 사용하므로 항상 빈 문자열
+    this.driveDateYmd = '',
+    this.driveStartTimeHm = '',
   });
 
   final String driveDateYmd;
@@ -63,17 +62,12 @@ class TmapTripDetailOcr {
 
     final normalized = fullText.replaceAll('\r', '\n');
 
-    var driveDateYmd = '';
-    var driveStartTimeHm = '';
     var grossFare = 0;
     var startAddress = '';
     var endAddress = '';
     var waypoint = '';
 
     void apply(String source) {
-      final dt = _parseDriveDateTime(source);
-      if (driveDateYmd.isEmpty && dt.$1.isNotEmpty) driveDateYmd = dt.$1;
-      if (driveStartTimeHm.isEmpty && dt.$2.isNotEmpty) driveStartTimeHm = dt.$2;
       if (grossFare == 0) grossFare = _parseGrossFare(source);
       final addr = _parseAddresses(source);
       if (startAddress.isEmpty && addr.$1.isNotEmpty) startAddress = addr.$1;
@@ -88,9 +82,7 @@ class TmapTripDetailOcr {
 
     apply(normalized);
 
-    if ((startAddress.isEmpty || endAddress.isEmpty || driveDateYmd.isEmpty) &&
-        blocks != null &&
-        blocks.isNotEmpty) {
+    if ((startAddress.isEmpty || endAddress.isEmpty) && blocks != null && blocks.isNotEmpty) {
       final sorted = List<TextBlock>.from(blocks)
         ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
       final joined = sorted.map((b) => b.text.trim()).where((t) => t.isNotEmpty).join('\n');
@@ -99,90 +91,24 @@ class TmapTripDetailOcr {
       }
     }
 
-    if (driveDateYmd.isEmpty &&
-        driveStartTimeHm.isEmpty &&
-        grossFare == 0 &&
-        startAddress.isEmpty &&
-        endAddress.isEmpty) {
+    if (grossFare == 0 && startAddress.isEmpty && endAddress.isEmpty) {
       return null;
     }
 
-      if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0 || driveDateYmd.isEmpty) {
-        OcrErrorLoggerService.instance.logError(
-          platform: 'tmap',
-          rawText: fullText,
-          errorReason: 'Missing critical fields. start: $startAddress, end: $endAddress, fare: $grossFare, date: $driveDateYmd',
-        );
-      }
+    if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0) {
+      OcrErrorLoggerService.instance.logError(
+        platform: 'tmap',
+        rawText: fullText,
+        errorReason: 'Missing critical fields. start: $startAddress, end: $endAddress, fare: $grossFare',
+      );
+    }
 
     return TmapTripDetailParsed(
-      driveDateYmd: driveDateYmd,
-      driveStartTimeHm: driveStartTimeHm,
       grossFare: grossFare,
       startAddress: startAddress,
       endAddress: endAddress,
       waypoint: waypoint,
     );
-  }
-
-  /// 1)·2) 운행일자 키워드 이후 날짜·시각 (없으면 레거시 한 줄 패턴)
-  static (String, String) _parseDriveDateTime(String normalized) {
-    var driveDateYmd = '';
-    var driveStartTimeHm = '';
-
-    const kw = '운행일자';
-    final kwIdx = normalized.indexOf(kw);
-    if (kwIdx >= 0) {
-      final scanAfterKw = normalized.substring(kwIdx + kw.length);
-      final dateM = RegExp(r'(\d{4})\.(\d{1,2})\.(\d{1,2})').firstMatch(scanAfterKw);
-      if (dateM != null) {
-        final y = int.parse(dateM.group(1)!);
-        final mo = int.parse(dateM.group(2)!);
-        final d = int.parse(dateM.group(3)!);
-        driveDateYmd = DateFormat('yyyy-MM-dd').format(DateTime(y, mo, d));
-        final afterDate = scanAfterKw.substring(dateM.end);
-        final timeM = RegExp(r'(\d{1,2}:\d{2})').firstMatch(afterDate);
-        if (timeM != null) {
-          final raw = timeM.group(1)!;
-          driveStartTimeHm = normalizeDriveTimeHm(raw) ?? raw;
-        }
-      }
-    }
-
-    if (driveDateYmd.isEmpty || driveStartTimeHm.isEmpty) {
-      final trip = RegExp(
-        r'(\d{4})\.(\d{1,2})\.(\d{1,2})\s*\([^)]*\)\s*(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})',
-      ).firstMatch(normalized);
-      if (trip != null) {
-        if (driveDateYmd.isEmpty) {
-          final y = int.parse(trip.group(1)!);
-          final mo = int.parse(trip.group(2)!);
-          final d = int.parse(trip.group(3)!);
-          driveDateYmd = DateFormat('yyyy-MM-dd').format(DateTime(y, mo, d));
-        }
-        if (driveStartTimeHm.isEmpty) {
-          final rawStart = trip.group(4)!;
-          driveStartTimeHm = normalizeDriveTimeHm(rawStart) ?? rawStart;
-        }
-      }
-    }
-
-    if (driveStartTimeHm.isEmpty) {
-      final lines = normalized.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).take(3);
-      for (final line in lines) {
-        final timeM = RegExp(r'(\d{1,2}:\d{2})').firstMatch(line);
-        if (timeM != null) {
-          final raw = timeM.group(1)!;
-          final norm = normalizeDriveTimeHm(raw);
-          if (norm != null) {
-            driveStartTimeHm = norm;
-            break;
-          }
-        }
-      }
-    }
-
-    return (driveDateYmd, driveStartTimeHm);
   }
 
   /// 3)·4) 출발···도착 / 도착···실수익
