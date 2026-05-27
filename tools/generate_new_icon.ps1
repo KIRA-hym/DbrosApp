@@ -8,8 +8,8 @@ $pfc = New-Object System.Drawing.Text.PrivateFontCollection
 $pfc.AddFontFile($fontPath)
 $fontFamily = $pfc.Families[0]
 
-# Define "운행관리" using unicode character codes to avoid encoding issues
-$text = [char]0xC6B4 + [char]0xD589 + [char]0xAD00 + [char]0xB9AC
+# Define "운행일지관리" using unicode character codes to avoid encoding issues
+$text = [char]0xC6B4 + [char]0xD589 + [char]0xC77C + [char]0xC9C0 + [char]0xAD00 + [char]0xB9AC
 
 $srcX = 204
 $srcY = 359
@@ -19,7 +19,7 @@ $srcH = 517
 # Selected Option B Parameters
 $LogoWidth = 620
 $LogoY = 380
-$FontSize = 65
+$FontSize = 50
 $TextY = 840
 
 try {
