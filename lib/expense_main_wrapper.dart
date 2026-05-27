@@ -11,6 +11,8 @@ import 'screens/expense_settings_page.dart';
 import 'services/font_size_service.dart';
 import 'services/settings_service.dart';
 import 'widgets/ad_banner_widget.dart';
+import 'utils/pro_feature_guard.dart';
+import 'services/feature_usage_service.dart';
 
 /// 개인지출관리 전용 하단 탭 셸 (운행일지 [MainWrapper]와 동일 구조).
 class ExpenseMainWrapper extends StatefulWidget {
@@ -141,6 +143,19 @@ class _ExpenseMainWrapperState extends State<ExpenseMainWrapper> {
                   ),
                   currentIndex: _selectedIndex,
                   onTap: (index) {
+                    if (index == 3) { // Stats tab
+                      ProFeatureGuard.checkAndRun(
+                        context: context,
+                        featureKey: 'stats',
+                        canUseFree: () async => false, // Stats has 0 free uses according to logic
+                        canUseWithAd: FeatureUsageService.canUseStatsWithAd,
+                        onGranted: () {
+                          setState(() => _selectedIndex = index);
+                        },
+                      );
+                      return;
+                    }
+
                     setState(() => _selectedIndex = index);
                     if (index == 0) ExpenseHomePage.requestRefresh();
                   },

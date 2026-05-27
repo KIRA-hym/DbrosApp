@@ -18,6 +18,8 @@ import '../utils/responsive_layout.dart';
 import '../widgets/drive_date_selector_bar.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/ad_banner_widget.dart';
+import '../utils/pro_feature_guard.dart';
+import '../services/feature_usage_service.dart';
 
 class SingleCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -58,22 +60,30 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   String _driveDateStr() => DateFormat('yyyy-MM-dd').format(_driveDay);
 
   Future<void> _pickImage() async {
-    try {
-      final result = await AppImagePicker.pickSingleGalleryImage(context);
-      if (result == null) return;
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'single_ocr',
+      canUseFree: FeatureUsageService.canUseSingleOcrFree,
+      canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
+      onGranted: () async {
+        try {
+          final result = await AppImagePicker.pickSingleGalleryImage(context);
+          if (result == null) return;
 
-      setState(() {
-        _selectedImage = result.file;
-        _selectedImageDate = result.creationDate;
-      });
+          setState(() {
+            _selectedImage = result.file;
+            _selectedImageDate = result.creationDate;
+          });
 
-      _processImageAndSave(result.file, result.creationDate);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")),
-      );
-    }
+          _processImageAndSave(result.file, result.creationDate);
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")),
+          );
+        }
+      },
+    );
   }
 
   Future<void> _processImageAndSave(File imageFile, DateTime creationDate) async {

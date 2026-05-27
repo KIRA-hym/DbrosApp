@@ -17,6 +17,8 @@ import '../utils/app_image_picker.dart';
 import '../widgets/drive_date_selector_bar.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/ad_banner_widget.dart';
+import '../utils/pro_feature_guard.dart';
+import '../services/feature_usage_service.dart';
 
 class MultiCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -71,27 +73,35 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Future<void> _pickMultipleImages() async {
-    try {
-      final results = await AppImagePicker.pickMultipleGalleryImages(context);
-      if (results.isEmpty) return;
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'multi_ocr',
+      canUseFree: () async => false, // 1회차부터 광고
+      canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
+      onGranted: () async {
+        try {
+          final results = await AppImagePicker.pickMultipleGalleryImages(context);
+          if (results.isEmpty) return;
 
-      setState(() {
-        _selectedImages.addAll(results.map((r) => r.file));
-        _selectedImagesDates.addAll(results.map((r) => r.creationDate));
-        _parsedLogs.clear();
-        _parsedLogFiles.clear();
-        _parsedLogDates.clear();
-        _programUnrecognizedCount = 0;
-        _failedOcrTexts.clear();
-      });
+          setState(() {
+            _selectedImages.addAll(results.map((r) => r.file));
+            _selectedImagesDates.addAll(results.map((r) => r.creationDate));
+            _parsedLogs.clear();
+            _parsedLogFiles.clear();
+            _parsedLogDates.clear();
+            _programUnrecognizedCount = 0;
+            _failedOcrTexts.clear();
+          });
 
-      _showProcessingDialog();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")),
-      );
-    }
+          _showProcessingDialog();
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")),
+          );
+        }
+      },
+    );
   }
 
   void _showProcessingDialog() {

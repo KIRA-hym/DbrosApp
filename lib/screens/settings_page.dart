@@ -187,6 +187,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildStorageSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
       if (SettingsService.isOwnerMode) _buildAdminPushSection(),
+      _buildProModeTestToggle(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
@@ -691,6 +692,35 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
+              if (value && !SettingsService.isPremiumUser) {
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1F222A),
+                    title: const Text('👑 PRO 전용 기능', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                    content: const Text(
+                      '백그라운드 스크린샷 자동 일지 등록은 PRO(구독) 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC700), foregroundColor: Colors.black),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          // TODO: Navigate to PRO purchase page
+                        },
+                        child: const Text('PRO 알아보기'),
+                      ),
+                    ],
+                  ),
+                );
+                return;
+              }
+
               if (value) {
                 final status = await Permission.notification.request();
                 if (!status.isGranted) {
@@ -1280,6 +1310,28 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => _BatchGeocodeProgressDialog(logs: logs),
+    );
+  }
+
+  Widget _buildProModeTestToggle() {
+    return ValueListenableBuilder<bool>(
+      valueListenable: SettingsService.isPremiumUserNotifier,
+      builder: (context, isPremium, child) {
+        return Container(
+          decoration: BorderedSection.decoration(borderRadius: 12),
+          child: ListTile(
+            title: const Text('👑 [TEST] PRO 모드 (무료/유료 전환)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            subtitle: const Text('개발자 테스트용 강제 전환 스위치', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            trailing: Switch(
+              value: isPremium,
+              activeColor: const Color(0xFFFFC700),
+              onChanged: (value) async {
+                await SettingsService.setIsPremiumUser(value);
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 

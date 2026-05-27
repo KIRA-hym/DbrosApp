@@ -24,6 +24,8 @@ import 'screens/stats_page.dart';
 import 'screens/settings_page.dart';
 import 'services/db_helper.dart';
 import 'services/expense_repository.dart';
+import 'services/feature_usage_service.dart';
+import 'services/rewarded_ad_service.dart';
 import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
@@ -34,6 +36,7 @@ import 'services/notification_permission_service.dart';
 import 'services/backup_service.dart';
 import 'services/screenshot_auto_register_service.dart';
 import 'utils/work_date_utils.dart';
+import 'utils/pro_feature_guard.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +50,7 @@ void main() async {
 
   try {
     await MobileAds.instance.initialize();
+    RewardedAdService.loadAd();
   } catch (e) {
     debugPrint('AdMob init error: $e');
   }
@@ -57,6 +61,7 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   await SettingsService.init();
+  await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
   await initializeDateFormatting('ko_KR', null);
 
@@ -95,6 +100,7 @@ void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   await SettingsService.init();
+  await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
   await initializeDateFormatting('ko_KR', null);
   await TodayStatsNotificationService.instance.initialize(
@@ -437,6 +443,19 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
               ),
               currentIndex: _selectedIndex,
               onTap: (index) {
+                if (index == 3) { // Stats tab
+                  ProFeatureGuard.checkAndRun(
+                    context: context,
+                    featureKey: 'stats',
+                    canUseFree: () async => false, // Stats has 0 free uses according to logic
+                    canUseWithAd: FeatureUsageService.canUseStatsWithAd,
+                    onGranted: () {
+                      setState(() => _selectedIndex = index);
+                    },
+                  );
+                  return;
+                }
+
                 if (index == 0) {
                   TodayStatsProvider.instance.refresh();
                   RemoteConfigService().forceFetch().then((updated) {

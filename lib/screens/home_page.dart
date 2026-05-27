@@ -23,6 +23,8 @@ import 'multi_call_card_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
+import '../utils/pro_feature_guard.dart';
+import '../services/feature_usage_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -1265,9 +1267,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const CallPointMapPage()),
+                        ProFeatureGuard.checkAndRun(
+                          context: context,
+                          featureKey: 'call_map',
+                          canUseFree: FeatureUsageService.canUseCallMapFree,
+                          canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
+                          onGranted: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CallPointMapPage()),
+                            );
+                          },
                         );
                       },
                       child: Container(

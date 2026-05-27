@@ -5,6 +5,7 @@ class SettingsService {
   static late SharedPreferences _prefs;
   static final ValueNotifier<bool> _showFloatingButtonsNotifier = ValueNotifier(true);
   static final ValueNotifier<bool> _isOwnerModeNotifier = ValueNotifier(false);
+  static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
@@ -33,6 +34,7 @@ class SettingsService {
     await _ensureAllianceProgramInList();
     _showFloatingButtonsNotifier.value = showFloatingButtons;
     _isOwnerModeNotifier.value = isOwnerMode;
+    _isPremiumUserNotifier.value = isPremiumUser;
   }
 
   /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
@@ -63,11 +65,18 @@ class SettingsService {
 
   static ValueNotifier<bool> get showFloatingButtonsNotifier => _showFloatingButtonsNotifier;
   static ValueNotifier<bool> get isOwnerModeNotifier => _isOwnerModeNotifier;
+  static ValueNotifier<bool> get isPremiumUserNotifier => _isPremiumUserNotifier;
 
   static bool get isOwnerMode => _prefs.getBool('isOwnerMode') ?? false;
   static Future<void> setIsOwnerMode(bool value) async {
     await _prefs.setBool('isOwnerMode', value);
     _isOwnerModeNotifier.value = value;
+  }
+
+  static bool get isPremiumUser => _prefs.getBool('isPremiumUser') ?? false;
+  static Future<void> setIsPremiumUser(bool value) async {
+    await _prefs.setBool('isPremiumUser', value);
+    _isPremiumUserNotifier.value = value;
   }
 
   static double get baseFeeRate => _prefs.getDouble('baseFeeRate') ?? 20.0;
