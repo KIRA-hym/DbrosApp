@@ -459,14 +459,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         backgroundColor: const Color(0xFF121418),
         elevation: 0,
       ),
-      body: SafeArea(
-        top: false,
-        child: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-              )
-            : _buildMap(),
-      ),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+            )
+          : _buildMap(),
     );
   }
 
@@ -518,17 +515,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     final initialPos = _currentPosition != null
         ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
         : const LatLng(37.5665, 126.9780); // 서울시청 폴백
-    final viewPadding = MediaQuery.paddingOf(context);
+    // viewPadding은 SafeArea/Scaffold 에 의해 소비되지 않는 실제 시스템 인셋 값
+    final navBarHeight = MediaQuery.viewPaddingOf(context).bottom;
 
     return Stack(
       children: [
-        Positioned.fill(
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: navBarHeight, // OS 네비게이션바 위까지만 지도 렌더링
           child: GoogleMap(
             initialCameraPosition: CameraPosition(
               target: initialPos,
               zoom: _localDetailZoom,
             ),
-            padding: EdgeInsets.only(bottom: viewPadding.bottom),
+            padding: EdgeInsets.only(bottom: 8), // 지도 내부 컨트롤 여백
             onMapCreated: (GoogleMapController controller) async {
               if (!_controller.isCompleted) {
                 _controller.complete(controller);
