@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:restart_app/restart_app.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
@@ -115,7 +115,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         content: _UpdateReadySnackContent(
           onRestart: () {
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            Restart.restartApp();
+            // ProcessPhoenix 방식은 Shorebird 패치 로딩을 우회할 수 있으므로
+            // SystemNavigator.pop()으로 앱을 종료한다.
+            // 사용자가 앱을 다시 열면 Shorebird가 정상적으로 패치를 적용한다.
+            SystemNavigator.pop();
           },
         ),
       ),
@@ -1430,7 +1433,7 @@ class _UpdateReadySnackContent extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '최적화 패치 적용 완료',
+                    '새 업데이트 준비 완료',
                     style: TextStyle(
                       fontFamily: 'GmarketSans',
                       color: Colors.white,
@@ -1440,7 +1443,7 @@ class _UpdateReadySnackContent extends StatelessWidget {
                   ),
                   SizedBox(height: 3),
                   Text(
-                    '새로운 최적화 패치가 적용되었습니다.\n원활한 사용을 위해 앱을 재시작해 주세요.',
+                    '최신 패치가 다운로드되었습니다.\n아래 버튼으로 앱을 종료 후 다시 열어주세요.',
                     style: TextStyle(
                       color: Color(0xFFB0B3BB),
                       fontSize: 12,
@@ -1462,7 +1465,7 @@ class _UpdateReadySnackContent extends StatelessWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: const Text(
-                '지금\n재시작',
+                '앱\n종료',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontFamily: 'GmarketSans',
