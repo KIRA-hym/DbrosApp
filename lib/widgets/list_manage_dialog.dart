@@ -168,6 +168,18 @@ class _ListManageDialogState extends State<ListManageDialog> {
                 ),
                 const Divider(color: Colors.white12, height: 20),
 
+                // ─── 입력란 (추가 눌렀을 때, 목록 위) ───────────
+                if (_showInput) ...[
+                  _InputRow(
+                    controller: _inputCon,
+                    focusNode: _inputFocus,
+                    hintText: widget.hintText,
+                    accentColor: widget.accentColor,
+                    onSubmit: _save,
+                  ),
+                  const SizedBox(height: 10),
+                ],
+
                 // ─── 항목 목록 ───────────────────────────────────
                 ConstrainedBox(
                   constraints: BoxConstraints(
@@ -192,18 +204,6 @@ class _ListManageDialogState extends State<ListManageDialog> {
                           ),
                         ),
                 ),
-
-                // ─── 입력란 (추가 눌렀을 때) ─────────────────────
-                if (_showInput) ...[
-                  const SizedBox(height: 8),
-                  _InputRow(
-                    controller: _inputCon,
-                    focusNode: _inputFocus,
-                    hintText: widget.hintText,
-                    accentColor: widget.accentColor,
-                    onSubmit: _save,
-                  ),
-                ],
 
                 // ─── 닫기 버튼 ───────────────────────────────────
                 const SizedBox(height: 16),

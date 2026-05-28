@@ -24,6 +24,7 @@ class SettingsService {
     '택틀',
     '택복',
     '식비',
+    '교통',
     '기타',
   ];
 
@@ -46,6 +47,7 @@ class SettingsService {
       await _prefs.setStringList('programList', defaultProgramList);
     }
     await _ensureAllianceProgramInList();
+    await _ensureExpenseItemInList('교통', before: '기타');
     _showFloatingButtonsNotifier.value = showFloatingButtons;
     _isOwnerModeNotifier.value = isOwnerMode;
     _isPremiumUserNotifier.value = isPremiumUser;
@@ -75,6 +77,21 @@ class SettingsService {
       }
     }
     await _prefs.setStringList('programList', list);
+  }
+
+  /// 기존 지출 목록에 [item]이 없으면 [before] 항목 앞(없으면 맨 끝)에 삽입.
+  static Future<void> _ensureExpenseItemInList(String item, {required String before}) async {
+    final raw = _prefs.getStringList('expenseList');
+    if (raw == null) return;
+    final list = List<String>.from(raw);
+    if (list.contains(item)) return;
+    final idx = list.indexOf(before);
+    if (idx >= 0) {
+      list.insert(idx, item);
+    } else {
+      list.add(item);
+    }
+    await _prefs.setStringList('expenseList', list);
   }
 
   static ValueNotifier<bool> get showFloatingButtonsNotifier => _showFloatingButtonsNotifier;

@@ -125,6 +125,8 @@ class BackupService {
       'perTripInsurance': SettingsService.perTripInsurance,
       'yearlyInsurance': SettingsService.yearlyInsurance,
       'programList': SettingsService.programList,
+      'expenseList': SettingsService.expenseList,
+      'incomeList': SettingsService.incomeList,
       'showFloatingButtons': SettingsService.showFloatingButtons,
     };
   }
@@ -385,6 +387,12 @@ class BackupService {
     }
     if (s['programList'] != null) {
       await SettingsService.setProgramList(List<String>.from(s['programList'] as List));
+    }
+    if (s['expenseList'] != null) {
+      await SettingsService.setExpenseList(List<String>.from(s['expenseList'] as List));
+    }
+    if (s['incomeList'] != null) {
+      await SettingsService.setIncomeList(List<String>.from(s['incomeList'] as List));
     }
     if (s['showFloatingButtons'] != null) {
       await SettingsService.setShowFloatingButtons(s['showFloatingButtons'] as bool);
