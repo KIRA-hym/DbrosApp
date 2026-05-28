@@ -15,6 +15,7 @@ import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/app_glass_dialog.dart';
+import '../widgets/list_manage_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../services/today_stats_notification_service.dart';
@@ -36,8 +37,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final _baseFeeCon = TextEditingController(text: SettingsService.baseFeeRate.toString());
   final _perTripInsCon = TextEditingController(text: SettingsService.perTripInsurance.toString());
   String _insuranceType = SettingsService.insuranceType;
-  final List<String> _programList = List.from(SettingsService.programList);
-  final _newProgramCon = TextEditingController();
   bool _showFloatingButtons = SettingsService.showFloatingButtons;
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
@@ -53,18 +52,6 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _hasFeeChanges = false;
   bool _hasInsuranceChanges = false;
 
-  bool _showAddProgram = false;
-  bool _showDeleteProgram = false;
-
-  final List<String> _expenseList = List.from(SettingsService.expenseList);
-  final _newExpenseCon = TextEditingController();
-  bool _showAddExpense = false;
-  bool _showDeleteExpense = false;
-
-  final List<String> _incomeList = List.from(SettingsService.incomeList);
-  final _newIncomeCon = TextEditingController();
-  bool _showAddIncome = false;
-  bool _showDeleteIncome = false;
 
   String _appVersionLabel = '';
   
@@ -129,9 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _baseFeeCon.dispose();
     _perTripInsCon.dispose();
-    _newProgramCon.dispose();
-    _newExpenseCon.dispose();
-    _newIncomeCon.dispose();
     super.dispose();
   }
 
@@ -512,469 +496,94 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildProgramListSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-    final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text("프로그램 목록관리", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(height: spacing),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showAddProgram) {
-                        _showAddProgram = false;
-                        _newProgramCon.clear();
-                      } else {
-                        _showAddProgram = true;
-                        _showDeleteProgram = false;
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text("추가"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showDeleteProgram) {
-                        _showDeleteProgram = false;
-                      } else {
-                        _showDeleteProgram = true;
-                        _showAddProgram = false;
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.delete, color: Colors.white),
-                  label: const Text("삭제"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5252),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_showAddProgram) ...[
-            SizedBox(height: spacing),
-            _buildAddProgramField(),
-          ],
-          if (_showDeleteProgram) ...[
-            SizedBox(height: spacing),
-            _buildProgramList(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgramList() {
-    return Column(
-      children: _programList.asMap().entries.map((entry) {
-        final index = entry.key;
-        final program = entry.value;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF16181D),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            title: Text(program, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
-            trailing: _showDeleteProgram ? IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-              onPressed: () {
-                setState(() {
-                  _programList.removeAt(index);
-                });
-                SettingsService.setProgramList(_programList);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("$program 프로그램이 삭제되었습니다.")),
-                );
-              },
-            ) : null,
-          ),
-        );
-      }).toList(),
-    );
-  }
-  Widget _buildAddProgramField() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final borderRadius = isTablet ? 16.0 : 12.0;
-    final horizontalPadding = isTablet ? 20.0 : 16.0;
-    final verticalPadding = isTablet ? 16.0 : 12.0;
-
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFF16181D), borderRadius: BorderRadius.circular(borderRadius)),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _newProgramCon,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: "새 프로그램 추가",
-                labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-                floatingLabelStyle: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () {
-              final newProgram = _newProgramCon.text.trim();
-              if (newProgram.isNotEmpty && !_programList.contains(newProgram)) {
-                setState(() {
-                  _programList.add(newProgram);
-                  _newProgramCon.clear();
-                  _showAddProgram = false;
-                });
-                SettingsService.setProgramList(_programList);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("$newProgram 프로그램이 추가되었습니다.")),
-                );
-              } else if (newProgram.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("프로그램 이름을 입력해주세요.")),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("이미 존재하는 프로그램입니다.")),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFC700),
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            child: const Text("저장", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemList({
-    required List<String> items,
-    required bool showDelete,
-    required void Function(int index, String item) onDelete,
-  }) {
-    return Column(
-      children: items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF16181D),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            title: Text(item, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
-            trailing: showDelete
-                ? IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
-                    onPressed: () => onDelete(index, item),
-                  )
-                : null,
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildAddItemField({
-    required TextEditingController controller,
-    required String hintLabel,
-    required List<String> currentList,
-    required Future<void> Function(String item) onAdd,
-    required String successMsg,
-    required String duplicateMsg,
-  }) {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final borderRadius = isTablet ? 16.0 : 12.0;
-    final horizontalPadding = isTablet ? 20.0 : 16.0;
-    final verticalPadding = isTablet ? 16.0 : 12.0;
-
-    return Container(
-      decoration: BoxDecoration(color: const Color(0xFF16181D), borderRadius: BorderRadius.circular(borderRadius)),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: hintLabel,
-                labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-                floatingLabelStyle: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () async {
-              final newItem = controller.text.trim();
-              if (newItem.isEmpty) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$hintLabel을 입력해주세요.')),
-                );
-              } else if (currentList.contains(newItem)) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(duplicateMsg)),
-                );
-              } else {
-                await onAdd(newItem);
-                controller.clear();
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(successMsg.replaceAll('{item}', newItem))),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFFC700),
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-            child: const Text('저장', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
+    return _buildListManageButton(
+      title: '프로그램 목록관리',
+      icon: Icons.apps_rounded,
+      onTap: () => ListManageDialog.show(
+        context: context,
+        title: '프로그램 목록관리',
+        icon: Icons.apps_rounded,
+        items: List.from(SettingsService.programList),
+        hintText: '새 프로그램 이름',
+        onAdd: (item) async {
+          final list = List<String>.from(SettingsService.programList)..add(item);
+          await SettingsService.setProgramList(list);
+          return true;
+        },
+        onDelete: (_, item) async {
+          final list = List<String>.from(SettingsService.programList)..remove(item);
+          await SettingsService.setProgramList(list);
+        },
       ),
     );
   }
 
   Widget _buildExpenseListSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-    final spacing = isTablet ? 20.0 : 16.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('지출 항목 관리', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(height: spacing),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showAddExpense) {
-                        _showAddExpense = false;
-                        _newExpenseCon.clear();
-                      } else {
-                        _showAddExpense = true;
-                        _showDeleteExpense = false;
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('추가'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showDeleteExpense) {
-                        _showDeleteExpense = false;
-                      } else {
-                        _showDeleteExpense = true;
-                        _showAddExpense = false;
-                        _newExpenseCon.clear();
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.delete, color: Colors.white),
-                  label: const Text('삭제'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5252),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (_showAddExpense) ...[
-            SizedBox(height: spacing),
-            _buildAddItemField(
-              controller: _newExpenseCon,
-              hintLabel: '새 지출 항목',
-              currentList: _expenseList,
-              onAdd: (item) async {
-                await SettingsService.addExpenseItem(item);
-                setState(() => _expenseList.add(item));
-              },
-              successMsg: '{item} 항목이 추가되었습니다.',
-              duplicateMsg: '이미 존재하는 항목입니다.',
-            ),
-          ],
-          if (_showDeleteExpense) ...[
-            SizedBox(height: spacing),
-            _buildItemList(
-              items: _expenseList,
-              showDelete: true,
-              onDelete: (index, item) async {
-                await SettingsService.removeExpenseItem(item);
-                if (!mounted) return;
-                setState(() => _expenseList.removeAt(index));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$item 항목이 삭제되었습니다.')),
-                );
-              },
-            ),
-          ],
-          if (!_showAddExpense && !_showDeleteExpense) ...[
-            SizedBox(height: spacing),
-            _buildItemList(items: _expenseList, showDelete: false, onDelete: (_, __) {}),
-          ],
-        ],
+    return _buildListManageButton(
+      title: '지출 항목 관리',
+      icon: Icons.money_off_rounded,
+      accentColor: const Color(0xFFFF5252),
+      onTap: () => ListManageDialog.show(
+        context: context,
+        title: '지출 항목 관리',
+        icon: Icons.money_off_rounded,
+        items: List.from(SettingsService.expenseList),
+        hintText: '새 지출 항목 이름',
+        accentColor: const Color(0xFFFF5252),
+        onAdd: (item) async {
+          await SettingsService.addExpenseItem(item);
+          return true;
+        },
+        onDelete: (_, item) async {
+          await SettingsService.removeExpenseItem(item);
+        },
       ),
     );
   }
 
   Widget _buildIncomeListSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-    final spacing = isTablet ? 20.0 : 16.0;
+    return _buildListManageButton(
+      title: '수익 항목 관리',
+      icon: Icons.add_card_rounded,
+      accentColor: Colors.lightBlueAccent,
+      onTap: () => ListManageDialog.show(
+        context: context,
+        title: '수익 항목 관리',
+        icon: Icons.add_card_rounded,
+        items: List.from(SettingsService.incomeList),
+        hintText: '새 수익 항목 이름',
+        accentColor: Colors.lightBlueAccent,
+        onAdd: (item) async {
+          await SettingsService.addIncomeItem(item);
+          return true;
+        },
+        onDelete: (_, item) async {
+          await SettingsService.removeIncomeItem(item);
+        },
+      ),
+    );
+  }
 
+  Widget _buildListManageButton({
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+    Color accentColor = const Color(0xFFFFC700),
+  }) {
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('수익 항목 관리', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-          SizedBox(height: spacing),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showAddIncome) {
-                        _showAddIncome = false;
-                        _newIncomeCon.clear();
-                      } else {
-                        _showAddIncome = true;
-                        _showDeleteIncome = false;
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('추가'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-              SizedBox(width: spacing),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      if (_showDeleteIncome) {
-                        _showDeleteIncome = false;
-                      } else {
-                        _showDeleteIncome = true;
-                        _showAddIncome = false;
-                        _newIncomeCon.clear();
-                      }
-                    });
-                  },
-                  icon: const Icon(Icons.delete, color: Colors.white),
-                  label: const Text('삭제'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFF5252),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-                  ),
-                ),
-              ),
-            ],
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Icon(icon, color: accentColor, size: 22),
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
           ),
-          if (_showAddIncome) ...[
-            SizedBox(height: spacing),
-            _buildAddItemField(
-              controller: _newIncomeCon,
-              hintLabel: '새 수익 항목',
-              currentList: _incomeList,
-              onAdd: (item) async {
-                await SettingsService.addIncomeItem(item);
-                setState(() => _incomeList.add(item));
-              },
-              successMsg: '{item} 항목이 추가되었습니다.',
-              duplicateMsg: '이미 존재하는 항목입니다.',
-            ),
-          ],
-          if (_showDeleteIncome) ...[
-            SizedBox(height: spacing),
-            _buildItemList(
-              items: _incomeList,
-              showDelete: true,
-              onDelete: (index, item) async {
-                await SettingsService.removeIncomeItem(item);
-                if (!mounted) return;
-                setState(() => _incomeList.removeAt(index));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$item 항목이 삭제되었습니다.')),
-                );
-              },
-            ),
-          ],
-          if (!_showAddIncome && !_showDeleteIncome) ...[
-            SizedBox(height: spacing),
-            _buildItemList(items: _incomeList, showDelete: false, onDelete: (_, __) {}),
-          ],
-        ],
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+        onTap: onTap,
       ),
     );
   }
