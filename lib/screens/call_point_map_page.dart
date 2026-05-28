@@ -424,9 +424,16 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          primary,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_on, color: Color(0xFFFF5252), size: 16),
+            const SizedBox(width: 4),
+            Text(
+              primary,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+            ),
+          ],
         ),
         Text(
           '주변 콜맵',
