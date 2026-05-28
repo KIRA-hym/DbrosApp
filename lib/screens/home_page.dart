@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -18,6 +17,7 @@ import '../utils/work_date_utils.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/shorebird_update_dialog.dart';
 import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
@@ -55,8 +55,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
-  /// Shorebird 업데이트 알림 구독
-  StreamSubscription<void>? _updateSub;
+  /// Shorebird 업데이트 이벤트 구독
+  StreamSubscription<PatchEvent>? _updateSub;
+
+  /// 현재 표시 중인 업데이트 다이얼로그 단계 노티파이어
+  ValueNotifier<PatchStage>? _patchStageNotifier;
+  bool _updateDialogShown = false;
 
   @override
   void initState() {
@@ -76,6 +80,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     _updateSub?.cancel();
+    _patchStageNotifier?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _workDateTick?.cancel();
     _recentLogTicker?.cancel();
@@ -94,35 +99,35 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // ─── Shorebird OTA 업데이트 ────────────────────────────────────────────
 
   /// 앱 시작 직후 Shorebird 패치를 백그라운드에서 확인·다운로드한다.
-  /// UI 스레드를 블로킹하지 않기 위해 완전히 비동기로 실행한다.
   void _initShorebirdUpdate() {
-    _updateSub = ShorebirdUpdateService.instance.onRestartNeeded.listen((_) {
-      if (mounted) _showUpdateReadyBanner();
-    });
-    // checkAndUpdate 는 내부적으로 try-catch 처리되어 있어 await 불필요
+    _updateSub = ShorebirdUpdateService.instance.patchEvents.listen(_onPatchEvent);
     ShorebirdUpdateService.instance.checkAndUpdate();
   }
 
-  /// 패치 다운로드 완료 후 사용자에게 재시작을 안내하는 고급 SnackBar.
-  void _showUpdateReadyBanner() {
+  /// 패치 이벤트를 수신하여 다이얼로그를 표시하거나 상태를 업데이트한다.
+  void _onPatchEvent(PatchEvent event) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 12),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        padding: EdgeInsets.zero,
-        content: _UpdateReadySnackContent(
-          onRestart: () {
-            ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            // ProcessPhoenix 방식은 Shorebird 패치 로딩을 우회할 수 있으므로
-            // SystemNavigator.pop()으로 앱을 종료한다.
-            // 사용자가 앱을 다시 열면 Shorebird가 정상적으로 패치를 적용한다.
-            SystemNavigator.pop();
-          },
-        ),
-      ),
-    );
+
+    if (event.stage == PatchStage.downloading) {
+      // 다운로드 시작 → 다이얼로그 표시 (다운로드 중 상태)
+      if (!_updateDialogShown) {
+        _updateDialogShown = true;
+        _patchStageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.downloading);
+        // 다이얼로그가 닫힐 때 상태 초기화
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // 닫힘 감지를 위한 노티파이어 cleanup은 dispose()에서 처리
+        });
+      }
+    } else if (event.stage == PatchStage.ready) {
+      if (_updateDialogShown && _patchStageNotifier != null) {
+        // 이미 열린 다이얼로그(다운로드 중)를 완료 상태로 전환
+        _patchStageNotifier!.value = PatchStage.ready;
+      } else if (!_updateDialogShown) {
+        // 이미 다운로드 완료된 패치(restartRequired) → 바로 완료 상태 다이얼로그 표시
+        _updateDialogShown = true;
+        _patchStageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.ready);
+      }
+    }
   }
 
   void _rollWorkDateIfNeeded() {
@@ -1398,86 +1403,3 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 }
 
-// ─── Shorebird 업데이트 알림 SnackBar 콘텐츠 ────────────────────────────────
-
-class _UpdateReadySnackContent extends StatelessWidget {
-  const _UpdateReadySnackContent({required this.onRestart});
-
-  final VoidCallback onRestart;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xF01F222A),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFFFC700).withAlpha(80), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withAlpha(100),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            const Icon(Icons.system_update_alt_rounded, color: Color(0xFFFFC700), size: 26),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '새 업데이트 준비 완료',
-                    style: TextStyle(
-                      fontFamily: 'GmarketSans',
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  SizedBox(height: 3),
-                  Text(
-                    '최신 패치가 다운로드되었습니다.\n아래 버튼으로 앱을 종료 후 다시 열어주세요.',
-                    style: TextStyle(
-                      color: Color(0xFFB0B3BB),
-                      fontSize: 12,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            TextButton(
-              onPressed: onRestart,
-              style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                '앱\n종료',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontFamily: 'GmarketSans',
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                  height: 1.3,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
