@@ -31,6 +31,7 @@ import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'widgets/ad_banner_widget.dart';
+import 'widgets/shorebird_update_host.dart';
 import 'services/today_stats_notification_service.dart';
 import 'services/notification_permission_service.dart';
 import 'services/backup_service.dart';
@@ -391,7 +392,8 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
           if (index == 0) TodayStatsProvider.instance.refresh();
         }
       },
-      child: PopScope(
+      child: ShorebirdUpdateHost(
+        child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
@@ -520,8 +522,9 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
           );
         },
       ),
-    ),
+        ),
       ),
+    ),
     );
   }
 }

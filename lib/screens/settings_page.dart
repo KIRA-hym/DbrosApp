@@ -13,6 +13,7 @@ import '../services/backup_service.dart';
 import '../services/screenshot_auto_debug_log.dart';
 import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
+import '../services/shorebird_update_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../widgets/list_manage_dialog.dart';
@@ -54,6 +55,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
 
   String _appVersionLabel = '';
+  String _shorebirdPatchLabel = '';
   
   int _versionTapCount = 0;
   DateTime? _lastVersionTapTime;
@@ -64,7 +66,25 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     _loadAppVersionLabel();
+    _loadShorebirdPatchLabel();
     _loadUnreadNoticeCount();
+  }
+
+  Future<void> _loadShorebirdPatchLabel() async {
+    final info = await ShorebirdUpdateService.instance.getPatchInfo();
+    if (!mounted) return;
+    if (!info.available) {
+      setState(() => _shorebirdPatchLabel = 'OTA: 미지원 빌드');
+      return;
+    }
+    final cur = info.current;
+    final pending = info.pending;
+    final pendingStr = pending != null && pending != cur ? ' → #$pending 대기' : '';
+    setState(() {
+      _shorebirdPatchLabel = cur != null
+          ? 'OTA 패치: #$cur$pendingStr'
+          : 'OTA 패치: 기본(릴리스)';
+    });
   }
 
   Future<void> _loadUnreadNoticeCount() async {
@@ -292,22 +312,38 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.75),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('버전정보', style: versionStyle.copyWith(fontWeight: FontWeight.w600)),
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: _handleVersionTap,
-                child: Container(
-                  color: Colors.transparent, // 터치 영역 확보
-                  padding: const EdgeInsets.all(4.0),
-                  child: Text(label, style: versionStyle),
+          Row(
+            children: [
+              Text('버전정보', style: versionStyle.copyWith(fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: GestureDetector(
+                    onTap: _handleVersionTap,
+                    child: Container(
+                      color: Colors.transparent,
+                      padding: const EdgeInsets.all(4.0),
+                      child: Text(label, style: versionStyle),
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
+          if (_shorebirdPatchLabel.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              _shorebirdPatchLabel,
+              textAlign: TextAlign.right,
+              style: versionStyle.copyWith(
+                fontSize: (versionStyle.fontSize ?? 11) - 1,
+                color: const Color(0xFF6E717C),
+              ),
+            ),
+          ],
         ],
       ),
     );

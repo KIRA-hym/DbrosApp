@@ -10,14 +10,12 @@ import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
 import '../services/remote_config_service.dart';
-import '../services/shorebird_update_service.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
-import '../widgets/shorebird_update_dialog.dart';
 import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
@@ -55,13 +53,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
-  /// Shorebird 업데이트 이벤트 구독
-  StreamSubscription<PatchEvent>? _updateSub;
-
-  /// 현재 표시 중인 업데이트 다이얼로그 단계 노티파이어
-  ValueNotifier<PatchStage>? _patchStageNotifier;
-  bool _updateDialogShown = false;
-
   @override
   void initState() {
     super.initState();
@@ -74,13 +65,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _restartRecentLogTicker();
     });
     _loadYoutubeBanner();
-    _initShorebirdUpdate();
   }
 
   @override
   void dispose() {
-    _updateSub?.cancel();
-    _patchStageNotifier?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     _workDateTick?.cancel();
     _recentLogTicker?.cancel();
@@ -93,40 +81,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TodayStatsProvider.instance.refresh();
       _loadYoutubeBanner();
       _chartsKey.currentState?.reload();
-    }
-  }
-
-  // ─── Shorebird OTA 업데이트 ────────────────────────────────────────────
-
-  /// 앱 시작 직후 Shorebird 패치를 백그라운드에서 확인·다운로드한다.
-  void _initShorebirdUpdate() {
-    _updateSub = ShorebirdUpdateService.instance.patchEvents.listen(_onPatchEvent);
-    ShorebirdUpdateService.instance.checkAndUpdate();
-  }
-
-  /// 패치 이벤트를 수신하여 다이얼로그를 표시하거나 상태를 업데이트한다.
-  void _onPatchEvent(PatchEvent event) {
-    if (!mounted) return;
-
-    if (event.stage == PatchStage.downloading) {
-      // 다운로드 시작 → 다이얼로그 표시 (다운로드 중 상태)
-      if (!_updateDialogShown) {
-        _updateDialogShown = true;
-        _patchStageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.downloading);
-        // 다이얼로그가 닫힐 때 상태 초기화
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          // 닫힘 감지를 위한 노티파이어 cleanup은 dispose()에서 처리
-        });
-      }
-    } else if (event.stage == PatchStage.ready) {
-      if (_updateDialogShown && _patchStageNotifier != null) {
-        // 이미 열린 다이얼로그(다운로드 중)를 완료 상태로 전환
-        _patchStageNotifier!.value = PatchStage.ready;
-      } else if (!_updateDialogShown) {
-        // 이미 다운로드 완료된 패치(restartRequired) → 바로 완료 상태 다이얼로그 표시
-        _updateDialogShown = true;
-        _patchStageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.ready);
-      }
     }
   }
 
