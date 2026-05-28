@@ -5,20 +5,13 @@ import 'package:restart_app/restart_app.dart';
 
 import '../services/shorebird_update_service.dart';
 
-/// Shorebird 패치 업데이트 다이얼로그.
+/// Shorebird 패치 업데이트 다이얼로그 유틸리티.
 ///
-/// 다운로드 단계와 완료 단계를 하나의 다이얼로그에서 처리한다.
+/// [show]를 호출하여 다이얼로그를 표시하고 반환된 [ValueNotifier]로 단계를 업데이트한다.
 /// - [PatchStage.downloading]: 스피너 + "다운로드 중" 표시
 /// - [PatchStage.ready]: 완료 아이콘 + "확인" 버튼 표시 → 확인 시 앱 재시작
-class ShorebirdUpdateDialog extends StatefulWidget {
-  const ShorebirdUpdateDialog({
-    super.key,
-    required this.initialStage,
-  });
-
-  final PatchStage initialStage;
-
-  /// 다이얼로그 표시. [stageNotifier]를 반환하여 외부에서 단계를 업데이트할 수 있다.
+abstract final class ShorebirdUpdateDialog {
+  /// 다이얼로그 표시. [ValueNotifier]를 반환하여 외부에서 단계를 업데이트할 수 있다.
   static ValueNotifier<PatchStage> show(
     BuildContext context,
     PatchStage initialStage,
