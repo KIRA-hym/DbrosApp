@@ -313,7 +313,10 @@ class KakaoCallCardOcr {
     final t = line.trim().replaceAll(',', '');
     if (_looksLikeAddressLine(line) && _looksLikeAddressFareTrap(line)) return true;
     // Skip rating/score patterns like "96/100", "96l100", "100점", "96점", "96%"
-    if (RegExp(r'\b\d{1,3}\s*(?:점|%)\b').hasMatch(t)) return true;
+    // — 단, 콤마 요금(예: 58,400)이 함께 있으면 건너뛰지 않음 (법인 58,400 밀어서 200점 조합)
+    if (RegExp(r'\b\d{1,3}\s*(?:점|%)\b').hasMatch(t)) {
+      if (!RegExp(r'\d{1,3},\d{3}').hasMatch(line)) return true;
+    }
     if (RegExp(r'\b\d{1,3}\s*[lL/|]\s*100\b', caseSensitive: false).hasMatch(t)) return true;
     if (RegExp(r'^\d{1,3}\s*[lL/|]\s*100$', caseSensitive: false).hasMatch(t)) return true;
     if (RegExp(r'^\d{1,3}점$').hasMatch(t)) return true;
@@ -396,6 +399,15 @@ class KakaoCallCardOcr {
       if (overrideMatch != null) {
         final mathFare = _toInt(overrideMatch.group(1)!) + _toInt(overrideMatch.group(2)!);
         if (mathFare > fare) fare = mathFare;
+      }
+    }
+
+    // 법인 카드 요금: "법인 N,NNN" 형태 (P/원 접미사 없는 법인 카드 결제)
+    if (fare == 0) {
+      final corpMatch = RegExp(r'법인\s*([\d,]{4,})').firstMatch(fullText);
+      if (corpMatch != null) {
+        final v = _parseCommaInt(corpMatch.group(1)!);
+        if (v != null && v > 0 && v % 100 == 0) fare = v;
       }
     }
 

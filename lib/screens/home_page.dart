@@ -659,10 +659,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         Expanded(
                           child: _buildMirrorSummaryCell(
                             context: context,
-                            icon: Icons.local_taxi,
-                            label: '운행 건수',
-                            value: '${statsProvider.todayLogs}건',
-                            valueColor: const Color(0xFFFFC700),
+                            icon: Icons.payments_outlined,
+                            label: '오늘 지출',
+                            value: NumberFormat('#,###').format(statsProvider.todayExpenses),
+                            valueColor: const Color(0xFFFF5252),
                             metrics: m,
                           ),
                         ),
@@ -670,10 +670,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         Expanded(
                           child: _buildMirrorSummaryCell(
                             context: context,
-                            icon: Icons.payments_outlined,
-                            label: '오늘 지출',
-                            value: NumberFormat('#,###').format(statsProvider.todayExpenses),
-                            valueColor: const Color(0xFFFF5252),
+                            icon: Icons.local_taxi,
+                            label: '운행 건수',
+                            value: '${statsProvider.todayLogs}건',
+                            valueColor: const Color(0xFFFFC700),
                             metrics: m,
                           ),
                         ),

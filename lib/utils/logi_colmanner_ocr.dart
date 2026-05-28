@@ -656,6 +656,11 @@ class LogiColmannerOcr {
 
     // 1. 콜마너/로지 공통 악성 노이즈 철벽 제거 (하단 UI 버튼 등 모든 시스템 문구)
     res = res.replaceAll(RegExp(r'[Q|/\\{}<>]'), ' ');
+    // OCR 노이즈 ')' 제거: 한글/숫자 사이 닫는 괄호 (예: 가정동)가정로 → 가정동 가정로)
+    res = res.replaceAllMapped(
+      RegExp(r'([가-힣\d])\)([가-힣])'),
+      (m) => '${m.group(1)} ${m.group(2)}',
+    );
     res = res.replaceAll(
       RegExp(
         r'\(?(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|제휴|즉후|카드|정장|법\]|정장\])\)?',
@@ -721,8 +726,9 @@ class LogiColmannerOcr {
     res = res.replaceAllMapped(RegExp(r'([가-힣]+[동읍면리구시군])\s*\)?\s*\1'), (m) => m.group(1)!);
 
     // 6. 주소 끝자리 순수 오더 번호 및 영문/숫자 노이즈 제거
+    //    (순수 숫자 도로 번지/층수는 제거하지 않음 — 영문 시작 토큰만 제거)
     res = res.replaceAll(RegExp(r'(?<!\()\b\d{6,}\b(?!\))'), ' ');
-    res = res.replaceAll(RegExp(r'\b[a-zA-Z\d.]{2,8}\b\s*$'), ' ');
+    res = res.replaceAll(RegExp(r'\b[a-zA-Z][a-zA-Z\d.]{1,7}\b\s*$'), ' ');
 
     // 7. 카카오 매칭률/UI 노이즈 잔해 제거
     res = res.replaceAll(RegExp(r'\b\d{1,3}\s*[lI|%]\s*(?:\(\d{1,2}\))?\b', caseSensitive: false), ' ');
@@ -939,8 +945,14 @@ class LogiColmannerOcr {
   ) {
     if (groups.isEmpty) return (start: '', end: '');
     if (groups.length == 1) {
+      final singleText = groups[0].join(' ');
+      // 단일 그룹에 '도착지' 라벨이 포함된 경우(출발지+도착지 혼합 블록) 분할 시도
+      if (singleText.contains('도착지')) {
+        final split = _splitAddressText(singleText, isLogi: true);
+        if (split.end.isNotEmpty) return (start: split.start, end: split.end);
+      }
       return (
-        start: _cleanAddr(groups[0].join(' '), isLogi: true, isStart: true),
+        start: _cleanAddr(singleText, isLogi: true, isStart: true),
         end: '',
       );
     }
@@ -950,6 +962,12 @@ class LogiColmannerOcr {
       final startText = groups[sangseIdx].join(' ');
       final endIdx = _indexOfLogiFinalDestinationGroup(groups, afterIndex: sangseIdx);
       final endText = groups[endIdx].join(' ');
+      // 상세: 그룹과 도착지 그룹이 동일한 경우(단일 그룹에 두 주소 혼합) 분할 시도
+      if (endIdx == sangseIdx) {
+        final split = _splitAddressText(startText, isLogi: true);
+        if (split.end.isNotEmpty) return (start: split.start, end: split.end);
+        return (start: _cleanAddr(startText, isLogi: true, isStart: true), end: '');
+      }
       return (
         start: _cleanAddr(startText, isLogi: true, isStart: true),
         end: _cleanAddr(endText, isLogi: true, isStart: false),

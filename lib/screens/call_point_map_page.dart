@@ -417,8 +417,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Widget _buildAppBarTitle() {
-    final primary = _areaTitle.isNotEmpty ? _areaTitle : '주변';
-    final subtitle = _areaSubline.isNotEmpty ? '$_areaSubline 주변 콜맵' : '주변 콜맵';
+    // 첫 번째 줄: 지역명 + 동/읍/면 합쳐서 표시 (예: "성남시 정자동", "서초구 방배동")
+    final dongSuffix = _areaSubline.isNotEmpty ? ' $_areaSubline' : '';
+    final primary = _areaTitle.isNotEmpty ? '$_areaTitle$dongSuffix' : '주변';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -428,7 +429,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
         ),
         Text(
-          subtitle,
+          '주변 콜맵',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,

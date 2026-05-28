@@ -1575,12 +1575,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   Widget _buildFormLayout() {
     const gap = 20.0;
+    final bottomPad = MediaQuery.of(context).padding.bottom;
     if (ResponsiveLayout.isExpanded(context)) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: bottomPad),
               child: Column(
                 children: [
                   _buildDateTimeSection(),
@@ -1593,6 +1595,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           const SizedBox(width: 16),
           Expanded(
             child: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: bottomPad),
               child: Column(
                 children: [
                   _buildRouteSection(),
@@ -1607,6 +1610,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
 
     return SingleChildScrollView(
+      padding: EdgeInsets.only(bottom: bottomPad),
       child: Column(
         children: [
           _buildDateTimeSection(),

@@ -1,4 +1,5 @@
 import 'dart:io' show Platform;
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -14,8 +15,9 @@ class AutoRegisterNotificationService {
   AutoRegisterNotificationService._();
   static final AutoRegisterNotificationService instance = AutoRegisterNotificationService._();
 
-  static const String _channelId = 'screenshot_auto_register';
-  static const String _channelName = '스크린샷 자동등록';
+  // v2: 채널 중요도를 high로 올리기 위해 새 채널 ID 사용 (기존 채널은 중요도 변경 불가)
+  static const String _channelId = 'screenshot_auto_register_v2';
+  static const String _channelName = '자동등록 알림';
   static const int _notificationId = 9101;
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
@@ -40,11 +42,13 @@ class AutoRegisterNotificationService {
       },
     );
 
-    const channel = AndroidNotificationChannel(
+    // Importance.high → 상단 Heads-up 팝업 + 진동 허용 (카카오톡과 동일 수준)
+    final channel = AndroidNotificationChannel(
       _channelId,
       _channelName,
       description: '스크린샷 콜카드 자동등록 완료 알림',
-      importance: Importance.defaultImportance,
+      importance: Importance.high,
+      vibrationPattern: Int64List.fromList([0, 200, 100, 200]),
     );
     await _plugin
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
@@ -86,14 +90,18 @@ class AutoRegisterNotificationService {
     await initialize();
     if (!await ensureNotificationPermission()) return;
 
-    const details = NotificationDetails(
+    // Importance.high + Priority.high → 카카오톡처럼 상단 Heads-up 팝업 표시
+    // vibrationPattern: [딜레이, 진동, 정지, 진동] 밀리초 — 카카오톡 유사 짧은 이중 진동
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
         _channelName,
         channelDescription: '스크린샷 콜카드 자동등록 완료 알림',
-        importance: Importance.defaultImportance,
-        priority: Priority.defaultPriority,
+        importance: Importance.high,
+        priority: Priority.high,
         icon: '@drawable/app_notification_icon',
+        vibrationPattern: Int64List.fromList([0, 200, 100, 200]),
+        enableVibration: true,
       ),
     );
 

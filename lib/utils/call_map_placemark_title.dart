@@ -34,11 +34,24 @@ String _provinceAndCityLine(
   String subAdmin,
   Placemark pm,
 ) {
+  if (admin.endsWith('도')) {
+    // 도 단위(경기도 등) — 도명 생략, 시/군만 반환 (구는 표시하지 않음)
+    // → 호출부에서 동/읍/면을 붙여 "XX시 XX동" 형태로 조합됨
+    final cityOrCounty = _firstSegmentEndingWith(
+          [locality, subAdmin, pm.locality, pm.subAdministrativeArea],
+          '시',
+        ) ??
+        _firstSegmentEndingWith(
+          [locality, subAdmin, pm.locality, pm.subAdministrativeArea],
+          '군',
+        );
+    if (cityOrCounty != null) return cityOrCounty;
+    return locality.isNotEmpty ? locality : admin;
+  }
+
   final parts = <String>[];
 
-  if (admin.endsWith('도')) {
-    // 도 단위(경기도 등)는 생략
-  } else if (admin.endsWith('광역시')) {
+  if (admin.endsWith('광역시')) {
     parts.add(admin.replaceFirst('광역시', '시'));
     final gu = _firstSegmentEndingWith(
       [pm.subLocality, pm.locality, pm.subAdministrativeArea],
