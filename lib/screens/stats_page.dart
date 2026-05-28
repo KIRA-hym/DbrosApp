@@ -1101,18 +1101,32 @@ class _StatsPageState extends State<StatsPage> {
 
     // 수수료(fee) + 운행지출(transport_cost) 합계 from drive_logs
     final feeRows = await db.rawQuery(
-      'SELECT COALESCE(SUM(fee),0) AS fee, COALESCE(SUM(transport_cost),0) AS transport FROM drive_logs WHERE work_date >= ? AND work_date <= ?',
+      'SELECT COALESCE(SUM(fee),0) AS fee FROM drive_logs WHERE work_date >= ? AND work_date <= ?',
       [range.start, range.end],
     );
     final totalFee = (feeRows.first['fee'] as num?)?.toInt() ?? 0;
-    final totalTransport = (feeRows.first['transport'] as num?)?.toInt() ?? 0;
 
-    // 부가수익(waypoint_tip) 합계 from drive_logs
-    final tipRows = await db.rawQuery(
-      'SELECT COALESCE(SUM(waypoint_tip),0) AS tip FROM drive_logs WHERE work_date >= ? AND work_date <= ?',
+    // 운행지출 항목별 합산 (expense_category GROUP BY)
+    final transportCategoryRows = await db.rawQuery(
+      '''SELECT COALESCE(expense_category, '기타') AS cat, COALESCE(SUM(transport_cost),0) AS amount
+         FROM drive_logs
+         WHERE work_date >= ? AND work_date <= ? AND transport_cost > 0
+         GROUP BY COALESCE(expense_category, '기타')
+         ORDER BY amount DESC''',
       [range.start, range.end],
     );
-    final totalTip = (tipRows.first['tip'] as num?)?.toInt() ?? 0;
+    final totalTransport = transportCategoryRows.fold<int>(0, (s, r) => s + ((r['amount'] as num?)?.toInt() ?? 0));
+
+    // 부가수익 항목별 합산 (income_category GROUP BY)
+    final incomeCategoryRows = await db.rawQuery(
+      '''SELECT COALESCE(income_category, '기타') AS cat, COALESCE(SUM(waypoint_tip),0) AS amount
+         FROM drive_logs
+         WHERE work_date >= ? AND work_date <= ? AND waypoint_tip > 0
+         GROUP BY COALESCE(income_category, '기타')
+         ORDER BY amount DESC''',
+      [range.start, range.end],
+    );
+    final totalTip = incomeCategoryRows.fold<int>(0, (s, r) => s + ((r['amount'] as num?)?.toInt() ?? 0));
 
     // 별도 지출 항목별 합계 from expense_entries
     List<Map<String, dynamic>> extraExpenseCategories = [];
@@ -1142,14 +1156,20 @@ class _StatsPageState extends State<StatsPage> {
               color: const Color(0xFFFF5252),
               rows: [
                 if (totalFee > 0) _buildDetailRow('수수료', fmt.format(totalFee), const Color(0xFFFF5252)),
-                if (totalTransport > 0) _buildDetailRow('운행 지출', fmt.format(totalTransport), const Color(0xFFFF5252)),
+                // 운행지출: 항목(expense_category)별 합산
+                for (final r in transportCategoryRows)
+                  _buildDetailRow(
+                    r['cat']?.toString() ?? '기타',
+                    fmt.format((r['amount'] as num?)?.toInt() ?? 0),
+                    const Color(0xFFFF5252),
+                  ),
                 for (final cat in extraExpenseCategories)
                   _buildDetailRow(
                     cat['label']?.toString() ?? '기타',
                     fmt.format((cat['amount'] as num?)?.toInt() ?? 0),
                     const Color(0xFFFF5252),
                   ),
-                if (totalFee == 0 && totalTransport == 0 && extraExpenseCategories.isEmpty)
+                if (totalFee == 0 && transportCategoryRows.isEmpty && extraExpenseCategories.isEmpty)
                   _buildDetailRow('내역 없음', '-', Colors.white38),
               ],
               total: fmt.format(_stats['totalExpenses'] ?? 0),
@@ -1159,8 +1179,14 @@ class _StatsPageState extends State<StatsPage> {
               title: '수익 세부',
               color: Colors.lightBlueAccent,
               rows: [
-                if (totalTip > 0) _buildDetailRow('부가수입', fmt.format(totalTip), Colors.lightBlueAccent),
-                if (totalTip == 0) _buildDetailRow('내역 없음', '-', Colors.white38),
+                // 부가수입: 항목(income_category)별 합산
+                for (final r in incomeCategoryRows)
+                  _buildDetailRow(
+                    r['cat']?.toString() ?? '기타',
+                    fmt.format((r['amount'] as num?)?.toInt() ?? 0),
+                    Colors.lightBlueAccent,
+                  ),
+                if (incomeCategoryRows.isEmpty) _buildDetailRow('내역 없음', '-', Colors.white38),
               ],
               total: fmt.format(_stats['totalExtraIncome'] ?? 0),
             ),

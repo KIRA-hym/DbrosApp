@@ -159,6 +159,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _incomeCon.text = NumberFormat('#,###').format(log['gross_fare']);
       _transportCon.text = log['transport_cost'] > 0 ? NumberFormat('#,###').format(log['transport_cost']) : '';
       _waypointTipCon.text = log['waypoint_tip'] != null && log['waypoint_tip'] > 0 ? NumberFormat('#,###').format(log['waypoint_tip']) : '';
+      final savedExpenseCat = log['expense_category']?.toString();
+      if (savedExpenseCat != null && savedExpenseCat.isNotEmpty) {
+        _selectedExpenseCategory = SettingsService.expenseList.contains(savedExpenseCat) ? savedExpenseCat : _selectedExpenseCategory;
+      }
+      final savedIncomeCat = log['income_category']?.toString();
+      if (savedIncomeCat != null && savedIncomeCat.isNotEmpty) {
+        _selectedExtraIncomeCategory = SettingsService.incomeList.contains(savedIncomeCat) ? savedIncomeCat : _selectedExtraIncomeCategory;
+      }
       _startLocCon.text = log['start_location'] ?? '';
       _waypointCon.text = log['waypoint'] ?? '';
       _endLocCon.text = log['end_location'] ?? '';
@@ -1077,7 +1085,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         "drive_time": resolveDriveTimeForStorage(driveTimeForRow),
         "program": _selectedProgram,
         "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "transport_cost": _parseMoney(_transportCon.text),
+        "expense_category": _parseMoney(_transportCon.text) > 0 ? _safeExpenseCategory() : null,
         "waypoint_tip": _parseMoney(_waypointTipCon.text),
+        "income_category": _parseMoney(_waypointTipCon.text) > 0 ? _safeIncomeCategory() : null,
         "net_income": _currentNetIncomeFromGross(), "start_location": _startLocCon.text.trim(),
         "waypoint": _waypointCon.text.trim(), "end_location": _endLocCon.text.trim(), "memo": _memoCon.text.trim(),
         "start_lat": _startLat,
