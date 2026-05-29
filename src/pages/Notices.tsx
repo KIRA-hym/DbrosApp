@@ -47,6 +47,18 @@ export default function Notices() {
     setIsModalOpen(false);
   };
 
+  const getTodayDate = () => {
+    const today = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+  };
+
+  const handleOpenNew = () => {
+    resetForm();
+    setStartDate(getTodayDate());
+    setIsModalOpen(true);
+  };
+
   const handleOpenEdit = (notice: Notice) => {
     setTitle(notice.title);
     setContent(notice.content);
@@ -106,7 +118,7 @@ export default function Notices() {
           <p className="text-gray-400 text-sm">앱 실행 시 사용자에게 보여줄 공지사항과 게시 기간을 설정합니다.</p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={handleOpenNew}
           className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg transition-transform active:scale-95"
         >
           <Plus size={18} />
@@ -191,7 +203,7 @@ export default function Notices() {
                     required
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#121418] border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                    className="w-full px-4 py-3 bg-[#121418] border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 cursor-pointer [color-scheme:dark]"
                   />
                 </div>
                 <div className="flex-1">
@@ -201,7 +213,7 @@ export default function Notices() {
                     required
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-[#121418] border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50"
+                    className="w-full px-4 py-3 bg-[#121418] border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-yellow-500/50 cursor-pointer [color-scheme:dark]"
                   />
                 </div>
               </div>

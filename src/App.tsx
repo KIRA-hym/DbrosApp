@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Notices from './pages/Notices';
 import Push from './pages/Push';
+import OcrLogs from './pages/OcrLogs';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -37,7 +38,7 @@ function AppRoutes() {
         <Route path="notices" element={<Notices />} />
         {/* Placeholder Routes */}
         <Route path="push" element={<Push />} />
-        <Route path="ocr" element={<div className="p-8 text-white">OCR 룰/로그 관리 (개발 중)</div>} />
+        <Route path="ocr" element={<OcrLogs />} />
         <Route path="settings" element={<div className="p-8 text-white">설정 (개발 중)</div>} />
       </Route>
     </Routes>
