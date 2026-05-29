@@ -391,7 +391,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
             ),
             child: const Row(
               children: [
-                Icon(Icons.bug_report, color: Color(0xFFFFC700), size: 18),
+                Icon(Icons.bug_report_outlined, color: Color(0xFFFFC700), size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -443,7 +443,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.document_scanner_outlined,
+                        Icon(Icons.image,
                             size: 64, color: Colors.white.withValues(alpha: 0.15)),
                         const SizedBox(height: 16),
                         Text(
@@ -572,7 +572,7 @@ class _ResultCardState extends State<_ResultCard> {
                               ),
                             );
                           },
-                    icon: const Icon(Icons.copy, size: 16),
+                    icon: const Icon(Icons.note, size: 16),
                     label: const Text('원본 텍스트 복사', style: TextStyle(fontSize: 12)),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: const Color(0xFFFFC700),
@@ -592,7 +592,7 @@ class _ResultCardState extends State<_ResultCard> {
               child: Row(
                 children: [
                   Icon(
-                    _showRaw ? Icons.expand_less : Icons.expand_more,
+                    _showRaw ? Icons.arrow_right : Icons.arrow_drop_down,
                     color: const Color(0xFF6E717C),
                     size: 18,
                   ),

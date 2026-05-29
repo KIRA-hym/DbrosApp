@@ -610,7 +610,7 @@ class _SettingsPageState extends State<SettingsPage> {
       padding: EdgeInsets.all(padding),
       child: ListTile(
         contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.bug_report, color: Color(0xFFFFC700)),
+        leading: const Icon(Icons.bug_report_outlined, color: Color(0xFFFFC700)),
         title: const Text('콜카드 인식 로그', style: TextStyle(color: Colors.white, fontSize: 16)),
         trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
         onTap: () {
