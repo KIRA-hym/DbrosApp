@@ -146,13 +146,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildSettingsGroup(
         "수수료 설정",
         [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              '카카오·티맵·핸들포유에는 아래 수수료율이 적용되지 않습니다.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
-            ),
-          ),
           _buildTextField(_baseFeeCon, "기본 수수료율 (%)", onChanged: () {
             _checkFeeChanges();
           }),
@@ -167,13 +160,6 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildSettingsGroup(
         "보험료 설정",
         [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              '「건당 보험료」는 카카오(제휴), 로지, 콜마너, 핸들포유, 기타에만 1건당 설정금액이 차감됩니다.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96)),
-            ),
-          ),
           _buildRadioTile("적용 안 함", 'none'),
           _buildRadioTile(
             "건당 보험료",
@@ -331,19 +317,6 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
-            ],
-          ),
-          if (_shorebirdPatchLabel.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Text(
-              _shorebirdPatchLabel,
-              textAlign: TextAlign.right,
-              style: versionStyle.copyWith(
-                fontSize: (versionStyle.fontSize ?? 11) - 1,
-                color: const Color(0xFF6E717C),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -636,17 +609,13 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '스크린샷 자동저장',
+            '스크린샷 일지 자동저장',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text('자동 저장 사용', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
-            subtitle: Text(
-              '켜두면 스크린샷 직후 콜카드로 인식될 때만 운행일지에 자동 등록합니다. 끄면 감시 리스너가 해제되어 동작하지 않습니다.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-            ),
             value: _screenshotAutoRegisterEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
@@ -984,21 +953,14 @@ class _SettingsPageState extends State<SettingsPage> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
-                ),
-              ),
             ],
-          ),
-          SizedBox(height: spacing),
-          Text(
-            "• 백업 : 백업파일(DB/이미지)를 내부저장소에 저장합니다.\n• 복원 : 저장해둔 백업파일(.zip)을 선택해 데이터를 불러옵니다.",
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
           const Divider(color: Color(0xFF2C2F38), height: 32),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text("7일 주기 자동 백업 (ZIP)", style: TextStyle(color: Colors.white, fontSize: 16)),
             subtitle: Text(
-              "최근 자동 백업일: $displayDate\n매 7일 경과 후 앱 실행 시 단말기 'Downloads' 폴더에 이미지와 DB가 패키징된 ZIP 파일로 백업됩니다.",
+              "최근 자동 백업일: $displayDate",
               style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12),
             ),
             value: _autoBackupEnabled,
@@ -1063,11 +1025,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
               ),
             ],
-          ),
-          SizedBox(height: spacing),
-          Text(
-            "• 내보내기 : 내 앱에 저장된 콜포인트를 CSV 파일로 추출하여 공유합니다.\n• 가져오기 : 다른 사람이 공유한 콜포인트 CSV 파일을 내 지도에 추가합니다.",
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
         ],
       ),
@@ -1157,11 +1114,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          SizedBox(height: spacing * 0.5),
-          Text(
-            "• 이미지 정리는 일지 작성때 인식한 이미지파일만 제거하여 여유 공간을 확보합니다.",
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-          ),
         ],
       ),
     );
@@ -1187,11 +1139,6 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
-            subtitle: Text(
-              "알림 패널에 오늘 순익을 표시합니다.\n일지 등록·수정 시 갱신됩니다.\n"
-              "본문 탭: 일반 작성 화면 · ⚡ 퀵등록: 반투명 퀵 입력.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-            ),
             value: _statusBarQuickEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
@@ -1236,7 +1183,6 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text("폰트 크기 조절 버튼", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
-            subtitle: Text("우측 하단에 폰트 크기 조절 버튼 표시", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
             value: _showFloatingButtons,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) {
@@ -1396,7 +1342,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SizedBox(height: spacing),
           Text(
-            '과거에 등록되어 좌표가 비어있는 운행일지 데이터들을 추려, 주소를 좌표로 자동 변환하여 채워 넣습니다.\n(구글 지오코더를 이용하며 과금되지 않습니다.)',
+            '과거에 등록되어 좌표가 비어있는 운행일지 데이터들을 추려, 주소를 좌표로 자동 변환하여 채워 넣습니다.',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
           ),
           const SizedBox(height: 16),

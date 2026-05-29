@@ -577,31 +577,52 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<void> _openRouteMap() async {
     if (!kMapFeaturesEnabled) return;
-    final logs = await _getLogsForSelectedPeriod();
-    if (!mounted) return;
-    final segments = _buildTripSegments(logs);
-    if (segments.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')),
-      );
-      return;
-    }
-    Navigator.push(
-      context,
-      MaterialPageRoute<void>(
-        builder: (_) => StatsRouteMapPage(
-          periodLabel: _selectedPeriod,
-          dateLabel: _selectedPeriod == '일간'
-              ? _getDailyDisplayText()
-              : _selectedPeriod == '주간'
-                  ? _getWeeklyDisplayText()
-                  : _selectedPeriod == '월간'
-                      ? _getMonthlyDisplayText()
-                      : _getYearlyDisplayText(),
-          segments: segments,
-        ),
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFFC700)),
       ),
     );
+
+    try {
+      final logs = await _getLogsForSelectedPeriod();
+      final segments = _buildTripSegments(logs);
+
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 다이얼로그 닫기
+
+      if (segments.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')),
+        );
+        return;
+      }
+      
+      Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (_) => StatsRouteMapPage(
+            periodLabel: _selectedPeriod,
+            dateLabel: _selectedPeriod == '일간'
+                ? _getDailyDisplayText()
+                : _selectedPeriod == '주간'
+                    ? _getWeeklyDisplayText()
+                    : _selectedPeriod == '월간'
+                        ? _getMonthlyDisplayText()
+                        : _getYearlyDisplayText(),
+            segments: segments,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('데이터를 불러오는 중 오류가 발생했습니다: $e')),
+      );
+    }
   }
 
   @override

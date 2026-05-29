@@ -125,7 +125,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<void> _reverseGeocode(Position pos) async {
     try {
-      List<Placemark> placemarks = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        pos.latitude, 
+        pos.longitude,
+        localeIdentifier: 'ko_KR',
+      );
       if (placemarks.isNotEmpty) {
         final (line1, dong) = callMapTitlesFromPlacemark(placemarks.first);
         setState(() {
