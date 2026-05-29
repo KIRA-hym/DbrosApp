@@ -94,12 +94,54 @@ String _provinceAndCityLine(
 
 String _localityLine2Name(Placemark pm) {
   const suffixes = ['동', '읍', '면'];
-  final fields = [pm.subLocality, pm.thoroughfare, pm.name, pm.street];
+  // 구글 역지오코딩은 동/읍/면이 locality·subAdministrativeArea에 오는 경우가 많음
+  final fields = [
+    pm.subLocality,
+    pm.thoroughfare,
+    pm.locality,
+    pm.subAdministrativeArea,
+    pm.name,
+    pm.street,
+  ];
   for (final suffix in suffixes) {
     final found = _firstSegmentEndingWith(fields, suffix);
-    if (found != null) return found;
+    if (found != null && !_isAdministrativeUnit(found)) return found;
   }
+
+  final allText = fields
+      .map((s) => (s ?? '').trim())
+      .where((s) => s.isNotEmpty)
+      .join(' ');
+  for (final token in allText.split(RegExp(r'\s+'))) {
+    if (token.length < 2) continue;
+    if (!_endsWithLocalitySuffix(token)) continue;
+    if (_isAdministrativeUnit(token)) continue;
+    if (token.endsWith('길') || token.endsWith('로')) continue;
+    return token;
+  }
+
+  for (final raw in fields) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) continue;
+    final match = RegExp(r'([가-힣0-9]+[동읍면])(?:[\s\-0-9]|$)').firstMatch(text);
+    if (match != null) {
+      final res = match.group(1)!;
+      if (res.length >= 2 && !_isAdministrativeUnit(res)) return res;
+    }
+  }
+
   return '';
+}
+
+bool _endsWithLocalitySuffix(String token) {
+  return token.endsWith('동') || token.endsWith('읍') || token.endsWith('면');
+}
+
+bool _isAdministrativeUnit(String seg) {
+  return seg.endsWith('구') ||
+      seg.endsWith('시') ||
+      seg.endsWith('군') ||
+      seg.endsWith('도');
 }
 
 String? _firstSegmentEndingWith(List<String?> fields, String suffix) {
