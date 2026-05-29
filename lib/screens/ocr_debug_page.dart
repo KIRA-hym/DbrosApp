@@ -612,10 +612,11 @@ class _ResultCardState extends State<_ResultCard> {
                 child: Text(
                   r.rawText,
                   style: const TextStyle(
-                  color: Color(0xFFB0B5C0),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  height: 1.5,
+                    color: Color(0xFFB0B5C0),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
