@@ -561,14 +561,8 @@ class LogiColmannerOcr {
     // 1단계: 명시적 라벨 탐색 (도착지, 착지)
     final labelMatch = RegExp(r'(?:^|\s)(도\s*착\s*지?|착\s*지)').firstMatch(joined);
     if (labelMatch != null) {
-      // 만약 라벨 앞에 광역 지명(서울/경기/인천 등)이 먼저 등장했다면, 라벨 매칭 위치를 무시하고 2단계 로직으로 넘긴다.
-      final regionMatch = RegExp(r'${RemoteConfigService().regionPattern}').firstMatch(joined);
-      if (regionMatch != null && regionMatch.start < labelMatch.start) {
-        splitIdx = -1; 
-      } else {
-        splitIdx = labelMatch.start;
-        label = labelMatch.group(0)!;
-      }
+      splitIdx = labelMatch.start;
+      label = labelMatch.group(0)!;
     }
 
     // 2단계: 라벨 누락 시 '주소 종결어 + 광역지명' 패턴으로 정밀 분할 (상호명 무관하게 100% 보존)

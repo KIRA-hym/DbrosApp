@@ -93,46 +93,46 @@ String _provinceAndCityLine(
 }
 
 String _localityLine2Name(Placemark pm) {
-  final allText = [
-    pm.name,
-    pm.street,
+  // '가' (종로1가), '리' (승언리) 추가
+  const suffixes = ['동', '읍', '면', '가', '리'];
+  
+  // 구글 맵스 특성상 동/읍/면이 locality나 subAdministrativeArea에 들어가는 경우가 많음
+  final fields = [
     pm.subLocality,
     pm.thoroughfare,
     pm.locality,
     pm.subAdministrativeArea,
-    pm.administrativeArea,
-  ].where((s) => s != null && s!.isNotEmpty).join(' ');
+    pm.name,
+    pm.street,
+  ];
 
-  // 1차: 띄어쓰기 기반으로 정확한 동/읍/면 찾기
-  final tokens = allText.split(RegExp(r'\s+'));
-  for (final suffix in ['동', '읍', '면']) {
-    for (final token in tokens) {
-      if (token.endsWith(suffix) && token.length >= 2) {
-        // 길이나 로로 끝나는 오탐지 제외
-        if (!token.endsWith('길') && !token.endsWith('로')) {
-          return token;
-        }
-      }
+  // 1차 스캔: 공백으로 분리된 단어 단위 매칭
+  for (final suffix in suffixes) {
+    final found = _firstSegmentEndingWith(fields, suffix);
+    if (found != null) {
+      // '가', '리'의 경우 1글자 단독 매칭 방지
+      if ((suffix == '가' || suffix == '리') && found.length <= 1) continue;
+      // 도로명(길, 로) 오탐지 방어
+      if (found.endsWith('길') || found.endsWith('로')) continue; 
+      
+      return found;
     }
   }
 
-  // 2차: 가/리 찾기 (예: 종로1가, 승언리)
-  for (final suffix in ['가', '리']) {
-    for (final token in tokens) {
-      if (token.endsWith(suffix) && token.length >= 2) {
-        if (!token.endsWith('길') && !token.endsWith('로') && !token.endsWith('거리')) {
-          return token;
-        }
+  // 2차 스캔: "신림동123-4" 처럼 번지수와 공백 없이 붙어있는 엣지 케이스 정규식 추출
+  for (final raw in fields) {
+    final text = (raw ?? '').trim();
+    if (text.isEmpty) continue;
+    
+    // 패턴: [가-힣0-9] + 동/읍/면/가/리 + (공백,숫자,하이픈 혹은 문자열 끝)
+    final match = RegExp(r'([가-힣0-9]+[동읍면가리])(?:[\s\-0-9]|$)').firstMatch(text);
+    if (match != null) {
+      final res = match.group(1)!;
+      if (res.endsWith('가') || res.endsWith('리')) {
+        if (res.length > 1) return res;
+      } else {
+        return res;
       }
-    }
-  }
-
-  // 3차: 공백 없이 붙어있는 경우 정규식으로 강제 추출 (예: 신림동123-4)
-  final match = RegExp(r'([가-힣a-zA-Z0-9]+[동읍면가리])(?:[\s\-0-9]|$)').firstMatch(allText);
-  if (match != null) {
-    final res = match.group(1)!;
-    if (res.length >= 2 && !res.endsWith('길') && !res.endsWith('로') && !res.endsWith('거리')) {
-      return res;
     }
   }
 
