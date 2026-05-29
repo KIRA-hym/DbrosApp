@@ -93,49 +93,12 @@ String _provinceAndCityLine(
 }
 
 String _localityLine2Name(Placemark pm) {
-  // '가' (종로1가), '리' (승언리) 추가
-  const suffixes = ['동', '읍', '면', '가', '리'];
-  
-  // 구글 맵스 특성상 동/읍/면이 locality나 subAdministrativeArea에 들어가는 경우가 많음
-  final fields = [
-    pm.subLocality,
-    pm.thoroughfare,
-    pm.locality,
-    pm.subAdministrativeArea,
-    pm.name,
-    pm.street,
-  ];
-
-  // 1차 스캔: 공백으로 분리된 단어 단위 매칭
+  const suffixes = ['동', '읍', '면'];
+  final fields = [pm.subLocality, pm.thoroughfare, pm.name, pm.street];
   for (final suffix in suffixes) {
     final found = _firstSegmentEndingWith(fields, suffix);
-    if (found != null) {
-      // '가', '리'의 경우 1글자 단독 매칭 방지
-      if ((suffix == '가' || suffix == '리') && found.length <= 1) continue;
-      // 도로명(길, 로) 오탐지 방어
-      if (found.endsWith('길') || found.endsWith('로')) continue; 
-      
-      return found;
-    }
+    if (found != null) return found;
   }
-
-  // 2차 스캔: "신림동123-4" 처럼 번지수와 공백 없이 붙어있는 엣지 케이스 정규식 추출
-  for (final raw in fields) {
-    final text = (raw ?? '').trim();
-    if (text.isEmpty) continue;
-    
-    // 패턴: [가-힣0-9] + 동/읍/면/가/리 + (공백,숫자,하이픈 혹은 문자열 끝)
-    final match = RegExp(r'([가-힣0-9]+[동읍면가리])(?:[\s\-0-9]|$)').firstMatch(text);
-    if (match != null) {
-      final res = match.group(1)!;
-      if (res.endsWith('가') || res.endsWith('리')) {
-        if (res.length > 1) return res;
-      } else {
-        return res;
-      }
-    }
-  }
-
   return '';
 }
 
