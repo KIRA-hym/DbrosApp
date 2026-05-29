@@ -111,8 +111,8 @@ export default function Notices() {
   };
 
   return (
-    <div className="p-8 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-8">
+    <div className="p-4 md:p-8 h-full flex flex-col">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 md:mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">공지사항 관리</h2>
           <p className="text-gray-400 text-sm">앱 실행 시 사용자에게 보여줄 공지사항과 게시 기간을 설정합니다.</p>
@@ -195,7 +195,7 @@ export default function Notices() {
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-col md:flex-row gap-4">
                 <div className="flex-1">
                   <label className="block text-sm font-medium text-gray-400 mb-2">게시 시작일</label>
                   <input
@@ -243,9 +243,9 @@ export default function Notices() {
                 ></textarea>
               </div>
 
-              <div className="pt-4 flex gap-3 justify-end">
-                <button type="button" onClick={resetForm} className="px-5 py-2.5 text-gray-400 hover:text-white font-medium transition-colors">취소</button>
-                <button type="submit" className="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-[#121418] font-bold rounded-xl shadow-lg shadow-yellow-500/20 transition-all">
+              <div className="pt-4 flex flex-col-reverse md:flex-row gap-3 justify-end">
+                <button type="button" onClick={resetForm} className="px-5 py-2.5 text-gray-400 hover:text-white font-medium transition-colors w-full md:w-auto">취소</button>
+                <button type="submit" className="px-5 py-2.5 bg-yellow-500 hover:bg-yellow-400 text-[#121418] font-bold rounded-xl shadow-lg shadow-yellow-500/20 transition-all w-full md:w-auto">
                   {editingId ? '수정 완료' : '등록하기'}
                 </button>
               </div>

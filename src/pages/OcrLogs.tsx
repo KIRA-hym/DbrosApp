@@ -58,8 +58,8 @@ export default function OcrLogs() {
   };
 
   return (
-    <div className="p-8 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-4 md:p-8 h-full flex flex-col">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 md:mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white mb-1">OCR 디버그 로그</h2>
           <p className="text-gray-400 text-sm">콜카드 OCR 파싱 실패 및 예외 케이스 원본 로그를 확인합니다.</p>
@@ -137,8 +137,8 @@ function LogCard({ log, index, formatTimestamp, total }: { log: OcrFailureLog, i
   return (
     <div className="bg-[#1F222A] rounded-2xl border border-red-500/30 overflow-hidden shadow-lg transition-all hover:border-red-500/50">
       {/* 카드 헤더 */}
-      <div className="px-5 py-4 flex items-center justify-between border-b border-[#2E323C]">
-        <div className="flex items-center gap-3">
+      <div className="px-4 md:px-5 py-3 md:py-4 flex flex-col md:flex-row md:items-center justify-between border-b border-[#2E323C] gap-3 md:gap-0">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3">
           <div className={`px-2.5 py-1 rounded text-xs font-bold flex items-center gap-1.5 ${isAndroid ? 'bg-green-500/10 text-green-400' : 'bg-gray-500/10 text-gray-300'}`}>
             <Smartphone size={14} />
             {log.platform || 'UNKNOWN'}
@@ -146,16 +146,18 @@ function LogCard({ log, index, formatTimestamp, total }: { log: OcrFailureLog, i
           <span className="text-gray-400 text-sm">
             [{total - index}]
           </span>
-          <div className="flex items-center gap-1.5 text-gray-300 text-sm">
+          <div className="flex items-center gap-1.5 text-gray-300 text-sm w-full md:w-auto mt-1 md:mt-0">
             <Clock size={14} className="text-gray-500" />
             {formatTimestamp(log.timestamp)}
           </div>
         </div>
-        <AlertTriangle size={18} className="text-red-400" />
+        <div className="hidden md:block">
+          <AlertTriangle size={18} className="text-red-400" />
+        </div>
       </div>
 
       {/* 본문 정보 */}
-      <div className="px-5 py-4 space-y-3">
+      <div className="px-4 md:px-5 py-3 md:py-4 space-y-3">
         <div className="flex items-start gap-4">
           <span className="w-20 text-gray-500 text-sm shrink-0">앱 버전</span>
           <span className="text-gray-200 text-sm">{log.app_version || '알 수 없음'}</span>

@@ -66,7 +66,7 @@ export default function Push() {
   };
 
   return (
-    <div className="p-8 h-full flex flex-col gap-8 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 h-full flex flex-col gap-6 md:gap-8 max-w-6xl mx-auto">
       <div>
         <h2 className="text-2xl font-bold text-white mb-1">푸시 알림 센터</h2>
         <p className="text-gray-400 text-sm">전체 사용자에게 중요한 공지사항이나 업데이트 내역을 푸시 메시지로 발송합니다.</p>
