@@ -140,7 +140,11 @@ class LogiColmannerOcr {
     if (!_isStrictStandaloneFareDigitsLine(line)) return null;
     var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
     t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩]+'), '');
-    return normalizeLogiFareDigitToken(t);
+    
+    // 비정상적으로 큰 숫자(전화번호 등)는 요금 후보에서 원천 배제
+    final parsed = normalizeLogiFareDigitToken(t);
+    if (parsed != null && parsed > 500000) return null;
+    return parsed;
   }
 
   static int? _bestGrossFareFromAdjacentAmountLines(Iterable<String> lines) {
@@ -555,10 +559,16 @@ class LogiColmannerOcr {
     var label = '';
 
     // 1단계: 명시적 라벨 탐색 (도착지, 착지)
-    final labelMatch = RegExp(r'(^|\s)(도\s*착\s*지?|착\s*지)').firstMatch(joined);
+    final labelMatch = RegExp(r'(?:^|\s)(도\s*착\s*지?|착\s*지)').firstMatch(joined);
     if (labelMatch != null) {
-      splitIdx = labelMatch.start;
-      label = labelMatch.group(0)!;
+      // 만약 라벨 앞에 광역 지명(서울/경기/인천 등)이 먼저 등장했다면, 라벨 매칭 위치를 무시하고 2단계 로직으로 넘긴다.
+      final regionMatch = RegExp(r'${RemoteConfigService().regionPattern}').firstMatch(joined);
+      if (regionMatch != null && regionMatch.start < labelMatch.start) {
+        splitIdx = -1; 
+      } else {
+        splitIdx = labelMatch.start;
+        label = labelMatch.group(0)!;
+      }
     }
 
     // 2단계: 라벨 누락 시 '주소 종결어 + 광역지명' 패턴으로 정밀 분할 (상호명 무관하게 100% 보존)
@@ -629,7 +639,12 @@ class LogiColmannerOcr {
       }
       final last = result.last;
       if (word == last) continue;
-      if (word.startsWith(last) && (last.endsWith('동') || last.endsWith('읍') || last.endsWith('면') || last.endsWith('리') || last.endsWith('구') || last.endsWith('시'))) {
+      if (word.startsWith(last) && RegExp(r'(동|읍|면|리|구|시|군)$').hasMatch(last)) {
+        result.removeLast();
+        result.add(word);
+        continue;
+      }
+      if (word.contains(last) && RegExp(r'(동|읍|면|리|구|시|군)$').hasMatch(last)) {
         result.removeLast();
         result.add(word);
         continue;

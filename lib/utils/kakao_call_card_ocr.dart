@@ -619,7 +619,7 @@ class KakaoCallCardOcr {
     final addrCandidates = <String>[];
     for (final line in lines) {
       if (_excludePaymentOrActionStrip(line)) continue;
-      if (_looksLikeFareAmountLine(line)) break;
+      // 요금 라벨이 상단에 떴다고 파싱 루프를 끊지 않는다 (하단의 주소를 찾기 위해)
       if (_looksLikeAddressLine(line)) addrCandidates.add(line);
     }
     while (addrCandidates.isNotEmpty && _isKakaoParkingOrFloorNoiseLine(addrCandidates.first)) {
