@@ -523,7 +523,9 @@ class _StatsPageState extends State<StatsPage> {
     }
     if (_selectedPeriod == "월간") {
       final yearMonth = DateFormat('yyyy-MM').format(_selectedDate);
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
+      final logs = List<Map<String, dynamic>>.from(
+        await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth)
+      );
       logs.sort((a, b) {
         final aw = (a['work_date'] ?? '').toString();
         final bw = (b['work_date'] ?? '').toString();
