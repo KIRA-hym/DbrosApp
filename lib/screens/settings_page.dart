@@ -142,7 +142,6 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
       _buildNoticeSection(),
-      _buildOcrParseLogSettings(),
       _buildBackupRestoreSettings(),
       _buildSettingsGroup(
         "수수료 설정",
@@ -805,18 +804,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildOcrParseLogSettings() {
-    return _buildListManageButton(
-      title: '콜카드 인식 로그',
-      icon: Icons.description_outlined,
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const OcrDebugPage()),
-        );
-      },
-    );
-  }
+
 
   void _showBackupOptions() {
     showModalBottomSheet(
