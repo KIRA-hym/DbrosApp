@@ -100,6 +100,12 @@ class TmapTripDetailOcr {
         platform: 'tmap',
         rawText: fullText,
         errorReason: 'Missing critical fields. start: $startAddress, end: $endAddress, fare: $grossFare',
+        parsedData: {
+          'gross_fare': grossFare,
+          'start_address': startAddress,
+          'end_address': endAddress,
+          'waypoint': waypoint,
+        },
       );
     }
 

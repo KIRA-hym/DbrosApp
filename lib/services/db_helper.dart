@@ -76,7 +76,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -103,7 +103,8 @@ class DriveLogDatabase {
             created_at TEXT,
             updated_at TEXT,
             expense_category TEXT,
-            income_category TEXT
+            income_category TEXT,
+            insurance_fee INTEGER DEFAULT 0
           )
         ''');
         await _ensureDriveLogsSchema(db);
@@ -154,6 +155,11 @@ class DriveLogDatabase {
           } catch (_) {}
           try {
             await db.execute('ALTER TABLE drive_logs ADD COLUMN income_category TEXT');
+          } catch (_) {}
+        }
+        if (oldVersion < 12) {
+          try {
+            await db.execute('ALTER TABLE drive_logs ADD COLUMN insurance_fee INTEGER DEFAULT 0');
           } catch (_) {}
         }
       },
@@ -417,6 +423,7 @@ class DriveLogDatabase {
     await addIfMissing('registration_source', 'TEXT');
     await addIfMissing('expense_category', 'TEXT');
     await addIfMissing('income_category', 'TEXT');
+    await addIfMissing('insurance_fee', 'INTEGER DEFAULT 0');
 
     if (!columns.contains('drive_date') && columns.contains('date')) {
       await db.execute("ALTER TABLE drive_logs ADD COLUMN drive_date TEXT");
@@ -590,6 +597,42 @@ class DriveLogDatabase {
         });
       }
     }
+    
+    // Sync insurance_fee to expense_entries
+    final int logId = out['id'] ?? result;
+    final int insFee = (out['insurance_fee'] as num?)?.toInt() ?? 0;
+    final String memoTag = '[자동보험료] log_id:$logId';
+    if (insFee > 0) {
+      final existingExpense = await db.query('expense_entries', where: "memo LIKE ?", whereArgs: ["%$memoTag%"]);
+      if (existingExpense.isNotEmpty) {
+        await db.update('expense_entries', {
+          'amount': insFee,
+          'expense_date': out['drive_date'],
+          'updated_at': DateTime.now().toIso8601String(),
+        }, where: 'id = ?', whereArgs: [existingExpense.first['id']]);
+      } else {
+        await db.insert('expense_entries', {
+          'expense_date': out['drive_date'],
+          'written_at': DateTime.now().toIso8601String(),
+          'category_name': '보험료',
+          'amount': insFee,
+          'memo': memoTag,
+          'created_at': DateTime.now().toIso8601String(),
+          'updated_at': DateTime.now().toIso8601String(),
+        });
+        
+        // Ensure category exists
+        final existingCat = await db.query('expense_categories', where: "name = ?", whereArgs: ['보험료']);
+        if (existingCat.isEmpty) {
+          final maxRow = await db.rawQuery('SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM expense_categories');
+          final ord = (maxRow.first['n'] as num?)?.toInt() ?? 0;
+          await db.insert('expense_categories', {'name': '보험료', 'sort_order': ord});
+        }
+      }
+    } else {
+      await db.delete('expense_entries', where: "memo LIKE ?", whereArgs: ["%$memoTag%"]);
+    }
+    
     afterLogsChanged?.call();
     return result;
   }
@@ -705,10 +748,10 @@ class DriveLogDatabase {
         COALESCE(SUM(
           MAX(0,
             COALESCE(gross_fare, 0) + COALESCE(waypoint_tip, 0)
-              - COALESCE(fee, 0) - COALESCE(transport_cost, 0)
+              - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)
           )
         ), 0) as net,
-        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) as expenses,
+        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0) + COALESCE(insurance_fee, 0)), 0) as expenses,
         COALESCE(SUM(COALESCE(waypoint_tip, 0)), 0) as extra_income
       FROM drive_logs WHERE drive_date = ?
       ''',
@@ -736,7 +779,7 @@ class DriveLogDatabase {
         COALESCE(SUM(
           MAX(0,
             COALESCE(gross_fare, 0) + COALESCE(waypoint_tip, 0)
-              - COALESCE(fee, 0) - COALESCE(transport_cost, 0)
+              - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)
           )
         ), 0) as net,
         COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) as expenses,

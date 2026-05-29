@@ -45,6 +45,12 @@ class LogiColmannerOcr {
         platform: 'logi',
         rawText: fullText,
         errorReason: 'Missing fields. start: ${locations.start}, end: ${locations.end}, fare: $fare',
+        parsedData: {
+          'gross_fare': fare,
+          'start_location': locations.start,
+          'end_location': locations.end,
+          'waypoint': waypoint,
+        },
       );
     }
 
@@ -83,6 +89,12 @@ class LogiColmannerOcr {
         platform: 'colmanner',
         rawText: fullText,
         errorReason: 'Missing fields. start: $start, end: $end, fare: $fare',
+        parsedData: {
+          'gross_fare': fare,
+          'start_location': start,
+          'end_location': end,
+          'waypoint': waypoint,
+        },
       );
     }
 

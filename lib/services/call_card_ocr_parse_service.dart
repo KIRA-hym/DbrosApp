@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -89,9 +90,11 @@ class CallCardOcrParseService {
     final grossFare = logData['gross_fare'] as int;
     final transportCost = logData['transport_cost'] as int;
     final fee = SettingsService.deductionFeeFromGross(grossFare, detectedProgram);
-    final netIncome = (grossFare - fee - transportCost).clamp(0, 999999999);
+    final insurance = SettingsService.calculatePerTripInsurance(detectedProgram);
+    final netIncome = (grossFare - fee - insurance - transportCost).clamp(0, 999999999);
 
     logData['fee'] = fee;
+    logData['insurance_fee'] = insurance;
     logData['net_income'] = netIncome;
 
     final ocrLogId = await OcrParseLogService.record(
@@ -157,6 +160,24 @@ class CallCardOcrParseService {
     final timeStr = formatDriveTimeHm(dateToUse);
     final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
     final nowIso = DateTime.now().toIso8601String();
+    
+    final db = await DriveLogDatabase.instance.database;
+    final program = logData['program'];
+    final grossFare = logData['gross_fare'];
+    final startLocation = logData['start_location']?.toString().trim();
+    final endLocation = logData['end_location']?.toString().trim();
+    final String twoHoursAgo = DateTime.now().subtract(const Duration(hours: 2)).toIso8601String();
+    
+    final duplicates = await db.query(
+      'drive_logs',
+      where: 'program = ? AND gross_fare = ? AND start_location = ? AND end_location = ? AND created_at > ?',
+      whereArgs: [program, grossFare, startLocation, endLocation, twoHoursAgo],
+    );
+    
+    if (duplicates.isNotEmpty) {
+      if (kDebugMode) print('Duplicate auto-save detected and blocked.');
+      return duplicates.first['id'] as int?;
+    }
 
     final imagePath = await ImageStorageService.compressAndPersistForDisplay(
       logData['image_path']?.toString(),
@@ -170,6 +191,7 @@ class CallCardOcrParseService {
       'program': logData['program'],
       'gross_fare': logData['gross_fare'],
       'fee': logData['fee'],
+      'insurance_fee': logData['insurance_fee'] ?? 0,
       'transport_cost': logData['transport_cost'],
       'net_income': logData['net_income'],
       'start_location': logData['start_location'],

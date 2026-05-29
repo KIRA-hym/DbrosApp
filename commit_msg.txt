@@ -1,11 +1,6 @@
-﻿feat: 지도 및 좌표 추출 자동화 기능 강화
+﻿fix: Shorebird 업데이트 다이얼로그 미표시 및 패치 적용 로직 보강
 
-- lib/services/db_helper.dart: 일지 저장/수정 시 백그라운드에서 좌표를 자동 추출하여 DB에 저장 (동/읍/면 Fallback 예외처리 포함)
-- lib/utils/geocoding_utils.dart: 주소 좌표 변환 및 "동/읍/면" 파싱 재검색을 위한 유틸리티 클래스 신규 추가
-- lib/utils/marker_utils.dart: 지도 위에 콜 수행 순번 텍스트가 표기된 커스텀 마커 이미지를 동적으로 렌더링하는 유틸리티 신규 추가
-- lib/screens/write_log_page.dart: 신규 작성 시 핀 버튼을 숨기고, 수정 시 위/경도 좌표가 없는 경우에만 수동 좌표 선택 핀 버튼 노출 처리
-- lib/screens/log_list_page.dart: 월간/일간 일지 목록의 각 날짜별 우측에 지도 아이콘 추가 및 클릭 시 해당 일자의 동선 통계 지도로 바로 이동하는 로직 연결
-- lib/screens/stats_page.dart:
-  * 통계 지도 페이지(StatsRouteMapPage) 공용 호출을 위해 public 클래스로 변경
-  * 출발/도착 마커에 순번 적용 (초록색: 출발, 빨간색: 도착)
-  * 처음에는 마커와 직선만 보여주고, 도로선 버튼 클릭 시 출발->도착->공차->다음출발로 완벽히 이어지도록 구현
+- MainWrapper에 ShorebirdUpdateHost 배치 (앱 루트에서 패치 확인/다이얼로그)
+- pending 패치 번호 SharedPreferences 저장으로 readNextPatch null 대비
+- 패치 적용 후 알림 상태 자동 동기화
+- 설정 > 버전정보에 OTA 패치 번호 표시 (적용 여부 확인용)

@@ -839,6 +839,12 @@ class KakaoCallCardOcr {
         platform: 'kakao',
         rawText: fullText,
         errorReason: 'Missing critical fields. start: $finalStart, end: $finalEnd, fare: $parsedIncome',
+        parsedData: {
+          'gross_fare': parsedIncome,
+          'start_location': finalStart,
+          'end_location': finalEnd,
+          'waypoint': cleanedWaypoint,
+        },
       );
     }
 

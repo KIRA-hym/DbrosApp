@@ -2060,19 +2060,31 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
 
   Future<void> _generateNumberedMarkers() async {
     final markers = <Marker>{};
+    // 50개를 초과하는 대량 데이터(월간/연간 등)일 경우, 커스텀 비트맵 렌더링으로 인한 UI 먹통(ANR)을 방지하기 위해 심플 마커 사용
+    final bool useSimpleMarkers = widget.segments.length > 50;
+
     for (int i = 0; i < widget.segments.length; i++) {
       final seg = widget.segments[i];
       final isFirstStart = i == 0;
       final isLastEnd = i == widget.segments.length - 1;
 
-      final startIcon = await MarkerUtils.createCustomMarkerBitmap(
-        '${i + 1}',
-        bgColor: isFirstStart ? Colors.green[800]! : Colors.green,
-      );
-      final endIcon = await MarkerUtils.createCustomMarkerBitmap(
-        '${i + 1}',
-        bgColor: isLastEnd ? Colors.red[800]! : Colors.redAccent,
-      );
+      BitmapDescriptor startIcon;
+      BitmapDescriptor endIcon;
+
+      if (useSimpleMarkers) {
+        startIcon = BitmapDescriptor.defaultMarkerWithHue(isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure);
+        endIcon = BitmapDescriptor.defaultMarkerWithHue(isLastEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueOrange);
+        if (i % 20 == 0) await Future.delayed(Duration.zero); // UI 스레드 양보
+      } else {
+        startIcon = await MarkerUtils.createCustomMarkerBitmap(
+          '${i + 1}',
+          bgColor: isFirstStart ? Colors.green[800]! : Colors.green,
+        );
+        endIcon = await MarkerUtils.createCustomMarkerBitmap(
+          '${i + 1}',
+          bgColor: isLastEnd ? Colors.red[800]! : Colors.redAccent,
+        );
+      }
 
       markers.add(
         Marker(

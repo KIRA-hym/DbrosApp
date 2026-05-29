@@ -13,6 +13,7 @@ class OcrErrorLoggerService {
     required String platform,
     required String rawText,
     String? errorReason,
+    Map<String, dynamic>? parsedData,
   }) async {
     try {
       final textHash = rawText.hashCode.toString();
@@ -28,6 +29,7 @@ class OcrErrorLoggerService {
         'platform': platform,
         'raw_text': rawText,
         'error_reason': errorReason ?? 'Unknown parsing failure',
+        'parsed_data': parsedData,
         'timestamp': FieldValue.serverTimestamp(),
         'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
       });

@@ -364,6 +364,11 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
         unawaited(ScreenshotAutoRegisterService.instance.checkRecentScreenshotOnResume());
       }
+      if (_workDateNotificationTick == null || !_workDateNotificationTick!.isActive) {
+        _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
+      }
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _workDateNotificationTick?.cancel();
     }
   }
 

@@ -50,32 +50,36 @@ class GalleryObserverService : Service() {
             NotificationManagerCompat.from(this).cancelAll()
         } catch (e: Exception) {
             e.printStackTrace()
-        } finally {
-            // 프로세스 강제 종료 (flutter_overlay_window 등 함께 죽임)
-            android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        createNotificationChannel()
+        try {
+            createNotificationChannel()
+            restoreForegroundNotification()
 
-        if (!GalleryObserverActiveStore.isActive(this)) {
+            if (!GalleryObserverActiveStore.isActive(this) || 
+                !NotificationManagerCompat.from(this).areNotificationsEnabled()) {
+                stopForeground(true)
+                stopSelf()
+                return START_NOT_STICKY
+            }
+
+            restoreForegroundNotification()
+            
+            // "자동감지 실행중" 알림이 뒤늦게 떠서 기존 퀵등록 알림을 밀어내는 현상 방지:
+            // 알림을 띄운 직후 투데이 요약을 갱신하여 최상단으로 끌어올림
+            TodaySummaryNotifier.reshowAfterDismiss(this)
+            
+            return START_STICKY
+        } catch (e: Exception) {
+            e.printStackTrace()
             stopSelf()
             return START_NOT_STICKY
         }
-        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) {
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        restoreForegroundNotification()
-        return START_STICKY
     }
 
     fun restoreForegroundNotification() {
-        if (!GalleryObserverActiveStore.isActive(this)) return
-        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
-
         val notification = buildForegroundNotification()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

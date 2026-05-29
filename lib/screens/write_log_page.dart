@@ -128,6 +128,32 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final FocusNode _incomeFocusNode = FocusNode();
   final FocusNode _memoFocusNode = FocusNode();
 
+  void _setupFocusScroll() {
+    void onFocus(FocusNode node) {
+      if (node.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+          final ctx = node.context;
+          if (ctx != null) {
+            Scrollable.ensureVisible(
+              ctx,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              alignment: 0.2, // Slightly above center
+            );
+          }
+        });
+      }
+    }
+    _startLocFocusNode.addListener(() => onFocus(_startLocFocusNode));
+    _endLocFocusNode.addListener(() => onFocus(_endLocFocusNode));
+    _waypointFocusNode.addListener(() => onFocus(_waypointFocusNode));
+    _memoFocusNode.addListener(() => onFocus(_memoFocusNode));
+    _incomeFocusNode.addListener(() => onFocus(_incomeFocusNode));
+    _transportFocusNode.addListener(() => onFocus(_transportFocusNode));
+    _waypointTipFocusNode.addListener(() => onFocus(_waypointTipFocusNode));
+  }
+
   // Category selections
   String _selectedExpenseCategory = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList.first : '기타';
   String _selectedExtraIncomeCategory = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList.first : '기타';
@@ -146,6 +172,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     super.initState();
     _transportFocusNode.addListener(_onTransportFocusChanged);
     _waypointTipFocusNode.addListener(_onWaypointTipFocusChanged);
+    _setupFocusScroll();
     _selectedProgram = _coerceProgramForSelection(_selectedProgram);
     if (widget.existingLog != null) {
       final log = widget.existingLog!;
@@ -264,7 +291,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      if (_autoWorkDateRollActive) {
+        if (_workDateRollTimer == null || !_workDateRollTimer!.isActive) {
+          _workDateRollTimer = Timer.periodic(const Duration(minutes: 1), (_) => _maybeRollEffectiveWorkDates());
+        }
+      }
       _maybeRollEffectiveWorkDates();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _workDateRollTimer?.cancel();
     }
   }
 
@@ -962,9 +996,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
   
   int _currentFeeFromGross() => SettingsService.deductionFeeFromGross(_grossIncome, _selectedProgram);
+  int _currentInsuranceFee() => SettingsService.calculatePerTripInsurance(_selectedProgram);
   
   /// 경유비(팁)는 수수료·교통비처럼 차감이 아니라 순익에 **가산**됩니다.
-  int _currentNetIncomeFromGross() => (_grossIncome - _currentFeeFromGross() - _parseMoney(_transportCon.text) + _parseMoney(_waypointTipCon.text)).clamp(0, 999999999);
+  int _currentNetIncomeFromGross() => (_grossIncome - _currentFeeFromGross() - _currentInsuranceFee() - _parseMoney(_transportCon.text) + _parseMoney(_waypointTipCon.text)).clamp(0, 999999999);
 
   void _captureGrossAndApplyDeductions() { _grossIncome = _parseMoney(_incomeCon.text); _applyDeductions(); }
   void _applyDeductions() {
@@ -972,8 +1007,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final int transport = _parseMoney(_transportCon.text);
     final int waypointTip = _parseMoney(_waypointTipCon.text);
     final int fee = _currentFeeFromGross();
-    final int net = (_grossIncome - fee - transport + waypointTip).clamp(0, 999999999);
-    final int deductOnly = fee + transport;
+    final int insurance = _currentInsuranceFee();
+    final int net = (_grossIncome - fee - insurance - transport + waypointTip).clamp(0, 999999999);
+    final int deductOnly = fee + insurance + transport;
     setState(() {
       _deductionHint = _grossIncome > 0
           ? "순익 ${_formatMoney(net)}원 (차감 ${_formatMoney(deductOnly)}원)"
@@ -1084,7 +1120,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         "drive_date": driveDateForRow,
         "drive_time": resolveDriveTimeForStorage(driveTimeForRow),
         "program": _selectedProgram,
-        "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "transport_cost": _parseMoney(_transportCon.text),
+        "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "insurance_fee": _currentInsuranceFee(), "transport_cost": _parseMoney(_transportCon.text),
         "expense_category": _parseMoney(_transportCon.text) > 0 ? _safeExpenseCategory() : null,
         "waypoint_tip": _parseMoney(_waypointTipCon.text),
         "income_category": _parseMoney(_waypointTipCon.text) > 0 ? _safeIncomeCategory() : null,

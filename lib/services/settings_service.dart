@@ -140,11 +140,16 @@ class SettingsService {
     if (!isKakao && n != '핸들포유') {
       fee += (grossFare * (baseFeeRate / 100)).round();
     }
-
-    if (insuranceType == 'per_trip' && _perTripInsuranceAppliesToProgram(n)) {
-      fee += perTripInsurance;
-    }
     return fee;
+  }
+
+  /// 설정의 건당 보험료가 이 프로그램에 적용되는지 확인하고 금액 반환
+  static int calculatePerTripInsurance(String program) {
+    final n = program.trim();
+    if (insuranceType == 'per_trip' && _perTripInsuranceAppliesToProgram(n)) {
+      return perTripInsurance;
+    }
+    return 0;
   }
 
   /// 설정의 건당 보험료가 **이 프로그램**에만 반영되는지.

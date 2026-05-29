@@ -10,6 +10,7 @@ import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/db_helper.dart';
 import '../services/remote_config_service.dart';
+import '../services/notice_service.dart';
 import '../services/youtube_rss_service.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
@@ -52,6 +53,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
+  
+  List<Map<String, dynamic>> _activeNotices = [];
 
   @override
   void initState() {
@@ -65,6 +68,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       _restartRecentLogTicker();
     });
     _loadYoutubeBanner();
+    _loadNotices();
+  }
+
+  void _loadNotices() async {
+    final notices = await NoticeService.instance.fetchActiveNotices();
+    if (mounted) {
+      setState(() {
+        _activeNotices = notices;
+      });
+    }
   }
 
   @override
@@ -80,7 +93,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       TodayStatsProvider.instance.refresh();
       _loadYoutubeBanner();
+      _loadNotices();
       _chartsKey.currentState?.reload();
+      if (_workDateTick == null || !_workDateTick!.isActive) {
+        _workDateTick = Timer.periodic(const Duration(minutes: 1), (_) => _rollWorkDateIfNeeded());
+      }
+      _restartRecentLogTicker();
+    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      _workDateTick?.cancel();
+      _recentLogTicker?.cancel();
     }
   }
 
@@ -349,14 +370,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ],
       ),
     ),
-    if (!_homeNoticeClosed && RemoteConfigService().appNoticeMessage.trim().isNotEmpty)
+    if (!_homeNoticeClosed && _activeNotices.isNotEmpty)
       _buildFloatingNoticeBanner(),
     ],
   );
 }
 
   Widget _buildFloatingNoticeBanner() {
-    final noticeMsg = RemoteConfigService().appNoticeMessage.replaceAll('\\n', '\n');
+    final noticeMap = _activeNotices.first;
+    final title = noticeMap['title'] as String? ?? '공지사항';
+    final content = (noticeMap['content'] as String? ?? '').replaceAll('\\n', '\n');
+    final isImportant = noticeMap['isImportant'] == true;
+    final noticeMsg = '[$title]\n$content';
 
     return Positioned(
       left: 16,
@@ -381,7 +406,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.campaign, color: Color(0xFFFF5252), size: 22),
+              Icon(Icons.campaign, color: isImportant ? const Color(0xFFFF5252) : const Color(0xFFFFC700), size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Padding(
