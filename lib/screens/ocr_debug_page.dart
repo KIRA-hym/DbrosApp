@@ -332,15 +332,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     }
   }
 
-  Future<void> _copyToClipboard() async {
-    if (_results.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _buildLogText()));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('클립보드에 복사했습니다!'), backgroundColor: Color(0xFF2A2D36)),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -353,7 +344,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'OCR 디버그',
+          '콜카드 인식 로그',
           style: TextStyle(
             fontFamily: 'GmarketSans',
             color: Colors.white,
@@ -378,11 +369,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 tooltip: '구글 드라이브(GAS) 전송',
                 onPressed: _uploadToGoogleDriveGAS,
               ),
-            IconButton(
-              icon: const Icon(Icons.copy, color: Color(0xFFFFC700)),
-              tooltip: '클립보드 복사',
-              onPressed: _copyToClipboard,
-            ),
             IconButton(
               icon: const Icon(Icons.share, color: Color(0xFFFFC700)),
               tooltip: '파일로 공유',
@@ -568,15 +554,41 @@ class _ResultCardState extends State<_ResultCard> {
               ],
             ),
           ),
-          // RAW 텍스트 토글
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: r.rawText.isEmpty
+                        ? null
+                        : () async {
+                            await Clipboard.setData(ClipboardData(text: r.rawText));
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('원본 텍스트를 복사했습니다.'),
+                                backgroundColor: Color(0xFF2A2D36),
+                              ),
+                            );
+                          },
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('원본 텍스트 복사', style: TextStyle(fontSize: 12)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFFC700),
+                      side: const BorderSide(color: Color(0xFF6E5500)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           InkWell(
             onTap: () => setState(() => _showRaw = !_showRaw),
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(16),
-              bottomRight: Radius.circular(16),
-            ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
               child: Row(
                 children: [
                   Icon(
@@ -586,7 +598,7 @@ class _ResultCardState extends State<_ResultCard> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    _showRaw ? 'RAW 텍스트 숨기기' : 'RAW OCR 텍스트 보기',
+                    _showRaw ? '원본 텍스트 숨기기' : '원본 텍스트 보기',
                     style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12),
                   ),
                 ],
@@ -601,13 +613,25 @@ class _ResultCardState extends State<_ResultCard> {
                 color: const Color(0xFF121418),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: SelectableText(
-                r.rawText,
-                style: const TextStyle(
-                  color: Color(0xFFB0B5C0),
-                  fontSize: 11,
-                  fontFamily: 'monospace',
-                  height: 1.5,
+              child: GestureDetector(
+                onLongPress: () async {
+                  await Clipboard.setData(ClipboardData(text: r.rawText));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('원본 텍스트가 클립보드에 복사되었습니다.'),
+                      backgroundColor: Color(0xFF2A2D36),
+                    ),
+                  );
+                },
+                child: Text(
+                  r.rawText,
+                  style: const TextStyle(
+                    color: Color(0xFFB0B5C0),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),

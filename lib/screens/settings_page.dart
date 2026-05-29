@@ -142,6 +142,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
       _buildNoticeSection(),
+      _buildOcrParseLogSettings(),
       _buildBackupRestoreSettings(),
       _buildSettingsGroup(
         "수수료 설정",
@@ -610,6 +611,16 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.bug_report, color: Color(0xFFFFC700)),
+            title: const Text('콜카드 인식 로그 (디버그)', style: TextStyle(color: Colors.white, fontSize: 16)),
+            trailing: const Icon(Icons.arrow_forward_ios, color: Color(0xFF6E717C), size: 16),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const OcrDebugPage()));
+            },
+          ),
+          const SizedBox(height: 16),
           Text(
             '스크린샷 일지 자동저장',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
@@ -784,48 +795,15 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildOcrParseLogSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-    final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "콜카드 인식 로그",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: spacing),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const OcrDebugPage()),
-                );
-              },
-              icon: const Icon(Icons.bug_report_outlined, color: Colors.white),
-              label: const Text("로그추출"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF9C27B0),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-              ),
-            ),
-          ),
-          SizedBox(height: spacing),
-          Text(
-            "• 콜카드 인식 시 인식결과가 누적됩니다.\n• 로그추출 화면을 통해 전체 인식로그 조회 및 복사,공유가 가능합니다.",
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-          ),
-        ],
-      ),
+    return _buildListManageButton(
+      title: '콜카드 인식 로그',
+      icon: Icons.description_outlined,
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const OcrDebugPage()),
+        );
+      },
     );
   }
 
