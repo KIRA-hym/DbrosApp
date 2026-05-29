@@ -23,9 +23,9 @@ try {
     cmd.exe /c "flutter pub get"
     if ($LASTEXITCODE -ne 0) { throw "Pub get failed." }
 
-    Write-Host ">>> flutter build apk --release..." -ForegroundColor Cyan
-    cmd.exe /c "flutter build apk --release"
-    if ($LASTEXITCODE -ne 0) { throw "APK Build failed." }
+    Write-Host ">>> shorebird release android --artifact apk..." -ForegroundColor Cyan
+    cmd.exe /c "shorebird release android --artifact apk"
+    if ($LASTEXITCODE -ne 0) { throw "Shorebird APK Build failed." }
 }
 catch {
     Write-Host ">>> Build failed! Restoring original pubspec.yaml..." -ForegroundColor Red

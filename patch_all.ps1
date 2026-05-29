@@ -1,0 +1,1 @@
+echo 'y' | shorebird patch android --release-version 1.0.06+100611 ; echo 'y' | shorebird patch android --release-version 1.0.05+100510 ; echo 'y' | shorebird patch android --release-version 1.0.05+100509
