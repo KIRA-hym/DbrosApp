@@ -1,0 +1,35 @@
+---
+description: 앱 버전 갱신 규칙 (pubspec.yaml version 및 Android versionCode 증가). 앱 빌드, 버전, 패치, OTA 등에 대해 질문하거나 작업할 때 참고한다.
+alwaysApply: true
+---
+
+# 버전 갱신 (Version Bump) 규칙
+
+이 프로젝트는 `pubspec.yaml`의 `version` 값을 기준으로 버전을 관리하며, Android `versionCode`는 단조 증가(Monotonic) 규칙을 따릅니다.
+버전 및 빌드 번호를 임의로(수동으로) 올리지 마시고, **반드시 정해진 규칙에 따라 올리거나 제공된 스크립트를 사용**하세요.
+
+## 핵심 규칙
+
+1. **표시 형식 및 빌드 번호 범위**
+   - 버전 문자열: `major.minor.patch+build` (예: `1.0.06+5`)
+   - `build` 번호는 **1부터 9까지만** 허용됩니다 (`+1` ~ `+9`).
+   - UI에 표시될 때: `v{version}.{build 2자리}` (예: `v1.0.06.05`)
+
+2. **버전 증가 (Bump) 원칙**
+   - 현재 `build` 번호가 9 미만이면: `build`만 `+1` 증가시킵니다. (예: `1.0.06+8` -> `1.0.06+9`)
+   - 현재 `build` 번호가 9이면: `patch`를 1 증가시키고, `build`는 `1`로 초기화합니다. (예: `1.0.06+9` -> `1.0.07+1`)
+   - **절대로 `build` 번호를 10 이상으로 설정하지 마세요.** (예: `1.0.06+12` 금지)
+
+3. **Android versionCode 산출 로직**
+   - `build.gradle.kts` 내 `monotonicVersionCode` 함수에 의해 자동으로 계산됩니다.
+   - 산식: `major * 100,000 + minor * 1,000 + patch * 100 + build`
+   - 이 규칙을 어기고 `build`를 10 이상으로 올리면 계산식이 꼬여 스토어 업로드 시 버전 역전 문제가 발생할 수 있습니다.
+
+4. **버전 올리는 방법**
+   - 직접 `pubspec.yaml`을 열어서 위 규칙에 맞게 숫자를 수정합니다.
+   - 혹은 터미널에서 다음 스크립트를 실행하면 위 규칙에 따라 자동으로 증가됩니다:
+     ```bash
+     dart run tool/bump_pubspec_version.dart
+     ```
+
+앱 배포/릴리스/OTA 작업을 할 때는 항상 버전이 위 규칙에 부합하는지 점검하세요.

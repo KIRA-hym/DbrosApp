@@ -317,6 +317,8 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
+            ],
+          ),
         ],
       ),
     );
@@ -843,7 +845,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
                 title: const Text('단말기 (Downloads) 저장', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('단말기 내 다운로드 폴더에 즉시 저장합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToLocalDevice(context);
@@ -852,7 +853,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
                 title: const Text('구글 드라이브 등 공유 저장', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('공유 창을 열어 드라이브 앱으로 내보냅니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToDrive(context);
@@ -881,7 +881,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
                 title: const Text('단말기에서 가져오기', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('단말기 내의 백업 폴더에서 파일을 선택합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.restoreFromFilePicker(context);
@@ -890,7 +889,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ListTile(
                 leading: const Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
                 title: const Text('구글 드라이브에서 가져오기', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('좌측 메뉴에서 Google Drive를 선택해주세요.', style: TextStyle(color: Colors.white54, fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.restoreFromFilePicker(context);
@@ -953,6 +951,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
+                ),
+              ),
             ],
           ),
           const Divider(color: Color(0xFF2C2F38), height: 32),
