@@ -1,57 +1,52 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
-import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import Login from './pages/Login';
+import OcrSimulatorPage from './pages/OcrSimulatorPage';
 import Notices from './pages/Notices';
 import Push from './pages/Push';
 import OcrLogs from './pages/OcrLogs';
+import UserManagement from './pages/UserManagement';
+import './index.css';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { currentUser } = useAuth();
-  if (!currentUser) {
-    return <Navigate to="/login" replace />;
+  const { currentUser, loading } = useAuth();
+
+  if (loading) {
+    return <div className="h-screen w-screen flex items-center justify-center bg-gray-900 text-white">Loading...</div>;
   }
+
+  if (!currentUser) {
+    return <Navigate to="/login" />;
+  }
+
   return <>{children}</>;
 };
 
-function AppRoutes() {
-  const { currentUser } = useAuth();
-
-  return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={currentUser ? <Navigate to="/" replace /> : <Login />} 
-      />
-      
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="notices" element={<Notices />} />
-        {/* Placeholder Routes */}
-        <Route path="push" element={<Push />} />
-        <Route path="ocr" element={<OcrLogs />} />
-        <Route path="settings" element={<div className="p-8 text-white">설정 (개발 중)</div>} />
-      </Route>
-    </Routes>
-  );
-}
-
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <AppRoutes />
-      </Router>
-    </AuthProvider>
+    <Router>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }>
+            <Route index element={<Dashboard />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="notices" element={<Notices />} />
+            <Route path="push" element={<Push />} />
+            <Route path="ocr" element={<OcrLogs />} />
+            <Route path="ocr-simulator" element={<OcrSimulatorPage />} />
+          </Route>
+        </Routes>
+      </AuthProvider>
+    </Router>
   );
 }
 
