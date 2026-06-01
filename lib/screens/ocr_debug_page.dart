@@ -58,9 +58,20 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           
           final isFail = !recognized || (startLocation.isEmpty && endLocation.isEmpty && grossFare == 0);
           
+          final capturedAt = entry['captured_at']?.toString() ?? '';
+          String timeStr = '';
+          if (capturedAt.isNotEmpty) {
+            final dt = DateTime.tryParse(capturedAt);
+            if (dt != null) {
+              timeStr = '${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+            }
+          }
+          final statusStr = isFail ? '❌ 자동인식 실패' : '✅ 자동인식 성공';
+          final displayName = timeStr.isNotEmpty ? '$timeStr ($statusStr)' : statusStr;
+
           list.add(_OcrResult(
             imageIndex: idx++,
-            imageName: isFail ? '❌ 자동인식 실패 로그' : '✅ 자동인식 성공 로그',
+            imageName: displayName,
             program: program.isNotEmpty ? program : '❌ 인식불가',
             rawText: rawText,
             driveTime: driveTime,
@@ -69,6 +80,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
             endLocation: endLocation,
             waypoint: waypoint,
             parseError: isFail ? '인식 실패 로그' : '',
+            capturedAt: capturedAt,
           ));
         }
         setState(() {
@@ -167,7 +179,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
 
         final result = _OcrResult(
           imageIndex: i + 1,
-          imageName: file.path.split(Platform.pathSeparator).last,
+          imageName: '${DateTime.now().toString().substring(11, 16)} - 이미지 ${i + 1}',
           program: program ?? '❌ 인식불가',
           rawText: rawText,
           driveTime: driveTime,
@@ -176,6 +188,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           endLocation: endLoc,
           waypoint: waypoint,
           parseError: parseError,
+          capturedAt: DateTime.now().toIso8601String(),
         );
 
         setState(() {
@@ -433,8 +446,8 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                     : const Icon(Icons.photo_library, size: 20),
                 label: Text(
                   _isProcessing
-                      ? 'OCR 스캔 중... ($_processedCount/${_images.length})'
-                      : '콜카드 이미지 선택 (다중)',
+                      ? '스캔 중... ($_processedCount/${_images.length})'
+                      : '갤러리에서 이미지 불러와 스캔하기',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -665,6 +678,7 @@ class _OcrResult {
   final String endLocation;
   final String waypoint;
   final String parseError;
+  final String capturedAt;
 
   const _OcrResult({
     required this.imageIndex,
@@ -677,5 +691,6 @@ class _OcrResult {
     required this.endLocation,
     required this.waypoint,
     required this.parseError,
+    required this.capturedAt,
   });
 }

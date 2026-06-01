@@ -785,21 +785,19 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Widget _buildOcrParseLogSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: const Icon(Icons.apps_rounded, color: Color(0xFFFFC700)),
-        title: const Text('콜카드 인식 로그', style: TextStyle(color: Colors.white, fontSize: 16)),
-        trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
-        onTap: () {
-          Navigator.push(context, MaterialPageRoute(builder: (_) => const OcrDebugPage()));
-        },
-      ),
+    return _buildSettingsGroup(
+      '디버그 및 로그',
+      [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.receipt_long, color: Color(0xFFFFC700)),
+          title: const Text('콜카드 인식 로그', style: TextStyle(color: Colors.white, fontSize: 16)),
+          trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
+          onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const OcrDebugPage()));
+          },
+        ),
+      ],
     );
   }
 
