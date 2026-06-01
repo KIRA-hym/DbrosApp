@@ -8,6 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'my_info_page.dart';
+import 'admin_user_list_page.dart';
+import '../services/auth_service.dart';
 import '../config/feature_flags.dart';
 import '../services/backup_service.dart';
 import '../services/screenshot_auto_debug_log.dart';
@@ -52,13 +55,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _hasFeeChanges = false;
   bool _hasInsuranceChanges = false;
-
+  bool _hasOverlayPermission = false;
 
   String _appVersionLabel = '';
   String _shorebirdPatchLabel = '';
   
   int _versionTapCount = 0;
-  DateTime? _lastVersionTapTime;
+  Timer? _versionTapTimer;
 
   int _unreadNoticeCount = 0;
 
@@ -68,6 +71,19 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAppVersionLabel();
     _loadShorebirdPatchLabel();
     _loadUnreadNoticeCount();
+    _checkOverlayPermission();
+  }
+
+  Future<void> _checkOverlayPermission() async {
+    // Implement platform specific overlay check logic here if needed
+    if (!kIsWeb && Platform.isAndroid) {
+      final status = await Permission.systemAlertWindow.status;
+      setState(() => _hasOverlayPermission = status.isGranted);
+    }
+  }
+
+  Future<void> _revokeOverlayPermission() async {
+    // Implement logic to revoke overlay
   }
 
   Future<void> _loadShorebirdPatchLabel() async {
@@ -136,11 +152,34 @@ class _SettingsPageState extends State<SettingsPage> {
   void dispose() {
     _baseFeeCon.dispose();
     _perTripInsCon.dispose();
+    _versionTapTimer?.cancel();
     super.dispose();
   }
 
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
+      _buildSettingsGroup(
+        title: '계정 및 권한',
+        children: [
+          _buildSettingsItem(
+            icon: Icons.person,
+            title: '내 정보 및 로그아웃',
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const MyInfoPage()),
+              );
+            },
+          ),
+          if (_hasOverlayPermission)
+            _buildSettingsItem(
+              icon: Icons.layers,
+              title: '플로팅 버튼 권한 취소',
+              titleColor: Colors.redAccent,
+              onTap: _revokeOverlayPermission,
+            ),
+        ],
+      ),
       _buildNoticeSection(),
       _buildBackupRestoreSettings(),
       _buildSettingsGroup(
@@ -326,95 +365,70 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _handleVersionTap() {
-    final now = DateTime.now();
-    if (_lastVersionTapTime == null || now.difference(_lastVersionTapTime!).inSeconds > 2) {
-      _versionTapCount = 1;
-    } else {
-      _versionTapCount++;
-    }
-    _lastVersionTapTime = now;
-
-    if (_versionTapCount >= 5) {
+    _versionTapCount++;
+    _versionTapTimer?.cancel();
+    _versionTapTimer = Timer(const Duration(milliseconds: 500), () {
       _versionTapCount = 0;
-      _showOwnerModeDialog();
+    });
+
+    if (_versionTapCount >= 7) {
+      _versionTapCount = 0;
+      _showAdminCodeDialog();
     }
   }
 
-  void _showOwnerModeDialog() {
-    if (SettingsService.isOwnerMode) {
-      AppGlassDialog.show(
-        context: context,
-        dialog: AppGlassDialog(
-          icon: Icons.admin_panel_settings,
-          title: '오너 모드 해제',
-          content: '오너 모드를 해제하고 퍼블릭 모드로 전환하시겠습니까?',
-          actions: [
-            Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx))),
-            Builder(
-              builder: (ctx) => GlassDialogDestructiveButton(
-                label: '해제',
-                onPressed: () async {
-                  await SettingsService.setIsOwnerMode(false);
-                  if (!mounted) return;
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('퍼블릭 모드로 전환되었습니다.')),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final codeCon = TextEditingController();
-      AppGlassDialog.show(
-        context: context,
-        dialog: AppGlassDialog(
-          icon: Icons.lock_outline,
-          title: '마스터 코드 입력',
-          contentWidget: TextField(
-            controller: codeCon,
+  void _showAdminCodeDialog() {
+    final TextEditingController codeController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1F222A),
+          title: const Text('관리자 인증', style: TextStyle(color: Colors.white)),
+          content: TextField(
+            controller: codeController,
             obscureText: true,
             style: const TextStyle(color: Colors.white),
             decoration: const InputDecoration(
-              hintText: '코드를 입력하세요',
-              hintStyle: TextStyle(color: Colors.white38),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white38)),
+              hintText: '인증 코드를 입력하세요',
+              hintStyle: TextStyle(color: Colors.white54),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
               focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
             ),
           ),
           actions: [
-            Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx))),
-            Builder(
-              builder: (ctx) => GlassDialogConfirmButton(
-                label: '인증',
-                onPressed: () async {
-                  final input = codeCon.text.trim();
-                  final bytes = utf8.encode(input);
-                  final digest = sha256.convert(bytes).toString().toLowerCase();
-                  // "HYM" 의 SHA-256 해시값
-                  final targetHash = '8bd584776a2317022906d3da03e66184ddee9d979bb3fde82af39748c3cae422';
-                  if (digest == targetHash) {
-                    await SettingsService.setIsOwnerMode(true);
-                    if (!mounted) return;
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('오너 모드가 활성화되었습니다.')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소', style: TextStyle(color: Colors.white54)),
+            ),
+            TextButton(
+              onPressed: () {
+                final code = codeController.text.trim();
+                Navigator.pop(context);
+                if (code == '1234') { // TODO: 실제 사용할 어드민 코드로 변경
+                  final isAdmin = AuthService.instance.userDoc?['isAdmin'] == true;
+                  if (isAdmin) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const AdminUserListPage()),
                     );
                   } else {
-                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('코드가 일치하지 않습니다.')),
+                      const SnackBar(content: Text('접근 권한이 없는 계정입니다.')),
                     );
                   }
-                },
-              ),
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('코드가 일치하지 않습니다.')),
+                  );
+                }
+              },
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
-        ),
-      );
-    }
+        );
+      },
+    );
   }
 
   Widget _buildSettingsGroup(String title, List<Widget> children, {bool showChangeButton = false, VoidCallback? onSave}) {
@@ -450,6 +464,21 @@ class _SettingsPageState extends State<SettingsPage> {
           ...children,
         ],
       ),
+    );
+  }
+
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    Color titleColor = Colors.white,
+    VoidCallback? onTap,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon, color: const Color(0xFFFFC700)),
+      title: Text(title, style: TextStyle(color: titleColor, fontSize: 16)),
+      trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
+      onTap: onTap,
     );
   }
 
@@ -686,104 +715,6 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  Widget _buildScreenshotAutoDiagSettings() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final padding = isTablet ? 20.0 : 16.0;
-    final spacing = isTablet ? 20.0 : 16.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
-      padding: EdgeInsets.all(padding),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '스크린샷 자동등록 진단',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: spacing),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showScreenshotAutoDiagDialog(),
-              icon: const Icon(Icons.photo_camera_outlined, color: Colors.white),
-              label: const Text('진단 로그 보기 (최근 기록)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00897B),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
-              ),
-            ),
-          ),
-          SizedBox(height: spacing),
-          Text(
-            '• 캡처 후에도 반응이 없을 때: 위 버튼으로 앱 안에서만 확인합니다(adb 불필요).\n'
-            '• 최대 약 150줄까지 메모리에 유지됩니다. 앱을 완전히 종료하면 비워질 수 있습니다.\n'
-            '• 이벤트가 한 줄도 없으면 MediaStore/플러그인에서 변화가 오지 않은 것입니다.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showScreenshotAutoDiagDialog() {
-    final text = ScreenshotAutoDebugLog.newestFirstText();
-    final body = text.isEmpty ? '(아직 기록 없음 — 앱 실행 후 캡처를 한 번 시도해 보세요.)' : text;
-
-    AppGlassDialog.show<void>(
-      context: context,
-      dialog: AppGlassDialog(
-        icon: Icons.photo_camera_outlined,
-        title: '스크린샷 자동등록 진단',
-        contentWidget: SizedBox(
-          width: double.maxFinite,
-          height: MediaQuery.sizeOf(context).height * 0.5,
-          child: SingleChildScrollView(
-            child: SelectableText(
-              body,
-              style: const TextStyle(
-                color: Color(0xFFE0E0E0),
-                fontSize: 12,
-                height: 1.35,
-                fontFamily: 'monospace',
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          Builder(
-            builder: (ctx) => GlassDialogConfirmButton(
-              label: '복사 후 닫기',
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: body));
-                if (!mounted) return;
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('진단 로그를 클립보드에 복사했습니다.')),
-                );
-              },
-            ),
-          ),
-          Builder(
-            builder: (ctx) => GlassDialogDestructiveButton(
-              label: '비우기',
-              onPressed: () {
-                ScreenshotAutoDebugLog.clear();
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('진단 로그를 비웠습니다.')),
-                );
-              },
-            ),
-          ),
-          Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
-        ],
-      ),
-    );
-  }
-
   Widget _buildOcrParseLogSettings() {
     return _buildSettingsGroup(
       '디버그 및 로그',
@@ -877,7 +808,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
 
     final lastBackupStr = SettingsService.lastAutoBackupDate;
     final displayDate = lastBackupStr.isEmpty
@@ -1007,7 +937,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),
@@ -1095,7 +1024,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),
@@ -1142,7 +1070,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),

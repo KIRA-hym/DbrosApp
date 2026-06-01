@@ -403,6 +403,11 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 }
               },
             ),
+            // [중요] Shorebird 패치 시 폰트 에셋 변경(Tree-shaking)을 막기 위해 
+            // 삭제된 아이콘(copy, share)을 렌더링 트리에 숨겨서 강제 포함시킵니다.
+            const Offstage(
+              child: Row(children: [Icon(Icons.copy), Icon(Icons.share)]),
+            ),
           ],
         ],
       ),

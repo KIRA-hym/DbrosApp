@@ -22,6 +22,9 @@ import 'screens/home_page.dart';
 import 'screens/log_list_page.dart';
 import 'screens/stats_page.dart';
 import 'screens/settings_page.dart';
+import 'screens/login_page.dart';
+import 'screens/banned_page.dart';
+import 'services/auth_service.dart';
 import 'services/db_helper.dart';
 import 'services/expense_repository.dart';
 import 'services/feature_usage_service.dart';
@@ -83,8 +86,11 @@ void main() async {
   }
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => TodayStatsProvider.instance..refresh(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => TodayStatsProvider.instance..refresh()),
+        ChangeNotifierProvider(create: (_) => AuthService.instance),
+      ],
       child: const DbrosApp(),
     ),
   );
@@ -251,7 +257,21 @@ class DbrosApp extends StatelessWidget {
                 ),
               );
             },
-            home: const MainWrapper(),
+            home: Consumer<AuthService>(
+              builder: (context, auth, child) {
+                if (auth.status == AuthStatus.uninitialized) {
+                  return const Scaffold(
+                    backgroundColor: Color(0xFF121418),
+                    body: Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+                  );
+                } else if (auth.status == AuthStatus.unauthenticated) {
+                  return const LoginPage();
+                } else if (auth.status == AuthStatus.banned) {
+                  return const BannedPage();
+                }
+                return const MainWrapper();
+              },
+            ),
           ),
         );
           },

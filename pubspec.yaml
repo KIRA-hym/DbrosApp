@@ -85,6 +85,8 @@ dependencies:
   google_mobile_ads: ^8.0.0
   shorebird_code_push: ^2.0.6
   restart_app: ^1.8.3
+  firebase_auth: ^6.5.1
+  google_sign_in: ^7.2.0
 
 flutter_launcher_icons:
   android: "launcher_icon"
