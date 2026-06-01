@@ -249,19 +249,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     return sb.toString();
   }
 
-  Future<void> _exportLog() async {
-    if (_results.isEmpty) return;
-    final logText = _buildLogText();
-    final dir = await getTemporaryDirectory();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final file = File('${dir.path}/ocr_debug_$timestamp.txt');
-    await file.writeAsString(logText, encoding: Utf8Codec());
 
-    await Share.shareXFiles(
-      [XFile(file.path, mimeType: 'text/plain')],
-      subject: 'OCR 디버그 로그',
-    );
-  }
 
   bool _isUploadingGas = false;
 
@@ -345,14 +333,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     }
   }
 
-  Future<void> _copyToClipboard() async {
-    if (_results.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: _buildLogText()));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('클립보드에 복사했습니다!'), backgroundColor: Color(0xFF2A2D36)),
-    );
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -392,14 +373,35 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 onPressed: _uploadToGoogleDriveGAS,
               ),
             IconButton(
-              icon: const Icon(Icons.copy, color: Color(0xFFFFC700)),
-              tooltip: '클립보드 복사',
-              onPressed: _copyToClipboard,
-            ),
-            IconButton(
-              icon: const Icon(Icons.share, color: Color(0xFFFFC700)),
-              tooltip: '파일로 공유',
-              onPressed: _exportLog,
+              icon: const Icon(Icons.delete_outline, color: Color(0xFFFF5252)),
+              tooltip: '로그 전체 삭제',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: const Color(0xFF1F222A),
+                    title: const Text('로그 삭제', style: TextStyle(color: Colors.white)),
+                    content: const Text('저장된 모든 OCR 로그를 삭제하시겠습니까?', style: TextStyle(color: Colors.white70)),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx, true), 
+                        child: const Text('삭제', style: TextStyle(color: Color(0xFFFF5252))),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await OcrParseLogService.clearAllLogs();
+                  setState(() {
+                    _results.clear();
+                  });
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('모든 로그가 삭제되었습니다.')),
+                  );
+                }
+              },
             ),
           ],
         ],

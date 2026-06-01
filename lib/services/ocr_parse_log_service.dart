@@ -126,6 +126,7 @@ class OcrParseLogService {
     try {
       final now = DateTime.now();
       final dir = await _logDir();
+      await _cleanUpOldLogs(dir);
       final file = File(p.join(dir.path, _dailyFileName(now)));
 
       final payload = await _readOrCreateDailyPayload(file, now);
@@ -343,6 +344,7 @@ class OcrParseLogService {
     try {
       final dir = await _logDir();
       if (await dir.exists()) {
+        await _cleanUpOldLogs(dir);
         final files = await _listDailyLogFiles(dir);
         for (final file in files) {
           final payload = await _readDailyPayload(file);
@@ -359,5 +361,38 @@ class OcrParseLogService {
       }
     } catch (_) {}
     return list;
+  }
+
+  static Future<void> _cleanUpOldLogs(Directory dir) async {
+    try {
+      final files = await _listDailyLogFiles(dir);
+      final now = DateTime.now();
+      for (final file in files) {
+        final name = p.basename(file.path);
+        final m = RegExp(r'ocr_parse_(\d{8})\.json').firstMatch(name);
+        if (m != null) {
+          final dateStr = m.group(1)!;
+          final year = int.parse(dateStr.substring(0, 4));
+          final month = int.parse(dateStr.substring(4, 6));
+          final day = int.parse(dateStr.substring(6, 8));
+          final fileDate = DateTime(year, month, day);
+          if (now.difference(fileDate).inDays > 7) {
+            await file.delete();
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  static Future<void> clearAllLogs() async {
+    try {
+      final dir = await _logDir();
+      if (await dir.exists()) {
+        final files = await _listDailyLogFiles(dir);
+        for (final file in files) {
+          await file.delete();
+        }
+      }
+    } catch (_) {}
   }
 }
