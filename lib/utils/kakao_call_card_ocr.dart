@@ -538,6 +538,7 @@ class KakaoCallCardOcr {
     if (t.contains('무료보험') || t.contains('법인')) return false;
     if (t.contains('고객센터') || t.contains('사고신고') || t.contains('운행중')) return false;
     if (t.contains('경유')) return false;
+    if (t.contains('차량 정보') || t.contains('운행시작')) return false;
     if (RegExp(r'[a-zA-Z]{2,}\d+').hasMatch(t) || RegExp(r'\d+[a-zA-Z]{2,}').hasMatch(t)) return false;
     if (RegExp(r'[a-zA-Z]\s*lI|lI\s*[a-zA-Z]').hasMatch(t)) return false;
     return true;
@@ -546,9 +547,11 @@ class KakaoCallCardOcr {
   static bool _looksLikeKakaoActionLine(String line) {
     if (line.contains('고객과 통화')) return true;
     if (line.contains('고객과 메시지')) return true;
+    if (line.contains('고객이 경유지')) return true;
     if (line.contains('도착완료')) return true;
     if (line.contains('도착하시면')) return true;
     if (line.contains('출발지에 도착')) return true;
+    if (line.contains('탑승하신 후')) return true;
     return false;
   }
 
@@ -631,7 +634,7 @@ class KakaoCallCardOcr {
     // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응 — 날짜 메타 줄은 후보에서 이미 제외됨
     if (addrCandidates.length >= 4) {
       final start = _joinAddressParts([addrCandidates[0], addrCandidates[1]]);
-      final end = _trimTrailingFareSuffix(_joinAddressParts(addrCandidates.skip(2)));
+      final end = _trimTrailingFareSuffix(_joinAddressParts([addrCandidates[2], addrCandidates[3]]));
       return (start, end);
     }
 

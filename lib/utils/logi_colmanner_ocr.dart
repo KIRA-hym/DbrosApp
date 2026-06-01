@@ -107,7 +107,11 @@ class LogiColmannerOcr {
   }
 
   static List<String> _lines(String fullText) {
-    final cleaned = fullText.replaceAll('추바지', '출발지').replaceAll('도차지', '도착지');
+    final cleaned = fullText
+      .replaceAll('추바지', '출발지')
+      .replaceAll('도차지', '도착지')
+      .replaceAll('도착시 ', '도착지 ')
+      .replaceAll('도착시\n', '도착지\n');
     return cleaned
         .replaceAll('\r', '\n')
         .split('\n')
@@ -130,7 +134,7 @@ class LogiColmannerOcr {
   /// 폴백: 줄이 **4~6자리 총요금 숫자(콤마·공백·끝의 !·원만 허용)** 로만 이루어진 경우만 인정한다.
   static bool _isStrictStandaloneFareDigitsLine(String line) {
     var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
-    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL]+'), '');
+    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL|I]+'), '');
     return RegExp(r'^\d{4,6}$').hasMatch(t);
   }
 
@@ -139,7 +143,7 @@ class LogiColmannerOcr {
     if (fromOcr != null) return fromOcr;
     if (!_isStrictStandaloneFareDigitsLine(line)) return null;
     var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
-    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩]+'), '');
+    t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL|I]+'), '');
     
     // 비정상적으로 큰 숫자(전화번호 등)는 요금 후보에서 원천 배제
     final parsed = normalizeLogiFareDigitToken(t);
@@ -546,7 +550,13 @@ class LogiColmannerOcr {
     final head = t.substring(0, m.start).replaceFirst(RegExp(r'^\s*출발지\s*'), '').trim();
     final tail = t.substring(m.end).trim();
     if (head.isEmpty) return tail;
-    return '$head $tail'.trim();
+    
+    final headClean = head.replaceAll(RegExp(r'[^가-힣a-zA-Z0-9]'), '');
+    final tailClean = tail.replaceAll(RegExp(r'[^가-힣a-zA-Z0-9]'), '');
+    if (headClean.isNotEmpty && tailClean.contains(headClean)) {
+      return tail;
+    }
+    return '$tail $head'.trim();
   }
 
   /// 뭉친 OCR 한 줄에서 출발/도착을 분할한다. [isLogi]==true 이면 로지(상세: head+tail), false 이면 콜마너(상세: tail 우선).
@@ -676,6 +686,7 @@ class LogiColmannerOcr {
     res = res.replaceAll('+', ' ');
 
     // 1. 콜마너/로지 공통 악성 노이즈 철벽 제거 (하단 UI 버튼 등 모든 시스템 문구)
+    res = res.replaceAll(RegExp(r'\)\s*인천\s*송도동'), ')송도동');
     res = res.replaceAll(RegExp(r'[Q|/\\{}<>]'), ' ');
     // OCR 노이즈 ')' 제거: 한글/숫자 사이 닫는 괄호 (예: 가정동)가정로 → 가정동 가정로)
     res = res.replaceAllMapped(
@@ -718,9 +729,7 @@ class LogiColmannerOcr {
 
     // 4. 로지 '상세:' 처리 — 출발은 **상세: 뒤 행정주소**만(상호·경로 제외)
     if (res.contains('상세:')) {
-      if (isLogi && isStart) {
-        res = res.split(RegExp(r'상세\s*:', caseSensitive: false)).last.trim();
-      } else if (isLogi) {
+      if (isLogi) {
         res = _joinHeadAndTailAfterFirstSangse(res);
       } else {
         res = res.split(RegExp(r'상세\s*:', caseSensitive: false)).last.trim();
