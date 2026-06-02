@@ -28,16 +28,6 @@ val keystoreProperties = Properties().apply {
     }
 }
 
-fun monotonicVersionCode(): Int {
-    val name = flutter.versionName
-    val build = flutter.versionCode
-    val parts = name.split(".")
-    val major = parts.getOrNull(0)?.toIntOrNull() ?: 1
-    val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
-    val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
-    return major * 100_000 + minor * 1_000 + patch * 100 + build
-}
-
 android {
     namespace = "com.dbros.drive"
     compileSdk = flutter.compileSdkVersion
@@ -61,7 +51,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = monotonicVersionCode()
+        versionCode = flutter.versionCode
         versionName = flutter.versionName
         resValue("string", "google_maps_api_key", mapsApiKey)
     }
@@ -123,7 +113,8 @@ tasks.matching { it.name == "assembleRelease" }.configureEach {
             val vm = Regex("^version:\\s*(.+)\\+(\\d+)\\s*$", RegexOption.MULTILINE).find(text)
             if (vm != null) {
                 val vName = vm.groupValues[1].replace(".", "_")
-                val bNum = vm.groupValues[2].padStart(2, '0')
+                val bNumRaw = vm.groupValues[2].toIntOrNull() ?: 0
+                val bNum = (if (bNumRaw > 100) bNumRaw % 100 else bNumRaw).toString().padStart(2, '0')
                 suffix = "_v${vName}_$bNum"
             }
         }

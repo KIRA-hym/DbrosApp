@@ -28,10 +28,13 @@ void main(List<String> args) {
   var name = m.group(1)!;
   var build = int.parse(m.group(2)!);
 
-  if (build < 9) {
-    build++;
+  // Extract internal build number (01~09) from the version code
+  var internalBuild = build > 100 ? build % 100 : build;
+
+  if (internalBuild < 9) {
+    internalBuild++;
   } else {
-    build = 1;
+    internalBuild = 1;
     final parts = name.split('.');
     if (parts.length < 3) {
       stderr.writeln('Expected major.minor.patch in version name');
@@ -51,19 +54,27 @@ void main(List<String> args) {
     name = parts.join('.');
   }
 
-  final newLine = 'version: $name+$build';
+  // Calculate the new monotonic version code
+  final nameParts = name.split('.');
+  final major = nameParts.isNotEmpty ? (int.tryParse(nameParts[0]) ?? 1) : 1;
+  final minor = nameParts.length > 1 ? (int.tryParse(nameParts[1]) ?? 0) : 0;
+  final patch = nameParts.length > 2 ? (int.tryParse(nameParts[2]) ?? 0) : 0;
+  final newVersionCode = major * 100000 + minor * 1000 + patch * 100 + internalBuild;
+
+  final newLine = 'version: $name+$newVersionCode';
   if (dryRun) {
     stdout.writeln('Would set: $newLine');
-    stdout.writeln('Display: ${_displayLabel(name, build)}');
+    stdout.writeln('Display: ${_displayLabel(name, newVersionCode)}');
     return;
   }
 
   text = text.replaceFirst(re, newLine);
   pubspec.writeAsStringSync(text);
   stdout.writeln('Bumped pubspec to $newLine');
-  stdout.writeln('Display: ${_displayLabel(name, build)}');
+  stdout.writeln('Display: ${_displayLabel(name, newVersionCode)}');
 }
 
 String _displayLabel(String name, int build) {
-  return 'v$name.${build.toString().padLeft(2, '0')}';
+  final internalBuild = build > 100 ? build % 100 : build;
+  return 'v$name.${internalBuild.toString().padLeft(2, '0')}';
 }
