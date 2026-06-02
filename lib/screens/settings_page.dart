@@ -65,6 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Timer? _versionTapTimer;
 
   int _unreadNoticeCount = 0;
+  bool _hasPostponedUpdate = false;
 
   @override
   void initState() {
@@ -72,6 +73,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAppVersionLabel();
     _loadShorebirdPatchLabel();
     _loadUnreadNoticeCount();
+    _loadPostponedUpdateStatus();
+  }
+
+  Future<void> _loadPostponedUpdateStatus() async {
+    final hasPostponed = await ShorebirdUpdateService.instance.hasPostponedUpdate();
+    if (mounted) setState(() => _hasPostponedUpdate = hasPostponed);
   }
 
   Future<void> _loadShorebirdPatchLabel() async {
@@ -1227,23 +1234,124 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onPressed: () async {
-                final url = Uri.parse('https://dbros-install.web.app/');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                if (_hasPostponedUpdate) {
+                  // Show the custom popup with Apply Patch and APK Download
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => Dialog(
+                      backgroundColor: const Color(0xFF1F222A),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              '업데이트 선택',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: FilledButton(
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFFC700),
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () async {
+                                      Navigator.of(ctx).pop();
+                                      final result = await ShorebirdUpdateService.instance.checkAndUpdate();
+                                      if (!result && mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(content: Text('현재 최신 버전을 사용 중입니다.')),
+                                        );
+                                      }
+                                    },
+                                    child: Stack(
+                                      clipBehavior: Clip.none,
+                                      alignment: Alignment.center,
+                                      children: [
+                                        const Text('패치적용', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        Positioned(
+                                          top: -8,
+                                          right: -12,
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.redAccent,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: OutlinedButton(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.white,
+                                      side: const BorderSide(color: Colors.white24),
+                                      padding: const EdgeInsets.symmetric(vertical: 14),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                    onPressed: () async {
+                                      Navigator.of(ctx).pop();
+                                      final url = Uri.parse('https://dbros-install.web.app/');
+                                      if (await canLaunchUrl(url)) {
+                                        await launchUrl(url, mode: LaunchMode.externalApplication);
+                                      }
+                                    },
+                                    child: const Text('APK다운', style: TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
                 } else {
-                  if (context.mounted) {
+                  // Direct patch check if no badge
+                  final result = await ShorebirdUpdateService.instance.checkAndUpdate();
+                  if (!result && mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('웹페이지를 열 수 없습니다.')),
+                      const SnackBar(content: Text('현재 최신 버전을 사용 중입니다.')),
                     );
                   }
                 }
               },
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
                 children: [
-                  Icon(Icons.download, size: 20),
-                  SizedBox(width: 8),
-                  Text('업데이트', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.download, size: 20),
+                      SizedBox(width: 8),
+                      Text('업데이트', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  if (_hasPostponedUpdate)
+                    Positioned(
+                      top: 2,
+                      right: 4,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),

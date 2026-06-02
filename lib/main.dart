@@ -41,6 +41,7 @@ import 'services/backup_service.dart';
 import 'services/screenshot_auto_register_service.dart';
 import 'utils/work_date_utils.dart';
 import 'utils/pro_feature_guard.dart';
+import 'services/shorebird_update_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -294,6 +295,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   Timer? _workDateNotificationTick;
   String _lastNotifiedWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
   StreamSubscription<List<SharedMediaFile>>? _shareIntentSub;
+  DateTime? _lastShorebirdCheckTime;
 
   @override
   void initState() {
@@ -303,6 +305,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     _lastNotifiedWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
     _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
     _setupShareIntentListener();
+    _lastShorebirdCheckTime = DateTime.now();
   }
 
   /// 스크린샷·갤러리 등에서 이미지 공유 시 일지 작성 화면으로 연결 (**Android 전용**).
@@ -384,6 +387,13 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
         unawaited(ScreenshotAutoRegisterService.instance.checkRecentScreenshotOnResume());
       }
+      
+      final now = DateTime.now();
+      if (_lastShorebirdCheckTime == null || now.difference(_lastShorebirdCheckTime!).inHours >= 1) {
+        _lastShorebirdCheckTime = now;
+        ShorebirdUpdateService.instance.checkAndUpdate();
+      }
+
       if (_workDateNotificationTick == null || !_workDateNotificationTick!.isActive) {
         _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
       }

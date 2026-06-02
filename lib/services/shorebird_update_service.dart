@@ -31,8 +31,21 @@ class ShorebirdUpdateService {
   static const String _prefNotifiedPatch = 'shorebird_notified_patch_number';
   static const String _prefPendingPatch = 'shorebird_pending_patch_number';
   static const String _prefAppliedPatch = 'shorebird_applied_patch_number';
+  static const String _prefPostponedPatch = 'shorebird_postponed_patch_number';
 
   Stream<PatchEvent> get patchEvents => _ctrl.stream;
+
+  Future<bool> hasPostponedUpdate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final postponed = prefs.getInt(_prefPostponedPatch);
+    final pending = prefs.getInt(_prefPendingPatch);
+    return postponed != null && postponed == pending;
+  }
+
+  Future<void> postponeUpdate(int patchNumber) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_prefPostponedPatch, patchNumber);
+  }
 
   /// 현재·대기 패치 번호 (설정 화면 디버그용)
   Future<({int? current, int? pending, bool available})> getPatchInfo() async {
@@ -54,11 +67,11 @@ class ShorebirdUpdateService {
     }
   }
 
-  Future<void> checkAndUpdate() async {
+  Future<bool> checkAndUpdate() async {
     try {
       if (!_updater.isAvailable) {
         if (kDebugMode) debugPrint('[Shorebird] 업데이터 사용 불가');
-        return;
+        return false;
       }
 
       await _syncAppliedPatchState();
@@ -74,20 +87,23 @@ class ShorebirdUpdateService {
           await _storePendingPatchNumber();
           if (kDebugMode) debugPrint('[Shorebird] 다운로드 완료');
           await _emitReadyIfNew();
+          return true;
 
         case UpdateStatus.restartRequired:
           await _emitReadyIfNew();
+          return true;
 
         case UpdateStatus.upToDate:
           await _clearPendingIfApplied();
-          break;
+          return false;
 
         case UpdateStatus.unavailable:
-          break;
+          return false;
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] 예외: $e');
     }
+    return false;
   }
 
   /// 재시작 후 패치가 적용됐으면 pending·알림 상태를 정리한다.
@@ -106,6 +122,7 @@ class ShorebirdUpdateService {
         await prefs.setInt(_prefAppliedPatch, current.number);
         await prefs.setInt(_prefNotifiedPatch, current.number);
         await prefs.remove(_prefPendingPatch);
+        await prefs.remove(_prefPostponedPatch);
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] syncApplied 오류: $e');

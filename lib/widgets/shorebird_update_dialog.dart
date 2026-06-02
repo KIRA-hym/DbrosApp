@@ -1,7 +1,7 @@
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:restart_app/restart_app.dart';
 
 import '../services/shorebird_update_service.dart';
 
@@ -82,7 +82,16 @@ class _ShorebirdUpdateDialogBodyState
 
   void _onConfirm() {
     Navigator.of(context).pop();
-    Restart.restartApp();
+    exit(0);
+  }
+
+  Future<void> _onPostpone() async {
+    final info = await ShorebirdUpdateService.instance.getPatchInfo();
+    if (info.pending != null) {
+      await ShorebirdUpdateService.instance.postponeUpdate(info.pending!);
+    }
+    if (!mounted) return;
+    Navigator.of(context).pop();
   }
 
   @override
@@ -168,7 +177,7 @@ class _ShorebirdUpdateDialogBodyState
 
     final subtitle = _stage == PatchStage.downloading
         ? '최신 패치를 다운로드하는 중입니다.\n잠시만 기다려주세요...'
-        : '새 패치가 준비되었습니다.\n확인을 누르면 앱이 재시작되며\n업데이트가 자동으로 적용됩니다.';
+        : '새 패치가 준비되었습니다.\n확인을 누르면 앱이 완전히 종료됩니다.\n이후 바탕화면에서 다시 실행해 주시면\n업데이트가 즉시 적용됩니다.';
 
     return Column(
       children: [
@@ -218,28 +227,54 @@ class _ShorebirdUpdateDialogBodyState
       );
     }
 
-    // 준비 완료: 확인 버튼
-    return SizedBox(
-      width: double.infinity,
-      child: FilledButton(
-        onPressed: _onConfirm,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFFFFC700),
-          foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    // 준비 완료: 확인 버튼 및 나중에 하기 버튼
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _onConfirm,
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC700),
+              foregroundColor: Colors.black,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              '업데이트 적용 (앱 닫기)',
+              style: TextStyle(
+                fontFamily: 'GmarketSans',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
           ),
         ),
-        child: const Text(
-          '확인 (앱 재시작)',
-          style: TextStyle(
-            fontFamily: 'GmarketSans',
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: _onPostpone,
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFF7A7D8A),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              '나중에 하기',
+              style: TextStyle(
+                fontFamily: 'GmarketSans',
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
