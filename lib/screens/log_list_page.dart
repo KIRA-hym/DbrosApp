@@ -1523,11 +1523,15 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         ),
       );
 
-      final bytes = await _shareScreenshotController.captureFromWidget(
+      final bytes = await _shareScreenshotController.captureFromLongWidget(
         captureRoot,
         context: context,
         delay: const Duration(milliseconds: 900),
         pixelRatio: pixelRatio,
+        constraints: BoxConstraints(
+          maxWidth: captureWidth,
+          maxHeight: double.maxFinite,
+        ),
       );
 
       if (!mounted) return;
