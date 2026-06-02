@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import OcrSimulatorPage from './pages/OcrSimulatorPage';
 import Notices from './pages/Notices';
@@ -37,8 +36,7 @@ function App() {
               <Layout />
             </ProtectedRoute>
           }>
-            <Route index element={<Dashboard />} />
-            <Route path="users" element={<UserManagement />} />
+            <Route index element={<UserManagement />} />
             <Route path="notices" element={<Notices />} />
             <Route path="push" element={<Push />} />
             <Route path="ocr" element={<OcrLogs />} />

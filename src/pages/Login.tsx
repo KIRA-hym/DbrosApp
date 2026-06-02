@@ -1,13 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Mail, AlertCircle } from 'lucide-react';
 
 export default function Login() {
+  const navigate = useNavigate();
+  const { login, loginWithGoogle, currentUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+
+  useEffect(() => {
+    if (currentUser) {
+      navigate('/', { replace: true });
+    }
+  }, [currentUser, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,7 +24,21 @@ export default function Login() {
       setLoading(true);
       await login(email, password);
     } catch (err: any) {
-      setError('로그인에 실패했습니다. 이메일과 비밀번호를 확인해주세요.');
+      console.error("Login Error:", err);
+      setError(`로그인 실패: ${err.message || '이메일과 비밀번호를 확인해주세요.'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setError('');
+      setLoading(true);
+      await loginWithGoogle();
+    } catch (err: any) {
+      console.error("Google Login Error:", err);
+      setError(`구글 로그인 실패: ${err.message || '다시 시도해주세요.'}`);
     } finally {
       setLoading(false);
     }
@@ -82,7 +104,28 @@ export default function Login() {
               disabled={loading}
               className="w-full py-3 px-4 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white font-medium rounded-xl shadow-lg shadow-yellow-500/25 transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-4"
             >
-              {loading ? '로그인 중...' : '로그인'}
+              {loading ? '로그인 중...' : '이메일로 로그인'}
+            </button>
+            
+            <div className="relative flex items-center py-2">
+              <div className="flex-grow border-t border-white/10"></div>
+              <span className="flex-shrink-0 mx-4 text-gray-500 text-sm">또는</span>
+              <div className="flex-grow border-t border-white/10"></div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full py-3 px-4 bg-white hover:bg-gray-100 text-gray-900 font-medium rounded-xl shadow-lg transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25C22.56 11.47 22.49 10.72 22.36 10H12V14.26H17.92C17.67 15.63 16.89 16.8 15.74 17.57V20.34H19.3C21.38 18.42 22.56 15.6 22.56 12.25Z" fill="#4285F4"/>
+                <path d="M12 23C14.97 23 17.46 22.02 19.3 20.34L15.74 17.57C14.75 18.24 13.48 18.64 12 18.64C9.13 18.64 6.7 16.7 5.82 14.1H2.15V16.94C3.96 20.54 7.69 23 12 23Z" fill="#34A853"/>
+                <path d="M5.82 14.1C5.59 13.43 5.46 12.73 5.46 12C5.46 11.27 5.59 10.57 5.82 9.9V7.06H2.15C1.4 8.56 1 10.24 1 12C1 13.76 1.4 15.44 2.15 16.94L5.82 14.1Z" fill="#FBBC05"/>
+                <path d="M12 5.36C13.62 5.36 15.06 5.91 16.21 7.01L19.38 3.84C17.45 2.04 14.97 1 12 1C7.69 1 3.96 3.46 2.15 7.06L5.82 9.9C6.7 7.3 9.13 5.36 12 5.36Z" fill="#EA4335"/>
+              </svg>
+              Google 로그인
             </button>
           </form>
         </div>

@@ -64,9 +64,16 @@ export default function UserManagement() {
           </h1>
           <p className="text-gray-400 mt-1">앱에 가입한 유저들의 상태를 확인하고 관리(차단)할 수 있습니다.</p>
         </div>
-        <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700">
-          <span className="text-gray-400 text-sm">총 가입 유저: </span>
-          <span className="text-white font-bold">{users.length}명</span>
+        <div className="bg-gray-800 px-4 py-2 rounded-lg border border-gray-700 flex gap-4">
+          <div>
+            <span className="text-gray-400 text-sm">총 가입 유저: </span>
+            <span className="text-white font-bold">{users.length}명</span>
+          </div>
+          <div className="w-px bg-gray-700"></div>
+          <div>
+            <span className="text-gray-400 text-sm">차단 유저: </span>
+            <span className="text-red-400 font-bold">{users.filter(u => u.isBanned).length}명</span>
+          </div>
         </div>
       </div>
 

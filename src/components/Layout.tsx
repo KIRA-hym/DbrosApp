@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Bell, FileText, Settings, LogOut, FileSearch, Menu, X, Users } from 'lucide-react';
+import { Bell, FileText, Settings, LogOut, FileSearch, Menu, X, Users } from 'lucide-react';
 
 export default function Layout() {
   const { logout, currentUser } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const menuItems = [
-    { name: '대시보드', path: '/', icon: <LayoutDashboard size={20} /> },
-    { name: '유저 관리', path: '/users', icon: <Users size={20} /> },
+    { name: '유저 관리', path: '/', icon: <Users size={20} /> },
     { name: '공지사항 관리', path: '/notices', icon: <FileText size={20} /> },
     { name: '푸시 알림 센터', path: '/push', icon: <Bell size={20} /> },
     { name: 'OCR 룰/로그', path: '/ocr', icon: <FileSearch size={20} /> },
