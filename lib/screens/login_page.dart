@@ -68,15 +68,6 @@ class _LoginPageState extends State<LoginPage> {
                     color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  '대리운전 기사님들을 위한 완벽한 보조앱',
-                  style: TextStyle(
-                    fontSize: FontSizeService.getScaledFontSize(14),
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFF9FA3AE),
-                  ),
-                ),
                 const SizedBox(height: 64),
                 _isLoading
                     ? const CircularProgressIndicator(color: Color(0xFFFFC700))
