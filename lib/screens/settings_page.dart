@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'my_info_page.dart';
 import 'admin_user_list_page.dart';
@@ -1140,6 +1141,28 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () => _openAdminPushDialog(),
             ),
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC700),
+                side: const BorderSide(color: Color(0xFFFFC700)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: const Icon(Icons.person, size: 20),
+              label: const Text('회원 관리 (관리자)',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminUserListPage()),
+                );
+              },
+            ),
+          ),
         ],
       ),
     );
@@ -1152,45 +1175,80 @@ class _SettingsPageState extends State<SettingsPage> {
     return Container(
       decoration: BorderedSection.decoration(borderRadius: 12),
       padding: EdgeInsets.all(padding),
-      child: SizedBox(
-        width: double.infinity,
-        child: OutlinedButton(
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFFFFC700),
-            side: const BorderSide(color: const Color(0xFFFFC700)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFFFFC700),
+                side: const BorderSide(color: Color(0xFFFFC700)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NoticeListPage()),
+                );
+                _loadUnreadNoticeCount();
+              },
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.notifications, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('알림목록', style: TextStyle(fontWeight: FontWeight.bold)),
+                  if (_unreadNoticeCount > 0) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '$_unreadNoticeCount',
+                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
-          onPressed: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NoticeListPage()),
-            );
-            _loadUnreadNoticeCount();
-          },
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.notifications, size: 20),
-              const SizedBox(width: 8),
-              const Text('알림목록', style: TextStyle(fontWeight: FontWeight.bold)),
-              if (_unreadNoticeCount > 0) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '$_unreadNoticeCount',
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ],
-            ],
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white24),
+                backgroundColor: const Color(0xFF1F222A),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              onPressed: () async {
+                final url = Uri.parse('https://dbros-install.web.app/');
+                if (await canLaunchUrl(url)) {
+                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('웹페이지를 열 수 없습니다.')),
+                    );
+                  }
+                }
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.download, size: 20),
+                  SizedBox(width: 8),
+                  Text('업데이트', style: TextStyle(fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
