@@ -48,12 +48,6 @@ class CallCardOcrParseService {
 
     final rawProgram = _detectProgram(blocks, recognizedText.text);
     if (rawProgram == null) {
-      await OcrParseLogService.record(
-        source: ocrSource,
-        rawText: recognizedText.text,
-        parsedData: OcrParseLogService.parsedDataFrom(),
-        recognized: false,
-      );
       return {};
     }
 

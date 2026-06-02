@@ -48,7 +48,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           final program = entry['program']?.toString() ?? '';
           
           final parsed = entry['parsed_data'] as Map? ?? {};
-          final driveTime = parsed['drive_time']?.toString() ?? '';
           final grossFare = parsed['fee_amount'] as int? ?? 0;
           final startLocation = parsed['departure']?.toString() ?? '';
           final endLocation = parsed['destination']?.toString() ?? '';
@@ -74,7 +73,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
             imageName: displayName,
             program: program.isNotEmpty ? program : '❌ 인식불가',
             rawText: rawText,
-            driveTime: driveTime,
             grossFare: grossFare,
             startLocation: startLocation,
             endLocation: endLocation,
@@ -127,7 +125,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
         final program = _detectProgram(blocks, rawText);
 
         // 파싱 결과
-        String driveTime = '';
         int grossFare = 0;
         String startLoc = '';
         String endLoc = '';
@@ -138,7 +135,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           if (program == '로지') {
             final full = blocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
             final p = LogiColmannerOcr.parseLogi(full, blocks: blocks);
-            driveTime = p.driveTimeHm;
             grossFare = p.grossFare;
             startLoc = p.startLocation;
             endLoc = p.endLocation;
@@ -146,28 +142,24 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           } else if (program == '콜마너') {
             final full = blocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
             final p = LogiColmannerOcr.parseColmanner(full, blocks: blocks);
-            driveTime = p.driveTimeHm;
             grossFare = p.grossFare;
             startLoc = p.startLocation;
             endLoc = p.endLocation;
             waypoint = p.waypoint;
           } else if (program != null && program.startsWith('카카오')) {
             final p = KakaoCallCardOcr.parseScreen(blocks, rawText);
-            driveTime = p.driveTimeHm ?? '';
             grossFare = p.grossFare ?? 0;
             startLoc = p.startLocation;
             endLoc = p.endLocation;
             waypoint = p.waypoint;
           } else if (program == '카카오(커스텀)') {
             final p = KakaoCustomCallOcr.parseScreen(blocks, rawText);
-            driveTime = p.driveTimeHm ?? '';
             grossFare = p.grossFare ?? 0;
             startLoc = p.startLocation;
             endLoc = p.endLocation;
           } else if (program == '티맵') {
             final p = TmapTripDetailOcr.tryParse(rawText, blocks: blocks);
             if (p != null) {
-              driveTime = p.driveStartTimeHm;
               grossFare = p.grossFare;
               startLoc = p.startAddress;
               endLoc = p.endAddress;
@@ -182,7 +174,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
           imageName: '${DateTime.now().toString().substring(11, 16)} - 이미지 ${i + 1}',
           program: program ?? '❌ 인식불가',
           rawText: rawText,
-          driveTime: driveTime,
           grossFare: grossFare,
           startLocation: startLoc,
           endLocation: endLoc,
@@ -234,7 +225,6 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
       sb.writeln('▶ [${r.imageIndex}/${_results.length}] ${r.imageName}');
       sb.writeln('  프로그램: ${r.program}');
       sb.writeln('  ─ 파싱 결과 ─');
-      sb.writeln('  운행시간: ${r.driveTime.isEmpty ? "(없음)" : r.driveTime}');
       sb.writeln('  총요금:   ${r.grossFare == 0 ? "(0원 = 파싱실패 의심)" : "${r.grossFare}원"}');
       sb.writeln('  출발지:   ${r.startLocation.isEmpty ? "(없음)" : r.startLocation}');
       sb.writeln('  경유지:   ${r.waypoint.isEmpty ? "(없음)" : r.waypoint}');
@@ -574,8 +564,6 @@ class _ResultCardState extends State<_ResultCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _infoRow('⏱ 운행시간', r.driveTime.isEmpty ? '⚠️ 없음' : r.driveTime,
-                    warn: r.driveTime.isEmpty),
                 _infoRow('💰 총요금', r.grossFare == 0 ? '⚠️ 0원 (파싱실패 의심)' : '${r.grossFare}원',
                     warn: hasFareIssue),
                 _infoRow('🚩 출발지', r.startLocation.isEmpty ? '⚠️ 없음' : r.startLocation,
@@ -679,7 +667,6 @@ class _OcrResult {
   final String imageName;
   final String program;
   final String rawText;
-  final String driveTime;
   final int grossFare;
   final String startLocation;
   final String endLocation;
@@ -692,7 +679,6 @@ class _OcrResult {
     required this.imageName,
     required this.program,
     required this.rawText,
-    required this.driveTime,
     required this.grossFare,
     required this.startLocation,
     required this.endLocation,

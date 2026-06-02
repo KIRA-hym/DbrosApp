@@ -1,6 +1,7 @@
 import 'dart:io' show Platform;
 
 import 'dart:convert';
+import 'dart:async';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -55,7 +56,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   bool _hasFeeChanges = false;
   bool _hasInsuranceChanges = false;
-  bool _hasOverlayPermission = false;
 
   String _appVersionLabel = '';
   String _shorebirdPatchLabel = '';
@@ -71,19 +71,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadAppVersionLabel();
     _loadShorebirdPatchLabel();
     _loadUnreadNoticeCount();
-    _checkOverlayPermission();
-  }
-
-  Future<void> _checkOverlayPermission() async {
-    // Implement platform specific overlay check logic here if needed
-    if (!kIsWeb && Platform.isAndroid) {
-      final status = await Permission.systemAlertWindow.status;
-      setState(() => _hasOverlayPermission = status.isGranted);
-    }
-  }
-
-  Future<void> _revokeOverlayPermission() async {
-    // Implement logic to revoke overlay
   }
 
   Future<void> _loadShorebirdPatchLabel() async {
@@ -158,27 +145,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
-      _buildSettingsGroup(
-        title: '계정 및 권한',
-        children: [
-          _buildSettingsItem(
-            icon: Icons.person,
-            title: '내 정보 및 로그아웃',
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MyInfoPage()),
-              );
-            },
-          ),
-          if (_hasOverlayPermission)
-            _buildSettingsItem(
-              icon: Icons.layers,
-              title: '플로팅 버튼 권한 취소',
-              titleColor: Colors.redAccent,
-              onTap: _revokeOverlayPermission,
-            ),
-        ],
+      _buildListManageButton(
+        title: '내 정보',
+        icon: Icons.person,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MyInfoPage()),
+          );
+        },
       ),
       _buildNoticeSection(),
       _buildBackupRestoreSettings(),
@@ -1181,8 +1156,8 @@ class _SettingsPageState extends State<SettingsPage> {
         width: double.infinity,
         child: OutlinedButton(
           style: OutlinedButton.styleFrom(
-            foregroundColor: Colors.white,
-            side: const BorderSide(color: Colors.white54),
+            foregroundColor: const Color(0xFFFFC700),
+            side: const BorderSide(color: const Color(0xFFFFC700)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
