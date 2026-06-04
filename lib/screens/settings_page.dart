@@ -19,8 +19,10 @@ import '../services/screenshot_auto_debug_log.dart';
 import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
 import '../services/shorebird_update_service.dart';
+import '../services/apk_update_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/app_glass_dialog.dart';
+import '../widgets/apk_update_dialog.dart';
 import '../widgets/list_manage_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
@@ -74,6 +76,12 @@ class _SettingsPageState extends State<SettingsPage> {
     _loadShorebirdPatchLabel();
     _loadUnreadNoticeCount();
     _loadPostponedUpdateStatus();
+    _loadApkUpdateStatus();
+  }
+
+  Future<void> _loadApkUpdateStatus() async {
+    final hasApk = await ApkUpdateService.instance.checkForUpdate();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadPostponedUpdateStatus() async {
@@ -1234,7 +1242,12 @@ class _SettingsPageState extends State<SettingsPage> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               onPressed: () async {
-                if (_hasPostponedUpdate) {
+                if (ApkUpdateService.instance.hasApkUpdate) {
+                  ApkUpdateDialog.show(
+                    context, 
+                    ApkUpdateService.instance.downloadUrl ?? 'https://dbros-install.web.app/'
+                  );
+                } else if (_hasPostponedUpdate) {
                   // Show the custom popup with Apply Patch and APK Download
                   showDialog(
                     context: context,
@@ -1339,7 +1352,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       Text('업데이트', style: TextStyle(fontWeight: FontWeight.bold)),
                     ],
                   ),
-                  if (_hasPostponedUpdate)
+                  if (_hasPostponedUpdate || ApkUpdateService.instance.hasApkUpdate)
                     Positioned(
                       top: 2,
                       right: 4,

@@ -164,8 +164,8 @@ class CallCardOcrParseService {
     
     final duplicates = await db.query(
       'drive_logs',
-      where: 'program = ? AND gross_fare = ? AND start_location = ? AND end_location = ? AND created_at > ?',
-      whereArgs: [program, grossFare, startLocation, endLocation, twoHoursAgo],
+      where: 'program = ? AND gross_fare = ? AND start_location = ? AND end_location = ? AND drive_date = ?',
+      whereArgs: [program, grossFare, startLocation, endLocation, drive],
     );
     
     if (duplicates.isNotEmpty) {
@@ -210,22 +210,17 @@ class CallCardOcrParseService {
 
   static String? _detectProgram(List<TextBlock> blocks, String fullText) {
     final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final block in blocks) {
-      if (block.text.contains('갱신')) return '로지';
-      if (block.text.contains('출도')) return '콜마너';
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
+    
+    // 로지 식별: 배차, 갱신, 닫기 3가지 단어가 모두 있어야 함
+    if (normalized.contains('배차') && normalized.contains('갱신') && normalized.contains('닫기')) {
       return '로지';
     }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
+    
+    // 콜마너 식별: 출도, 길안내 2가지 단어가 모두 있어야 함
+    if (normalized.contains('출도') && normalized.contains('길안내')) {
       return '콜마너';
     }
+
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
     if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
     final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);

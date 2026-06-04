@@ -128,32 +128,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final FocusNode _incomeFocusNode = FocusNode();
   final FocusNode _memoFocusNode = FocusNode();
 
-  void _setupFocusScroll() {
-    void onFocus(FocusNode node) {
-      if (node.hasFocus) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (!mounted) return;
-          final ctx = node.context;
-          if (ctx != null) {
-            Scrollable.ensureVisible(
-              ctx,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              alignment: 0.2, // Slightly above center
-            );
-          }
-        });
-      }
-    }
-    _startLocFocusNode.addListener(() => onFocus(_startLocFocusNode));
-    _endLocFocusNode.addListener(() => onFocus(_endLocFocusNode));
-    _waypointFocusNode.addListener(() => onFocus(_waypointFocusNode));
-    _memoFocusNode.addListener(() => onFocus(_memoFocusNode));
-    _incomeFocusNode.addListener(() => onFocus(_incomeFocusNode));
-    _transportFocusNode.addListener(() => onFocus(_transportFocusNode));
-    _waypointTipFocusNode.addListener(() => onFocus(_waypointTipFocusNode));
-  }
-
   // Category selections
   String _selectedExpenseCategory = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList.first : '기타';
   String _selectedExtraIncomeCategory = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList.first : '기타';
@@ -172,7 +146,6 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     super.initState();
     _transportFocusNode.addListener(_onTransportFocusChanged);
     _waypointTipFocusNode.addListener(_onWaypointTipFocusChanged);
-    _setupFocusScroll();
     _selectedProgram = _coerceProgramForSelection(_selectedProgram);
     if (widget.existingLog != null) {
       final log = widget.existingLog!;

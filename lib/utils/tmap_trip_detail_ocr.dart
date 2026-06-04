@@ -174,40 +174,65 @@ class TmapTripDetailOcr {
   /// - 경유지 주소 + 경유지 상호명 (선택)
   /// - 도착지 주소 + 도착지 상호명 (다중 줄 지원)
   /// - `실수익` 줄
+  ///
+  /// ▶ 핵심 로직 — "주소-우선 그루핑":
+  ///   각 위치(location)의 첫 줄은 반드시 [addressStartPattern]에 매치되는
+  ///   행정주소여야 한다. 상호명처럼 주소 패턴에 걸리지 않는 줄이
+  ///   주소보다 **먼저** 등장할 경우, 해당 줄을 [pendingName] 버퍼에
+  ///   임시 보관했다가 다음 주소가 나타나면 그 주소 뒤에 붙인다.
+  ///
+  /// 예시 (오류 재현 케이스):
+  ///   연주음악학원            → pendingName 에 보류
+  ///   고양시 일산동구 정발산동 693-9 → locations[0] 생성, pendingName 후미 추가
+  ///   군포시 금정동 850        → locations[1] 생성
+  ///   목화아파트               → locations[1] 에 append
+  ///
+  /// 결과: locations[0] = "고양시 일산동구 정발산동 693-9 연주음악학원" (출발지)
+  ///       locations[1] = "군포시 금정동 850 목화아파트"             (도착지)
   static (String, String, String) _parseInProgressCardAddresses(String source) {
+    // ── 1. 줄 분리 및 공백 정규화 ──────────────────────────────────────
     final lines = source
-        .split(RegExp(r'[\r\n]+'))
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
+        .split(RegExp(r'[\r\n]+'))   // 개행 기준으로 분리
+        .map((e) => e.trim())        // 앞뒤 공백 제거
+        .where((e) => e.isNotEmpty)  // 빈 줄 제거
         .toList();
     if (lines.length < 2) return ('', '', '');
 
+    // ── 2. 시작 구분선: "고객센터/운행중" 이후부터 주소 영역 ─────────────
+    // 티맵 콜카드는 상단에 고객센터·운행중 같은 버튼/상태 줄이 있고
+    // 그 아래가 실제 주소 영역이다.
     int startIdx = -1;
     for (int i = 0; i < lines.length; i++) {
       final t = lines[i].replaceAll(RegExp(r'\s+'), '');
-      if (t.contains('고객센터') || t.contains('운행중') || t.contains('사고신고') || t.contains('소사고신고')) {
+      if (t.contains('고객센터') || t.contains('운행중') ||
+          t.contains('사고신고') || t.contains('소사고신고')) {
         startIdx = i;
         break;
       }
     }
 
+    // ── 3. 종료 구분선: "티맵으로 길안내" 직전까지가 주소 영역 ──────────
     int endIdx = -1;
     for (int i = 0; i < lines.length; i++) {
       final t = lines[i].replaceAll(RegExp(r'\s+'), '');
-      if (t.contains('티맵으로길안내') || t.contains('티맵으로') || t.contains('길안내')) {
+      if (t.contains('티맵으로길안내') || t.contains('티맵으로') ||
+          t.contains('길안내')) {
         endIdx = i;
         break;
       }
     }
 
+    // ── 4. 주소 후보 줄 수집 (노이즈 줄 제외) ────────────────────────────
     final candidates = <String>[];
     if (startIdx != -1 && endIdx != -1 && endIdx > startIdx + 1) {
+      // 시작·종료 구분선 사이의 줄만 사용
       for (final line in lines.sublist(startIdx + 1, endIdx)) {
         if (!_isInProgressNoiseLine(line)) {
           candidates.add(line);
         }
       }
     } else {
+      // 구분선을 찾지 못한 경우: 노이즈만 걸러내고 전체 사용
       for (final line in lines) {
         if (_isInProgressNoiseLine(line)) continue;
         candidates.add(line);
@@ -216,22 +241,41 @@ class TmapTripDetailOcr {
 
     if (candidates.isEmpty) return ('', '', '');
 
+    // ── 5. 행정주소 시작 판별 정규식 ─────────────────────────────────────
+    // Remote Config 에서 가져오거나 오프라인이면 기본값 사용.
+    // 패턴 예시: "^[o0•*·\-\s]*(?:경기|서울|...)|[가-힣]{1,5}(?:시|도|군|구)"
+    // → "고양시", "경기도", "군포시 금정동" 처럼 행정 단위로 시작하는 줄을 감지
     final RegExp addressStartPattern = RegExp(
       RemoteConfigService().tmapAddressPattern,
     );
 
+    // ── 6. 위치 그루핑: "주소-우선" 방식 ────────────────────────────────
+    // locations: 각 위치(출발지·경유지·도착지)를 [주소, 상호명?, ...] 리스트로 저장
+    // pendingName: 아직 주소를 만나지 못한 상태에서 나온 상호명 줄(들)을 임시 보관
+    //
+    //   [AS-IS] 문제 로직:
+    //     상호명이 주소보다 먼저 나오면 → locations가 비어있으므로
+    //     else 분기의 `locations.add([cleaned])`로 상호명이 첫 위치(출발지)가 됨
+    //
+    //   [TO-BE] 수정 로직:
+    //     주소보다 먼저 온 비-주소 줄 → pendingName 버퍼에 보관
+    //     이후 첫 주소 줄이 나타나면  → 해당 위치를 생성하고 pendingName 을 후미에 추가
+    //     이미 위치가 있는 상태에서 비-주소 줄이 나오면 → 마지막 위치에 append
     final List<List<String>> locations = [];
+    final List<String> pendingName = []; // 아직 주소를 만나지 못한 상호명 보류 버퍼
+
     for (final line in candidates) {
       final cleaned = _cleanLineBullet(line);
       if (cleaned.isEmpty) continue;
 
       if (addressStartPattern.hasMatch(line)) {
+        // ── 행정주소 시작 줄 감지 ──
+        // 중복 주소 방지: 이전 위치의 첫 줄과 문자열 포함 관계 확인
         bool isDuplicate = false;
         if (locations.isNotEmpty) {
           final lastPrimary = locations.last.first;
           final s1 = cleaned.replaceAll(RegExp(r'\s'), '');
           final s2 = lastPrimary.replaceAll(RegExp(r'\s'), '');
-          // 이전 위치의 첫 줄과 문자열이 포함 관계인지 확인 (중복 스캔 방지)
           if (s1.contains(s2) || s2.contains(s1)) {
             isDuplicate = true;
             if (s1.length > s2.length) {
@@ -239,26 +283,43 @@ class TmapTripDetailOcr {
             }
           }
         }
-        if (isDuplicate) continue;
+        if (isDuplicate) {
+          pendingName.clear(); // 중복 주소면 pendingName 도 버림
+          continue;
+        }
 
-        locations.add([cleaned]);
+        // 새 위치 생성: 먼저 주소 줄을 첫 원소로, pendingName 은 후미에 추가
+        // 예) "고양시 일산동구 정발산동 693-9" 생성 후 "연주음악학원" 추가
+        final newLocation = [cleaned, ...pendingName];
+        pendingName.clear(); // 버퍼 비우기
+        locations.add(newLocation);
+
       } else {
+        // ── 비-주소 줄 (상호명, 동/호수 보조 정보 등) ──
         if (locations.isNotEmpty) {
+          // 이미 주소가 하나 이상 그루핑된 경우 → 마지막 위치에 append
           locations.last.add(cleaned);
         } else {
-          locations.add([cleaned]);
+          // 아직 주소가 하나도 나오지 않은 경우 → pendingName 버퍼에 보관
+          // (나중에 첫 주소가 나오면 그 위치의 상호명으로 붙여질 예정)
+          pendingName.add(cleaned);
         }
       }
     }
 
     if (locations.isEmpty) return ('', '', '');
 
+    // ── 7. 출발지 / 경유지 / 도착지 분리 ───────────────────────────────
+    // 각 위치의 줄들을 공백으로 합쳐 하나의 문자열로 반환
+    // 예) ["고양시 일산동구 정발산동 693-9", "연주음악학원"] → "고양시 일산동구 정발산동 693-9 연주음악학원"
     final start = locations[0].join(' ').trim();
 
     if (locations.length == 2) {
+      // 출발지 + 도착지 (경유지 없음)
       final end = locations[1].join(' ').trim();
       return (start, '', end);
     } else if (locations.length >= 3) {
+      // 출발지 + 경유지(들) + 도착지
       final end = locations.last.join(' ').trim();
       final waypointParts = locations.sublist(1, locations.length - 1)
           .map((loc) => loc.join(' ').trim())
@@ -267,6 +328,7 @@ class TmapTripDetailOcr {
       return (start, waypointParts, end);
     }
 
+    // 위치가 1개인 경우: 출발지만 존재 (도착지 미인식)
     return (start, '', '');
   }
 

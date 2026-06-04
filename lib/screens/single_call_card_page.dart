@@ -108,7 +108,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
         _lastOcrFullText = recognizedText.text;
       }
       
-      if (logData.isNotEmpty) {
+      if (CallCardOcrParseService.isValidForAutoSave(logData)) {
         await _saveLogData(logData, imageFile, creationDate);
       } else {
         if (!mounted) return;
@@ -133,42 +133,14 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     setState(() => _isSaving = true);
 
     try {
-      final String nowIso = DateTime.now().toIso8601String();
-      // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
-      final DateTime imageDate = creationDate;
-      final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
-      final timeStr = formatDriveTimeHm(imageDate);
-      final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
-      final imagePath = await ImageStorageService.compressAndPersistForDisplay(
-        logData['image_path']?.toString(),
-        prefix: 'single',
+      final insertedId = await CallCardOcrParseService.saveLogToDatabase(
+        logData,
+        imagePrefix: 'single',
+        originalDate: creationDate,
       );
 
-      final Map<String, dynamic> row = {
-        "work_date": work,
-        "drive_date": drive,
-        "drive_time": timeStr,
-        "program": logData['program'],
-        "gross_fare": logData['gross_fare'],
-        "fee": logData['fee'],
-        "transport_cost": logData['transport_cost'],
-        "net_income": logData['net_income'],
-        "start_location": logData['start_location'],
-        "waypoint": logData['waypoint'],
-        "end_location": logData['end_location'],
-        "memo": logData['memo'],
-        "image_path": imagePath,
-        "created_at": nowIso,
-        "updated_at": nowIso,
-      };
-
-      final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
-      final ocrLogId = logData['ocr_log_id']?.toString();
-      if (ocrLogId != null && ocrLogId.isNotEmpty) {
-        await OcrParseLogService.attachSavedDriveLog(
-          ocrLogId,
-          {...row, 'id': insertedId},
-        );
+      if (insertedId == null) {
+        throw Exception("유효하지 않은 데이터이거나 이미 저장된(중복) 운행일지입니다.");
       }
 
       if (!mounted) return;

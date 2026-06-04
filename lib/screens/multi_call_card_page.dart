@@ -141,7 +141,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
         final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, imageFile);
         
-        if (logData.isNotEmpty) {
+        if (CallCardOcrParseService.isValidForAutoSave(logData)) {
           setState(() {
             _parsedLogs.add(logData);
             _parsedLogFiles.add(imageFile);
@@ -210,40 +210,16 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         final logData = _parsedLogs[i];
         // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
         final DateTime imageDate = (i < _parsedLogDates.length) ? _parsedLogDates[i] : DateTime.now();
-        final work = WorkDateUtils.effectiveWorkDateYmd(imageDate);
-        final timeStr = formatDriveTimeHm(imageDate);
-        final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
-        final imagePath = await ImageStorageService.compressAndPersistForDisplay(
-          logData['image_path']?.toString(),
-          prefix: 'multi',
-        );
-        final Map<String, dynamic> row = {
-          "work_date": work,
-          "drive_date": drive,
-          "drive_time": timeStr,
-          "program": logData['program'],
-          "gross_fare": logData['gross_fare'],
-          "fee": logData['fee'],
-          "transport_cost": logData['transport_cost'],
-          "net_income": logData['net_income'],
-          "start_location": logData['start_location'],
-          "waypoint": logData['waypoint'],
-          "end_location": logData['end_location'],
-          "memo": logData['memo'],
-          "image_path": imagePath,
-          "created_at": nowIso,
-          "updated_at": nowIso,
-        };
 
-        final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
-        final ocrLogId = logData['ocr_log_id']?.toString();
-        if (ocrLogId != null && ocrLogId.isNotEmpty) {
-          await OcrParseLogService.attachSavedDriveLog(
-            ocrLogId,
-            {...row, 'id': insertedId},
-          );
+        final insertedId = await CallCardOcrParseService.saveLogToDatabase(
+          logData,
+          imagePrefix: 'multi',
+          originalDate: imageDate,
+        );
+
+        if (insertedId != null) {
+          successCount++;
         }
-        successCount++;
       }
 
       if (!mounted) return;
