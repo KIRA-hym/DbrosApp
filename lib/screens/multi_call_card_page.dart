@@ -1,14 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import '../main_navigation.dart';
-import '../services/db_helper.dart';
-import '../services/image_storage_service.dart';
 import '../services/call_card_ocr_parse_service.dart';
-import '../services/ocr_parse_log_service.dart';
-import '../utils/drive_time_format.dart';
 import '../utils/work_date_utils.dart';
 import '../utils/ocr_failure_feedback.dart';
 import 'log_list_page.dart';
@@ -17,6 +12,7 @@ import '../utils/app_image_picker.dart';
 import '../widgets/drive_date_selector_bar.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/ad_banner_widget.dart';
+import '../widgets/app_empty_state.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 
@@ -80,7 +76,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
       onGranted: () async {
         try {
-          final results = await AppImagePicker.pickMultipleGalleryImages(context);
+          final results = await AppImagePicker.pickMultipleGalleryImages(
+            context,
+          );
           if (results.isEmpty) return;
 
           setState(() {
@@ -96,9 +94,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           _showProcessingDialog();
         } catch (e) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("이미지 선택 중 오류가 발생했습니다: $e")));
         }
       },
     );
@@ -116,9 +114,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             children: [
               const CircularProgressIndicator(color: Color(0xFFFFC700)),
               const SizedBox(height: 16),
-              const Text("콜카드를 분석 중입니다...", style: TextStyle(color: Colors.white)),
+              const Text(
+                "콜카드를 분석 중입니다...",
+                style: TextStyle(color: Colors.white),
+              ),
               const SizedBox(height: 8),
-              Text("${_parsedLogs.length}/${_selectedImages.length}개 처리 완료", style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
+              Text(
+                "${_parsedLogs.length}/${_selectedImages.length}개 처리 완료",
+                style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -130,17 +134,22 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
   Future<void> _processAllImages() async {
     final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-    
+
     try {
       for (int i = 0; i < _selectedImages.length; i++) {
         final File imageFile = _selectedImages[i];
         final DateTime creationDate = _selectedImagesDates[i];
-        
-        final inputImage = InputImage.fromFilePath(imageFile.path);
-        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
 
-        final Map<String, dynamic> logData = await _parseImageToLog(recognizedText, imageFile);
-        
+        final inputImage = InputImage.fromFilePath(imageFile.path);
+        final RecognizedText recognizedText = await textRecognizer.processImage(
+          inputImage,
+        );
+
+        final Map<String, dynamic> logData = await _parseImageToLog(
+          recognizedText,
+          imageFile,
+        );
+
         if (CallCardOcrParseService.isValidForAutoSave(logData)) {
           setState(() {
             _parsedLogs.add(logData);
@@ -155,9 +164,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("이미지 처리 중 오류: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("이미지 처리 중 오류: $e")));
     } finally {
       await textRecognizer.close();
     }
@@ -175,14 +184,19 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
           fullText: _formatFailedOcrTexts(),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
       }
 
       _saveAllLogs();
     }
   }
 
-  Future<Map<String, dynamic>> _parseImageToLog(RecognizedText recognizedText, File imageFile) async {
+  Future<Map<String, dynamic>> _parseImageToLog(
+    RecognizedText recognizedText,
+    File imageFile,
+  ) async {
     return CallCardOcrParseService.parseRecognizedText(
       recognizedText,
       imageFile,
@@ -191,25 +205,25 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     );
   }
 
-
   Future<void> _saveAllLogs() async {
     if (_parsedLogs.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("저장할 운행일지가 없습니다.")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("저장할 운행일지가 없습니다.")));
       return;
     }
 
     setState(() => _isSaving = true);
 
     try {
-      final String nowIso = DateTime.now().toIso8601String();
       int successCount = 0;
 
       for (int i = 0; i < _parsedLogs.length; i++) {
         final logData = _parsedLogs[i];
         // 이미지 파일의 원본 생성 시간을 운행 시간으로 사용 (OCR 파싱 시간 무시)
-        final DateTime imageDate = (i < _parsedLogDates.length) ? _parsedLogDates[i] : DateTime.now();
+        final DateTime imageDate = (i < _parsedLogDates.length)
+            ? _parsedLogDates[i]
+            : DateTime.now();
 
         final insertedId = await CallCardOcrParseService.saveLogToDatabase(
           logData,
@@ -247,9 +261,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("저장 중 오류가 발생했습니다: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("저장 중 오류가 발생했습니다: $e")));
     } finally {
       setState(() => _isSaving = false);
     }
@@ -265,7 +279,6 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   @override
   Widget build(BuildContext context) {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final titleFontSize = isTablet ? 20.0 : 18.0;
     final horizontalPadding = isTablet ? 24.0 : 20.0;
     final verticalPadding = isTablet ? 12.0 : 10.0;
     final spacing = isTablet ? 24.0 : 20.0;
@@ -275,21 +288,27 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       appBar: AppBar(
         title: Text(
           "콜카드 다중등록",
-          style: TextStyle(
-            fontFamily: 'GmarketSans',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            fontSize: titleFontSize,
-            color: Colors.white,
+            color: const Color(0xFFFFC700),
           ),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white, size: isTablet ? 26 : 24),
+          icon: Icon(
+            Icons.arrow_back,
+            color: Colors.white,
+            size: isTablet ? 26 : 24,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
           if (_selectedImages.isNotEmpty)
             IconButton(
-              icon: Icon(Icons.clear_all, color: const Color(0xFFFFC700), size: isTablet ? 26 : 24),
+              icon: Icon(
+                Icons.clear_all,
+                color: const Color(0xFFFFC700),
+                size: isTablet ? 26 : 24,
+              ),
               onPressed: _clearAll,
             ),
         ],
@@ -299,7 +318,10 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         fullWidthWhenExpanded: true,
         maxWidth: ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context)),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
+          ),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final isExpanded = ResponsiveLayout.isExpanded(context);
@@ -307,11 +329,18 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('근무일자', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+                  Text(
+                    '근무일자',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: const Color(0xFF6E717C),
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   DriveDateSelectorBar(
                     selectedDate: _driveDay,
-                    onDateChanged: (d) => setState(() => _driveDay = DateTime(d.year, d.month, d.day)),
+                    onDateChanged: (d) => setState(
+                      () => _driveDay = DateTime(d.year, d.month, d.day),
+                    ),
                   ),
                 ],
               );
@@ -323,7 +352,14 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
                     dateBlock,
                     SizedBox(height: spacing),
                     if (_selectedImages.isEmpty) ...[
-                      _buildEmptyState(),
+                      AppEmptyState(
+                        icon: Icons.credit_card,
+                        title: "여러 개의 콜카드 이미지를 선택하세요",
+                        subtitle: "카카오, 로지, 콜마너, 티맵 콜카드를\n한 번에 처리할 수 있습니다",
+                        buttonText: "콜카드 선택",
+                        buttonIcon: Icons.photo_library,
+                        onButtonPressed: _pickMultipleImages,
+                      ),
                     ] else ...[
                       _buildImagePreview(),
                       SizedBox(height: spacing),
@@ -340,78 +376,32 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
                   SizedBox(height: spacing),
                   Expanded(
                     child: _selectedImages.isEmpty
-                        ? _buildEmptyState()
+                        ? AppEmptyState(
+                            icon: Icons.credit_card,
+                            title: "여러 개의 콜카드 이미지를 선택하세요",
+                            subtitle: "카카오, 로지, 콜마너, 티맵 콜카드를\n한 번에 처리할 수 있습니다",
+                            buttonText: "콜카드 선택",
+                            buttonIcon: Icons.photo_library,
+                            onButtonPressed: _pickMultipleImages,
+                          )
                         : _isSaving
-                            ? Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(flex: 4, child: _buildSavingState()),
-                                  SizedBox(width: spacing),
-                                  Expanded(flex: 6, child: _buildImagePreview(fillHeight: true)),
-                                ],
-                              )
-                            : _buildImagePreview(fillHeight: true),
+                        ? Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(flex: 4, child: _buildSavingState()),
+                              SizedBox(width: spacing),
+                              Expanded(
+                                flex: 6,
+                                child: _buildImagePreview(fillHeight: true),
+                              ),
+                            ],
+                          )
+                        : _buildImagePreview(fillHeight: true),
                   ),
                 ],
               );
             },
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyState() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final iconSize = isTablet ? 100.0 : 80.0;
-    final titleFontSize = isTablet ? 20.0 : 18.0;
-    final subtitleFontSize = isTablet ? 16.0 : 14.0;
-    final spacing = isTablet ? 24.0 : 20.0;
-    final innerSpacing = isTablet ? 16.0 : 12.0;
-    final buttonSpacing = isTablet ? 36.0 : 30.0;
-    final horizontalPadding = isTablet ? 32.0 : 24.0;
-    final verticalPadding = isTablet ? 16.0 : 12.0;
-    final iconSizeButton = isTablet ? 24.0 : 20.0;
-
-    return Expanded(
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.credit_card,
-              size: iconSize,
-              color: const Color(0xFF6E717C),
-            ),
-            SizedBox(height: spacing),
-            Text(
-              "여러 개의 콜카드 이미지를 선택하세요",
-              style: TextStyle(
-                fontFamily: 'GmarketSans',
-                fontSize: titleFontSize,
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            SizedBox(height: innerSpacing),
-            Text(
-              "카카오, 로지, 콜마너, 티맵 콜카드를\n한 번에 처리할 수 있습니다",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: subtitleFontSize, color: const Color(0xFF6E717C)),
-            ),
-            SizedBox(height: buttonSpacing),
-            ElevatedButton.icon(
-              onPressed: _pickMultipleImages,
-              icon: Icon(Icons.photo_library, size: iconSizeButton),
-              label: Text("콜카드 선택", style: TextStyle(fontSize: isTablet ? 16 : 14)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
-                foregroundColor: Colors.black,
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -429,10 +419,16 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       return Container(
         width: width,
         height: height,
-        margin: EdgeInsets.only(right: itemMargin, bottom: fillHeight ? itemMargin : 0),
+        margin: EdgeInsets.only(
+          right: itemMargin,
+          bottom: fillHeight ? itemMargin : 0,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
+          border: Border.all(
+            color: const Color(0xFFFFC700),
+            width: borderWidth,
+          ),
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),
@@ -444,14 +440,18 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     if (fillHeight) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final thumbH = (constraints.maxHeight - itemMargin).clamp(80.0, 200.0);
+          final thumbH = (constraints.maxHeight - itemMargin).clamp(
+            80.0,
+            200.0,
+          );
           final thumbW = thumbH * 0.75;
           return SingleChildScrollView(
             child: Wrap(
               spacing: itemMargin,
               runSpacing: itemMargin,
               children: [
-                for (final image in _selectedImages) thumb(image, width: thumbW, height: thumbH),
+                for (final image in _selectedImages)
+                  thumb(image, width: thumbW, height: thumbH),
               ],
             ),
           );
@@ -464,7 +464,11 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _selectedImages.length,
-        itemBuilder: (context, index) => thumb(_selectedImages[index], width: itemWidth, height: containerHeight),
+        itemBuilder: (context, index) => thumb(
+          _selectedImages[index],
+          width: itemWidth,
+          height: containerHeight,
+        ),
       ),
     );
   }
@@ -485,17 +489,27 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             SizedBox(
               width: indicatorSize,
               height: indicatorSize,
-              child: const CircularProgressIndicator(color: Color(0xFFFFC700), strokeWidth: 4),
+              child: const CircularProgressIndicator(
+                color: Color(0xFFFFC700),
+                strokeWidth: 4,
+              ),
             ),
             SizedBox(height: spacing),
             Text(
               "저장 중...",
-              style: TextStyle(color: Colors.white, fontSize: titleFontSize, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: titleFontSize,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             SizedBox(height: innerSpacing),
             Text(
               "${_parsedLogs.length}건의 운행일지 처리 중",
-              style: TextStyle(color: const Color(0xFF6E717C), fontSize: infoFontSize),
+              style: TextStyle(
+                color: const Color(0xFF6E717C),
+                fontSize: infoFontSize,
+              ),
             ),
           ],
         ),

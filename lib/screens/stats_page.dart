@@ -13,6 +13,7 @@ import '../config/feature_flags.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
+import '../constants/app_colors.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/marker_utils.dart';
 import '../widgets/responsive_body.dart';
@@ -94,7 +95,7 @@ class _StatsPageState extends State<StatsPage> {
       return '${formatted}K';
     }
   }
-  
+
   @override
   void initState() {
     super.initState();
@@ -103,7 +104,7 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<void> _loadStats() async {
     setState(() => _isLoading = true);
-    
+
     try {
       Map<String, dynamic> stats = {};
       List<Map<String, dynamic>> chartData = [];
@@ -142,17 +143,25 @@ class _StatsPageState extends State<StatsPage> {
     final DateTime newDate = _selectedDate.add(Duration(days: days));
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime newDateOnly = DateTime(newDate.year, newDate.month, newDate.day);
+    final DateTime newDateOnly = DateTime(
+      newDate.year,
+      newDate.month,
+      newDate.day,
+    );
 
     if (newDateOnly.isAfter(today)) return;
-    
+
     setState(() => _selectedDate = newDate);
     _loadStats();
   }
 
   void _changeWeek(int weeks) {
     final DateTime newDate = _selectedDate.add(Duration(days: weeks * 7));
-    final DateTime newDateOnly = DateTime(newDate.year, newDate.month, newDate.day);
+    final DateTime newDateOnly = DateTime(
+      newDate.year,
+      newDate.month,
+      newDate.day,
+    );
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
     if (newDateOnly.isAfter(today)) return;
@@ -161,7 +170,11 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   void _changeMonth(int months) {
-    final DateTime newDate = DateTime(_selectedDate.year, _selectedDate.month + months, 1);
+    final DateTime newDate = DateTime(
+      _selectedDate.year,
+      _selectedDate.month + months,
+      1,
+    );
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
     if (newDate.isAfter(today)) return;
@@ -180,19 +193,23 @@ class _StatsPageState extends State<StatsPage> {
 
   double _uiFontScale(BuildContext context) => 1.0;
 
-  String _getDailyDisplayText() => DateFormat('yyyy-MM-dd').format(_selectedDate);
+  String _getDailyDisplayText() =>
+      DateFormat('yyyy-MM-dd').format(_selectedDate);
   String _getWeeklyDisplayText() {
     final int weekNumber = _koreanWeekOfMonth(_selectedDate);
     return '${DateFormat('M월').format(_selectedDate)} $weekNumber주차';
   }
-  String _getMonthlyDisplayText() => DateFormat('yyyy-MM').format(_selectedDate);
+
+  String _getMonthlyDisplayText() =>
+      DateFormat('yyyy-MM').format(_selectedDate);
   String _getYearlyDisplayText() => DateFormat('yyyy').format(_selectedDate);
 
   Widget _buildDateSelector({bool compact = false}) {
     final isTablet = ResponsiveLayout.isTablet(context);
     final iconSize = compact ? 18.0 : (isTablet ? 24.0 : 20.0);
     final buttonSize = compact ? 28.0 : (isTablet ? 40.0 : 32.0);
-    final fontSize = (compact ? 12.0 : (isTablet ? 16.0 : 14.0)) * _uiFontScale(context);
+    final fontSize =
+        (compact ? 12.0 : (isTablet ? 16.0 : 14.0)) * _uiFontScale(context);
 
     String displayText = '';
     VoidCallback? onPrevious;
@@ -218,14 +235,29 @@ class _StatsPageState extends State<StatsPage> {
 
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
-    final DateTime selDateOnly = DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
-    final bool canGoNext = _selectedPeriod == "일간" 
+    final DateTime selDateOnly = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+    );
+    final bool canGoNext = _selectedPeriod == "일간"
         ? selDateOnly.isBefore(today)
         : _selectedPeriod == "주간"
-            ? selDateOnly.add(const Duration(days: 7)).isBefore(today) || selDateOnly.add(const Duration(days: 7)).isAtSameMomentAs(today)
-            : _selectedPeriod == "월간"
-                ? DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isBefore(today) || DateTime(selDateOnly.year, selDateOnly.month + 1, 1).isAtSameMomentAs(today)
-                : DateTime(selDateOnly.year + 1, 1, 1).isBefore(today) || DateTime(selDateOnly.year + 1, 1, 1).isAtSameMomentAs(today);
+        ? selDateOnly.add(const Duration(days: 7)).isBefore(today) ||
+              selDateOnly.add(const Duration(days: 7)).isAtSameMomentAs(today)
+        : _selectedPeriod == "월간"
+        ? DateTime(
+                selDateOnly.year,
+                selDateOnly.month + 1,
+                1,
+              ).isBefore(today) ||
+              DateTime(
+                selDateOnly.year,
+                selDateOnly.month + 1,
+                1,
+              ).isAtSameMomentAs(today)
+        : DateTime(selDateOnly.year + 1, 1, 1).isBefore(today) ||
+              DateTime(selDateOnly.year + 1, 1, 1).isAtSameMomentAs(today);
 
     final dateLabel = Text(
       displayText,
@@ -246,15 +278,29 @@ class _StatsPageState extends State<StatsPage> {
       children: [
         IconButton(
           onPressed: onPrevious,
-          icon: Icon(Icons.chevron_left, color: const Color(0xFFFFC700), size: iconSize),
-          constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
+          icon: Icon(
+            Icons.chevron_left,
+            color: const Color(0xFFFFC700),
+            size: iconSize,
+          ),
+          constraints: BoxConstraints(
+            minWidth: buttonSize,
+            minHeight: buttonSize,
+          ),
           padding: compact ? EdgeInsets.zero : null,
         ),
         if (compact) Expanded(child: dateLabel) else dateLabel,
         IconButton(
           onPressed: canGoNext ? onNext : null,
-          icon: Icon(Icons.chevron_right, color: const Color(0xFFFFC700), size: iconSize),
-          constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
+          icon: Icon(
+            Icons.chevron_right,
+            color: const Color(0xFFFFC700),
+            size: iconSize,
+          ),
+          constraints: BoxConstraints(
+            minWidth: buttonSize,
+            minHeight: buttonSize,
+          ),
           padding: compact ? EdgeInsets.zero : null,
         ),
       ],
@@ -267,15 +313,21 @@ class _StatsPageState extends State<StatsPage> {
         borderRadius: BorderRadius.circular(compact ? 10 : 20),
         border: compact ? Border.all(color: Colors.white10) : null,
       ),
-      padding: compact ? const EdgeInsets.symmetric(horizontal: 2, vertical: 2) : null,
+      padding: compact
+          ? const EdgeInsets.symmetric(horizontal: 2, vertical: 2)
+          : null,
       child: row,
     );
   }
 
   Future<Map<String, dynamic>> _getDailyStats(DateTime date) async {
     final String dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(dateStr);
-    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDate(dateStr);
+    final stats = await DriveLogDatabase.instance.getTodayStatsByWorkDate(
+      dateStr,
+    );
+    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDate(
+      dateStr,
+    );
     return {
       'totalRevenue': stats['gross'] ?? 0,
       'totalNet': stats['net'] ?? 0,
@@ -289,14 +341,24 @@ class _StatsPageState extends State<StatsPage> {
   Future<Map<String, dynamic>> _getWeeklyStats(DateTime date) async {
     final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
     final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
-    final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
-    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDateRange(startStr, endStr);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses, totalExtraIncome = 0;
+    final String endStr = DateFormat(
+      'yyyy-MM-dd',
+    ).format(weekStart.add(const Duration(days: 6)));
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(
+      startStr,
+      endStr,
+    );
+    final int extraExpenses =
+        await ExpenseRepository.sumAmountForExpenseDateRange(startStr, endStr);
+    int totalRevenue = 0,
+        totalNet = 0,
+        totalExpenses = extraExpenses,
+        totalExtraIncome = 0;
     for (final log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
-      totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+      totalExpenses +=
+          (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
       totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
     return {
@@ -311,13 +373,21 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<Map<String, dynamic>> _getMonthlyStats(DateTime date) async {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
-    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
-    int totalRevenue = 0, totalNet = 0, totalExpenses = extraExpenses, totalExtraIncome = 0;
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+      yearMonth,
+    );
+    final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(
+      yearMonth,
+    );
+    int totalRevenue = 0,
+        totalNet = 0,
+        totalExpenses = extraExpenses,
+        totalExtraIncome = 0;
     for (var log in logs) {
       totalRevenue += _statsRowRevenue(log);
       totalNet += _statsRowNet(log);
-      totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+      totalExpenses +=
+          (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
       totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
     return {
@@ -331,17 +401,27 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<Map<String, dynamic>> _getYearlyStats(DateTime date) async {
-    int totalRevenue = 0, totalNet = 0, totalExpenses = 0, totalCount = 0, totalExtraIncome = 0;
+    int totalRevenue = 0,
+        totalNet = 0,
+        totalExpenses = 0,
+        totalCount = 0,
+        totalExtraIncome = 0;
     final Set<String> distinctWorkDates = {};
     for (int month = 1; month <= 12; month++) {
-      final String yearMonth = DateFormat('yyyy-MM').format(DateTime(date.year, month));
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
-      final int extraExpenses = await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
+      final String yearMonth = DateFormat(
+        'yyyy-MM',
+      ).format(DateTime(date.year, month));
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+        yearMonth,
+      );
+      final int extraExpenses =
+          await ExpenseRepository.sumAmountForExpenseMonth(yearMonth);
       totalExpenses += extraExpenses;
       for (var log in logs) {
         totalRevenue += _statsRowRevenue(log);
         totalNet += _statsRowNet(log);
-        totalExpenses += (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
+        totalExpenses +=
+            (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
         totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
         totalCount++;
         _addDistinctWorkDate(distinctWorkDates, log);
@@ -357,7 +437,10 @@ class _StatsPageState extends State<StatsPage> {
     };
   }
 
-  Future<List<Map<String, dynamic>>> _getProgramStats(DateTime date, String period) async {
+  Future<List<Map<String, dynamic>>> _getProgramStats(
+    DateTime date,
+    String period,
+  ) async {
     final List<String> fixedPrograms = [
       "카카오(일반)",
       "카카오(프콜)",
@@ -367,8 +450,8 @@ class _StatsPageState extends State<StatsPage> {
       "핸들포유",
       "기타",
     ];
-    Map<String, int> programRevenue = { for (var p in fixedPrograms) p: 0 };
-    Map<String, int> programCount = { for (var p in fixedPrograms) p: 0 };
+    Map<String, int> programRevenue = {for (var p in fixedPrograms) p: 0};
+    Map<String, int> programCount = {for (var p in fixedPrograms) p: 0};
 
     void processLogs(List<Map<String, dynamic>> logs) {
       for (var log in logs) {
@@ -382,37 +465,63 @@ class _StatsPageState extends State<StatsPage> {
           }
         }
         if (!fixedPrograms.contains(program)) program = '기타';
-        programRevenue[program] = (programRevenue[program]!) + _statsRowRevenue(log);
+        programRevenue[program] =
+            (programRevenue[program]!) + _statsRowRevenue(log);
         programCount[program] = (programCount[program]!) + 1;
       }
     }
 
     if (period == 'daily') {
       final String dateStr = DateFormat('yyyy-MM-dd').format(date);
-      processLogs(await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr));
+      processLogs(
+        await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr),
+      );
     } else if (period == 'weekly') {
-      final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
+      final DateTime weekStart = date.subtract(
+        Duration(days: date.weekday - 1),
+      );
       final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
-      final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-      processLogs(await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr));
+      final String endStr = DateFormat(
+        'yyyy-MM-dd',
+      ).format(weekStart.add(const Duration(days: 6)));
+      processLogs(
+        await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(
+          startStr,
+          endStr,
+        ),
+      );
     } else if (period == 'monthly') {
-      processLogs(await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(date)));
+      processLogs(
+        await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+          DateFormat('yyyy-MM').format(date),
+        ),
+      );
     } else if (period == 'yearly') {
       for (int month = 1; month <= 12; month++) {
-        processLogs(await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, month))));
+        processLogs(
+          await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+            DateFormat('yyyy-MM').format(DateTime(date.year, month)),
+          ),
+        );
       }
     }
 
-    return fixedPrograms.map((program) => {
-      'program': program,
-      'revenue': programRevenue[program],
-      'count': programCount[program],
-    }).toList();
+    return fixedPrograms
+        .map(
+          (program) => {
+            'program': program,
+            'revenue': programRevenue[program],
+            'count': programCount[program],
+          },
+        )
+        .toList();
   }
 
   Future<List<Map<String, dynamic>>> _getHourlyStats(DateTime date) async {
     final String dateStr = DateFormat('yyyy-MM-dd').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr);
+    final logs = await DriveLogDatabase.instance.getLogsForWorkDateStrict(
+      dateStr,
+    );
     final Map<int, int> byHour = {};
     final Map<int, int> countByHour = {};
     for (final log in logs) {
@@ -422,13 +531,20 @@ class _StatsPageState extends State<StatsPage> {
       byHour[h] = (byHour[h] ?? 0) + _statsRowNet(log);
       countByHour[h] = (countByHour[h] ?? 0) + 1;
     }
-    final sortedHours = byHour.keys.toList()..sort((a, b) {
-      final adjA = a < 6 ? a + 24 : a;
-      final adjB = b < 6 ? b + 24 : b;
-      return adjA.compareTo(adjB);
-    });
+    final sortedHours = byHour.keys.toList()
+      ..sort((a, b) {
+        final adjA = a < 6 ? a + 24 : a;
+        final adjB = b < 6 ? b + 24 : b;
+        return adjA.compareTo(adjB);
+      });
     return sortedHours
-        .map((h) => {'hour': '${h.toString().padLeft(2, '0')}시', 'revenue': byHour[h] ?? 0, 'count': countByHour[h] ?? 0})
+        .map(
+          (h) => {
+            'hour': '${h.toString().padLeft(2, '0')}시',
+            'revenue': byHour[h] ?? 0,
+            'count': countByHour[h] ?? 0,
+          },
+        )
         .toList();
   }
 
@@ -436,8 +552,13 @@ class _StatsPageState extends State<StatsPage> {
     const kDow = ['월', '화', '수', '목', '금', '토', '일'];
     final DateTime weekStart = date.subtract(Duration(days: date.weekday - 1));
     final String startStr = DateFormat('yyyy-MM-dd').format(weekStart);
-    final String endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
+    final String endStr = DateFormat(
+      'yyyy-MM-dd',
+    ).format(weekStart.add(const Duration(days: 6)));
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(
+      startStr,
+      endStr,
+    );
 
     final Map<String, int> revenueByYmd = {
       for (int i = 0; i < 7; i++)
@@ -471,9 +592,13 @@ class _StatsPageState extends State<StatsPage> {
 
   Future<List<Map<String, dynamic>>> _getMonthlyDayStats(DateTime date) async {
     final String yearMonth = DateFormat('yyyy-MM').format(date);
-    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+      yearMonth,
+    );
     final int lastDay = DateTime(date.year, date.month + 1, 0).day;
-    Map<String, int> dailyRevenue = {for (int d = 1; d <= lastDay; d++) '$d일': 0};
+    Map<String, int> dailyRevenue = {
+      for (int d = 1; d <= lastDay; d++) '$d일': 0,
+    };
     Map<String, int> dailyCount = {for (int d = 1; d <= lastDay; d++) '$d일': 0};
     for (var log in logs) {
       final wd = log['work_date']?.toString().trim() ?? '';
@@ -493,7 +618,13 @@ class _StatsPageState extends State<StatsPage> {
       }
     }
     return dailyRevenue.entries
-        .map((entry) => {'day': entry.key, 'revenue': entry.value, 'count': dailyCount[entry.key] ?? 0})
+        .map(
+          (entry) => {
+            'day': entry.key,
+            'revenue': entry.value,
+            'count': dailyCount[entry.key] ?? 0,
+          },
+        )
         .toList();
   }
 
@@ -501,12 +632,23 @@ class _StatsPageState extends State<StatsPage> {
     Map<String, int> monthlyRevenue = {};
     Map<String, int> monthlyCount = {};
     for (int m = 1; m <= 12; m++) {
-      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(date.year, m)));
-      monthlyRevenue['$m월'] = logs.fold(0, (sum, log) => sum + _statsRowNet(log));
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+        DateFormat('yyyy-MM').format(DateTime(date.year, m)),
+      );
+      monthlyRevenue['$m월'] = logs.fold(
+        0,
+        (sum, log) => sum + _statsRowNet(log),
+      );
       monthlyCount['$m월'] = logs.length;
     }
     return monthlyRevenue.entries
-        .map((entry) => {'month': entry.key, 'revenue': entry.value, 'count': monthlyCount[entry.key] ?? 0})
+        .map(
+          (entry) => {
+            'month': entry.key,
+            'revenue': entry.value,
+            'count': monthlyCount[entry.key] ?? 0,
+          },
+        )
         .toList();
   }
 
@@ -516,29 +658,39 @@ class _StatsPageState extends State<StatsPage> {
       return DriveLogDatabase.instance.getLogsForWorkDateStrict(dateStr);
     }
     if (_selectedPeriod == "주간") {
-      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      final weekStart = _selectedDate.subtract(
+        Duration(days: _selectedDate.weekday - 1),
+      );
       final startStr = DateFormat('yyyy-MM-dd').format(weekStart);
-      final endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
-      return DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(startStr, endStr);
+      final endStr = DateFormat(
+        'yyyy-MM-dd',
+      ).format(weekStart.add(const Duration(days: 6)));
+      return DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(
+        startStr,
+        endStr,
+      );
     }
     if (_selectedPeriod == "월간") {
       final yearMonth = DateFormat('yyyy-MM').format(_selectedDate);
       final logs = List<Map<String, dynamic>>.from(
-        await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth)
+        await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth),
       );
       logs.sort((a, b) {
         final aw = (a['work_date'] ?? '').toString();
         final bw = (b['work_date'] ?? '').toString();
         final cmpDate = aw.compareTo(bw);
         if (cmpDate != 0) return cmpDate;
-        return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
+        return (a['drive_time'] ?? '').toString().compareTo(
+          (b['drive_time'] ?? '').toString(),
+        );
       });
       return logs;
     }
     final out = <Map<String, dynamic>>[];
     for (int month = 1; month <= 12; month++) {
-      final logs = await DriveLogDatabase.instance
-          .getLogsByWorkMonthStrict(DateFormat('yyyy-MM').format(DateTime(_selectedDate.year, month)));
+      final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+        DateFormat('yyyy-MM').format(DateTime(_selectedDate.year, month)),
+      );
       out.addAll(logs);
     }
     out.sort((a, b) {
@@ -546,7 +698,9 @@ class _StatsPageState extends State<StatsPage> {
       final bw = (b['work_date'] ?? '').toString();
       final cmpDate = aw.compareTo(bw);
       if (cmpDate != 0) return cmpDate;
-      return (a['drive_time'] ?? '').toString().compareTo((b['drive_time'] ?? '').toString());
+      return (a['drive_time'] ?? '').toString().compareTo(
+        (b['drive_time'] ?? '').toString(),
+      );
     });
     return out;
   }
@@ -562,14 +716,19 @@ class _StatsPageState extends State<StatsPage> {
       final program = (log['program'] ?? '').toString();
       final startLoc = (log['start_location'] ?? '').toString();
       final endLoc = (log['end_location'] ?? '').toString();
-      
-      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+
+      if (startLat != null &&
+          startLng != null &&
+          endLat != null &&
+          endLng != null) {
         trips.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            startSnippet: '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
-            endSnippet: '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
+            startSnippet:
+                '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet:
+                '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }
@@ -596,12 +755,12 @@ class _StatsPageState extends State<StatsPage> {
       Navigator.pop(context); // 로딩 다이얼로그 닫기
 
       if (segments.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('선택된 기간에 좌표 데이터가 없습니다.')));
         return;
       }
-      
+
       Navigator.push(
         context,
         MaterialPageRoute<void>(
@@ -610,10 +769,10 @@ class _StatsPageState extends State<StatsPage> {
             dateLabel: _selectedPeriod == '일간'
                 ? _getDailyDisplayText()
                 : _selectedPeriod == '주간'
-                    ? _getWeeklyDisplayText()
-                    : _selectedPeriod == '월간'
-                        ? _getMonthlyDisplayText()
-                        : _getYearlyDisplayText(),
+                ? _getWeeklyDisplayText()
+                : _selectedPeriod == '월간'
+                ? _getMonthlyDisplayText()
+                : _getYearlyDisplayText(),
             segments: segments,
           ),
         ),
@@ -621,21 +780,21 @@ class _StatsPageState extends State<StatsPage> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('데이터를 불러오는 중 오류가 발생했습니다: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('데이터를 불러오는 중 오류가 발생했습니다: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
     final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
     final compact = !isExpanded;
     final padding = ResponsiveLayout.horizontalPadding(context);
     final fontScale = _uiFontScale(context);
     final buttonFontSize = (isExpanded ? 14.0 : 12.0) * fontScale;
-    final sectionTitleFontSize = ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
+    final sectionTitleFontSize =
+        ResponsiveLayout.sectionTitleFontSize(context) * fontScale;
     final chartTitleFontSize = (isExpanded ? 14.0 : 12.0) * fontScale;
 
     return Scaffold(
@@ -645,150 +804,175 @@ class _StatsPageState extends State<StatsPage> {
         title: Text(
           '운행 일지 통계',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: const Color(0xFFFFC700),
-              ),
+            fontWeight: FontWeight.bold,
+            color: const Color(0xFFFFC700),
+          ),
         ),
       ),
       body: ResponsiveBody(
         fullWidthWhenExpanded: true,
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+              )
             : LayoutBuilder(
-              builder: (context, constraints) {
-                // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
-                final useExpandedSplit = isExpanded;
-                // 펼침: 제목 14px / 값 16px. 접힘: 제목 15px / 값 18px.
-                final statCardTitleFontSize = isExpanded
-                    ? 14.0 * fontScale
-                    : 15.0 * fontScale;
-                final statCardValueFontSize = isExpanded
-                    ? 16.0 * fontScale
-                    : 18.0 * fontScale;
-                final gapMd = compact ? 10.0 : 20.0;
-                final gapBetweenCharts = compact ? 8.0 : 12.0;
-                // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
-                final statsFlex = compact ? 2 : 2;
-                final chartsFlex = compact ? 4 : 3;
+                builder: (context, constraints) {
+                  // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
+                  final useExpandedSplit = isExpanded;
+                  // 펼침: 제목 14px / 값 16px. 접힘: 제목 15px / 값 18px.
+                  final statCardTitleFontSize = isExpanded
+                      ? 14.0 * fontScale
+                      : 15.0 * fontScale;
+                  final statCardValueFontSize = isExpanded
+                      ? 16.0 * fontScale
+                      : 18.0 * fontScale;
+                  final gapMd = compact ? 10.0 : 20.0;
+                  final gapBetweenCharts = compact ? 8.0 : 12.0;
+                  // 접힘: 지표 2×2는 홈과 동일·작게, 수익 분석 차트 영역 확대
+                  final statsFlex = compact ? 2 : 2;
+                  final chartsFlex = compact ? 4 : 3;
 
-                final statCards = _buildStatCardWidgets(
-                  statCardTitleFontSize,
-                  statCardValueFontSize,
-                );
-                final cardGap = compact ? 8.0 : 12.0;
-                final statRowHeight = _statCardMinHeight(
-                  context,
-                  statCardTitleFontSize,
-                  statCardValueFontSize,
-                );
+                  final statCards = _buildStatCardWidgets(
+                    statCardTitleFontSize,
+                    statCardValueFontSize,
+                  );
+                  final cardGap = compact ? 8.0 : 12.0;
+                  final statRowHeight = _statCardMinHeight(
+                    context,
+                    statCardTitleFontSize,
+                    statCardValueFontSize,
+                  );
 
-                return Padding(
-                  padding: EdgeInsets.all(padding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (useExpandedSplit)
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // 상단: 기간 선택버튼단
-                              Center(
-                                child: _buildPeriodButtonBar(
-                                  compact,
-                                  buttonFontSize,
-                                  wrapAlignment: WrapAlignment.center,
+                  return Padding(
+                    padding: EdgeInsets.all(padding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (useExpandedSplit)
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // 상단: 기간 선택버튼단
+                                Center(
+                                  child: _buildPeriodButtonBar(
+                                    compact,
+                                    buttonFontSize,
+                                    wrapAlignment: WrapAlignment.center,
+                                  ),
                                 ),
-                              ),
-                              SizedBox(height: cardGap),
+                                SizedBox(height: cardGap),
 
-                              _buildStatsHeaderRow(
-                                compact: true,
-                                sectionTitleFontSize: sectionTitleFontSize,
-                              ),
-                              SizedBox(height: cardGap),
-                              _statCardsInRow(statCards, cardGap, statRowHeight),
+                                _buildStatsHeaderRow(
+                                  compact: true,
+                                  sectionTitleFontSize: sectionTitleFontSize,
+                                ),
+                                SizedBox(height: cardGap),
+                                _statCardsInRow(
+                                  statCards,
+                                  cardGap,
+                                  statRowHeight,
+                                ),
 
-                              SizedBox(height: gapMd),
+                                SizedBox(height: gapMd),
 
-                              // 하단: 수익분석 제목 + 좌우 그래프
-                              _buildIncomeAnalysisTitleRow(sectionTitleFontSize),
-                              SizedBox(height: cardGap),
-                              Expanded(
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(
-                                      child: _buildChartPanel(
-                                        _buildProgramChart(chartTitleFontSize, compact: compact, horizontalBars: true),
+                                // 하단: 수익분석 제목 + 좌우 그래프
+                                _buildIncomeAnalysisTitleRow(
+                                  sectionTitleFontSize,
+                                ),
+                                SizedBox(height: cardGap),
+                                Expanded(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: _buildChartPanel(
+                                          _buildProgramChart(
+                                            chartTitleFontSize,
+                                            compact: compact,
+                                            horizontalBars: true,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(width: gapBetweenCharts),
-                                    Expanded(
-                                      child: _buildChartPanel(
-                                        _buildSecondChart(chartTitleFontSize, compact: compact, horizontalBars: true),
+                                      SizedBox(width: gapBetweenCharts),
+                                      Expanded(
+                                        child: _buildChartPanel(
+                                          _buildSecondChart(
+                                            chartTitleFontSize,
+                                            compact: compact,
+                                            horizontalBars: true,
+                                          ),
+                                        ),
                                       ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          Center(
+                            child: _buildPeriodButtonBar(
+                              compact,
+                              buttonFontSize,
+                              wrapAlignment: WrapAlignment.center,
+                            ),
+                          ),
+                          SizedBox(height: cardGap),
+                          _buildStatsHeaderRow(
+                            compact: compact,
+                            sectionTitleFontSize: sectionTitleFontSize,
+                          ),
+                          SizedBox(height: gapMd),
+                          Expanded(
+                            flex: statsFlex,
+                            child: _statCardsTwoByTwo(statCards, cardGap),
+                          ),
+                          SizedBox(height: compact ? 16 : 16),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '수익 분석',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: _sectionTitleStyle(sectionTitleFontSize),
+                            ),
+                          ),
+                          SizedBox(height: compact ? 12 : 12),
+                          Expanded(
+                            flex: chartsFlex,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Expanded(
+                                  child: _buildChartPanel(
+                                    _buildProgramChart(
+                                      chartTitleFontSize,
+                                      compact: compact,
+                                      horizontalBars: true,
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else ...[
-                        Center(
-                          child: _buildPeriodButtonBar(
-                            compact,
-                            buttonFontSize,
-                            wrapAlignment: WrapAlignment.center,
-                          ),
-                        ),
-                        SizedBox(height: cardGap),
-                        _buildStatsHeaderRow(
-                          compact: compact,
-                          sectionTitleFontSize: sectionTitleFontSize,
-                        ),
-                        SizedBox(height: gapMd),
-                        Expanded(
-                          flex: statsFlex,
-                          child: _statCardsTwoByTwo(statCards, cardGap),
-                        ),
-                        SizedBox(height: compact ? 16 : 16),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '수익 분석',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: _sectionTitleStyle(sectionTitleFontSize),
-                          ),
-                        ),
-                        SizedBox(height: compact ? 12 : 12),
-                        Expanded(
-                          flex: chartsFlex,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: _buildChartPanel(
-                                  _buildProgramChart(chartTitleFontSize, compact: compact, horizontalBars: true),
+                                SizedBox(width: gapBetweenCharts),
+                                Expanded(
+                                  child: _buildChartPanel(
+                                    _buildSecondChart(
+                                      chartTitleFontSize,
+                                      compact: compact,
+                                      horizontalBars: true,
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              SizedBox(width: gapBetweenCharts),
-                              Expanded(
-                                child: _buildChartPanel(
-                                  _buildSecondChart(chartTitleFontSize, compact: compact, horizontalBars: true),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  );
+                },
+              ),
       ),
     );
   }
@@ -867,7 +1051,7 @@ class _StatsPageState extends State<StatsPage> {
       _statMetricCard(
         title: '수입',
         value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
-        valueColor: Colors.green,
+        valueColor: AppColors.income,
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
         icon: Icons.credit_card,
@@ -904,12 +1088,12 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   TextStyle _sectionTitleStyle(double fontSize) => TextStyle(
-        fontFamily: 'GmarketSans',
-        color: Colors.white,
-        fontWeight: FontWeight.w700,
-        fontSize: fontSize,
-        height: 1.12,
-      );
+    fontFamily: 'GmarketSans',
+    color: Colors.white,
+    fontWeight: FontWeight.w700,
+    fontSize: fontSize,
+    height: 1.12,
+  );
 
   /// 펼침 우측: 수익 분석 제목만 (전체 통계 헤더 라인과 동일 높이).
   Widget _buildIncomeAnalysisTitleRow(double sectionTitleFontSize) {
@@ -927,39 +1111,8 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  /// 펼침 좌측: 전체 통계 + 지도 (수익 분석 라인과 동일 높이).
-  Widget _buildWholeStatsTitleRow(double sectionTitleFontSize) {
-    return SizedBox(
-      height: 36,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Text(
-              '전체 통계',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: _sectionTitleStyle(sectionTitleFontSize),
-            ),
-          ),
-          if (kMapFeaturesEnabled)
-            IconButton(
-              onPressed: _openRouteMap,
-              icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
-              tooltip: '기간 경로 지도',
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-            ),
-        ],
-      ),
-    );
-  }
-
   static const Widget _emptyChartMessage = Center(
-    child: Text(
-      '데이터가 없습니다.',
-      style: TextStyle(color: Color(0xFF6E717C)),
-    ),
+    child: Text('데이터가 없습니다.', style: TextStyle(color: Color(0xFF6E717C))),
   );
 
   Widget _buildPeriodButtonBar(
@@ -969,7 +1122,9 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     final align = wrapAlignment == WrapAlignment.center
         ? Alignment.center
-        : (wrapAlignment == WrapAlignment.start ? Alignment.centerLeft : Alignment.centerRight);
+        : (wrapAlignment == WrapAlignment.start
+              ? Alignment.centerLeft
+              : Alignment.centerRight);
     return Align(
       alignment: align,
       child: Wrap(
@@ -984,9 +1139,15 @@ class _StatsPageState extends State<StatsPage> {
               _loadStats();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: t == _selectedPeriod ? const Color(0xFFFFC700) : const Color(0xFF1F222A),
-              foregroundColor: t == _selectedPeriod ? Colors.black : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              backgroundColor: t == _selectedPeriod
+                  ? const Color(0xFFFFC700)
+                  : const Color(0xFF1F222A),
+              foregroundColor: t == _selectedPeriod
+                  ? Colors.black
+                  : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               padding: EdgeInsets.symmetric(
                 horizontal: compact ? 12 : 16,
                 vertical: compact ? 6 : 8,
@@ -1006,111 +1167,25 @@ class _StatsPageState extends State<StatsPage> {
     );
   }
 
-  Widget _buildExpandedStatsMetricsColumn({
-    required double statCardTitleFontSize,
-    required double statCardValueFontSize,
-    required double cardGap,
-  }) {
-    final metrics = <({String title, String? value, Color? color, IconData icon, Widget? customWidget})>[
-      (
-        title: '순익',
-        value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
-        color: const Color(0xFFFFC700),
-        icon: Icons.account_balance_wallet,
-        customWidget: null,
-      ),
-      (
-        title: '수입',
-        value: NumberFormat('#,###').format(_stats['totalRevenue'] ?? 0),
-        color: Colors.green,
-        icon: Icons.credit_card,
-        customWidget: null,
-      ),
-      (
-        title: '지출/수익',
-        value: null,
-        color: null,
-        icon: Icons.money_off,
-        customWidget: _expenseExtraIncomeRich(statCardTitleFontSize),
-      ),
-      if (_selectedPeriod != '일간')
-        (
-          title: '근무·운행 건수',
-          value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-          color: Colors.white,
-          icon: Icons.local_taxi,
-          customWidget: null,
-        )
-      else
-        (
-          title: '운행 건수',
-          value: '${_stats['totalCount'] ?? 0}',
-          color: Colors.white,
-          icon: Icons.local_taxi,
-          customWidget: null,
-        ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildDateSelector(compact: true),
-        SizedBox(height: cardGap),
-        Expanded(
-          child: Column(
-            children: [
-              for (var i = 0; i < metrics.length; i++) ...[
-                if (i > 0) SizedBox(height: cardGap),
-                Expanded(
-                  child: metrics[i].title == '지출/수익'
-                      ? GestureDetector(
-                          onTap: _showExpenseIncomeDetailPopup,
-                          child: _statMetricCard(
-                            title: metrics[i].title,
-                            value: metrics[i].value,
-                            valueColor: metrics[i].color,
-                            titleFontSize: statCardTitleFontSize,
-                            valueFontSize: statCardValueFontSize,
-                            icon: metrics[i].icon,
-                            customValueWidget: metrics[i].customWidget,
-                          ),
-                        )
-                      : _statMetricCard(
-                          title: metrics[i].title,
-                          value: metrics[i].value,
-                          valueColor: metrics[i].color,
-                          titleFontSize: statCardTitleFontSize,
-                          valueFontSize: statCardValueFontSize,
-                          icon: metrics[i].icon,
-                          customValueWidget: metrics[i].customWidget,
-                        ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   /// 현재 조회 기간에 해당하는 날짜 범위 반환 (start, end in yyyy-MM-dd)
   ({String start, String end}) _currentDateRange() {
     if (_selectedPeriod == '일간') {
       final d = DateFormat('yyyy-MM-dd').format(_selectedDate);
       return (start: d, end: d);
     } else if (_selectedPeriod == '주간') {
-      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      final weekStart = _selectedDate.subtract(
+        Duration(days: _selectedDate.weekday - 1),
+      );
       return (
         start: DateFormat('yyyy-MM-dd').format(weekStart),
-        end: DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6))),
+        end: DateFormat(
+          'yyyy-MM-dd',
+        ).format(weekStart.add(const Duration(days: 6))),
       );
     } else if (_selectedPeriod == '월간') {
       final ym = DateFormat('yyyy-MM').format(_selectedDate);
       final last = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
-      return (
-        start: '$ym-01',
-        end: DateFormat('yyyy-MM-dd').format(last),
-      );
+      return (start: '$ym-01', end: DateFormat('yyyy-MM-dd').format(last));
     } else {
       // 연간
       final year = _selectedDate.year;
@@ -1138,7 +1213,6 @@ class _StatsPageState extends State<StatsPage> {
          ORDER BY amount DESC''',
       [range.start, range.end],
     );
-    final totalTransport = transportCategoryRows.fold<int>(0, (s, r) => s + ((r['amount'] as num?)?.toInt() ?? 0));
 
     // 부가수익 항목별 합산 (income_category GROUP BY)
     final incomeCategoryRows = await db.rawQuery(
@@ -1149,16 +1223,16 @@ class _StatsPageState extends State<StatsPage> {
          ORDER BY amount DESC''',
       [range.start, range.end],
     );
-    final totalTip = incomeCategoryRows.fold<int>(0, (s, r) => s + ((r['amount'] as num?)?.toInt() ?? 0));
 
     // 별도 지출 항목별 합계 from expense_entries
     List<Map<String, dynamic>> extraExpenseCategories = [];
     try {
-      extraExpenseCategories = await ExpenseRepository.aggregateByCategoryForRange(
-        range.start,
-        range.end,
-        includeAllDefinedCategories: false,
-      );
+      extraExpenseCategories =
+          await ExpenseRepository.aggregateByCategoryForRange(
+            range.start,
+            range.end,
+            includeAllDefinedCategories: false,
+          );
     } catch (_) {}
 
     if (!mounted) return;
@@ -1178,7 +1252,12 @@ class _StatsPageState extends State<StatsPage> {
               title: '지출 세부',
               color: const Color(0xFFFF5252),
               rows: [
-                if (totalFee > 0) _buildDetailRow('수수료', fmt.format(totalFee), const Color(0xFFFF5252)),
+                if (totalFee > 0)
+                  _buildDetailRow(
+                    '수수료',
+                    fmt.format(totalFee),
+                    const Color(0xFFFF5252),
+                  ),
                 // 운행지출: 항목(expense_category)별 합산
                 for (final r in transportCategoryRows)
                   _buildDetailRow(
@@ -1192,7 +1271,9 @@ class _StatsPageState extends State<StatsPage> {
                     fmt.format((cat['amount'] as num?)?.toInt() ?? 0),
                     const Color(0xFFFF5252),
                   ),
-                if (totalFee == 0 && transportCategoryRows.isEmpty && extraExpenseCategories.isEmpty)
+                if (totalFee == 0 &&
+                    transportCategoryRows.isEmpty &&
+                    extraExpenseCategories.isEmpty)
                   _buildDetailRow('내역 없음', '-', Colors.white38),
               ],
               total: fmt.format(_stats['totalExpenses'] ?? 0),
@@ -1209,14 +1290,20 @@ class _StatsPageState extends State<StatsPage> {
                     fmt.format((r['amount'] as num?)?.toInt() ?? 0),
                     Colors.lightBlueAccent,
                   ),
-                if (incomeCategoryRows.isEmpty) _buildDetailRow('내역 없음', '-', Colors.white38),
+                if (incomeCategoryRows.isEmpty)
+                  _buildDetailRow('내역 없음', '-', Colors.white38),
               ],
               total: fmt.format(_stats['totalExtraIncome'] ?? 0),
             ),
           ],
         ),
         actions: [
-          Builder(builder: (ctx) => GlassDialogConfirmButton(filled: true, onPressed: () => Navigator.pop(ctx))),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              filled: true,
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
         ],
       ),
     );
@@ -1277,7 +1364,10 @@ class _StatsPageState extends State<StatsPage> {
           Container(
             width: 4,
             height: 4,
-            decoration: BoxDecoration(color: amountColor.withValues(alpha: 0.7), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: amountColor.withValues(alpha: 0.7),
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -1288,7 +1378,11 @@ class _StatsPageState extends State<StatsPage> {
           ),
           Text(
             amount == '-' ? '-' : '$amount원',
-            style: TextStyle(color: amountColor, fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              color: amountColor,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -1350,7 +1444,10 @@ class _StatsPageState extends State<StatsPage> {
         textAlign: TextAlign.right,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: _statMetricUnifiedTextStyle(fontSize: displayFs, color: valueColor ?? Colors.white),
+        style: _statMetricUnifiedTextStyle(
+          fontSize: displayFs,
+          color: valueColor ?? Colors.white,
+        ),
       );
     }
 
@@ -1372,73 +1469,89 @@ class _StatsPageState extends State<StatsPage> {
     Widget Function(double fontSize)? valueBuilder,
   }) {
     return LayoutBuilder(
-        builder: (context, constraints) {
-          final hPad = 12.0;
-          final vPad = 10.0;
-          final innerGap = math.max(4.0, titleFontSize * 0.3);
-          const titleTopInset = 4.0;
-          final h = constraints.maxHeight;
-          final layoutValueFs = valueFontSize;
-          final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFontSize);
-          final scaledValue = ResponsiveLayout.layoutFontSize(context, layoutValueFs);
-          final minContentH = scaledTitle * 1.25 + innerGap + scaledValue * 1.25 + vPad * 2 + titleTopInset;
-          final scale = (!h.isFinite || h <= 0 || h >= minContentH)
-              ? 1.0
-              : (h / minContentH).clamp(0.72, 1.0);
-          final effTitleFs = titleFontSize * scale;
-          final effValueFs = layoutValueFs * scale;
-          final effVPad = (vPad * scale).clamp(2.0, vPad);
-          final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
-          final effGap = (innerGap * scale).clamp(1.0, innerGap);
+      builder: (context, constraints) {
+        final hPad = 12.0;
+        final vPad = 10.0;
+        final innerGap = math.max(4.0, titleFontSize * 0.3);
+        const titleTopInset = 4.0;
+        final h = constraints.maxHeight;
+        final layoutValueFs = valueFontSize;
+        final scaledTitle = ResponsiveLayout.layoutFontSize(
+          context,
+          titleFontSize,
+        );
+        final scaledValue = ResponsiveLayout.layoutFontSize(
+          context,
+          layoutValueFs,
+        );
+        final minContentH =
+            scaledTitle * 1.25 +
+            innerGap +
+            scaledValue * 1.25 +
+            vPad * 2 +
+            titleTopInset;
+        final scale = (!h.isFinite || h <= 0 || h >= minContentH)
+            ? 1.0
+            : (h / minContentH).clamp(0.72, 1.0);
+        final effTitleFs = titleFontSize * scale;
+        final effValueFs = layoutValueFs * scale;
+        final effVPad = (vPad * scale).clamp(2.0, vPad);
+        final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
+        final effGap = (innerGap * scale).clamp(1.0, innerGap);
 
-          return Container(
-            width: double.infinity,
-            decoration: BorderedSection.decoration(),
-            padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (icon != null) ...[
-                      Icon(icon, color: const Color(0xFFFFC700), size: effTitleFs),
-                      const SizedBox(width: 8),
-                    ],
-                    Expanded(
-                      child: Text(
-                        title,
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: ResponsiveLayout.sectionTitleTextStyle(context).copyWith(
-                          fontSize: effTitleFs,
-                          fontWeight: FontWeight.bold,
-                          height: 1.25,
-                        ),
-                      ),
+        return Container(
+          width: double.infinity,
+          decoration: BorderedSection.decoration(),
+          padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      color: const Color(0xFFFFC700),
+                      size: effTitleFs,
                     ),
+                    const SizedBox(width: 8),
                   ],
-                ),
-                SizedBox(height: effGap),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.bottomRight,
-                    child: _buildStatMetricValueChild(
-                      effValueFs: effValueFs,
-                      valueFontSize: valueFontSize,
-                      value: value,
-                      valueColor: valueColor,
-                      customValueWidget: customValueWidget,
-                      valueBuilder: valueBuilder,
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: ResponsiveLayout.sectionTitleTextStyle(context)
+                          .copyWith(
+                            fontSize: effTitleFs,
+                            fontWeight: FontWeight.bold,
+                            height: 1.25,
+                          ),
                     ),
                   ),
+                ],
+              ),
+              SizedBox(height: effGap),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomRight,
+                  child: _buildStatMetricValueChild(
+                    effValueFs: effValueFs,
+                    valueFontSize: valueFontSize,
+                    value: value,
+                    valueColor: valueColor,
+                    customValueWidget: customValueWidget,
+                    valueBuilder: valueBuilder,
+                  ),
                 ),
-              ],
-            ),
-          );
-        },
-      );
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildStatsHeaderRow({
@@ -1521,8 +1634,10 @@ class _StatsPageState extends State<StatsPage> {
     final title = _selectedPeriod == '일간'
         ? '시간대별 순익'
         : (_selectedPeriod == '주간'
-            ? '요일별 순익 (근무일 기준)'
-            : (_selectedPeriod == '월간' ? '일자별 순익 (근무일 기준)' : '월별 순익 (근무일 기준)'));
+              ? '요일별 순익 (근무일 기준)'
+              : (_selectedPeriod == '월간'
+                    ? '일자별 순익 (근무일 기준)'
+                    : '월별 순익 (근무일 기준)'));
     final labelKey = _getSecondChartKey();
     final validData = _secondChartData.where((e) {
       final val = (e['revenue'] as num?)?.toInt() ?? 0;
@@ -1559,7 +1674,12 @@ class _StatsPageState extends State<StatsPage> {
         programLabels: programLabels,
       );
     }
-    return _buildBarChart(validData, labelKey, valueKey, programLabels: programLabels);
+    return _buildBarChart(
+      validData,
+      labelKey,
+      valueKey,
+      programLabels: programLabels,
+    );
   }
 
   Widget _chartPanelBody({
@@ -1621,13 +1741,14 @@ class _StatsPageState extends State<StatsPage> {
     return 'month';
   }
 
-  int _chartItemCount(Map<String, dynamic> item) => (item['count'] as int?) ?? 0;
+  int _chartItemCount(Map<String, dynamic> item) =>
+      (item['count'] as int?) ?? 0;
 
   TextStyle _chartCountTextStyle(double fontSize) => TextStyle(
-        color: const Color(0xFFB8BBC4),
-        fontSize: fontSize,
-        height: 1.0,
-      );
+    color: const Color(0xFFB8BBC4),
+    fontSize: fontSize,
+    height: 1.0,
+  );
 
   Widget _chartCountLabel(int count, double fontSize, double height) {
     if (count <= 0) {
@@ -1654,7 +1775,8 @@ class _StatsPageState extends State<StatsPage> {
     double countHeight,
     double gapPlotLabels,
     double plotHeight,
-  }) _chartLayoutMetrics(
+  })
+  _chartLayoutMetrics(
     BuildContext context,
     BoxConstraints constraints,
     List<Map<String, dynamic>> data,
@@ -1662,7 +1784,9 @@ class _StatsPageState extends State<StatsPage> {
     bool programLabels = false,
   }) {
     final textFontSize = (11 * _uiFontScale(context)).clamp(10.0, 15.0);
-    final labelHeight = programLabels ? textFontSize * 2.35 + 8 : textFontSize + 6.0;
+    final labelHeight = programLabels
+        ? textFontSize * 2.35 + 8
+        : textFontSize + 6.0;
     final valueHeight = textFontSize + 6.0;
     final countHeight = textFontSize + 2.0;
     const gapPlotLabels = 4.0;
@@ -1688,13 +1812,28 @@ class _StatsPageState extends State<StatsPage> {
     bool programLabels = false,
   }) {
     if (data.isEmpty) return _emptyChartMessage;
-    final totalSum = data.fold(0, (sum, item) => sum + ((item[valueKey] as int?) ?? 0));
+    final totalSum = data.fold(
+      0,
+      (sum, item) => sum + ((item[valueKey] as int?) ?? 0),
+    );
     final displayMaxValue = totalSum > 0 ? totalSum.toDouble() : 1.0;
     return GestureDetector(
       onTap: () => setState(() => _isBarChart = !_isBarChart),
       child: _isBarChart
-          ? _buildVerticalBarChart(data, labelKey, valueKey, displayMaxValue, programLabels: programLabels)
-          : _buildLineChart(data, labelKey, valueKey, displayMaxValue, programLabels: programLabels),
+          ? _buildVerticalBarChart(
+              data,
+              labelKey,
+              valueKey,
+              displayMaxValue,
+              programLabels: programLabels,
+            )
+          : _buildLineChart(
+              data,
+              labelKey,
+              valueKey,
+              displayMaxValue,
+              programLabels: programLabels,
+            ),
     );
   }
 
@@ -1741,7 +1880,9 @@ class _StatsPageState extends State<StatsPage> {
         final gapPlotLabels = layout.gapPlotLabels;
         final plotHeight = layout.plotHeight;
         final longestValueLen = data
-            .map((item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length)
+            .map(
+              (item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length,
+            )
             .fold<int>(1, (a, b) => a > b ? a : b);
         final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
         final baseMinItemWidth = math.max(30.0, valueWidthByText);
@@ -1758,7 +1899,12 @@ class _StatsPageState extends State<StatsPage> {
                 .replaceAll('콜마너', '콜마');
             return math.max(
               baseMinItemWidth,
-              _chartLabelColumnWidth(context, label, textFontSize, programLabels: true),
+              _chartLabelColumnWidth(
+                context,
+                label,
+                textFontSize,
+                programLabels: true,
+              ),
             );
           }
           return baseMinItemWidth;
@@ -1769,13 +1915,16 @@ class _StatsPageState extends State<StatsPage> {
           0,
           (sum, w) => sum + w + itemSpacing,
         );
-        final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
+        final contentWidth = naturalWidth > availableWidth
+            ? naturalWidth
+            : availableWidth;
         final defaultItemWidth = data.isEmpty
             ? baseMinItemWidth
             : (contentWidth - data.length * itemSpacing) / data.length;
         final bottomLabels = labelHeight + valueHeight + gapPlotLabels;
 
-        final chartHeight = constraints.maxHeight.isFinite && constraints.maxHeight > 0
+        final chartHeight =
+            constraints.maxHeight.isFinite && constraints.maxHeight > 0
             ? constraints.maxHeight
             : plotHeight + bottomLabels + countHeight;
 
@@ -1789,94 +1938,113 @@ class _StatsPageState extends State<StatsPage> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: List.generate(data.length, (index) {
-                final item = data[index];
-                final value = (item[valueKey] as int?) ?? 0;
-                final count = _chartItemCount(item);
-                String label = item[labelKey]?.toString() ?? '';
-                if (programLabels) {
-                  label = label
-                      .replaceAll('카카오(일반)', '카(일)')
-                      .replaceAll('카카오(프콜)', '카(프)')
-                      .replaceAll('핸들포유', '핸들')
-                      .replaceAll('콜마너', '콜마');
-                }
-                final itemWidth = (programLabels
-                        ? itemWidths[index]
-                        : defaultItemWidth.clamp(
-                            baseMinItemWidth,
-                            math.max(maxItemWidthDefault, baseMinItemWidth),
-                          ))
-                    .toDouble();
-                final normalizedHeight = maxValue > 0 ? (value / maxValue) * plotHeight : 0.0;
-                final barHeight = value > 0 ? normalizedHeight.clamp(2.0, plotHeight) : 0.0;
-                final countTop = (plotHeight - barHeight - countHeight).clamp(0.0, plotHeight - countHeight);
+                  final item = data[index];
+                  final value = (item[valueKey] as int?) ?? 0;
+                  final count = _chartItemCount(item);
+                  String label = item[labelKey]?.toString() ?? '';
+                  if (programLabels) {
+                    label = label
+                        .replaceAll('카카오(일반)', '카(일)')
+                        .replaceAll('카카오(프콜)', '카(프)')
+                        .replaceAll('핸들포유', '핸들')
+                        .replaceAll('콜마너', '콜마');
+                  }
+                  final itemWidth =
+                      (programLabels
+                              ? itemWidths[index]
+                              : defaultItemWidth.clamp(
+                                  baseMinItemWidth,
+                                  math.max(
+                                    maxItemWidthDefault,
+                                    baseMinItemWidth,
+                                  ),
+                                ))
+                          .toDouble();
+                  final normalizedHeight = maxValue > 0
+                      ? (value / maxValue) * plotHeight
+                      : 0.0;
+                  final barHeight = value > 0
+                      ? normalizedHeight.clamp(2.0, plotHeight)
+                      : 0.0;
+                  final countTop = (plotHeight - barHeight - countHeight).clamp(
+                    0.0,
+                    plotHeight - countHeight,
+                  );
 
-                return SizedBox(
-                  width: itemWidth + itemSpacing,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: itemSpacing / 2),
-                    child: Column(
-                      children: [
-                        SizedBox(
-                          height: plotHeight,
-                          child: Stack(
-                            clipBehavior: Clip.hardEdge,
-                            children: [
-                              Align(
-                                alignment: Alignment.bottomCenter,
-                                child: Container(
-                                  width: 6,
-                                  height: barHeight,
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFC700),
-                                    borderRadius: BorderRadius.circular(6),
+                  return SizedBox(
+                    width: itemWidth + itemSpacing,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: itemSpacing / 2,
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: plotHeight,
+                            child: Stack(
+                              clipBehavior: Clip.hardEdge,
+                              children: [
+                                Align(
+                                  alignment: Alignment.bottomCenter,
+                                  child: Container(
+                                    width: 6,
+                                    height: barHeight,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFC700),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
                                   ),
                                 ),
-                              ),
-                              Positioned(
-                                top: countTop,
-                                left: 0,
-                                right: 0,
-                                child: _chartCountLabel(count, textFontSize, countHeight),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: gapPlotLabels),
-                        SizedBox(
-                          height: labelHeight + valueHeight,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              Text(
-                                label,
-                                style: TextStyle(
-                                  color: const Color(0xFF6E717C),
-                                  fontSize: textFontSize,
+                                Positioned(
+                                  top: countTop,
+                                  left: 0,
+                                  right: 0,
+                                  child: _chartCountLabel(
+                                    count,
+                                    textFontSize,
+                                    countHeight,
+                                  ),
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines: programLabels ? 2 : 1,
-                                overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
-                                softWrap: true,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                NumberFormat('#,###').format(value),
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: textFontSize,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                          SizedBox(height: gapPlotLabels),
+                          SizedBox(
+                            height: labelHeight + valueHeight,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: const Color(0xFF6E717C),
+                                    fontSize: textFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: programLabels ? 2 : 1,
+                                  overflow: programLabels
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
+                                  softWrap: true,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  NumberFormat('#,###').format(value),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: textFontSize,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
               ),
             ),
           ),
@@ -1909,7 +2077,9 @@ class _StatsPageState extends State<StatsPage> {
         final gapPlotLabels = layout.gapPlotLabels;
         final plotHeight = layout.plotHeight;
         final longestValueLen = data
-            .map((item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length)
+            .map(
+              (item) => _formatCurrencyK((item[valueKey] as int?) ?? 0).length,
+            )
             .fold<int>(1, (a, b) => a > b ? a : b);
         final valueWidthByText = (longestValueLen * textFontSize * 0.70) + 14.0;
         final baseMinItemWidth = math.max(30.0, valueWidthByText);
@@ -1920,30 +2090,47 @@ class _StatsPageState extends State<StatsPage> {
           if (programLabels) {
             return math.max(
               baseMinItemWidth,
-              _chartLabelColumnWidth(context, label, textFontSize, programLabels: true),
+              _chartLabelColumnWidth(
+                context,
+                label,
+                textFontSize,
+                programLabels: true,
+              ),
             );
           }
           return baseMinItemWidth;
         }).toList();
-        final naturalWidth = itemWidths.fold<double>(0, (s, w) => s + w + itemSpacing);
-        final contentWidth = naturalWidth > availableWidth ? naturalWidth : availableWidth;
+        final naturalWidth = itemWidths.fold<double>(
+          0,
+          (s, w) => s + w + itemSpacing,
+        );
+        final contentWidth = naturalWidth > availableWidth
+            ? naturalWidth
+            : availableWidth;
         final defaultItemWidth = data.isEmpty
             ? baseMinItemWidth
             : (contentWidth - data.length * itemSpacing) / data.length;
         final double actualWidth = programLabels
             ? naturalWidth
             : defaultItemWidth * data.length;
-        final uniformItemWidth = (programLabels
-                ? (itemWidths.isEmpty
-                    ? baseMinItemWidth
-                    : itemWidths.fold<double>(0, (a, b) => a + b) / itemWidths.length)
-                : defaultItemWidth.clamp(baseMinItemWidth, math.max(48.0, baseMinItemWidth)))
-            .toDouble();
+        final uniformItemWidth =
+            (programLabels
+                    ? (itemWidths.isEmpty
+                          ? baseMinItemWidth
+                          : itemWidths.fold<double>(0, (a, b) => a + b) /
+                                itemWidths.length)
+                    : defaultItemWidth.clamp(
+                        baseMinItemWidth,
+                        math.max(48.0, baseMinItemWidth),
+                      ))
+                .toDouble();
 
         double labelRowLeft(int index) {
           var left = 0.0;
           for (var i = 0; i < index; i++) {
-            left += (programLabels ? itemWidths[i] : uniformItemWidth) + itemSpacing;
+            left +=
+                (programLabels ? itemWidths[i] : uniformItemWidth) +
+                itemSpacing;
           }
           return left;
         }
@@ -1962,19 +2149,36 @@ class _StatsPageState extends State<StatsPage> {
                     children: [
                       CustomPaint(
                         size: Size(actualWidth, plotHeight),
-                        painter: LineChartPainter(data, valueKey, maxValue, plotHeight, uniformItemWidth),
+                        painter: LineChartPainter(
+                          data,
+                          valueKey,
+                          maxValue,
+                          plotHeight,
+                          uniformItemWidth,
+                        ),
                       ),
                       ...List.generate(data.length, (i) {
                         final value = (data[i][valueKey] as int?) ?? 0;
                         final count = _chartItemCount(data[i]);
-                        final colW = (programLabels ? itemWidths[i] : uniformItemWidth).toDouble();
-                        final y = maxValue > 0 ? plotHeight - (value / maxValue) * plotHeight : plotHeight;
-                        final top = (y - countHeight).clamp(0.0, plotHeight - countHeight);
+                        final colW =
+                            (programLabels ? itemWidths[i] : uniformItemWidth)
+                                .toDouble();
+                        final y = maxValue > 0
+                            ? plotHeight - (value / maxValue) * plotHeight
+                            : plotHeight;
+                        final top = (y - countHeight).clamp(
+                          0.0,
+                          plotHeight - countHeight,
+                        );
                         return Positioned(
                           left: labelRowLeft(i),
                           top: top,
                           width: colW,
-                          child: _chartCountLabel(count, textFontSize, countHeight),
+                          child: _chartCountLabel(
+                            count,
+                            textFontSize,
+                            countHeight,
+                          ),
                         );
                       }),
                     ],
@@ -1986,10 +2190,14 @@ class _StatsPageState extends State<StatsPage> {
                     final item = data[index];
                     final value = (item[valueKey] as int?) ?? 0;
                     final label = item[labelKey]?.toString() ?? '';
-                    final itemWidth = (programLabels
-                            ? itemWidths[index]
-                            : defaultItemWidth.clamp(baseMinItemWidth, math.max(48.0, baseMinItemWidth)))
-                        .toDouble();
+                    final itemWidth =
+                        (programLabels
+                                ? itemWidths[index]
+                                : defaultItemWidth.clamp(
+                                    baseMinItemWidth,
+                                    math.max(48.0, baseMinItemWidth),
+                                  ))
+                            .toDouble();
                     return SizedBox(
                       width: itemWidth,
                       child: Column(
@@ -2007,7 +2215,9 @@ class _StatsPageState extends State<StatsPage> {
                                   ),
                                   textAlign: TextAlign.center,
                                   maxLines: programLabels ? 2 : 1,
-                                  overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
+                                  overflow: programLabels
+                                      ? TextOverflow.visible
+                                      : TextOverflow.ellipsis,
                                   softWrap: true,
                                 ),
                                 const SizedBox(height: 2),
@@ -2071,7 +2281,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   bool _roadRouteEnabled = false;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
-  
+
   Set<Marker> _markers = {};
   bool _markersLoading = true;
 
@@ -2095,8 +2305,12 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       BitmapDescriptor endIcon;
 
       if (useSimpleMarkers) {
-        startIcon = BitmapDescriptor.defaultMarkerWithHue(isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure);
-        endIcon = BitmapDescriptor.defaultMarkerWithHue(isLastEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueOrange);
+        startIcon = BitmapDescriptor.defaultMarkerWithHue(
+          isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure,
+        );
+        endIcon = BitmapDescriptor.defaultMarkerWithHue(
+          isLastEnd ? BitmapDescriptor.hueRed : BitmapDescriptor.hueOrange,
+        );
         if (i % 20 == 0) await Future.delayed(Duration.zero); // UI 스레드 양보
       } else {
         startIcon = await MarkerUtils.createCustomMarkerBitmap(
@@ -2121,7 +2335,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
           anchor: const Offset(0.5, 0.5),
         ),
       );
-      
+
       markers.add(
         Marker(
           markerId: MarkerId('end_$i'),
@@ -2135,7 +2349,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         ),
       );
     }
-    
+
     if (mounted) {
       setState(() {
         _markers = markers;
@@ -2205,9 +2419,9 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       });
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('도로 경로를 가져오지 못했습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('도로 경로를 가져오지 못했습니다.')));
     } finally {
       if (mounted) {
         setState(() {
@@ -2318,7 +2532,9 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         ),
       ),
       body: _markersLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+          ? const Center(
+              child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+            )
           : GoogleMap(
               initialCameraPosition: CameraPosition(target: initial, zoom: 12),
               myLocationButtonEnabled: false,
@@ -2326,7 +2542,9 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
               polylines: polylines,
               onMapCreated: (controller) {
                 _controller = controller;
-                WidgetsBinding.instance.addPostFrameCallback((_) => _fitBounds());
+                WidgetsBinding.instance.addPostFrameCallback(
+                  (_) => _fitBounds(),
+                );
               },
             ),
     );
@@ -2339,9 +2557,15 @@ class LineChartPainter extends CustomPainter {
   final double maxValue;
   final double chartHeight;
   final double itemWidth;
-  
-  LineChartPainter(this.data, this.valueKey, this.maxValue, this.chartHeight, this.itemWidth);
-  
+
+  LineChartPainter(
+    this.data,
+    this.valueKey,
+    this.maxValue,
+    this.chartHeight,
+    this.itemWidth,
+  );
+
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
@@ -2357,7 +2581,9 @@ class LineChartPainter extends CustomPainter {
     for (int i = 0; i < data.length; i++) {
       final x = (itemWidth * i) + (itemWidth / 2);
       final value = (data[i][valueKey] as int?) ?? 0;
-      final y = maxValue > 0 ? chartHeight - (value / maxValue) * chartHeight : chartHeight;
+      final y = maxValue > 0
+          ? chartHeight - (value / maxValue) * chartHeight
+          : chartHeight;
       if (i == 0) {
         path.moveTo(x, y);
       } else {
@@ -2369,11 +2595,13 @@ class LineChartPainter extends CustomPainter {
     for (int i = 0; i < data.length; i++) {
       final x = (itemWidth * i) + (itemWidth / 2);
       final value = (data[i][valueKey] as int?) ?? 0;
-      final y = maxValue > 0 ? chartHeight - (value / maxValue) * chartHeight : chartHeight;
+      final y = maxValue > 0
+          ? chartHeight - (value / maxValue) * chartHeight
+          : chartHeight;
       canvas.drawCircle(Offset(x, y), 3, dotPaint);
     }
   }
-  
+
   @override
   bool shouldRepaint(LineChartPainter oldDelegate) => true;
 }

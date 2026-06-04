@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DbrosApp 디자인 개선점 리뷰</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+
+  :root {
+    --gold: #FFC700;
+    --bg: #121418;
+    --surface: #1F222A;
+    --surface-deep: #16181D;
+    --divider: #2C2F38;
+    --text-secondary: #6E717C;
+    --red: #FF5252;
+    --blue: #82CFFF;
+    --green: #4CAF50;
+    --ok: #2a9d5c;
+    --warn: #e07b00;
+    --err: #c0392b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: #0c0e12;
+    color: #fff;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  .page-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--gold);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .page-sub {
+    text-align: center;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 48px;
+  }
+
+  /* 섹션 */
+  .section {
+    max-width: 1200px;
+    margin: 0 auto 60px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--divider);
+  }
+  .section-number {
+    width: 36px; height: 36px;
+    background: var(--gold);
+    color: #000;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .section-title { font-size: 20px; font-weight: 700; }
+  .section-desc { font-size: 13px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* 비교 그리드 */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .compare-grid { grid-template-columns: 1fr; } }
+
+  /* 폰 목업 */
+  .phone-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .phone-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 12px;
+  }
+  .label-current { background: rgba(255,199,0,0.15); color: var(--gold); }
+  .label-fix { background: rgba(44,157,92,0.15); color: #2a9d5c; }
+  .label-issue { background: rgba(192,57,43,0.15); color: #e74c3c; }
+
+  .phone {
+    width: 220px;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 2px solid var(--divider);
+    background: var(--bg);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    position: relative;
+  }
+
+  /* 앱바 */
+  .appbar {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: var(--surface);
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .appbar-back { font-size: 18px; color: #fff; opacity: 0.7; }
+  .appbar-title { font-size: 15px; font-weight: 700; flex: 1; }
+  .appbar-title.gold { color: var(--gold); }
+  .appbar-title.white { color: #fff; }
+  .appbar-action { font-size: 12px; color: var(--gold); font-weight: 600; }
+
+  /* 바디 */
+  .phone-body {
+    padding: 14px;
+    min-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* 카드 */
+  .card {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 12px;
+  }
+  .card.deep { background: var(--surface-deep); }
+
+  /* 리스트 아이템 */
+  .list-item {
+    background: var(--surface);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .list-item-row { display: flex; justify-content: space-between; align-items: center; }
+  .list-date { font-size: 13px; font-weight: 700; }
+  .list-date.today { color: var(--gold); }
+  .list-date.normal { color: #fff; }
+
+  /* 금액 색상 */
+  .income-blue { color: #82CFFF; font-size: 12px; }     /* lightBlueAccent */
+  .income-green { color: #66BB6A; font-size: 12px; }    /* Colors.green */
+  .income-unified { color: #82CFFF; font-size: 12px; }   /* 통일 후 */
+  .net-gold { color: var(--gold); font-size: 12px; }
+  .expense-red { color: var(--red); font-size: 12px; }
+
+  /* 빈 상태 */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px 0;
+    text-align: center;
+  }
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+  .empty-icon.colored { opacity: 1; color: var(--text-secondary); }
+  .empty-title { font-size: 14px; font-weight: 700; color: #fff; }
+  .empty-desc { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+  .empty-btn {
+    background: var(--gold);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .empty-text-only { font-size: 12px; color: var(--text-secondary); padding: 30px 0; text-align: center; }
+
+  /* 코드 하이라이트 */
+  .code-block {
+    background: #0d1117;
+    border: 1px solid var(--divider);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 12px;
+    line-height: 1.7;
+    font-family: 'Consolas', monospace;
+    margin-top: 8px;
+    overflow-x: auto;
+  }
+  .c-red { color: #ff6b6b; }
+  .c-green { color: #69db7c; }
+  .c-gold { color: var(--gold); }
+  .c-blue { color: #74c0fc; }
+  .c-gray { color: #868e96; }
+  .c-comment { color: #6272a4; }
+
+  /* 배지 */
+  .badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-right: 6px;
+  }
+  .badge-err { background: rgba(192,57,43,0.2); color: #e74c3c; border: 1px solid rgba(192,57,43,0.3); }
+  .badge-ok  { background: rgba(42,157,92,0.2); color: #2a9d5c; border: 1px solid rgba(42,157,92,0.3); }
+  .badge-warn { background: rgba(224,123,0,0.2); color: var(--warn); border: 1px solid rgba(224,123,0,0.3); }
+
+  /* 설명 박스 */
+  .explain {
+    background: rgba(255,199,0,0.05);
+    border-left: 3px solid var(--gold);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #ccc;
+    margin-top: 16px;
+  }
+  .explain strong { color: var(--gold); }
+
+  /* 색상 팔레트 칩 */
+  .palette-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 10px 0;
+  }
+  .swatch {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.1);
+    position: relative;
+    cursor: default;
+  }
+  .swatch-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 4px;
+    max-width: 50px;
+    word-break: break-all;
+  }
+  .swatch-group { display: flex; flex-direction: column; align-items: center; }
+
+  .issue-mark {
+    position: absolute;
+    top: -4px; right: -4px;
+    width: 14px; height: 14px;
+    background: #e74c3c;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px;
+    font-weight: 900;
+  }
+
+  /* 화살표 */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    color: var(--gold);
+    padding: 10px 0;
+  }
+
+  /* 탭 */
+  .tab-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--bg);
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .tab.active { color: var(--gold); }
+  .tab-icon { font-size: 16px; }
+
+  /* 구분선 */
+  hr { border: none; border-top: 1px solid var(--divider); margin: 16px 0; }
+
+  /* 섹션 레이아웃 */
+  .full-width { grid-column: 1 / -1; }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .info-card {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.06);
+    padding: 16px;
+  }
+  .info-card-title { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .info-card-value { font-size: 22px; font-weight: 900; color: var(--gold); }
+
+  /* 통계 카드 */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 14px;
+  }
+  .stat-card {
+    background: rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 10px;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+  .stat-label { font-size: 10px; color: var(--text-secondary); }
+  .stat-value { font-size: 15px; font-weight: 700; margin-top: 4px; }
+
+  /* 요약표 */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: var(--surface); color: var(--text-secondary); padding: 10px 12px; text-align: left; font-weight: 500; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--divider); }
+  tr:last-child td { border-bottom: none; }
+  .td-ok { color: #2a9d5c; font-weight: 700; }
+  .td-warn { color: var(--warn); font-weight: 700; }
+  .td-err { color: #e74c3c; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="page-title">🔍 DbrosApp 디자인 개선점 리뷰</div>
+<div class="page-sub">화면 단위 시각화 · 현재 상태 vs 개선 후 비교</div>
+
+<!-- ============================== ISSUE 1: AppBar 타이틀 색상 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <div>
+      <div class="section-title">AppBar 타이틀 색상 불일치</div>
+      <div class="section-desc">single_call_card_page · log_list_page의 타이틀이 흰색 — 나머지 화면은 골드(#FFC700)</div>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+
+    <!-- 불일치 화면: 콜카드 단건등록 (흰색) -->
+    <div class="phone-wrap">
+      <div class="phone-label label-issue">❌ 현재 — 콜카드 단건등록</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-back">←</span>
+          <span class="appbar-title white">콜카드 단건등록</span>
+        </div>
+        <div class="phone-body">
+          <div style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">근무일자</div>
+          <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;">
+            <span style="font-size:13px;">← 2026-06-04 →</span>
+          </div>
+          <div class="empty-state">
+            <div class="empty-icon colored">💳</div>
+            <div class="empty-title">콜카드 이미지를 선택하세요</div>
+            <div class="empty-desc">카카오, 로지, 콜마너, 티맵 콜카드를<br>선택하면 자동으로 등록됩니다</div>
+            <button class="empty-btn">📷 콜카드 선택</button>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+<span class="c-comment">// single_call_card_page.dart L185-190</span>
+style: <span class="c-red">TextStyle</span>(
+  fontFamily: <span class="c-blue">'GmarketSans'</span>,
+  fontWeight: FontWeight.w700,
+  fontSize: titleFontSize,
+  color: <span class="c-red">Colors.white</span>,  <span class="c-comment">// ← 문제!</span>
+),
+      </div>
+    </div>
+
+    <!-- 개선 후: 골드 타이틀 -->
+    <div class="phone-wrap">
+      <div class="phone-label label-fix">✅ 개선 후 — 콜카드 단건등록</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-back">←</span>
+          <span class="appbar-title gold">콜카드 단건등록</span>
+        </div>
+        <div class="phone-body">
+          <div style="font-size:11px; color:var(--text-secondary); margin-bottom:4px;">근무일자</div>
+          <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;">
+            <span style="font-size:13px;">← 2026-06-04 →</span>
+          </div>
+          <div class="empty-state">
+            <div class="empty-icon colored">💳</div>
+            <div class="empty-title">콜카드 이미지를 선택하세요</div>
+            <div class="empty-desc">카카오, 로지, 콜마너, 티맵 콜카드를<br>선택하면 자동으로 등록됩니다</div>
+            <button class="empty-btn">📷 콜카드 선택</button>
+          </div>
+        </div>
+      </div>
+      <div class="code-block">
+<span class="c-comment">// 개선: Theme 재사용으로 통일</span>
+style: Theme.of(context)
+  .textTheme
+  .<span class="c-green">titleLarge</span>
+  ?.copyWith(
+    color: <span class="c-gold">Color(0xFFFFC700)</span>,
+  ),
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 전체 화면 비교표 -->
+  <div style="margin-top:24px; background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.06);">
+    <table>
+      <tr>
+        <th>화면</th><th>AppBar 배경</th><th>타이틀 색상</th><th>방식</th><th>상태</th>
+      </tr>
+      <tr><td>홈(home_page)</td><td style="color:var(--text-secondary)">#121418</td><td style="color:var(--gold)">●  #FFC700</td><td>ThemeData</td><td class="td-ok">✅ 정상</td></tr>
+      <tr><td>운행일지 목록(log_list_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:#fff">●  Colors.white</td><td>ThemeData(color 오버라이드)</td><td class="td-err">❌ 흰색!</td></tr>
+      <tr><td>일지 작성(write_log_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:var(--gold)">●  #FFC700</td><td>ThemeData</td><td class="td-ok">✅ 정상</td></tr>
+      <tr><td>통계(stats_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:var(--gold)">●  #FFC700</td><td>ThemeData</td><td class="td-ok">✅ 정상</td></tr>
+      <tr><td>설정(settings_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:var(--gold)">●  #FFC700</td><td>ThemeData</td><td class="td-ok">✅ 정상</td></tr>
+      <tr><td>콜카드 단건(single_call_card_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:#fff">●  Colors.white</td><td>직접 TextStyle</td><td class="td-err">❌ 흰색!</td></tr>
+      <tr><td>지출통계(expense_stats_page)</td><td style="color:var(--text-secondary)">#1F222A</td><td style="color:var(--gold)">●  #FFC700</td><td>직접 TextStyle (하드코딩)</td><td class="td-warn">⚠ 하드코딩</td></tr>
+    </table>
+  </div>
+
+  <div class="explain">
+    <strong>수정 방법:</strong> <code>single_call_card_page.dart</code> L185의 <code>color: Colors.white</code>를 <code>color: const Color(0xFFFFC700)</code>으로 변경하고, 직접 <code>TextStyle</code>을 쓰는 대신 <code>Theme.of(context).textTheme.titleLarge?.copyWith(...)</code>를 쓰면 ThemeData의 AppBar titleTextStyle 기준값도 자동 상속됩니다.
+  </div>
+</div>
+
+
+<!-- ============================== ISSUE 2: 수입 색상 혼용 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <div>
+      <div class="section-title">수입 색상 혼용 — 같은 의미인데 다른 색</div>
+      <div class="section-desc">log_list_page는 lightBlueAccent, stats_page의 일부는 Colors.green 사용</div>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+
+    <!-- 현재: 혼용 -->
+    <div class="phone-wrap">
+      <div class="phone-label label-issue">❌ 현재 — 화면마다 수입 색상이 다름</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-title gold" style="font-size:12px; padding-left:8px;">운행 일지 목록</span>
+          <span class="appbar-action">공유</span>
+        </div>
+        <div class="list-item">
+          <div class="list-item-row">
+            <span class="list-date today">03 (화)</span>
+            <span class="income-blue">수입 : ₩287,400</span>
+          </div>
+          <div class="list-item-row">
+            <span class="net-gold">순익 : ₩241,000</span>
+            <span class="expense-red">지출 : -₩46,400</span>
+          </div>
+        </div>
+        <div class="list-item">
+          <div class="list-item-row">
+            <span class="list-date normal">02 (월)</span>
+            <span class="income-blue">수입 : ₩312,000</span>
+          </div>
+          <div class="list-item-row">
+            <span class="net-gold">순익 : ₩264,000</span>
+            <span class="expense-red">지출 : -₩48,000</span>
+          </div>
+        </div>
+
+        <div style="padding: 10px 14px; background: var(--surface-deep); font-size: 11px; text-align:center; color: var(--text-secondary);">
+          — 통계 화면에서는 —
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">수입</div>
+            <div class="stat-value income-green" style="font-size:14px;">₩287,400</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">순익</div>
+            <div class="stat-value" style="color:var(--gold); font-size:14px;">₩241,000</div>
+          </div>
+        </div>
+
+        <div style="padding: 6px 14px 12px; font-size:10px; color: #e74c3c; text-align:center;">
+          ⚠ 수입이 blue → green으로 바뀜
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="c-comment">// log_list_page.dart — lightBlueAccent</span>
+TextStyle(color: <span class="c-red">Colors.lightBlueAccent</span>)
+
+<span class="c-comment">// stats_page.dart — Colors.green</span>
+TextStyle(color: <span class="c-red">Colors.green</span>)
+
+<span class="c-comment">// home_page.dart — greenAccent (단 1회)</span>
+TextStyle(color: <span class="c-red">Colors.greenAccent</span>)
+      </div>
+    </div>
+
+    <!-- 개선 후: 통일 -->
+    <div class="phone-wrap">
+      <div class="phone-label label-fix">✅ 개선 후 — AppColors.income으로 통일</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-title gold" style="font-size:12px; padding-left:8px;">운행 일지 목록</span>
+          <span class="appbar-action">공유</span>
+        </div>
+        <div class="list-item">
+          <div class="list-item-row">
+            <span class="list-date today">03 (화)</span>
+            <span class="income-unified">수입 : ₩287,400</span>
+          </div>
+          <div class="list-item-row">
+            <span class="net-gold">순익 : ₩241,000</span>
+            <span class="expense-red">지출 : -₩46,400</span>
+          </div>
+        </div>
+        <div class="list-item">
+          <div class="list-item-row">
+            <span class="list-date normal">02 (월)</span>
+            <span class="income-unified">수입 : ₩312,000</span>
+          </div>
+          <div class="list-item-row">
+            <span class="net-gold">순익 : ₩264,000</span>
+            <span class="expense-red">지출 : -₩48,000</span>
+          </div>
+        </div>
+
+        <div style="padding: 10px 14px; background: var(--surface-deep); font-size: 11px; text-align:center; color: var(--text-secondary);">
+          — 통계 화면에서도 동일 —
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-label">수입</div>
+            <div class="stat-value income-unified" style="font-size:14px;">₩287,400</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">순익</div>
+            <div class="stat-value" style="color:var(--gold); font-size:14px;">₩241,000</div>
+          </div>
+        </div>
+
+        <div style="padding: 6px 14px 12px; font-size:10px; color: #2a9d5c; text-align:center;">
+          ✅ 수입 색상이 모든 화면에서 동일
+        </div>
+      </div>
+
+      <div class="code-block">
+<span class="c-comment">// lib/constants/app_colors.dart (신규)</span>
+<span class="c-blue">class</span> AppColors {
+  <span class="c-blue">static const</span> income =
+    <span class="c-gold">Colors.lightBlueAccent</span>;
+  <span class="c-blue">static const</span> expense =
+    <span class="c-gold">Color(0xFFFF5252)</span>;
+  <span class="c-blue">static const</span> net =
+    <span class="c-gold">Color(0xFFFFC700)</span>;
+}
+
+<span class="c-comment">// 모든 화면에서</span>
+color: <span class="c-green">AppColors.income</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 색상 팔레트 시각화 -->
+  <div style="margin-top:24px; background:var(--surface); border-radius:12px; padding:20px; border:1px solid rgba(255,255,255,0.06);">
+    <div style="font-size:13px; color:var(--text-secondary); margin-bottom:16px;">현재 코드에서 발견된 색상들 — 같은 역할에 너무 많은 색상이 혼재</div>
+    <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px;">🔴 "수입" 표시에 쓰이는 색상들</div>
+    <div class="palette-row">
+      <div class="swatch-group">
+        <div class="swatch" style="background:#82CFFF; position:relative;">
+          <div class="issue-mark">!</div>
+        </div>
+        <div class="swatch-label">#82CFFF<br>lightBlue<br><span style="color:#e74c3c">(3곳)</span></div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#66BB6A; position:relative;">
+          <div class="issue-mark">!</div>
+        </div>
+        <div class="swatch-label">#66BB6A<br>green<br><span style="color:#e74c3c">(stats)</span></div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#69F0AE; position:relative;">
+          <div class="issue-mark">!</div>
+        </div>
+        <div class="swatch-label">#69F0AE<br>greenAcc<br><span style="color:#e74c3c">(1곳!)</span></div>
+      </div>
+
+      <div style="width:1px; background:var(--divider); margin:0 12px;"></div>
+      <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px; align-self:center;">→ 3종 → 1종으로 통일 권장</div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#82CFFF; border:2px solid #2a9d5c;"></div>
+        <div class="swatch-label">#82CFFF<br>통일 후<br><span style="color:#2a9d5c">(1종)</span></div>
+      </div>
+    </div>
+
+    <div style="font-size:12px; color:var(--text-secondary); margin-top:16px; margin-bottom:8px;">⚪ "보조 텍스트" 색상들 — 3가지 유사 회색 혼용</div>
+    <div class="palette-row">
+      <div class="swatch-group">
+        <div class="swatch" style="background:#6E717C; position:relative;"><div class="issue-mark">!</div></div>
+        <div class="swatch-label">#6E717C<br>(주요)</div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#8A8D96; position:relative;"><div class="issue-mark">!</div></div>
+        <div class="swatch-label">#8A8D96<br>(혼용)</div>
+      </div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#9FA3AE; position:relative;"><div class="issue-mark">!</div></div>
+        <div class="swatch-label">#9FA3AE<br>(YouTube)</div>
+      </div>
+      <div style="width:1px; background:var(--divider); margin:0 12px;"></div>
+      <div class="swatch-group">
+        <div class="swatch" style="background:#6E717C; border:2px solid #2a9d5c;"></div>
+        <div class="swatch-label">#6E717C<br>통일 권장</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================== ISSUE 3: 빈 상태 처리 격차 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <div>
+      <div class="section-title">빈 상태(Empty State) 품질 격차</div>
+      <div class="section-desc">single_call_card는 완성도 높음 — stats, home의 빈 상태는 텍스트만 존재</div>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+
+    <!-- 잘 된 케이스: single_call_card -->
+    <div class="phone-wrap">
+      <div class="phone-label label-ok">✅ 완성도 높음 — single_call_card_page</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-back">←</span>
+          <span class="appbar-title gold">콜카드 단건등록</span>
+        </div>
+        <div class="phone-body">
+          <div class="empty-state" style="gap:10px; padding:10px 0;">
+            <div style="font-size:64px; color:var(--text-secondary);">💳</div>
+            <div class="empty-title" style="font-size:15px;">콜카드 이미지를 선택하세요</div>
+            <div class="empty-desc">카카오, 로지, 콜마너, 티맵 콜카드를<br>선택하면 자동으로 등록됩니다</div>
+            <button class="empty-btn" style="margin-top:8px;">📷  콜카드 선택</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:10px; background:rgba(42,157,92,0.1); border:1px solid rgba(42,157,92,0.3); border-radius:10px; padding:10px 14px; font-size:12px; color:#2a9d5c;">
+        ✅ 아이콘 + 제목 + 설명 + CTA 버튼<br>✅ 반응형(태블릿/폰) 처리 완료
+      </div>
+    </div>
+
+    <!-- 문제 케이스: stats, home -->
+    <div class="phone-wrap">
+      <div class="phone-label label-issue">❌ 미흡 — stats_page / home_page</div>
+      <div class="phone">
+        <div class="appbar">
+          <span class="appbar-title gold" style="padding-left:8px;">운행 일지 통계</span>
+        </div>
+        <div class="phone-body">
+          <!-- 기간 선택 -->
+          <div class="card" style="display:flex; gap:6px; justify-content:center;">
+            <div style="font-size:11px; padding:5px 10px; background:var(--gold); color:#000; border-radius:20px; font-weight:700;">일간</div>
+            <div style="font-size:11px; padding:5px 10px; color:var(--text-secondary); border-radius:20px;">주간</div>
+            <div style="font-size:11px; padding:5px 10px; color:var(--text-secondary); border-radius:20px;">월간</div>
+          </div>
+          <!-- 날짜 선택 -->
+          <div style="display:flex; align-items:center; justify-content:center; gap:10px; font-size:12px; color:var(--gold);">
+            ‹  2026-06-04  ›
+          </div>
+          <!-- 텍스트만 있는 빈 상태 -->
+          <div style="flex:1; display:flex; align-items:center; justify-content:center;">
+            <div class="empty-text-only" style="font-size:13px;">데이터가 없습니다.</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; background:rgba(192,57,43,0.1); border:1px solid rgba(192,57,43,0.3); border-radius:10px; padding:10px 14px; font-size:12px; color:#e74c3c;">
+        ❌ 아이콘 없음, 설명 없음<br>❌ CTA 버튼 없음 (사용자 행동 유도 불가)<br>❌ single_call_card 대비 완성도 격차 큼
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 개선 후 stats empty state -->
+  <div style="margin-top:24px;">
+    <div style="font-size:14px; font-weight:700; margin-bottom:16px; color:var(--gold);">→ stats_page 빈 상태 개선 방향</div>
+    <div class="compare-grid">
+      <div>
+        <div class="phone-label label-fix" style="display:inline-block;">✅ 개선 후</div>
+        <div class="phone" style="width:100%; max-width:300px; margin:12px auto 0;">
+          <div class="appbar">
+            <span class="appbar-title gold" style="padding-left:8px;">운행 일지 통계</span>
+          </div>
+          <div class="phone-body">
+            <div class="card" style="display:flex; gap:6px; justify-content:center;">
+              <div style="font-size:11px; padding:5px 10px; background:var(--gold); color:#000; border-radius:20px; font-weight:700;">일간</div>
+              <div style="font-size:11px; padding:5px 10px; color:var(--text-secondary); border-radius:20px;">주간</div>
+              <div style="font-size:11px; padding:5px 10px; color:var(--text-secondary); border-radius:20px;">월간</div>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:10px; font-size:12px; color:var(--gold);">
+              ‹  2026-06-04  ›
+            </div>
+            <div class="empty-state" style="gap:8px; padding:8px 0;">
+              <div style="font-size:48px; color:var(--text-secondary);">📊</div>
+              <div class="empty-title" style="font-size:14px;">이 날의 운행 기록이 없습니다</div>
+              <div class="empty-desc" style="font-size:11px;">일지를 등록하면 통계가 표시됩니다</div>
+              <button class="empty-btn" style="font-size:11px; padding:7px 16px;">+ 일지 입력</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column; justify-content:center; gap:12px;">
+        <div class="code-block">
+<span class="c-comment">// 추출 권장: AppEmptyState 공통 위젯</span>
+<span class="c-blue">AppEmptyState</span>(
+  icon: Icons.bar_chart,
+  title: <span class="c-gold">'이 날의 운행 기록이 없습니다'</span>,
+  subtitle: <span class="c-gold">'일지를 등록하면 통계가 표시됩니다'</span>,
+  actionLabel: <span class="c-gold">'+ 일지 입력'</span>,
+  onAction: () => ...,
+)
+        </div>
+        <div class="explain" style="margin-top:0;">
+          <strong>핵심 개선 효과:</strong> <code>single_call_card_page</code>와 <code>multi_call_card_page</code>의 거의 동일한 96줄 코드를 <code>AppEmptyState</code> 위젯 하나로 합치고, stats/home 등 미흡한 화면에도 동일하게 적용하면 일관성이 완성됩니다.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================== ISSUE 4: write_log_page 카드 중복 구현 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <div>
+      <div class="section-title">write_log_page — BorderedSection 미사용</div>
+      <div class="section-desc">_buildInputGroup이 BorderedSection.decoration()과 동일한 내용을 직접 구현</div>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+    <div>
+      <div class="phone-label label-issue">❌ 현재 — 중복 BoxDecoration</div>
+      <div class="code-block" style="margin-top:8px;">
+<span class="c-comment">// write_log_page.dart _buildInputGroup</span>
+decoration: <span class="c-red">BoxDecoration</span>(
+  color: <span class="c-red">const Color(0xFF1F222A)</span>,
+  borderRadius: <span class="c-red">BorderRadius.circular(12)</span>,
+  border: <span class="c-red">Border.all(color: Colors.white10)</span>,
+)
+<span class="c-comment">// ↑ bordered_section.dart와 완전히 동일한 코드!</span>
+      </div>
+      <div style="margin-top:8px; background:rgba(192,57,43,0.1); border-radius:10px; padding:10px 14px; font-size:12px; color:#e74c3c; border:1px solid rgba(192,57,43,0.3);">
+        ❌ 나중에 카드 스타일이 바뀌면 두 곳을 따로 수정해야 함<br>
+        ❌ borderRadius 기본값(12)이 바뀌면 누락될 위험
+      </div>
+    </div>
+    <div>
+      <div class="phone-label label-fix">✅ 개선 후 — BorderedSection 재사용</div>
+      <div class="code-block" style="margin-top:8px;">
+<span class="c-comment">// 개선: BorderedSection.decoration() 재사용</span>
+decoration: <span class="c-green">BorderedSection.decoration()</span>,
+<span class="c-comment">// ↑ 단 한 줄로 동일한 스타일 적용</span>
+<span class="c-comment">// → 스타일 변경 시 bordered_section.dart만 수정하면 됨</span>
+      </div>
+      <div style="margin-top:8px; background:rgba(42,157,92,0.1); border-radius:10px; padding:10px 14px; font-size:12px; color:#2a9d5c; border:1px solid rgba(42,157,92,0.3);">
+        ✅ 단일 진실의 원천(Single Source of Truth)<br>
+        ✅ 나중에 스타일 변경 시 1곳만 수정
+      </div>
+    </div>
+  </div>
+
+  <!-- 일지 폼 카드 시각화 -->
+  <div style="margin-top:24px; display:flex; gap:20px; flex-wrap:wrap;">
+    <div class="phone" style="width:240px; flex-shrink:0;">
+      <div class="appbar">
+        <span class="appbar-back">←</span>
+        <span class="appbar-title gold">일지 작성</span>
+      </div>
+      <div class="phone-body" style="gap:8px;">
+        <div style="font-size:11px; color:var(--text-secondary);">📅 운행 일자</div>
+        <div class="card" style="padding:10px 12px; font-size:12px; color:var(--gold); border: 1px solid rgba(255,199,0,0.3);">
+          2026-06-04 (화)
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">🚖 출발 정보</div>
+        <div class="card" style="gap:6px; display:flex; flex-direction:column;">
+          <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:8px 10px; font-size:11px; border:1px solid rgba(255,255,255,0.06);">출발지 입력...</div>
+          <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:8px 10px; font-size:11px; border:1px solid rgba(255,255,255,0.06);">출발 시각 입력...</div>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary); margin-top:4px;">🏁 도착 정보</div>
+        <div class="card" style="gap:6px; display:flex; flex-direction:column;">
+          <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:8px 10px; font-size:11px; border:1px solid rgba(255,255,255,0.06);">도착지 입력...</div>
+          <div style="background:rgba(255,255,255,0.04); border-radius:8px; padding:8px 10px; font-size:11px; border:1px solid rgba(255,255,255,0.06);">도착 시각 입력...</div>
+        </div>
+        <div style="background:var(--gold); border-radius:10px; padding:10px; text-align:center; font-size:12px; font-weight:700; color:#000; margin-top:4px;">
+          ✓  저장
+        </div>
+      </div>
+    </div>
+    <div style="flex:1; min-width:240px; display:flex; flex-direction:column; justify-content:center;">
+      <div class="explain" style="margin-top:0;">
+        이 화면에서 각 섹션 카드(<b>출발 정보, 도착 정보</b> 등)의 <code>BoxDecoration</code>이 <code>BorderedSection.decoration()</code>와 완전히 동일한 값을 직접 하드코딩하고 있습니다. 지금은 문제없이 보이지만, 나중에 앱 전체 카드 스타일(둥글기, 색상 등)을 바꿀 때 이 화면만 빠질 수 있습니다.
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================== ISSUE 5: 여백 비표준값 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <div>
+      <div class="section-title">여백(Padding) — 비표준 수치 혼재 (낮은 우선순위)</div>
+      <div class="section-desc">표준 16/20px 체계 밖의 6px, 10px 등 미세 수치가 일부 화면에 혼재</div>
+    </div>
+  </div>
+
+  <div class="compare-grid">
+    <div>
+      <div class="phone-label label-warn" style="background:rgba(224,123,0,0.15); color:var(--warn); display:inline-block;">⚠ 현재 — 비표준 수치</div>
+      <div class="code-block" style="margin-top:12px;">
+<span class="c-comment">// write_log_page.dart 퀵패널 footer</span>
+EdgeInsets.fromLTRB(
+  isTablet ? 12.0 : <span class="c-red">8.0</span>,
+  isTablet ? 8.0  : <span class="c-red">6.0</span>,  <span class="c-comment">// 6px!</span>
+  isTablet ? 12.0 : <span class="c-red">8.0</span>,
+  isTablet ? 10.0 : <span class="c-red">8.0</span>,  <span class="c-comment">// 10px!</span>
+)
+
+<span class="c-comment">// home_page.dart YouTube 섹션</span>
+SizedBox(height: isTablet ? 8 : <span class="c-red">6</span>)    <span class="c-comment">// 6px</span>
+SizedBox(width:  isTablet ? 12 : <span class="c-red">10</span>)   <span class="c-comment">// 10px</span>
+
+<span class="c-comment">// settings_page.dart _buildVersionInfoSection</span>
+vertical: padding * <span class="c-red">0.75</span>  <span class="c-comment">// 16 × 0.75 = 12px</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="phone-label label-fix">✅ 개선 후 — AppSpacing 상수화</div>
+      <div class="code-block" style="margin-top:12px;">
+<span class="c-comment">// lib/constants/app_spacing.dart (신규)</span>
+<span class="c-blue">class</span> AppSpacing {
+  <span class="c-blue">static const</span> xs = <span class="c-gold">4.0</span>;
+  <span class="c-blue">static const</span> sm = <span class="c-gold">8.0</span>;
+  <span class="c-blue">static const</span> md = <span class="c-gold">16.0</span>;
+  <span class="c-blue">static const</span> lg = <span class="c-gold">20.0</span>;
+  <span class="c-blue">static const</span> xl = <span class="c-gold">24.0</span>;
+}
+
+<span class="c-comment">// 사용 예</span>
+EdgeInsets.all(<span class="c-green">AppSpacing.sm</span>)   <span class="c-comment">// 8px</span>
+SizedBox(height: <span class="c-green">AppSpacing.xs</span>) <span class="c-comment">// 4px</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================== 종합 요약 ============================== -->
+<div class="section">
+  <div class="section-header">
+    <div class="section-number">📊</div>
+    <div>
+      <div class="section-title">종합 개선 우선순위 요약</div>
+    </div>
+  </div>
+
+  <div style="background:var(--surface); border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.06);">
+    <table>
+      <tr>
+        <th>우선순위</th>
+        <th>개선 항목</th>
+        <th>수정 난이도</th>
+        <th>영향 범위</th>
+        <th>추천 접근법</th>
+      </tr>
+      <tr>
+        <td><span class="badge badge-err">🔴 높음</span></td>
+        <td>AppBar 타이틀 색상 (2개 화면)</td>
+        <td>⭐ 매우 쉬움</td>
+        <td>2개 파일</td>
+        <td>color: Colors.white → Color(0xFFFFC700)</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-err">🔴 높음</span></td>
+        <td>수입 색상 혼용 → AppColors 상수파일</td>
+        <td>⭐⭐ 쉬움</td>
+        <td>전체 화면</td>
+        <td>app_colors.dart 생성 후 일괄 치환</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-warn">🟡 중간</span></td>
+        <td>AppEmptyState 위젯 추출</td>
+        <td>⭐⭐⭐ 보통</td>
+        <td>4+ 화면</td>
+        <td>single/multi_call_card에서 추출 후 통일</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-warn">🟡 중간</span></td>
+        <td>write_log_page BorderedSection 재사용</td>
+        <td>⭐ 매우 쉬움</td>
+        <td>1개 파일</td>
+        <td>BoxDecoration → BorderedSection.decoration()</td>
+      </tr>
+      <tr>
+        <td><span class="badge badge-ok">🟢 낮음</span></td>
+        <td>AppSpacing 상수화</td>
+        <td>⭐⭐ 쉬움</td>
+        <td>전체 화면</td>
+        <td>app_spacing.dart 생성 (점진적 적용)</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="explain" style="margin-top:20px;">
+    <strong>결론:</strong> 전반적으로 디자인 일관성은 높은 편입니다. 위 5가지 개선점 중 가장 즉각적으로 보이는 변화는 <strong>①AppBar 타이틀 색상 통일</strong>과 <strong>②수입 색상 통일</strong>입니다. 코드 1~2줄 수정으로 시각적 일관성이 크게 향상됩니다.
+  </div>
+</div>
+
+</body>
+</html>

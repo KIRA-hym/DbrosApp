@@ -26,6 +26,7 @@ import '../utils/logi_colmanner_ocr.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
 import '../widgets/app_glass_dialog.dart';
+import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
@@ -1646,11 +1647,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   Widget _buildInputGroup(String title, IconData icon, List<Widget> children, {Widget? trailing}) {
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white10),
-      ),
+      decoration: BorderedSection.decoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
