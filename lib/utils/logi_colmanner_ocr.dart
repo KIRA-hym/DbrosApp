@@ -370,6 +370,25 @@ class LogiColmannerOcr {
     if (n.startsWith('요금') || n.startsWith('입금액')) return true;
     if (line.contains('운행시작') || line.contains('운행 시작')) return true;
     if (line.contains('법인명') || line.contains('할증요금') || line.contains('할증') || n == '적요') return true;
+    // 로지 콜카드 하단 기사 메모 노이즈 — 주소와 무관한 운영 지시 문구
+    if (line.contains('기사메모') || line.contains('상황실바로') || line.contains('오더잡으면')) return true;
+    if (line.contains('편도콜') || line.contains('대기료지급') || line.contains('자사기사')) return true;
+    // 업체 정산·입금 지시 메모 ("업체수동입금" 등 — '동' 자모가 주소 필터를 통과하는 오염 방지)
+    if (n.contains('수동입금')) return true;
+    // 고고콜 메모 패턴: "[고고 02-..." 형태
+    if (RegExp(r'^\[고고\s').hasMatch(line)) return true;
+    // 「후불n원/업체...」처럼 결제 방식+메모만 있는 줄
+    if (RegExp(r'^후불\d').hasMatch(n) || RegExp(r'^\*서명').hasMatch(line)) return true;
+    // 고객과의 거리 정보 — 공백 포함 패턴도 대응 ("고객과의 거리: 38O미터")
+    if (RegExp(r'고객과의\s*거리').hasMatch(line)) return true;
+    // 대괄호 콜센터 메모 — "[에이스(삼천사) 00-8997-7199 00:33]" 등
+    // 대괄호로 시작하고 전화번호 또는 시간이 포함된 줄
+    if (line.startsWith('[') &&
+        (RegExp(r'\d{2,4}-\d{3,4}-\d{4}').hasMatch(line) ||
+            RegExp(r'\d{2}:\d{2}\]$').hasMatch(line))) {
+      return true;
+    }
+
     return false;
   }
 
@@ -399,6 +418,9 @@ class LogiColmannerOcr {
     if (n == '||' || n.startsWith('경로')) return true;
     if (line.contains('운행시작연기')) return true;
     if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(line)) return true;
+    // 슬래시·%·특수문자 뒤에 시간 패턴이 오는 줄 필터
+    // 예: "/%22:20 화성영천동+" — 운행 시작 시각이 OCR에 섞여 들어온 노이즈
+    if (RegExp(r'^[^가-힣a-zA-Z0-9]*\d{1,2}:\d{2}').hasMatch(line)) return true;
     if (RegExp(r'^\d+\s*분\s*\d+\s*초').hasMatch(n)) return true;
     if (_isLogiCountdownRemainLine(line)) return true;
     if (_isLogiFareClassNoiseLine(line)) return true;
@@ -687,7 +709,14 @@ class LogiColmannerOcr {
 
     // 1. 콜마너/로지 공통 악성 노이즈 철벽 제거 (하단 UI 버튼 등 모든 시스템 문구)
     res = res.replaceAll(RegExp(r'\)\s*인천\s*송도동'), ')송도동');
-    res = res.replaceAll(RegExp(r'[Q|/\\{}<>]'), ' ');
+    // 한글 사이 마침표를 공백으로 변환 — Logi 주소 구분자 '.' 처리
+    // 예: '송도동.더샵송도센트럴3차' → '송도동 더샵송도센트럴3차'
+    res = res.replaceAllMapped(
+      RegExp(r'([가-힣])\.([가-힣])'),
+      (m) => '${m.group(1)} ${m.group(2)}',
+    );
+    res = res.replaceAll(RegExp(r'[Q|/\\{}<>@]'), ' ');
+
     // OCR 노이즈 ')' 제거: 한글/숫자 사이 닫는 괄호 (예: 가정동)가정로 → 가정동 가정로)
     res = res.replaceAllMapped(
       RegExp(r'([가-힣\d])\)([가-힣])'),
@@ -992,15 +1021,42 @@ class LogiColmannerOcr {
       final startText = groups[sangseIdx].join(' ');
       final endIdx = _indexOfLogiFinalDestinationGroup(groups, afterIndex: sangseIdx);
       final endText = groups[endIdx].join(' ');
-      // 상세: 그룹과 도착지 그룹이 동일한 경우(단일 그룹에 두 주소 혼합) 분할 시도
+      // 상세: 그룹과 도착지 그룹이 동일한 경우 — 상세: 이후에 도착지를 찾지 못한 상태
       if (endIdx == sangseIdx) {
+        // ① sangse 이전 그룹에서 도착지 후보 탐색
+        //    (Logi OCR 레이아웃에서 도착지가 상세: 블록보다 위에 표시되는 경우 대응)
+        //    예) groups[0]='인천 부평구 부평동)인천동수역' / groups[1]='상세:경기 남양주시...'
+        if (sangseIdx > 0) {
+          final preText = groups[sangseIdx - 1].join(' ');
+          // 상세: 를 포함하지 않는(= 별도 sangse 아님) 유의미한 주소 그룹인 경우만 사용
+          if (!preText.contains('상세:') && preText.trim().length >= 4) {
+            return (
+              start: _cleanAddr(startText, isLogi: true, isStart: true),
+              end: _cleanAddr(preText, isLogi: true, isStart: false),
+            );
+          }
+        }
+        // ② 폴백: 단일 텍스트 안에 두 주소가 혼합된 경우 분할 시도
         final split = _splitAddressText(startText, isLogi: true);
         if (split.end.isNotEmpty) return (start: split.start, end: split.end);
         return (start: _cleanAddr(startText, isLogi: true, isStart: true), end: '');
       }
+      // post-sangse 도착지가 부분 주소(광역 토큰 미포함)이고 sangse 이전에
+      // 도착지 그룹이 있으면 두 그룹을 병합하여 완전한 도착지를 구성한다.
+      // 예) groups[0]='경기 성남시 도촌동)성남도촌동' + groups[2]='섬마을1단지@'
+      //     → '경기 성남시 성남도촌동 섬마을1단지'
+      var resolvedEnd = endText;
+      if (sangseIdx > 0) {
+        final preText = groups[sangseIdx - 1].join(' ');
+        if (!preText.contains('상세:') &&
+            preText.trim().length >= 4 &&
+            _leadingMetroProvinceToken(endText) == null) {
+          resolvedEnd = '$preText $endText';
+        }
+      }
       return (
         start: _cleanAddr(startText, isLogi: true, isStart: true),
-        end: _cleanAddr(endText, isLogi: true, isStart: false),
+        end: _cleanAddr(resolvedEnd, isLogi: true, isStart: false),
       );
     }
 
@@ -1023,6 +1079,16 @@ class LogiColmannerOcr {
   static ({String start, String end}) _parseLogiLocationsMerged(List<String> lines) {
     final groups = <List<String>>[];
     List<String> currentGroup = [];
+
+    // pendingText 버퍼:
+    // currentGroup이 비어있는 상태(아직 주소 그룹 없음)에서 필터를 통과한
+    // 상호명·장소명 줄들을 임시로 보관한다.
+    // → 첫 번째 `상세:` 그룹이 시작될 때 그 앞에 붙여주어
+    //   `_joinHeadAndTailAfterFirstSangse`가 "상호명 상세:행정주소"를 올바르게 합칠 수 있게 한다.
+    // 예) "족발신선생 동탄영천점" → pendingText
+    //     "상세:경기 화성시 동탄구 영천동 704-10" → isSangse=true
+    //     → currentGroup = ["족발신선생 동탄영천점 상세:경기 화성시 동탄구 영천동 704-10"]
+    final pendingText = <String>[];
 
     for (final line in lines) {
       final t = line.trim();
@@ -1064,7 +1130,8 @@ class LogiColmannerOcr {
         continue;
       }
 
-      if (RegExp(r'^0\d{1,2}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
+      // 전화번호 필터: 일반(010/02)·안심번호(050x) 모두 커버
+      if (RegExp(r'^0\d{1,3}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
 
       final hasMetro = _leadingMetroProvinceToken(t) != null ||
           RegExp(r'(?:^|\s)${RemoteConfigService().regionPattern}').hasMatch(t);
@@ -1073,11 +1140,61 @@ class LogiColmannerOcr {
       if (hasMetro || isSangse) {
         if (currentGroup.isNotEmpty) {
           groups.add(currentGroup);
+          pendingText.clear(); // 기존 그룹이 있으면 pendingText 불필요
         }
-        currentGroup = [t];
+        // `상세:` 그룹 시작 시: pendingText(상호명)를 이 줄 앞에 붙인다.
+        // hasMetro이면서 동시에 isSangse인 경우는 pendingText 없이 그대로.
+        final lineWithPending = (pendingText.isNotEmpty && isSangse && !hasMetro)
+            ? '${pendingText.join(' ')} $t'
+            : t;
+        pendingText.clear();
+        currentGroup = [lineWithPending];
       } else if (currentGroup.isNotEmpty) {
-        if (t.length >= 2) {
+        // 주소 그룹에 append: 순수 노이즈성 짧은 UI 라벨 단어는 제외
+        // 예) 법인, 전화, 고객, 메모 같은 단어가 currentGroup에 섞이는 것 방지
+        final shouldSkip = t.length <= 3 &&
+            RegExp(r'^[가-힣]{1,3}$').hasMatch(t) &&
+            const {
+              '법인', '전화', '고객', '메모', '경로', '안내',
+              '완료', '배차', '갱신', '처리', '취소', '서명', '닫기'
+            }.contains(t);
+        // sangse 그룹 내 도착지 오염 방지
+        final inSangseGroup = currentGroup.any((e) => e.contains('상세:'));
+        // ① Logi @-어노테이션 도착지 줄 → append 제외 ("섬마을1단지@" 등)
+        //    @는 Logi 전용 마커로 주소에 사용되지 않으므로 sangse 그룹에 넣지 않는다.
+        final isAtAnnotation = inSangseGroup && t.contains('@');
+        // ② 줄 안에 ")광역시" 패턴이 포함된 도착지 블록 → 새 그룹으로 분리
+        //    예: "송도동)인천송도동.더샵송도센트럴3차" (인천이 ')' 뒤에 위치)
+        //    단순 아파트명("한양아파트")은 ')metro' 패턴이 없으므로 미발동.
+        final hasEmbeddedMetro = inSangseGroup &&
+            RegExp(
+              r'\)(?:서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
+            ).hasMatch(t) &&
+            _looksLikeLogiFinalDestinationGroup(t);
+        if (!shouldSkip && !isAtAnnotation && !hasEmbeddedMetro && t.length >= 2) {
           currentGroup.add(t);
+        } else if (isAtAnnotation || hasEmbeddedMetro) {
+          // @-어노테이션(섬마을1단지@ 등) 및 내장 metro 패턴 모두 →
+          // 현재 sangse 그룹을 저장하고 도착지 후보로 새 그룹 시작
+          groups.add(currentGroup);
+          pendingText.clear();
+          currentGroup = [t];
+        }
+      } else {
+        // currentGroup이 비어있고 필터를 통과한 줄
+        // → 상호명이나 장소명일 가능성이 높으므로 pendingText에 보관
+        // 안전 조건: 주소처럼 보이고, metro 아님, 대괄호·전화번호·거리정보 미포함
+        final isPendingCandidate = _looksLikeAddressLine(t) &&
+            !hasMetro &&
+            t.length >= 4 &&
+            !t.startsWith('[') && // "[에이스(삼천사)...]" 등 대괄호 콜메모 제외
+            !t.startsWith('*') && // 별표 시작 지시 메모 제외 ("*배차후전화연락금지..." 등)
+            !t.contains('**') && // 이중 별표 강조 메모 제외 ("서명필수**..." 등)
+            !t.contains('+') && // '+' 포함 줄 제외 — Logi에서 '+'는 경유 구분자 ("여의도+정곡빌딩" 등)
+            !RegExp(r'\d{2,4}-\d{3,4}-\d{4}').hasMatch(t) && // 전화번호 포함 줄 제외
+            !RegExp(r'고객과의\s*거리').hasMatch(t); // 거리 정보 줄 제외
+        if (isPendingCandidate) {
+          pendingText.add(t);
         }
       }
     }
