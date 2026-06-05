@@ -20,6 +20,8 @@ import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
+import 'my_info_page.dart';
+import 'notice_list_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
@@ -224,7 +226,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
     final padding = ResponsiveLayout.horizontalPadding(context);
-    final titleFontSize = isExpanded ? 20.0 : 18.0;
     final sectionGap = isExpanded ? 14.0 : 10.0;
 
     return Stack(
@@ -234,70 +235,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           appBar: AppBar(
             backgroundColor: const Color(0xFF121418),
             elevation: 0,
-            titleSpacing: 20.0,
-            title: LayoutBuilder(
-              builder: (context, constraints) {
-                return Row(
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: SizedBox(
-                        height: titleFontSize + 70,
-                        child: Image.asset(
-                          'assets/title.png',
-                          fit: BoxFit.contain,
-                          alignment: Alignment.centerLeft,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.only(
-                          top: 30.0,
-                          left: 4.0,
-                          right: 4.0,
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: InkWell(
-                            onTap: () {
-                              if (!SettingsService.isOwnerMode) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('운행 일지 관리는 오너 권한이 필요합니다.'),
-                                    backgroundColor: Color(0xFF1F222A),
-                                    duration: Duration(seconds: 2),
-                                  ),
-                                );
-                                return;
-                              }
-                              Navigator.push<void>(
-                                context,
-                                MaterialPageRoute<void>(
-                                  settings: const RouteSettings(
-                                    name: '/expense_main',
-                                  ),
-                                  builder: (_) => const ExpenseMainWrapper(),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              "운행 일지 관리",
-                              style: Theme.of(context).textTheme.titleLarge
-                                  ?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                    color: SettingsService.isOwnerMode
-                                        ? const Color(0xFFFFC700)
-                                        : const Color(0xFF6E717C),
-                                    fontSize: 20.0,
-                                  ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 );
               },
             ),
@@ -350,18 +287,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          Expanded(
-                                            flex: 10,
-                                            child: _buildQuickActions(),
+                                          SizedBox(
+                                            height: 60,
+                                            child: _buildUtilsRow(),
                                           ),
                                           SizedBox(height: sectionGap),
                                           Expanded(
-                                            flex: 10,
-                                            child: _buildRecentLogSection(),
+                                            flex: 12,
+                                            child: _buildRegisterRow(),
                                           ),
                                           SizedBox(height: sectionGap),
                                           Expanded(
-                                            flex: 6,
+                                            flex: 8,
                                             child: _buildYoutubeSection(),
                                           ),
                                         ],
@@ -375,22 +312,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Expanded(
-                                    flex: 34,
+                                    flex: 38,
                                     child: _buildTodaySummaryCard(),
                                   ),
                                   SizedBox(height: sectionGap),
-                                  Expanded(
-                                    flex: 24,
-                                    child: _buildQuickActions(),
+                                  SizedBox(
+                                    height: 60,
+                                    child: _buildUtilsRow(),
                                   ),
                                   SizedBox(height: sectionGap),
                                   Expanded(
-                                    flex: 20,
-                                    child: _buildRecentLogSection(),
+                                    flex: 28,
+                                    child: _buildRegisterRow(),
                                   ),
                                   SizedBox(height: sectionGap),
                                   Expanded(
-                                    flex: 14,
+                                    flex: 18,
                                     child: _buildYoutubeSection(),
                                   ),
                                 ],
@@ -615,12 +552,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           Expanded(
                             child: _buildMirrorSummaryCell(
                               context: context,
-                              icon: Icons.payments_outlined,
-                              label: '오늘 지출',
-                              value: NumberFormat(
-                                '#,###',
-                              ).format(statsProvider.todayExpenses),
-                              valueColor: const Color(0xFFFF5252),
+                              icon: Icons.local_taxi,
+                              label: '운행 건수',
+                              value: '${statsProvider.todayLogs}건',
+                              valueColor: const Color(0xFFFFC700),
                               metrics: m,
                             ),
                           ),
@@ -628,10 +563,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           Expanded(
                             child: _buildMirrorSummaryCell(
                               context: context,
-                              icon: Icons.local_taxi,
-                              label: '운행 건수',
-                              value: '${statsProvider.todayLogs}건',
-                              valueColor: const Color(0xFFFFC700),
+                              icon: Icons.payments_outlined,
+                              label: '오늘 지출',
+                              value: NumberFormat(
+                                '#,###',
+                              ).format(statsProvider.todayExpenses),
+                              valueColor: const Color(0xFFFF5252),
                               metrics: m,
                             ),
                           ),
@@ -804,97 +741,124 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return (textFs: textFs, iconSz: iconSz, gap: gap, waitingBtnH: waitingBtnH);
   }
 
-  Widget _buildQuickActions() {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final outerPadding = isTablet ? 20.0 : 16.0;
-
-    return Container(
-      decoration: BorderedSection.decoration(),
-      clipBehavior: Clip.antiAlias,
-      padding: EdgeInsets.all(outerPadding),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final q = _homeQuickActionsMetrics(
-            constraints.maxWidth,
-            constraints.maxHeight,
-          );
-          final textFs = isTablet ? q.textFs + 5.0 : q.textFs;
-
-          final isNarrow = constraints.maxHeight < 140;
-          final singleLabel = isNarrow ? '콜카드 단건등록' : '콜카드\n단건등록';
-          final multiLabel = isNarrow ? '콜카드 다중등록' : '콜카드\n다중등록';
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _quickActionButton(
-                        Icons.credit_card,
-                        singleLabel,
-                        textFs,
-                        q.iconSz,
-                        () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SingleCallCardForm(),
-                            ),
-                          );
-                          TodayStatsProvider.instance.refresh();
-                        },
-                      ),
-                    ),
-                    SizedBox(width: q.gap),
-                    Expanded(
-                      child: _quickActionButton(
-                        Icons.credit_card,
-                        multiLabel,
-                        textFs,
-                        q.iconSz,
-                        () async {
-                          await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const MultiCallCardForm(),
-                            ),
-                          );
-                          TodayStatsProvider.instance.refresh();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _buildUtilsRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () => WaitingFeeBottomSheet.show(context),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F222A),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFFC700)),
               ),
-              SizedBox(height: q.gap),
-              SizedBox(
-                height: q.waitingBtnH,
-                child: OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFFC700),
-                    side: const BorderSide(color: Color(0xFFFFC700)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () => WaitingFeeBottomSheet.show(context),
-                  icon: Icon(Icons.timer_outlined, size: textFs * 1.2),
-                  label: Text(
-                    '대기비용 계산',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: textFs,
-                    ),
-                  ),
-                ),
+              alignment: Alignment.center,
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.timer_outlined, color: Color(0xFFFFC700), size: 20),
+                  SizedBox(width: 6),
+                  Text('대기비용 계산', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InkWell(
+            onTap: () {
+              if (!kMapFeaturesEnabled) return;
+              ProFeatureGuard.checkAndRun(
+                context: context,
+                featureKey: 'call_map',
+                canUseFree: FeatureUsageService.canUseCallMapFree,
+                canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
+                onGranted: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPointMapPage()));
+                },
+              );
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F222A),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFFFC700)),
+              ),
+              alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
+                  const SizedBox(width: 6),
+                  Text('주변 콜맵', style: TextStyle(color: kMapFeaturesEnabled ? const Color(0xFFFFC700) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRegisterRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
+              TodayStatsProvider.instance.refresh();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F222A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF2C2F36)),
+              ),
+              alignment: Alignment.center,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.credit_card, color: Color(0xFFFFC700), size: 32),
+                  SizedBox(height: 10),
+                  Text('콜카드 단건등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InkWell(
+            onTap: () async {
+              await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
+              TodayStatsProvider.instance.refresh();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1F222A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF2C2F36)),
+              ),
+              alignment: Alignment.center,
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.library_add_check, color: Color(0xFFFFC700), size: 32),
+                  SizedBox(height: 10),
+                  Text('콜카드 다중등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

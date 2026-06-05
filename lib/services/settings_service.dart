@@ -216,16 +216,32 @@ class SettingsService {
     _showFloatingButtonsNotifier.value = value;
   }
 
-  /// 상태바 고정 알림 + 이후 퀵 기능 마스터 (Android 중심).
-  static bool get statusBarQuickEnabled => _prefs.getBool('statusBarQuickEnabled') ?? true;
+  static bool get statusBarQuickEnabled {
+    if (!isFeatureUnlocked()) return false;
+    return _prefs.getBool('statusBarQuickEnabled') ?? false;
+  }
   static Future<void> setStatusBarQuickEnabled(bool value) async =>
       await _prefs.setBool('statusBarQuickEnabled', value);
 
-  /// 스크린샷 감시 → OCR 자동 등록 (Android). 끄면 리스너를 해제한다.
-  static bool get screenshotAutoRegisterEnabled =>
-      _prefs.getBool('screenshotAutoRegisterEnabled') ?? true;
+  static bool get screenshotAutoRegisterEnabled {
+    if (!isFeatureUnlocked()) return false;
+    return _prefs.getBool('screenshotAutoRegisterEnabled') ?? false;
+  }
   static Future<void> setScreenshotAutoRegisterEnabled(bool value) async =>
       await _prefs.setBool('screenshotAutoRegisterEnabled', value);
+
+  static bool isFeatureUnlocked() {
+    final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
+    if (expireMs == 0) return false;
+    return DateTime.now().millisecondsSinceEpoch <= expireMs;
+  }
+
+  static Future<void> unlockFeaturesByAd() async {
+    final expireMs = DateTime.now().millisecondsSinceEpoch + (3 * 60 * 60 * 1000); // 3 hours
+    await _prefs.setInt('adRewardExpireMs', expireMs);
+  }
+  
+  static int get adRewardExpireMs => _prefs.getInt('adRewardExpireMs') ?? 0;
 
   static Future<void> addProgram(String program) async {
     final currentList = programList;

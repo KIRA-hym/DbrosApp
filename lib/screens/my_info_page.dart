@@ -80,6 +80,19 @@ class MyInfoPage extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => _handleDeleteAccount(context),
+                child: Text(
+                  '회원 탈퇴',
+                  style: TextStyle(
+                    fontSize: FontSizeService.getScaledFontSize(14),
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF6E717C),
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
             ],
           );
         },
@@ -133,8 +146,44 @@ class MyInfoPage extends StatelessWidget {
 
     if (confirm == true) {
       await AuthService.instance.signOut();
-      // 로그아웃 시 AuthService 상태가 unauthenticated로 바뀌고,
-      // main.dart의 Consumer가 이를 감지하여 자동으로 LoginPage로 이동함.
+    }
+  }
+
+  void _handleDeleteAccount(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1F222A),
+        title: const Text('회원 탈퇴', style: TextStyle(color: Color(0xFFFF5252))),
+        content: const Text(
+          '정말 탈퇴하시겠습니까?\n\n탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.\n\n⚠️ 주의: 앱스토어/플레이스토어에서 정기 구독 중인 상품이 있다면, 스토어에서 직접 구독을 해지하셔야 추가 결제가 발생하지 않습니다.',
+          style: TextStyle(color: Colors.white70, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('탈퇴하기', style: TextStyle(color: Color(0xFFFF5252))),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await AuthService.instance.deleteAccount();
+      } catch (e) {
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('탈퇴 처리에 실패했습니다. 재로그인 후 다시 시도해주세요.\n($e)'),
+            backgroundColor: const Color(0xFFFF5252),
+          ),
+        );
+      }
     }
   }
 }

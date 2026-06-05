@@ -642,36 +642,28 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
-              if (kMonetizationEnabled && value && !SettingsService.isPremiumUser) {
-                AppGlassDialog.show(
-                  context: context,
-                  dialog: AppGlassDialog(
-                    icon: Icons.workspace_premium,
-                    titleWidget: const Text(
-                      '👑 구독 전용 기능',
-                      style: TextStyle(
-                        fontFamily: 'GmarketSans',
-                        color: Color(0xFFFFC700),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
+              if (value && !SettingsService.isFeatureUnlocked()) {
+                _showAdRewardDialog(context, () async {
+                  final status = await Permission.notification.request();
+                  if (!status.isGranted) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('알림 권한이 필요합니다. 허용해야 백그라운드 감지 알림이 표시됩니다.'),
                       ),
-                    ),
-                    content: '구독 전용 기능입니다.\n업그레이드하고 편리하게 이용해 보세요!',
-                    actions: [
-                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
-                      Builder(
-                        builder: (ctx) => ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC700), foregroundColor: Colors.black),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            // TODO: Navigate to PRO purchase page
-                          },
-                          child: const Text('구독 알아보기'),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
+                    );
+                    return;
+                  }
+                  await SettingsService.setScreenshotAutoRegisterEnabled(true);
+                  await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+                  if (!mounted) return;
+                  setState(() {
+                    _screenshotAutoRegisterEnabled = SettingsService.screenshotAutoRegisterEnabled;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('스크린샷 자동저장이 켜졌습니다.')),
+                  );
+                });
                 return;
               }
 
@@ -1033,6 +1025,24 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _statusBarQuickEnabled,
             activeThumbColor: const Color(0xFFFFC700),
             onChanged: (value) async {
+              if (value && !SettingsService.isFeatureUnlocked()) {
+                _showAdRewardDialog(context, () async {
+                  final status = await Permission.notification.request();
+                  if (!status.isGranted) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요.")),
+                    );
+                    return;
+                  }
+                  await SettingsService.setStatusBarQuickEnabled(true);
+                  await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+                  if (!mounted) return;
+                  setState(() => _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled);
+                });
+                return;
+              }
+
               if (value) {
                 final status = await Permission.notification.request();
                 if (!status.isGranted) {
@@ -1416,6 +1426,51 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+  }
+
+  Future<void> _showAdRewardDialog(BuildContext context, VoidCallback onSuccess) async {
+    final confirm = await AppGlassDialog.show<bool>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.ondemand_video,
+        title: '기능 일시 잠금 해제',
+        content: '30초 광고를 시청하시면 3시간 동안 해당 기능을 무료로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?',
+        actions: [
+          Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false), label: '취소')),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              label: '시청하기',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      if (!context.mounted) return;
+      // TODO: 실제 리워드 광고 연동 (google_mobile_ads)
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: const Color(0xFF1F222A),
+          content: Row(
+            children: const [
+              CircularProgressIndicator(color: Color(0xFFFFC700)),
+              SizedBox(width: 16),
+              Text('광고 시청 중... (테스트)', style: TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      );
+      await Future.delayed(const Duration(seconds: 2));
+      if (!context.mounted) return;
+      Navigator.pop(context); // 닫기
+
+      await SettingsService.unlockFeaturesByAd();
+      onSuccess();
+    }
   }
 }
 

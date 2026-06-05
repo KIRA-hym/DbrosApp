@@ -129,4 +129,23 @@ class AuthService extends ChangeNotifier {
     await _googleSignIn.signOut();
     await _auth.signOut();
   }
+
+  Future<void> deleteAccount() async {
+    try {
+      final user = _auth.currentUser;
+      if (user != null) {
+        // 1. Firestore에서 유저 데이터 삭제
+        await _firestore.collection('users').doc(user.uid).delete();
+        
+        // 2. Firebase Auth에서 계정 삭제
+        await user.delete();
+        
+        // 3. 로그아웃 (상태 초기화)
+        await signOut();
+      }
+    } catch (e) {
+      debugPrint("회원 탈퇴 실패: $e");
+      rethrow;
+    }
+  }
 }
