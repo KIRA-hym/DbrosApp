@@ -107,6 +107,21 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signInWithGoogle() async {
     try {
+      if (kIsWeb) {
+        // 웹 프리뷰 테스트용 가상 로그인 처리
+        _status = AuthStatus.authenticated;
+        _userDoc = {
+          'uid': 'web_dummy_user',
+          'email': 'test@example.com',
+          'displayName': '웹 테스트 유저',
+          'photoURL': '',
+          'isBanned': false,
+          'isAdmin': false,
+        };
+        notifyListeners();
+        return;
+      }
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
       if (googleUser == null) return; // 사용자가 취소함
 

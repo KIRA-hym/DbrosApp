@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../widgets/ad_banner_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -20,8 +21,6 @@ import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
-import 'my_info_page.dart';
-import 'notice_list_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
@@ -226,6 +225,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
     final padding = ResponsiveLayout.horizontalPadding(context);
+    final titleFontSize = isExpanded ? 20.0 : 18.0;
     final sectionGap = isExpanded ? 14.0 : 10.0;
 
     return Stack(
@@ -235,10 +235,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           appBar: AppBar(
             backgroundColor: const Color(0xFF121418),
             elevation: 0,
-                );
-              },
+            toolbarHeight: 70,
+            automaticallyImplyLeading: false,
+            titleSpacing: 0,
+            title: SizedBox(
+              height: 70, // Match toolbar height
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: padding,
+                    child: InkWell(
+                      onTap: () {},
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Icon(Icons.account_circle, color: Colors.white, size: 40),
+                    ),
+                  ),
+                  SizedBox(
+                    height: titleFontSize + 40,
+                    child: Image.asset(
+                      'assets/title.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  Positioned(
+                    right: padding,
+                    child: InkWell(
+                      onTap: () {},
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            centerTitle: false,
           ),
           body: Stack(
             children: [
@@ -266,10 +297,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          Expanded(
-                                            flex: 11,
-                                            child: _buildTodaySummaryCard(),
-                                          ),
+                                          _buildTodaySummaryCard(),
                                           SizedBox(height: sectionGap),
                                           Expanded(
                                             flex: 13,
@@ -292,13 +320,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             child: _buildUtilsRow(),
                                           ),
                                           SizedBox(height: sectionGap),
-                                          Expanded(
-                                            flex: 12,
+                                          SizedBox(
+                                            height: 85,
                                             child: _buildRegisterRow(),
                                           ),
                                           SizedBox(height: sectionGap),
+                                          const AdBannerWidget(),
+                                          SizedBox(height: sectionGap),
                                           Expanded(
-                                            flex: 8,
                                             child: _buildYoutubeSection(),
                                           ),
                                         ],
@@ -311,23 +340,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Expanded(
-                                    flex: 38,
-                                    child: _buildTodaySummaryCard(),
-                                  ),
+                                  _buildTodaySummaryCard(),
                                   SizedBox(height: sectionGap),
                                   SizedBox(
                                     height: 60,
                                     child: _buildUtilsRow(),
                                   ),
                                   SizedBox(height: sectionGap),
-                                  Expanded(
-                                    flex: 28,
+                                  SizedBox(
+                                    height: 85,
                                     child: _buildRegisterRow(),
                                   ),
                                   SizedBox(height: sectionGap),
+                                  const AdBannerWidget(),
+                                  SizedBox(height: sectionGap),
                                   Expanded(
-                                    flex: 18,
                                     child: _buildYoutubeSection(),
                                   ),
                                 ],
@@ -481,264 +508,154 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildTodaySummaryCard() {
     final statsProvider = Provider.of<TodayStatsProvider>(context);
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final outerPad = isTablet ? 24.0 : 16.0;
-
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final String dateCompact = DateFormat('M월 d일').format(workDay);
-    final String weekdayLong = DateFormat('EEEE', 'ko').format(workDay);
+    final String dateFull = "${workDay.year}년 ${workDay.month}월 ${workDay.day}일 (${DateFormat('E', 'ko').format(workDay)})";
 
     return Container(
-      decoration: BorderedSection.decoration(),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1F222A),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF2C2F36)),
+      ),
       clipBehavior: Clip.antiAlias,
       child: Material(
-        color: const Color(0xFF1F222A),
-        clipBehavior: Clip.antiAlias,
+        color: Colors.transparent,
         child: InkWell(
           onTap: _openTodayDailyList,
           splashColor: const Color(0xFFFFC700).withValues(alpha: 0.12),
           highlightColor: Colors.white10,
           child: Padding(
-            padding: EdgeInsets.all(outerPad),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final titleFs = ResponsiveLayout.sectionTitleFontSize(context);
-                final valueFs = ResponsiveLayout.summaryValueFontSize(context);
-                final m = _homeSummaryGridMetrics(
-                  context,
-                  constraints.maxWidth,
-                  constraints.maxHeight,
-                  titleFs,
-                  valueFs,
-                );
-
-                return Column(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _buildSummaryTextCell(
-                              context: context,
-                              metrics: m,
-                              title: '오늘 순익',
-                              value: NumberFormat(
-                                '#,###',
-                              ).format(statsProvider.todayNet),
-                              valueColor: const Color(0xFFFFC700),
-                              icon: Icons.account_balance_wallet,
-                            ),
-                          ),
-                          SizedBox(width: m.colGap),
-                          Expanded(
-                            child: _buildSummaryTextCell(
-                              context: context,
-                              metrics: m,
-                              title: dateCompact,
-                              value: weekdayLong,
-                              valueColor: Colors.white,
-                              icon: Icons.calendar_today,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      dateFull,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    SizedBox(height: m.rowGap),
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _buildMirrorSummaryCell(
-                              context: context,
-                              icon: Icons.local_taxi,
-                              label: '운행 건수',
-                              value: '${statsProvider.todayLogs}건',
-                              valueColor: const Color(0xFFFFC700),
-                              metrics: m,
-                            ),
-                          ),
-                          SizedBox(width: m.colGap),
-                          Expanded(
-                            child: _buildMirrorSummaryCell(
-                              context: context,
-                              icon: Icons.payments_outlined,
-                              label: '오늘 지출',
-                              value: NumberFormat(
-                                '#,###',
-                              ).format(statsProvider.todayExpenses),
-                              valueColor: const Color(0xFFFF5252),
-                              metrics: m,
-                            ),
-                          ),
-                        ],
-                      ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white,
+                      size: 14,
                     ),
                   ],
-                );
-              },
+                ),
+                const SizedBox(height: 20),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text(
+                      '오늘 순익',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          NumberFormat('#,###').format(statsProvider.todayNet),
+                          style: const TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontSize: 34,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '원',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '운행건수',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              '${statsProvider.todayLogs}건',
+                              style: const TextStyle(
+                                color: Color(0xFF4DABF7),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 24,
+                        color: Colors.white.withValues(alpha: 0.1),
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                      ),
+                      Expanded(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              '지출',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              '${NumberFormat('#,###').format(statsProvider.todayExpenses)}원',
+                              style: const TextStyle(
+                                color: Color(0xFFFF5252),
+                                fontWeight: FontWeight.w700,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
-  }
-
-  Widget _buildSummaryTextCell({
-    required BuildContext context,
-    required ({
-      double cell,
-      double rowGap,
-      double colGap,
-      double innerPad,
-      double titleTopInset,
-      double titleFs,
-      double valueFs,
-      double iconSz,
-      double headerBlockH,
-      double valueGap,
-    })
-    metrics,
-    required String title,
-    required String value,
-    required Color valueColor,
-    IconData? icon,
-  }) {
-    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
-    final titleFs = metrics.titleFs + (isExpanded ? 0.0 : 2.0);
-    final valueFs = metrics.valueFs + (isExpanded ? 0.0 : 2.0);
-    final hPad = isExpanded ? 24.0 : 16.0;
-    final vPad = isExpanded ? 20.0 : 14.0;
-    final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFs * 0.3);
-    const titleTopInset = 4.0;
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final h = constraints.maxHeight;
-        final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFs);
-        final scaledValue = ResponsiveLayout.layoutFontSize(context, valueFs);
-        final minContentH =
-            scaledTitle * 1.12 +
-            innerGap +
-            scaledValue * 1.12 +
-            vPad * 2 +
-            titleTopInset;
-        final scale = (!h.isFinite || h <= 0 || h >= minContentH)
-            ? 1.0
-            : (h / minContentH).clamp(0.72, 1.0);
-        final effTitleFs = titleFs * scale;
-        final effValueFs = effTitleFs + (2.0 * scale);
-        final effVPad = (vPad * scale).clamp(2.0, vPad);
-        final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
-        final effGap = (innerGap * scale).clamp(1.0, innerGap);
-
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: const Color(0xFF16181D),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(
-                      icon,
-                      color: const Color(0xFFFFC700),
-                      size: effTitleFs * 1.2,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Text(
-                      title,
-                      textAlign: TextAlign.right,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _homeSummaryTitleStyle(context).copyWith(
-                        fontSize: effTitleFs,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: effGap),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.bottomRight,
-                        child: Text(
-                          value,
-                          textAlign: TextAlign.right,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: _homeSummaryValueStyle(
-                            context,
-                            color: valueColor,
-                          ).copyWith(fontSize: effValueFs),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildMirrorSummaryCell({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required String value,
-    required Color valueColor,
-    required ({
-      double cell,
-      double rowGap,
-      double colGap,
-      double innerPad,
-      double titleTopInset,
-      double titleFs,
-      double valueFs,
-      double iconSz,
-      double headerBlockH,
-      double valueGap,
-    })
-    metrics,
-  }) {
-    return _buildSummaryTextCell(
-      context: context,
-      metrics: metrics,
-      title: label,
-      value: value,
-      valueColor: valueColor,
-      icon: icon,
-    );
-  }
-
-  ({double textFs, double iconSz, double gap, double waitingBtnH})
-  _homeQuickActionsMetrics(double w, double h) {
-    final gap = (w * 0.025).clamp(8.0, 12.0);
-    final waitingBtnH = (h * 0.24).clamp(36.0, 48.0);
-    final topH = math.max(48.0, h - gap - waitingBtnH);
-    final cw = (w - gap) / 2;
-    final cell = math.min(cw, topH);
-    const textFs = 14.0;
-    final iconSz = (cell * 0.22).clamp(22.0, 36.0);
-    return (textFs: textFs, iconSz: iconSz, gap: gap, waitingBtnH: waitingBtnH);
   }
 
   Widget _buildUtilsRow() {

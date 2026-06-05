@@ -46,7 +46,18 @@ import 'services/shorebird_update_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
-    await Firebase.initializeApp();
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: 'dummy_api_key_for_web_preview',
+          appId: '1:1234567890:web:abcdef123456',
+          messagingSenderId: '1234567890',
+          projectId: 'dbros-dummy-project',
+        ),
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
     await RemoteConfigService().initialize();
     await FcmService.instance.init();
   } catch (e) {
