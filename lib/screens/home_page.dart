@@ -236,38 +236,37 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFF121418),
             elevation: 0,
             toolbarHeight: 70,
-            automaticallyImplyLeading: false,
-            titleSpacing: 0,
+            leadingWidth: padding + 40,
+            leading: Padding(
+              padding: EdgeInsets.only(left: padding),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InkWell(
+                  onTap: () {},
+                  borderRadius: BorderRadius.circular(20),
+                  child: const Icon(Icons.account_circle, color: Colors.white, size: 40),
+                ),
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: EdgeInsets.only(right: padding),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: InkWell(
+                    onTap: () {},
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
+                  ),
+                ),
+              ),
+            ],
+            centerTitle: true,
             title: SizedBox(
-              height: 70, // Match toolbar height
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned(
-                    left: padding,
-                    child: InkWell(
-                      onTap: () {},
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Icon(Icons.account_circle, color: Colors.white, size: 40),
-                    ),
-                  ),
-                  SizedBox(
-                    height: titleFontSize + 40,
-                    child: Image.asset(
-                      'assets/title.png',
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                  Positioned(
-                    right: padding,
-                    child: InkWell(
-                      onTap: () {},
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
-                    ),
-                  ),
-                ],
+              height: titleFontSize + 40,
+              child: Image.asset(
+                'assets/title.png',
+                fit: BoxFit.contain,
               ),
             ),
           ),
