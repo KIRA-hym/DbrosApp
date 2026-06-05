@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dbros App - 홈 화면 목업</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f3f4f6;
+            --surface: #ffffff;
+            --text-main: #1f2937;
+            --danger: #ef4444;
+            --appbar-bg: #1e293b;
+            --primary: #2563eb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Pretendard', sans-serif;
+        }
+
+        body {
+            background-color: #e5e7eb;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            background-color: var(--bg-color);
+            height: 800px;
+            max-height: 100vh;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 24px;
+            position: relative;
+        }
+
+        /* 상단 App Bar */
+        .app-bar {
+            background-color: var(--appbar-bg);
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 64px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            z-index: 10;
+        }
+
+        .profile-container {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: #475569;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+        }
+        .profile-container img { width: 100%; height: 100%; object-fit: cover; }
+
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .logo-text { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.5px; }
+        .subtitle { font-size: 0.65rem; color: rgba(255, 255, 255, 0.85); margin-top: 2px; font-weight: 400; }
+
+        .action-container {
+            width: 36px;
+            height: 36px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+        .action-container:active { background-color: rgba(255,255,255,0.1); }
+        .action-container svg { width: 24px; height: 24px; }
+        .badge {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--danger);
+            border-radius: 50%;
+            border: 2px solid var(--appbar-bg);
+        }
+
+        /* 메인 콘텐츠 영역 (스크롤 가능) */
+        .content {
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        /* 스크롤바 숨기기 */
+        .content::-webkit-scrollbar { display: none; }
+        .content { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* 0. 일일 요약 카드 */
+        .summary-card {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            color: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 20px -5px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #cbd5e1;
+        }
+        .summary-header .date { font-weight: 600; color: #f8fafc; }
+        .more-icon { width: 16px; height: 16px; cursor: pointer; }
+        
+        .profit-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+        .profit-section .label {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        .profit-section .amount {
+            font-size: 2.2rem;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1.1;
+        }
+        .profit-section .amount span {
+            font-size: 1.1rem;
+            font-weight: 500;
+            margin-left: 4px;
+        }
+
+        .stats-row {
+            display: flex;
+            background-color: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            align-items: center;
+        }
+        .stat-item {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-item:first-child { padding-right: 16px; }
+        .stat-item:last-child { padding-left: 16px; }
+        .divider {
+            width: 1px;
+            height: 24px;
+            background-color: rgba(255,255,255,0.2);
+        }
+        .stat-label { font-size: 0.8rem; color: #cbd5e1; }
+        .stat-value { font-size: 0.95rem; font-weight: 600; }
+        .text-danger { color: #fca5a5; }
+        .text-primary { color: #93c5fd; }
+
+
+        /* 1행: 대기비용 & 주변콜맵 (작게 60px) */
+        .row-utils {
+            height: 60px;
+            display: flex; gap: 12px;
+        }
+        .row-utils > div {
+            flex: 1; border-radius: 16px;
+            display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
+            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            font-weight: 600; font-size: 0.85rem; transition: all 0.2s;
+        }
+        .row-utils > div:active { transform: scale(0.97); }
+
+        .btn-wait-cost {
+            background: linear-gradient(145deg, #10b981, #059669); color: white;
+            border: none; box-shadow: 0 4px 10px -3px rgba(16, 185, 129, 0.3);
+        }
+        .btn-map {
+            background-color: var(--surface); color: var(--text-main); border: 1px solid #e5e7eb;
+        }
+        .btn-map svg { width: 18px; height: 18px; color: #f59e0b; }
+
+
+        /* 2행: 단건 / 다중 등록 (크게 110px) */
+        .row-register {
+            height: 110px;
+            display: flex; gap: 12px;
+        }
+        .row-register > div {
+            flex: 1; border-radius: 16px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            font-weight: 700; font-size: 1rem; transition: all 0.2s;
+            border: 1px solid #f3f4f6;
+        }
+        .row-register > div:active { transform: scale(0.97); }
+        .row-register svg { width: 32px; height: 32px; }
+        
+        .reg-single { background-color: #eff6ff; color: #2563eb; border-color: #dbeafe; }
+        .reg-multi { background-color: var(--surface); color: var(--text-main); }
+
+
+        /* 2. 유튜브 영역 */
+        .youtube-section {
+            background-color: var(--surface);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .youtube-title {
+            font-size: 0.95rem; font-weight: 700; color: var(--text-main);
+            display: flex; align-items: center; gap: 6px;
+        }
+        .youtube-title svg { width: 20px; height: 20px; color: #ef4444; }
+        .video-placeholder {
+            width: 100%; height: 160px;
+            background-color: #0f172a;
+            border-radius: 12px; position: relative;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden; cursor: pointer;
+        }
+        .video-thumbnail {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            object-fit: cover; opacity: 0.7; transition: opacity 0.3s;
+        }
+        .video-placeholder:hover .video-thumbnail { opacity: 0.5; }
+        .play-btn {
+            width: 48px; height: 48px;
+            background-color: rgba(255,0,0,0.9); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .play-btn svg { width: 24px; height: 24px; color: white; margin-left: 3px; }
+        .video-desc { font-size: 0.8rem; color: #64748b; line-height: 1.4; }
+
+        /* 3. 하단 네비게이션 메뉴 */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            background-color: var(--surface);
+            height: 64px;
+            border-top: 1px solid #f1f5f9;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.03);
+            z-index: 10;
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: #94a3b8;
+            font-size: 0.7rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s;
+            flex: 1;
+        }
+        .nav-item:active { opacity: 0.7; }
+        .nav-item.active {
+            color: var(--text-main);
+            font-weight: 700;
+        }
+        .nav-item.active svg {
+            color: var(--text-main);
+        }
+        .nav-item svg { width: 24px; height: 24px; }
+
+        /* 4. 공통 글로벌 광고 영역 (네비게이션 바 아래) */
+        .global-ad-container {
+            width: 100%;
+            background-color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 4px 0;
+            border-top: 1px solid #e2e8f0;
+            z-index: 10;
+        }
+        .global-ad-container .ad-placeholder {
+            width: 320px;
+            height: 50px;
+            background-color: #e2e8f0;
+            border: 1px dashed #94a3b8;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- 상단 App Bar -->
+        <header class="app-bar">
+            <div class="profile-container" onclick="alert('내 정보 화면으로 이동합니다.')" title="설정-내정보">
+                <img src="https://ui-avatars.com/api/?name=U&background=cbd5e1&color=1e293b&rounded=true" alt="프로필">
+            </div>
+
+            <div class="logo-container">
+                <div class="logo-text">DBROS APP</div>
+                <div class="subtitle">운행일지관리</div>
+            </div>
+
+            <div class="action-container" onclick="alert('업데이트가 있습니다! 설정 화면으로 이동합니다.')" title="업데이트 알림">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <div class="badge"></div>
+            </div>
+        </header>
+
+        <!-- 콘텐츠 영역 (스크롤) -->
+        <main class="content">
+
+            <!-- 0. 일일 요약 카드 -->
+            <div class="summary-card">
+                <div class="summary-header">
+                    <span class="date">2026년 6월 5일 (금)</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" class="more-icon" title="상세보기">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+                <div class="profit-section">
+                    <div class="label">오늘 순익</div>
+                    <div class="amount">154,000<span>원</span></div>
+                </div>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span class="stat-label">운행건수</span>
+                        <span class="stat-value text-primary">12건</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="stat-item">
+                        <span class="stat-label">지출</span>
+                        <span class="stat-value text-danger">15,000원</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 1행: 대기비용 & 주변콜맵 (작게 가로배치) -->
+            <div class="row-utils">
+                <div class="btn-wait-cost">
+                    <div style="font-size: 1.2rem;">⏱️</div>
+                    <span>대기비용</span>
+                </div>
+                <div class="btn-map">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    <span>주변콜맵</span>
+                </div>
+            </div>
+
+            <!-- 2행: 단건 / 다중 등록 (크게 세로배치) -->
+            <div class="row-register">
+                <div class="reg-single">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>단건등록</span>
+                </div>
+                <div class="reg-multi">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    <span>다중등록</span>
+                </div>
+            </div>
+
+            <!-- 2. 유튜브 영역 -->
+            <div class="youtube-section" onclick="alert('유튜브 영상이 재생됩니다.')">
+                <div class="youtube-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21.582 6.186a2.66 2.66 0 00-1.884-1.884C17.986 4 12 4 12 4s-5.986 0-7.698.302a2.66 2.66 0 00-1.884 1.884C2 7.898 2 12 2 12s0 4.102.418 5.814a2.66 2.66 0 001.884 1.884C5.986 20 12 20 12 20s5.986 0 7.698-.302a2.66 2.66 0 001.884-1.884C22 16.102 22 12 22 12s0-4.102-.418-5.814zM9.912 15.148V8.852L15.394 12l-5.482 3.148z"/>
+                    </svg>
+                    앱 사용 가이드 영상
+                </div>
+                <div class="video-placeholder">
+                    <!-- 영상 썸네일 이미지 -->
+                    <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="유튜브 썸네일" class="video-thumbnail">
+                    <div class="play-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </div>
+                </div>
+                <div class="video-desc">
+                    초보자를 위한 콜카드 등록 및 대기비용 정산 방법 완벽 가이드
+                </div>
+            </div>
+
+        </main>
+
+        <!-- 3. 하단 네비게이션 메뉴 -->
+        <nav class="bottom-nav">
+            <div class="nav-item active">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.47 3.84a.75.75 0 011.06 0l8.99 9a.75.75 0 11-1.06 1.06l-4.69-4.69V21a.75.75 0 01-.75.75h-3.5a.75.75 0 01-.75-.75v-5.25a.75.75 0 00-.75-.75h-2a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75v-11.78l-4.69 4.69a.75.75 0 11-1.06-1.06l8.99-9z" />
+                </svg>
+                <span>홈</span>
+            </div>
+            <div class="nav-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+                <span>내역</span>
+            </div>
+            <div class="nav-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>운행일지</span>
+            </div>
+            <div class="nav-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>설정</span>
+            </div>
+        </nav>
+
+        <!-- 4. 공통 글로벌 광고 영역 (네비게이션 바로 밑에 항상 고정) -->
+        <div class="global-ad-container">
+            <div class="ad-placeholder">
+                <span>광고 (Google AdMob 320x50)</span>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

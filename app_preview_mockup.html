@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dbros App - 전체 통합 미리보기</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #121418;
+            --surface: #1F222A;
+            --surface-light: #2C2F36;
+            --text-main: #FFFFFF;
+            --text-sub: #9FA3AE;
+            --primary: #FFC700;
+            --danger: #FF5252;
+            --blue: #4DABF7;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+
+        body {
+            background-color: #e5e7eb;
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh;
+        }
+
+        .device {
+            width: 100%; max-width: 400px;
+            background-color: var(--bg-dark);
+            height: 800px; max-height: 100vh;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.4);
+            display: flex; flex-direction: column;
+            overflow: hidden; border-radius: 24px; position: relative;
+        }
+
+        /* 공통 헤더 */
+        .app-bar {
+            background-color: var(--bg-dark);
+            padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            height: 64px; z-index: 10;
+        }
+
+        .profile-btn {
+            width: 36px; height: 36px; border-radius: 50%;
+            background-color: #475569; overflow: hidden; cursor: pointer;
+            border: 2px solid rgba(255,255,255,0.8);
+        }
+        .profile-btn img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 로고 겹침 디자인 시뮬레이션 */
+        .logo-stack {
+            position: relative; width: 130px; height: 40px;
+            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+            background: linear-gradient(180deg, rgba(255,255,255,0.05) 0%, transparent 100%);
+            border-radius: 8px;
+        }
+        .logo-img-mock {
+            font-size: 1.3rem; font-weight: 800; color: #fff; font-style: italic; letter-spacing: -0.5px;
+            margin-top: 2px;
+        }
+        .logo-img-mock span { color: var(--primary); }
+        .logo-overlay-text {
+            position: absolute; bottom: 0px; font-size: 0.65rem; color: #fff;
+            font-weight: 500; background-color: var(--bg-dark); padding: 0 4px;
+        }
+
+        .action-btn { position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: white;}
+        .action-btn svg { width: 24px; height: 24px; }
+        .badge { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background-color: var(--danger); border-radius: 50%; }
+
+        /* 화면 영역 */
+        .screen { flex: 1; overflow-y: auto; display: none; flex-direction: column; padding: 16px; gap: 16px;}
+        .screen.active { display: flex; }
+        .screen::-webkit-scrollbar { display: none; }
+
+        /* ====== HOME SCREEN ====== */
+        .summary-card { background: var(--surface); color: white; border-radius: 16px; padding: 20px; border: 1px solid var(--surface-light); }
+        .summary-header { display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-sub); margin-bottom: 16px; cursor: pointer;}
+        .profit-box { display: flex; flex-direction: column; align-items: flex-end; margin-bottom: 16px;}
+        .profit-box .label { font-size: 0.85rem; color: var(--text-sub); margin-bottom: 4px; }
+        .profit-box .amount { font-size: 2.2rem; font-weight: 700; color: var(--primary); line-height: 1.1; }
+        .profit-box .amount span { font-size: 1.1rem; color: white; font-weight: 500; margin-left: 4px; }
+        
+        .stats-row { display: flex; background-color: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 16px; align-items: center; }
+        .stat-item { flex: 1; display: flex; justify-content: space-between; }
+        .divider { width: 1px; height: 24px; background-color: rgba(255,255,255,0.1); margin: 0 16px;}
+        
+        .row-utils { height: 60px; display: flex; gap: 12px; }
+        .row-utils > div { flex: 1; border-radius: 14px; background: var(--surface); border: 1px solid var(--primary); display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--primary); font-weight: 600; font-size: 0.85rem; cursor: pointer;}
+        
+        .row-register { height: 110px; display: flex; gap: 12px; }
+        .row-register > div { flex: 1; border-radius: 16px; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: white; font-weight: 700; border: 1px solid var(--surface-light); cursor: pointer;}
+        .row-register svg { width: 32px; height: 32px; color: var(--primary); }
+
+        /* ====== SETTINGS SCREEN ====== */
+        .tab-bar { display: flex; border-bottom: 2px solid var(--surface-light); margin-bottom: 16px; }
+        .tab-item { flex: 1; text-align: center; padding: 12px 0; color: var(--text-sub); font-weight: 600; cursor: pointer; transition: 0.2s;}
+        .tab-item.active { color: var(--primary); border-bottom: 2px solid var(--primary); margin-bottom: -2px; }
+        
+        .notice-list { display: flex; flex-direction: column; gap: 12px; }
+        .notice-card { background: var(--surface); border-radius: 12px; padding: 16px; border: 1px solid var(--surface-light); }
+        .notice-card .n-header { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 8px;}
+        .notice-card .dot { color: var(--primary); font-size: 1.2rem; line-height: 1; margin-top: 2px;}
+        .notice-card .n-title { color: white; font-weight: 600; font-size: 0.95rem; line-height: 1.4; flex: 1;}
+        .notice-card .n-date { color: var(--text-sub); font-size: 0.75rem; margin-left: 20px;}
+
+        .setting-section { background: var(--surface); border-radius: 16px; padding: 16px; border: 1px solid var(--surface-light); margin-bottom: 16px;}
+        .setting-title { color: var(--primary); font-size: 0.85rem; font-weight: 700; margin-bottom: 16px; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.05); cursor: pointer;}
+        .setting-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .setting-row .s-info { flex: 1; }
+        .setting-row .s-name { color: white; font-size: 1rem; font-weight: 500; margin-bottom: 4px; }
+        .setting-row .s-desc { color: var(--text-sub); font-size: 0.75rem; }
+        
+        /* 토글 스위치 디자인 */
+        .toggle { width: 44px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 12px; position: relative; transition: 0.3s; }
+        .toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: 0.3s; }
+        .toggle.on { background: var(--primary); }
+        .toggle.on::after { transform: translateX(20px); }
+        .toggle.locked { opacity: 0.5; }
+
+        /* ====== MY INFO SCREEN ====== */
+        .my-profile-header { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 0; }
+        .my-profile-header .p-img { width: 80px; height: 80px; border-radius: 50%; background: #475569; border: 3px solid var(--primary);}
+        .my-profile-header .p-name { color: white; font-size: 1.2rem; font-weight: 700; }
+        .my-profile-header .p-email { color: var(--text-sub); font-size: 0.9rem; }
+        
+        .btn-logout { background: var(--surface); color: white; text-align: center; padding: 16px; border-radius: 12px; font-weight: 600; border: 1px solid var(--surface-light); margin-top: 20px; cursor: pointer; }
+        .btn-delete { background: transparent; color: var(--danger); text-align: center; padding: 16px; font-weight: 600; font-size: 0.9rem; text-decoration: underline; cursor: pointer; }
+
+        /* 네비게이션 바 */
+        .bottom-nav {
+            display: flex; justify-content: space-around; align-items: center;
+            background-color: var(--bg-dark); height: 60px;
+            border-top: 1px solid var(--surface-light); z-index: 10;
+        }
+        .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #6E717C; font-size: 0.7rem; font-weight: 500; cursor: pointer; flex: 1; }
+        .nav-item.active { color: white; font-weight: 700; }
+        .nav-item svg { width: 24px; height: 24px; }
+
+        /* 글로벌 광고 (주석/블라인드 처리) */
+        .global-ad {
+            height: 50px; background: repeating-linear-gradient(45deg, #1F222A, #1F222A 10px, #2C2F36 10px, #2C2F36 20px);
+            display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.3); font-size: 0.8rem; font-weight: bold; border-top: 1px solid #000;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="device">
+        <!-- 공통 상단 앱바 -->
+        <header class="app-bar">
+            <!-- 좌측: 내 정보 이동 -->
+            <div class="profile-btn" onclick="switchScreen('myinfo')" title="내 정보">
+                <img src="https://ui-avatars.com/api/?name=U&background=cbd5e1&color=1e293b&rounded=true" alt="프로필">
+            </div>
+
+            <!-- 중앙: 로고 이미지 유지 + 하단 텍스트 겹침 -->
+            <div class="logo-stack" style="background: none; height: 56px; width: 160px; position: relative;">
+                <img src="assets/title.png" alt="DBROS APP" style="height: 56px; width: 100%; object-fit: contain;">
+                <!-- 다시 중앙 정렬로 복귀 (left 50%, transform -50%) -->
+                <div class="logo-overlay-text" style="position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.5); padding: 1px 4px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; white-space: nowrap;">운행 일지 관리</div>
+            </div>
+
+            <!-- 우측: 알림 -->
+            <div class="action-btn" onclick="switchScreen('settings')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <div class="badge"></div>
+            </div>
+        </header>
+
+        <!-- 1. 홈 화면 (Home) -->
+        <main class="screen active" id="screen-home">
+            <div class="summary-card" onclick="alert('상세 일지 목록으로 이동합니다.')">
+                <div class="summary-header">
+                    <span>2026년 6월 5일 (금)</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </div>
+                <div class="profit-box">
+                    <div class="label">오늘 순익</div>
+                    <div class="amount">154,000<span>원</span></div>
+                </div>
+                <div class="stats-row">
+                    <div class="stat-item">
+                        <span style="color:var(--text-sub); font-size:0.8rem;">운행건수</span>
+                        <span style="color:var(--blue); font-weight:700;">12건</span>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="stat-item">
+                        <span style="color:var(--text-sub); font-size:0.8rem;">지출</span>
+                        <span style="color:var(--danger); font-weight:700;">15,000원</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 유틸리티 행 -->
+            <div class="row-utils">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    대기비용 계산
+                </div>
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                    </svg>
+                    주변 콜맵
+                </div>
+            </div>
+
+            <!-- 메인 액션 행 -->
+            <div class="row-register">
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                    콜카드 단건등록
+                </div>
+                <div>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    콜카드 다중등록
+                </div>
+            </div>
+            
+            <!-- 하단 여백 및 최근운행일지 블라인드 처리 안내 -->
+            <div style="text-align:center; padding: 20px; color: var(--text-sub); font-size: 0.8rem; border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; margin-top: 10px;">
+                <!-- 최근운행일지 주석 처리됨 -->
+                유튜브 가이드 영상 영역
+            </div>
+        </main>
+
+        <!-- 2. 설정 화면 (Settings / Notices) -->
+        <main class="screen" id="screen-settings">
+            <!-- 탭 메뉴 -->
+            <div class="tab-bar">
+                <div class="tab-item" id="tab-notice" onclick="switchTab('notice')">공지목록</div>
+                <div class="tab-item active" id="tab-noti" onclick="switchTab('noti')">알림목록</div>
+            </div>
+
+            <!-- 알림 리스트 내용 -->
+            <div class="notice-list">
+                <div class="notice-card">
+                    <div class="n-header">
+                        <span class="dot">■</span>
+                        <span class="n-title">단건 등록 UI가 업데이트 되었습니다. 새로운 버전을 만나보세요!</span>
+                    </div>
+                    <div class="n-date">2026-06-05 15:30</div>
+                </div>
+                <div class="notice-card">
+                    <div class="n-header">
+                        <span class="dot">■</span>
+                        <span class="n-title">일일 순익 계산기 로직이 일부 수정되었습니다.</span>
+                    </div>
+                    <div class="n-date">2026-06-04 09:15</div>
+                </div>
+            </div>
+
+            <div style="margin-top: 24px;"></div>
+            
+            <!-- 기능 활성화 락(Lock) UI -->
+            <div class="setting-section">
+                <div class="setting-title">운행 보조 기능 (잠김)</div>
+                
+                <div class="setting-row" onclick="unlockFeature(this)">
+                    <div class="s-info">
+                        <div class="s-name">상단바 (빠른 기능)</div>
+                        <div class="s-desc" style="color:var(--primary);">30초 광고 시청 시 3시간 활성화</div>
+                    </div>
+                    <div class="toggle locked"></div>
+                </div>
+                
+                <div class="setting-row" onclick="unlockFeature(this)">
+                    <div class="s-info">
+                        <div class="s-name">스크린샷 자동감지 (OCR)</div>
+                        <div class="s-desc" style="color:var(--primary);">30초 광고 시청 시 3시간 활성화</div>
+                    </div>
+                    <div class="toggle locked"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 3. 내 정보 화면 (My Info) -->
+        <main class="screen" id="screen-myinfo">
+            <div class="my-profile-header">
+                <div class="p-img"></div>
+                <div class="p-name">김기사 님</div>
+                <div class="p-email">driver123@gmail.com</div>
+            </div>
+            
+            <div style="flex:1;"></div> <!-- spacer -->
+
+            <div class="btn-logout" onclick="alert('로그아웃 되었습니다.')">로그아웃</div>
+            
+            <!-- 회원 탈퇴 라벨 -->
+            <div class="btn-delete" onclick="handleDeleteAccount()">회원 탈퇴</div>
+        </main>
+
+        <!-- 글로벌 하단 광고 (주석 처리됨) -->
+        <div class="global-ad">
+            <!-- 애드몹 글로벌 광고 노출 영역 (주석 처리됨) -->
+            AdMob Banner Area (Hidden in code)
+        </div>
+
+        <!-- 하단 네비게이션 -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" id="nav-home" onclick="switchScreen('home')">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.47 3.84a.75.75 0 011.06 0l8.99 9a.75.75 0 11-1.06 1.06l-4.69-4.69V21a.75.75 0 01-.75.75h-3.5a.75.75 0 01-.75-.75v-5.25a.75.75 0 00-.75-.75h-2a.75.75 0 00-.75.75V21a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75v-11.78l-4.69 4.69a.75.75 0 11-1.06-1.06l8.99-9z" />
+                </svg>
+                <span>홈</span>
+            </div>
+            <div class="nav-item">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>운행일지</span>
+            </div>
+            <div class="nav-item" id="nav-settings" onclick="switchScreen('settings')">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>설정</span>
+            </div>
+        </nav>
+    </div>
+
+    <script>
+        function switchScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+            document.getElementById('screen-' + screenId).classList.add('active');
+            
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            if(screenId === 'home') document.getElementById('nav-home').classList.add('active');
+            if(screenId === 'settings') document.getElementById('nav-settings').classList.add('active');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab-' + tabId).classList.add('active');
+            // 내용 교체는 생략 (디자인만 확인)
+        }
+
+        function unlockFeature(element) {
+            const toggle = element.querySelector('.toggle');
+            if(toggle.classList.contains('locked')) {
+                const wantAd = confirm("광고를 30초 시청하고 3시간 동안 이 기능을 활성화하시겠습니까?");
+                if(wantAd) {
+                    alert("광고 시청이 완료되었습니다! 3시간 동안 기능이 활성화됩니다.");
+                    toggle.classList.remove('locked');
+                    toggle.classList.add('on');
+                    element.querySelector('.s-desc').innerText = "활성화 됨 (3시간 남음)";
+                    element.querySelector('.s-desc').style.color = "white";
+                }
+            }
+        }
+
+        function handleDeleteAccount() {
+            const confirmMsg = "앱 탈퇴 전 유의사항:\n앱을 탈퇴하셔도 스토어(구글/애플)의 정기 구독은 자동으로 해지되지 않습니다. 계속 결제되는 것을 원치 않으시면 반드시 스토어 설정에서 구독을 해지해 주세요.\n\n정말 회원 탈퇴를 진행하시겠습니까?";
+            if(confirm(confirmMsg)) {
+                alert("회원 정보가 삭제되었으며, 로그인 화면으로 이동합니다.");
+            }
+        }
+    </script>
+</body>
+</html>
