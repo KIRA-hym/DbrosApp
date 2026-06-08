@@ -23,6 +23,20 @@ class PartnerCallParsed {
 class LogiColmannerOcr {
   LogiColmannerOcr._();
 
+  // Fix 4: destAnchorRx 캐싱 — 매 호출마다 RegExp 재컴파일 방지
+  static RegExp? _cachedDestAnchorRx;
+  static String? _cachedRegionPattern;
+  static RegExp _getDestAnchorRx() {
+    final pattern = RemoteConfigService().regionPattern;
+    if (_cachedDestAnchorRx == null || _cachedRegionPattern != pattern) {
+      _cachedRegionPattern = pattern;
+      _cachedDestAnchorRx = RegExp(
+        r'(?:도착지|착지)\s+((?:(?!' + pattern + r'\s).)+)',
+      );
+    }
+    return _cachedDestAnchorRx!;
+  }
+
   static PartnerCallParsed parseLogi(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
     final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: false);
@@ -585,12 +599,17 @@ class LogiColmannerOcr {
     final headClean = head.replaceAll(RegExp(r'[^가-힣a-zA-Z]'), '');
     final tailClean = tail.replaceAll(RegExp(r'[^가-힣a-zA-Z]'), '');
     if (headClean.isNotEmpty) {
+      // 완전 포함이면 중복 확정 — 항상 tail만 반환
       if (tailClean.contains(headClean)) return tail;
-      final prefixLen = headClean.length > 4 ? 4 : headClean.length;
-      final prefix = headClean.substring(0, prefixLen);
-      final suffix = headClean.substring(headClean.length - prefixLen);
-      if (tailClean.contains(prefix) || tailClean.contains(suffix)) {
-        return tail;
+      // Fix 1: 부분 일치는 상호명이 충분히 길 때(6자 이상)만 적용
+      // → "경기식당(4자)", "서울가든(4자)" 등 짧은 상호명은 오탈락 방지
+      if (headClean.length >= 6) {
+        final prefixLen = headClean.length > 5 ? 5 : headClean.length;
+        final prefix = headClean.substring(0, prefixLen);
+        final suffix = headClean.substring(headClean.length - prefixLen);
+        if (tailClean.contains(prefix) || tailClean.contains(suffix)) {
+          return tail;
+        }
       }
     }
     return '$tail $head'.trim();
@@ -607,7 +626,8 @@ class LogiColmannerOcr {
     if (!isLogi) {
       // 콜마너 2단 레이아웃 꼬임 방지 (출발지가 도착지 뒤로 밀려나는 현상 해결)
       final regionPattern = RemoteConfigService().regionPattern;
-      final destAnchorRx = RegExp(r'(?:도착지|착지)\s+((?:(?!(?:' + regionPattern + r')\s).)+)');
+      // Fix 4: 캐싱된 RegExp 사용
+      final destAnchorRx = _getDestAnchorRx();
       final destMatch = destAnchorRx.firstMatch(joined);
       
       if (destMatch != null) {
@@ -634,10 +654,12 @@ class LogiColmannerOcr {
             String finalEnd = eClean.contains(destDetailClean) ? e : '$destDetail $e';
             
             String cleanedStart = _cleanAddr(s, isLogi: isLogi, isStart: true);
-            final startMetroMatch = RegExp(regionPattern).firstMatch(cleanedStart);
-            if (startMetroMatch != null && startMetroMatch.start > 0) {
-              final head = cleanedStart.substring(0, startMetroMatch.start).trim();
-              final tail = cleanedStart.substring(startMetroMatch.start).trim();
+            // Fix 2: Metro 개수가 정확히 1개일 때만 스왑
+            // → 2개 이상이면 복잡한 주소로 간주해 스왑하지 않음
+            final startMetroMatches = RegExp(regionPattern).allMatches(cleanedStart).toList();
+            if (startMetroMatches.length == 1 && startMetroMatches.first.start > 0) {
+              final head = cleanedStart.substring(0, startMetroMatches.first.start).trim();
+              final tail = cleanedStart.substring(startMetroMatches.first.start).trim();
               cleanedStart = '$tail $head'.trim();
             }
             
@@ -803,7 +825,8 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'출\s*도\s*경로거리.*$', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[a-zA-Z0-9\.]+(?:km)?', caseSensitive: false), '');
     res = res.replaceAll(RegExp(r'경로거리\s*[:：]?\s*[^\s]+'), '');
-    res = res.replaceAll(RegExp(r'계좌이체\)?\s*\S+'), ' ');
+    // Fix 3: 계좌이체 뒤 최대 4어절까지 제거 (1어절만 제거하면 "NH농협은행 중화동 지점" 잔존 위험)
+    res = res.replaceAll(RegExp(r'계좌이체\)?\s*\S+(?:\s+\S+){0,3}'), ' ');
     res = res.replaceAll(RegExp(r'킥보드\s*[xX]\)?', caseSensitive: false), ' ');
 
     // 3b. 콜마너 도착: 같은 OCR 줄에 붙은 `합계 : n원`·`예상 운행수수료` 등 정산 꼬리
