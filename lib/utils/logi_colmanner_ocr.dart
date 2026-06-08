@@ -257,7 +257,22 @@ class LogiColmannerOcr {
   }) {
     if (!colmanner) {
       if (fullText != null) {
-        // 법인콜 등 메모에 명시된 실제 요금(후불 7만 등)을 최우선으로 찾는다.
+        // 법인콜 메모에 명시된 실제 요금 최우선 추출
+        // 패턴 1: "업체지원N/후불M" → 합산이 총요금 (예: 업체지원5,000/후불45,000 → 50,000)
+        final corpMatch = RegExp(
+          r'업체(?:지원|수동입금)?\s*[:：]?\s*([\d,]+)\s*[/|]\s*(?:후불|후물)\s*[:：]?\s*([\d,oOlLIi\.그기!]+)',
+        ).firstMatch(fullText);
+        if (corpMatch != null) {
+          final corpAmount = int.tryParse(corpMatch.group(1)!.replaceAll(',', '')) ?? 0;
+          final hubulFare = parseLogiFareFromOcrText(corpMatch.group(2)!);
+          if (hubulFare != null && hubulFare >= 10000) {
+            final totalFare = corpAmount + hubulFare;
+            // 합산값이 유효한 요금 범위(10,000~999,999)이면 합산 우선
+            if (totalFare >= 10000 && totalFare <= 999999) return totalFare;
+            return hubulFare; // 합산 실패 시 후불만
+          }
+        }
+        // 패턴 2: "후불N" 단독 (기존 로직)
         final overrideMatch = RegExp(r'(?:후불|후물)\s*[:：]?\s*([\d\s,oOlLIi\.그기!sSzZ]{4,7})').firstMatch(fullText);
         if (overrideMatch != null) {
           final overrideFare = parseLogiFareFromOcrText(overrideMatch.group(1)!);

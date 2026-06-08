@@ -634,9 +634,24 @@ class KakaoCallCardOcr {
     // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응 — 날짜 메타 줄은 후보에서 이미 제외됨
     if (addrCandidates.length >= 4) {
       final start = _joinAddressParts([addrCandidates[0], addrCandidates[1]]);
-      final end = _trimTrailingFareSuffix(_joinAddressParts([addrCandidates[2], addrCandidates[3]]));
-      return (start, end);
+      // 도착지 3번째+4번째 후보 join 시, 두 줄이 같은 광역(서울/경기/인천 등)으로
+      // 시작하면 중복 광역이 도착지에 2번 나타나는 현상 방지
+      final end3 = addrCandidates[2];
+      final end4 = addrCandidates[3];
+      final regionRx = RegExp(RemoteConfigService().regionPattern);
+      final m3 = regionRx.firstMatch(end3.trim());
+      final m4 = regionRx.firstMatch(end4.trim());
+      final String endRaw;
+      if (m3 != null && m4 != null && m3.group(0) == m4.group(0) && m4.start == 0) {
+        // 4번째 줄이 같은 광역으로 시작 → 4번째의 광역 토큰 제거 후 join
+        final end4Stripped = end4.trim().substring(m4.end).trim();
+        endRaw = _joinAddressParts([end3, end4Stripped]);
+      } else {
+        endRaw = _joinAddressParts([end3, end4]);
+      }
+      return (start, _trimTrailingFareSuffix(endRaw));
     }
+
 
     if (addrCandidates.length == 3) {
       if (!_looksRegionLike(addrCandidates[1])) {
