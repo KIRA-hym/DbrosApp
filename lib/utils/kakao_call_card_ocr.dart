@@ -598,7 +598,7 @@ class KakaoCallCardOcr {
   }
 
   static bool _looksRegionLike(String line) {
-    return RegExp(r'(시|군|구|동|읍|면|로|길)').hasMatch(line);
+    return RegExp(r'[가-힣]+(시|군|구|동|읍|면|로|길)(?:\s|$)').hasMatch(line);
   }
 
   static String _joinAddressParts(Iterable<String> parts) => parts
