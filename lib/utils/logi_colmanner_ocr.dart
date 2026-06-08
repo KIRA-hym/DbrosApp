@@ -272,6 +272,22 @@ class LogiColmannerOcr {
             return hubulFare; // 합산 실패 시 후불만
           }
         }
+        // 패턴 1-B: "(N,000/M,000/N/A)" 또는 "N,000/M,000" 형태 법인 요금
+        // 예: (e|I5,000/65,000/N/A) → 5,000 + 65,000 = 70,000
+        // 단, 주소 번지(878-8 등) 오매칭 방지: n1은 100배수 & 50,000 이하, n2는 100배수 & 10,000 이상
+        final corpSlashMatch = RegExp(
+          r'[\(（]?[\w|]*([\d,]{3,})[/／]([\d,]{4,})(?:[/／][^)）\s]+)?[\)）]?',
+        ).firstMatch(fullText);
+        if (corpSlashMatch != null) {
+          final n1 = int.tryParse(corpSlashMatch.group(1)!.replaceAll(',', '')) ?? 0;
+          final n2 = int.tryParse(corpSlashMatch.group(2)!.replaceAll(',', '')) ?? 0;
+          // 두 숫자 모두 100배수(대리비 특성), n1은 업체지원 상한 50,000 이하, 합산 유효
+          if (n1 > 0 && n1 % 100 == 0 && n1 <= 50000 &&
+              n2 >= 10000 && n2 % 100 == 0 &&
+              (n1 + n2) <= 999999) {
+            return n1 + n2;
+          }
+        }
         // 패턴 2: "후불N" 단독 (기존 로직)
         final overrideMatch = RegExp(r'(?:후불|후물)\s*[:：]?\s*([\d\s,oOlLIi\.그기!sSzZ]{4,7})').firstMatch(fullText);
         if (overrideMatch != null) {
@@ -660,6 +676,31 @@ class LogiColmannerOcr {
               break;
             }
           }
+          // [Fix: 경기→경기 동일 광역] cut=-1이면 시(市) 단위 이름으로 2차 분리 시도
+          // 예: "경기 수원시...경기 고양시" → 수원시/고양시 토큰이 다름 → 고양시 위치에서 분리
+          if (cut == -1 && matches.length >= 2) {
+            final cityRx = RegExp(r'[가-힣]+(?:시|군)');
+            final cityMatches = cityRx.allMatches(remaining).toList();
+            // 도시 토큰이 2개 이상이고 서로 다른 경우
+            if (cityMatches.length >= 2) {
+              final firstCity = cityMatches[0].group(0)!;
+              for (var ci = 1; ci < cityMatches.length; ci++) {
+                if (cityMatches[ci].group(0) != firstCity &&
+                    cityMatches[ci].start > cityMatches[0].end + 5) {
+                  // 두 번째 광역 토큰 위치 근방에서 분리
+                  // (광역 토큰이 시 토큰보다 앞이므로 광역 위치를 기준으로 함)
+                  // 두 번째 도시 직전에 나타나는 광역 토큰을 cut 기준으로 사용
+                  for (var mi = 1; mi < matches.length; mi++) {
+                    if (matches[mi].start > cityMatches[0].end) {
+                      cut = matches[mi].start;
+                      break;
+                    }
+                  }
+                  break;
+                }
+              }
+            }
+          }
           if (cut != -1) {
             String s = remaining.substring(0, cut).trim();
             String e = remaining.substring(cut).trim();
@@ -732,6 +773,41 @@ class LogiColmannerOcr {
 
       s = s.replaceFirst(RegExp(r'^\s*출발지?\s*'), '').replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
       e = e.replaceFirst(RegExp(r'^\s*도\s*착\s*지?\s*'), '').replaceAll(RegExp(r'\s*(출발지|도착지|지도)\s*'), ' ').trim();
+
+      // [Fix [62]: 도착지 라벨이 맨 앞에 위치하여 s가 빈 문자열인 경우]
+      // "도착지 POI ← 경기A ← 경기B" 구조에서 e 전체가 start+end 혼합임
+      // → e 안에서 두 번째 광역 토큰 위치를 찾아 재분리
+      if (s.isEmpty && e.isNotEmpty) {
+        final regionRx2 = RegExp(RemoteConfigService().regionPattern);
+        final eMatches = regionRx2.allMatches(e).toList();
+        if (eMatches.length >= 2) {
+          // 첫 번째 광역 = 출발지, 두 번째 이후 = 도착지
+          final firstCity2 = RegExp(r'[가-힣]+(?:시|군)').firstMatch(e);
+          int eCut = -1;
+          for (var ei2 = 1; ei2 < eMatches.length; ei2++) {
+            if (eMatches[ei2].group(0) != eMatches[0].group(0)) {
+              // 다른 광역
+              eCut = eMatches[ei2].start;
+              break;
+            } else if (firstCity2 != null) {
+              // 같은 광역이지만 다른 시·군
+              final cityRx2 = RegExp(r'[가-힣]+(?:시|군)');
+              final cities2 = cityRx2.allMatches(e).toList();
+              if (cities2.length >= 2 &&
+                  cities2[0].group(0) != cities2.last.group(0) &&
+                  eMatches[ei2].start > cities2[0].end + 5) {
+                eCut = eMatches[ei2].start;
+                break;
+              }
+            }
+          }
+          if (eCut != -1) {
+            s = e.substring(0, eCut).trim();
+            e = e.substring(eCut).trim();
+          }
+        }
+        // 재분리 후에도 s가 비어있으면 e 전체를 도착지로 유지 (기존 동작)
+      }
 
       return (
         start: _cleanAddr(s, isLogi: isLogi, isStart: true),
