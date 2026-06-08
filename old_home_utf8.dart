@@ -1,8 +1,7 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import '../widgets/ad_banner_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -26,8 +25,6 @@ import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
-import '../services/auth_service.dart';
-import '../services/apk_update_service.dart';
 
 /// 앱 프로세스 생존 동안 공지 닫힘 상태를 유지하는 최상위 전역 변수.
 /// static 필드를 State 안에 두면 핫리스타트 등으로 초기화될 수 있으므로 파일 레벨로 분리.
@@ -72,9 +69,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
     _loadYoutubeBanner();
     _loadNotices();
-    ApkUpdateService.instance.checkForUpdate().then((_) {
-      if (mounted) setState(() {});
-    });
   }
 
   void _loadNotices() async {
@@ -100,9 +94,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TodayStatsProvider.instance.refresh();
       _loadYoutubeBanner();
       _loadNotices();
-      ApkUpdateService.instance.checkForUpdate().then((_) {
-        if (mounted) setState(() {});
-      });
       _chartsKey.currentState?.reload();
       if (_workDateTick == null || !_workDateTick!.isActive) {
         _workDateTick = Timer.periodic(
@@ -243,86 +234,74 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           appBar: AppBar(
             backgroundColor: const Color(0xFF121418),
             elevation: 0,
-            toolbarHeight: 70,
-            leadingWidth: padding + 40,
-            leading: Padding(
-              padding: EdgeInsets.only(left: padding),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: InkWell(
-                  onTap: () {
-                    // Profile 탭 시 이동 등 추후 연결 가능
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Consumer<AuthService>(
-                    builder: (context, auth, _) {
-                      final photoUrl = auth.user?.photoURL;
-                      if (photoUrl != null && photoUrl.isNotEmpty) {
-                        return CircleAvatar(
-                          radius: 20,
-                          backgroundImage: NetworkImage(photoUrl),
-                          backgroundColor: Colors.transparent,
-                        );
-                      }
-                      return const Icon(Icons.account_circle, color: Colors.white, size: 40);
-                    },
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              Padding(
-                padding: EdgeInsets.only(right: padding),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: InkWell(
-                    onTap: () async {
-                      if (ApkUpdateService.instance.hasApkUpdate) {
-                        final url = ApkUpdateService.instance.downloadUrl ?? 'https://dbros-install.web.app/';
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      } else {
-                        // 일반 알림 화면으로 이동 (임시 주석 처리 혹은 NoticeListPage 이동)
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NoticeListPage()));
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
-                        if (ApkUpdateService.instance.hasApkUpdate)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF5252),
-                                shape: BoxShape.circle,
-                              ),
-                              constraints: const BoxConstraints(
-                                minWidth: 12,
-                                minHeight: 12,
-                              ),
+            titleSpacing: 20.0,
+            title: LayoutBuilder(
+              builder: (context, constraints) {
+                return Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: SizedBox(
+                        height: titleFontSize + 70,
+                        child: Image.asset(
+                          'assets/title.png',
+                          fit: BoxFit.contain,
+                          alignment: Alignment.centerLeft,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(
+                          top: 30.0,
+                          left: 4.0,
+                          right: 4.0,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: InkWell(
+                            onTap: () {
+                              if (!SettingsService.isOwnerMode) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('운행 일지 관리는 오너 권한이 필요합니다.'),
+                                    backgroundColor: Color(0xFF1F222A),
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                                return;
+                              }
+                              Navigator.push<void>(
+                                context,
+                                MaterialPageRoute<void>(
+                                  settings: const RouteSettings(
+                                    name: '/expense_main',
+                                  ),
+                                  builder: (_) => const ExpenseMainWrapper(),
+                                ),
+                              );
+                            },
+                            child: Text(
+                              "운행 일지 관리",
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: SettingsService.isOwnerMode
+                                        ? const Color(0xFFFFC700)
+                                        : const Color(0xFF6E717C),
+                                    fontSize: 20.0,
+                                  ),
                             ),
                           ),
-                      ],
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ),
-            ],
-            centerTitle: true,
-            title: SizedBox(
-              height: titleFontSize + 40,
-              child: Image.asset(
-                'assets/title.png',
-                fit: BoxFit.contain,
-              ),
+                  ],
+                );
+              },
             ),
+            centerTitle: false,
           ),
           body: Stack(
             children: [
@@ -350,7 +329,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          _buildTodaySummaryCard(),
+                                          Expanded(
+                                            flex: 11,
+                                            child: _buildTodaySummaryCard(),
+                                          ),
                                           SizedBox(height: sectionGap),
                                           Expanded(
                                             flex: 13,
@@ -368,19 +350,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          SizedBox(
-                                            height: 60,
-                                            child: _buildUtilsRow(),
+                                          Expanded(
+                                            flex: 10,
+                                            child: _buildQuickActions(),
                                           ),
-                                          SizedBox(height: sectionGap),
-                                          SizedBox(
-                                            height: 85,
-                                            child: _buildRegisterRow(),
-                                          ),
-                                          SizedBox(height: sectionGap),
-                                          const AdBannerWidget(),
                                           SizedBox(height: sectionGap),
                                           Expanded(
+                                            flex: 10,
+                                            child: _buildRecentLogSection(),
+                                          ),
+                                          SizedBox(height: sectionGap),
+                                          Expanded(
+                                            flex: 6,
                                             child: _buildYoutubeSection(),
                                           ),
                                         ],
@@ -393,21 +374,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  _buildTodaySummaryCard(),
-                                  SizedBox(height: sectionGap),
-                                  SizedBox(
-                                    height: 60,
-                                    child: _buildUtilsRow(),
+                                  Expanded(
+                                    flex: 34,
+                                    child: _buildTodaySummaryCard(),
                                   ),
-                                  SizedBox(height: sectionGap),
-                                  SizedBox(
-                                    height: 85,
-                                    child: _buildRegisterRow(),
-                                  ),
-                                  SizedBox(height: sectionGap),
-                                  const AdBannerWidget(),
                                   SizedBox(height: sectionGap),
                                   Expanded(
+                                    flex: 24,
+                                    child: _buildQuickActions(),
+                                  ),
+                                  SizedBox(height: sectionGap),
+                                  Expanded(
+                                    flex: 20,
+                                    child: _buildRecentLogSection(),
+                                  ),
+                                  SizedBox(height: sectionGap),
+                                  Expanded(
+                                    flex: 14,
                                     child: _buildYoutubeSection(),
                                   ),
                                 ],
@@ -561,149 +544,103 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   Widget _buildTodaySummaryCard() {
     final statsProvider = Provider.of<TodayStatsProvider>(context);
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final outerPad = isTablet ? 24.0 : 16.0;
+
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final String dateFull = "${workDay.year}년 ${workDay.month}월 ${workDay.day}일 (${DateFormat('E', 'ko').format(workDay)})";
+    final String dateCompact = DateFormat('M월 d일').format(workDay);
+    final String weekdayLong = DateFormat('EEEE', 'ko').format(workDay);
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2C2F36)),
-      ),
+      decoration: BorderedSection.decoration(),
       clipBehavior: Clip.antiAlias,
       child: Material(
-        color: Colors.transparent,
+        color: const Color(0xFF1F222A),
+        clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: _openTodayDailyList,
           splashColor: const Color(0xFFFFC700).withValues(alpha: 0.12),
           highlightColor: Colors.white10,
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: EdgeInsets.all(outerPad),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final titleFs = ResponsiveLayout.sectionTitleFontSize(context);
+                final valueFs = ResponsiveLayout.summaryValueFontSize(context);
+                final m = _homeSummaryGridMetrics(
+                  context,
+                  constraints.maxWidth,
+                  constraints.maxHeight,
+                  titleFs,
+                  valueFs,
+                );
+
+                return Column(
                   children: [
-                    Text(
-                      dateFull,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildSummaryTextCell(
+                              context: context,
+                              metrics: m,
+                              title: '오늘 순익',
+                              value: NumberFormat(
+                                '#,###',
+                              ).format(statsProvider.todayNet),
+                              valueColor: const Color(0xFFFFC700),
+                              icon: Icons.account_balance_wallet,
+                            ),
+                          ),
+                          SizedBox(width: m.colGap),
+                          Expanded(
+                            child: _buildSummaryTextCell(
+                              context: context,
+                              metrics: m,
+                              title: dateCompact,
+                              value: weekdayLong,
+                              valueColor: Colors.white,
+                              icon: Icons.calendar_today,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white,
-                      size: 14,
+                    SizedBox(height: m.rowGap),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildMirrorSummaryCell(
+                              context: context,
+                              icon: Icons.payments_outlined,
+                              label: '오늘 지출',
+                              value: NumberFormat(
+                                '#,###',
+                              ).format(statsProvider.todayExpenses),
+                              valueColor: const Color(0xFFFF5252),
+                              metrics: m,
+                            ),
+                          ),
+                          SizedBox(width: m.colGap),
+                          Expanded(
+                            child: _buildMirrorSummaryCell(
+                              context: context,
+                              icon: Icons.local_taxi,
+                              label: '운행 건수',
+                              value: '${statsProvider.todayLogs}건',
+                              valueColor: const Color(0xFFFFC700),
+                              metrics: m,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-                const SizedBox(height: 20),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const Text(
-                      '오늘 순익',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Text(
-                          NumberFormat('#,###').format(statsProvider.todayNet),
-                          style: const TextStyle(
-                            color: Color(0xFFFFC700),
-                            fontSize: 34,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '원',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '운행건수',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              '${statsProvider.todayLogs}건',
-                              style: const TextStyle(
-                                color: Color(0xFF4DABF7),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: Colors.white.withValues(alpha: 0.1),
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '지출',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              '${NumberFormat('#,###').format(statsProvider.todayExpenses)}원',
-                              style: const TextStyle(
-                                color: Color(0xFFFF5252),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
         ),
@@ -711,124 +648,253 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildUtilsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: InkWell(
-            onTap: () => WaitingFeeBottomSheet.show(context),
+  Widget _buildSummaryTextCell({
+    required BuildContext context,
+    required ({
+      double cell,
+      double rowGap,
+      double colGap,
+      double innerPad,
+      double titleTopInset,
+      double titleFs,
+      double valueFs,
+      double iconSz,
+      double headerBlockH,
+      double valueGap,
+    })
+    metrics,
+    required String title,
+    required String value,
+    required Color valueColor,
+    IconData? icon,
+  }) {
+    final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
+    final titleFs = metrics.titleFs + (isExpanded ? 0.0 : 2.0);
+    final valueFs = metrics.valueFs + (isExpanded ? 0.0 : 2.0);
+    final hPad = isExpanded ? 24.0 : 16.0;
+    final vPad = isExpanded ? 20.0 : 14.0;
+    final innerGap = isExpanded ? 16.0 : math.max(4.0, titleFs * 0.3);
+    const titleTopInset = 4.0;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final h = constraints.maxHeight;
+        final scaledTitle = ResponsiveLayout.layoutFontSize(context, titleFs);
+        final scaledValue = ResponsiveLayout.layoutFontSize(context, valueFs);
+        final minContentH =
+            scaledTitle * 1.12 +
+            innerGap +
+            scaledValue * 1.12 +
+            vPad * 2 +
+            titleTopInset;
+        final scale = (!h.isFinite || h <= 0 || h >= minContentH)
+            ? 1.0
+            : (h / minContentH).clamp(0.72, 1.0);
+        final effTitleFs = titleFs * scale;
+        final effValueFs = effTitleFs + (2.0 * scale);
+        final effVPad = (vPad * scale).clamp(2.0, vPad);
+        final effTop = (titleTopInset * scale).clamp(0.0, titleTopInset);
+        final effGap = (innerGap * scale).clamp(1.0, innerGap);
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: const Color(0xFF16181D),
             borderRadius: BorderRadius.circular(14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFC700)),
-              ),
-              alignment: Alignment.center,
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+          ),
+          padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Icon(Icons.timer_outlined, color: Color(0xFFFFC700), size: 20),
-                  SizedBox(width: 6),
-                  Text('대기비용 계산', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: 13)),
+                  if (icon != null) ...[
+                    Icon(
+                      icon,
+                      color: const Color(0xFFFFC700),
+                      size: effTitleFs * 1.2,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Expanded(
+                    child: Text(
+                      title,
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _homeSummaryTitleStyle(context).copyWith(
+                        fontSize: effTitleFs,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: () {
-              if (!kMapFeaturesEnabled) return;
-              ProFeatureGuard.checkAndRun(
-                context: context,
-                featureKey: 'call_map',
-                canUseFree: FeatureUsageService.canUseCallMapFree,
-                canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
-                onGranted: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPointMapPage()));
-                },
-              );
-            },
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFC700)),
+              SizedBox(height: effGap),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.bottomRight,
+                        child: Text(
+                          value,
+                          textAlign: TextAlign.right,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _homeSummaryValueStyle(
+                            context,
+                            color: valueColor,
+                          ).copyWith(fontSize: effValueFs),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
-                  const SizedBox(width: 6),
-                  Text('주변 콜맵', style: TextStyle(color: kMapFeaturesEnabled ? const Color(0xFFFFC700) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
-                ],
-              ),
-            ),
+            ],
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildRegisterRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
-              TodayStatsProvider.instance.refresh();
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2C2F36)),
+  Widget _buildMirrorSummaryCell({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color valueColor,
+    required ({
+      double cell,
+      double rowGap,
+      double colGap,
+      double innerPad,
+      double titleTopInset,
+      double titleFs,
+      double valueFs,
+      double iconSz,
+      double headerBlockH,
+      double valueGap,
+    })
+    metrics,
+  }) {
+    return _buildSummaryTextCell(
+      context: context,
+      metrics: metrics,
+      title: label,
+      value: value,
+      valueColor: valueColor,
+      icon: icon,
+    );
+  }
+
+  ({double textFs, double iconSz, double gap, double waitingBtnH})
+  _homeQuickActionsMetrics(double w, double h) {
+    final gap = (w * 0.025).clamp(8.0, 12.0);
+    final waitingBtnH = (h * 0.24).clamp(36.0, 48.0);
+    final topH = math.max(48.0, h - gap - waitingBtnH);
+    final cw = (w - gap) / 2;
+    final cell = math.min(cw, topH);
+    const textFs = 14.0;
+    final iconSz = (cell * 0.22).clamp(22.0, 36.0);
+    return (textFs: textFs, iconSz: iconSz, gap: gap, waitingBtnH: waitingBtnH);
+  }
+
+  Widget _buildQuickActions() {
+    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
+    final outerPadding = isTablet ? 20.0 : 16.0;
+
+    return Container(
+      decoration: BorderedSection.decoration(),
+      clipBehavior: Clip.antiAlias,
+      padding: EdgeInsets.all(outerPadding),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final q = _homeQuickActionsMetrics(
+            constraints.maxWidth,
+            constraints.maxHeight,
+          );
+          final textFs = isTablet ? q.textFs + 5.0 : q.textFs;
+
+          final isNarrow = constraints.maxHeight < 140;
+          final singleLabel = isNarrow ? '콜카드 단건등록' : '콜카드\n단건등록';
+          final multiLabel = isNarrow ? '콜카드 다중등록' : '콜카드\n다중등록';
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _quickActionButton(
+                        Icons.credit_card,
+                        singleLabel,
+                        textFs,
+                        q.iconSz,
+                        () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SingleCallCardForm(),
+                            ),
+                          );
+                          TodayStatsProvider.instance.refresh();
+                        },
+                      ),
+                    ),
+                    SizedBox(width: q.gap),
+                    Expanded(
+                      child: _quickActionButton(
+                        Icons.credit_card,
+                        multiLabel,
+                        textFs,
+                        q.iconSz,
+                        () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MultiCallCardForm(),
+                            ),
+                          );
+                          TodayStatsProvider.instance.refresh();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              alignment: Alignment.center,
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.credit_card, color: Color(0xFFFFC700), size: 32),
-                  SizedBox(height: 10),
-                  Text('콜카드 단건등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
+              SizedBox(height: q.gap),
+              SizedBox(
+                height: q.waitingBtnH,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFFC700),
+                    side: const BorderSide(color: Color(0xFFFFC700)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  onPressed: () => WaitingFeeBottomSheet.show(context),
+                  icon: Icon(Icons.timer_outlined, size: textFs * 1.2),
+                  label: Text(
+                    '대기비용 계산',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: textFs,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
-              TodayStatsProvider.instance.refresh();
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2C2F36)),
-              ),
-              alignment: Alignment.center,
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.library_add_check, color: Color(0xFFFFC700), size: 32),
-                  SizedBox(height: 10),
-                  Text('콜카드 다중등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
+            ],
+          );
+        },
+      ),
     );
   }
 
@@ -865,116 +931,186 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 SizedBox(height: isTablet ? 8 : 6),
                 Expanded(
                   child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final useVerticalLayout = constraints.maxHeight > 160;
-                      
-                      Widget imageWidget = ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: _latestYoutubeVideoId == null
-                            ? Container(
-                                color: const Color(0xFF16181D),
-                                alignment: Alignment.center,
-                                child: const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.open_in_new,
-                                      color: Color(0xFF9FA3AE),
-                                      size: 28,
-                                    ),
-                                    SizedBox(height: 6),
-                                    Text(
-                                      '채널 방문하기',
-                                      style: TextStyle(
-                                        color: Color(0xFF9FA3AE),
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : Image.network(
-                                'https://i.ytimg.com/vi/$_latestYoutubeVideoId/mqdefault.jpg',
-                                fit: BoxFit.cover,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorBuilder: (_, _, _) => Container(
-                                  color: const Color(0xFF16181D),
-                                  alignment: Alignment.center,
-                                  child: const Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.open_in_new,
-                                        color: Color(0xFF9FA3AE),
-                                        size: 28,
-                                      ),
-                                      SizedBox(height: 6),
-                                      Text(
-                                        '채널 방문하기',
-                                        style: TextStyle(
-                                          color: Color(0xFF9FA3AE),
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                    builder: (context, rowConstraints) {
+                      final thumbW = math.min(
+                        isTablet ? 176.0 : 152.0,
+                        rowConstraints.maxWidth * (isTablet ? 0.42 : 0.38),
                       );
-
-                      Widget textWidget = _youtubeLoading
-                          ? const Align(
-                              alignment: Alignment.centerLeft,
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Color(0xFFFFC700),
-                                ),
-                              ),
-                            )
-                          : (_latestYoutubeTitle.isEmpty &&
-                                  _latestYoutubeChannelName.isEmpty &&
-                                  _latestYoutubePublishedDot.isEmpty
-                              ? const SizedBox.shrink()
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_latestYoutubeChannelName.isNotEmpty || _latestYoutubePublishedDot.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: SizedBox(
+                              width: thumbW,
+                              height: double.infinity,
+                              child: _latestYoutubeVideoId == null
+                                  ? Container(
+                                      color: const Color(0xFF16181D),
+                                      alignment: Alignment.center,
+                                      child: const Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.open_in_new,
+                                            color: Color(0xFF9FA3AE),
+                                            size: 28,
+                                          ),
+                                          SizedBox(height: 6),
+                                          Text(
+                                            '채널 방문하기',
+                                            style: TextStyle(
+                                              color: Color(0xFF9FA3AE),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : Image.network(
+                                      'https://i.ytimg.com/vi/$_latestYoutubeVideoId/mqdefault.jpg',
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => Container(
+                                        color: const Color(0xFF16181D),
+                                        alignment: Alignment.center,
+                                        child: const Column(
+                                          mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Expanded(
-                                              child: Text(
-                                                _latestYoutubeChannelName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                      color: const Color(0xFF9FA3AE),
-                                                      height: 1.2,
-                                                    ),
+                                            Icon(
+                                              Icons.open_in_new,
+                                              color: Color(0xFF9FA3AE),
+                                              size: 28,
+                                            ),
+                                            SizedBox(height: 6),
+                                            Text(
+                                              '채널 방문하기',
+                                              style: TextStyle(
+                                                color: Color(0xFF9FA3AE),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
-                                            if (_latestYoutubePublishedDot.isNotEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(left: 6),
-                                                child: Text(
-                                                  _latestYoutubePublishedDot,
-                                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                        color: const Color(0xFF6E717C),
-                                                        fontSize: 10,
-                                                        height: 1.2,
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          SizedBox(width: isTablet ? 12 : 10),
+                          Expanded(
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _openYoutubeBanner,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isTablet ? 8 : 6,
+                                  ),
+                                  child: _youtubeLoading
+                                      ? const Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Color(0xFFFFC700),
+                                            ),
+                                          ),
+                                        )
+                                      : (_latestYoutubeTitle.isEmpty &&
+                                                _latestYoutubeChannelName
+                                                    .isEmpty &&
+                                                _latestYoutubePublishedDot
+                                                    .isEmpty
+                                            ? const SizedBox.shrink()
+                                            : Align(
+                                                alignment: Alignment.centerLeft,
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (_latestYoutubeChannelName
+                                                            .isNotEmpty ||
+                                                        _latestYoutubePublishedDot
+                                                            .isNotEmpty)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              bottom: 6,
+                                                            ),
+                                                        child: Row(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            Expanded(
+                                                              child: Text(
+                                                                _latestYoutubeChannelName,
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                                style: Theme.of(context)
+                                                                    .textTheme
+                                                                    .labelMedium
+                                                                    ?.copyWith(
+                                                                      color: const Color(
+                                                                        0xFF9FA3AE,
+                                                                      ),
+                                                                      height:
+                                                                          1.2,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            if (_latestYoutubePublishedDot
+                                                                .isNotEmpty) ...[
+                                                              const SizedBox(
+                                                                width: 8,
+                                                              ),
+                                                              Text(
+                                                                _latestYoutubePublishedDot,
+                                                                style: Theme.of(context)
+                                                                    .textTheme
+                                                                    .labelMedium
+                                                                    ?.copyWith(
+                                                                      color: const Color(
+                                                                        0xFF9FA3AE,
+                                                                      ),
+                                                                      height:
+                                                                          1.2,
+                                                                    ),
+                                                              ),
+                                                            ],
+                                                          ],
+                                                        ),
                                                       ),
+                                                    if (_latestYoutubeTitle
+                                                        .isNotEmpty)
+                                                      Text(
+                                                        _latestYoutubeTitle,
+                                                        maxLines: 3,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: Theme.of(context)
+                                                            .textTheme
+                                                            .titleSmall
+                                                            ?.copyWith(
+                                                              color:
+                                                                  Colors.white,
+                                                              height: 1.2,
+                                                            ),
+                                                      ),
+                                                  ],
                                                 ),
+                                              )),
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       );

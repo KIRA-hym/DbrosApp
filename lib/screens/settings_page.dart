@@ -217,9 +217,9 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildIncomeListSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
       _buildFloatingButtonSettings(),
+      if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildCallPointShareSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildOcrParseLogSettings(),
-      if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
       _buildStorageSettings(),
       if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
       if (SettingsService.isOwnerMode) _buildAdminPushSection(),
@@ -1078,7 +1078,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("화면 설정", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text("화면 설정", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
