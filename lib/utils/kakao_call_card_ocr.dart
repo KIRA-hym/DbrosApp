@@ -851,18 +851,17 @@ class KakaoCallCardOcr {
     final finalStart = startBuf.toString().trim();
     final finalEnd = endBuf.toString().trim();
 
-    // [Fix [60]] 요금이 5,000원 미만이면 OCR 오인식으로 판단하여 null 처리
-    // 예: 1,200원 → 대리비로 불가능한 금액 → 일지 상세목록에 ⚠️ 표기
+    // [Fix [60]] 요금이 5,000원 미만이면 OCR 오인식(예: 1,200원) 가능성.
+    // 값은 그대로 유지(null 처리 X)하여 저장 validation을 통과시키되, 경고 로그만 남김.
     final bool fareOcrFailed = parsedIncome != null && parsedIncome! < 5000;
-    if (fareOcrFailed) parsedIncome = null;
 
-    // 날짜/시간은 이미지 Exif 메타데이터로 결정하므로 출발지·도착지·요금만 필수 검증
-    if (finalStart.isEmpty || finalEnd.isEmpty || (parsedIncome ?? 0) == 0) {
+    // 날짜/시간은 이미지 Exif 메타데이터로 결정하므로 출발지·도착지·요금만 필수 검증 (또는 요금 오인식)
+    if (finalStart.isEmpty || finalEnd.isEmpty || (parsedIncome ?? 0) == 0 || fareOcrFailed) {
       final reason = [
         if (finalStart.isEmpty) '출발지 누락',
         if (finalEnd.isEmpty) '도착지 누락',
-        if ((parsedIncome ?? 0) == 0)
-          fareOcrFailed ? '⚠️ 요금 OCR 오인식 (5,000원 미만 인식됨으로 정정함)' : '요금 누락',
+        if ((parsedIncome ?? 0) == 0) '요금 누락'
+        else if (fareOcrFailed) '⚠️ 요금 OCR 오인식 (5,000원 미만 인식. 사용자 확인 필요)',
       ].join(' | ');
       OcrErrorLoggerService.instance.logError(
         platform: 'kakao',
