@@ -2401,20 +2401,37 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       });
       return;
     }
+    // 캐싱: 이미 경로 데이터가 있다면 재호출 없이 상태만 변경
+    if (_roadRouteSegments.isNotEmpty) {
+      setState(() {
+        _roadRouteEnabled = true;
+      });
+      return;
+    }
+
     setState(() {
       _roadRouteLoading = true;
     });
-    final points = _orderedPathPoints();
+    
     try {
-      final result = <int, List<LatLng>>{};
-      for (int i = 0; i < points.length - 1; i++) {
-        result[i] = await _fetchRoadPath(points[i], points[i + 1]);
+      // 실제 운행 구간(N개)에 대해서만 병렬(Future.wait)로 경로 조회
+      final futures = <Future<MapEntry<int, List<LatLng>>>>[];
+      for (int i = 0; i < widget.segments.length; i++) {
+        futures.add(
+          _fetchRoadPath(widget.segments[i].start, widget.segments[i].end).then(
+            (points) => MapEntry(i, points),
+          ),
+        );
       }
+      
+      final results = await Future.wait(futures);
+      
       if (!mounted) return;
       setState(() {
-        _roadRouteSegments
-          ..clear()
-          ..addAll(result);
+        _roadRouteSegments.clear();
+        for (final entry in results) {
+          _roadRouteSegments[entry.key] = entry.value;
+        }
         _roadRouteEnabled = true;
       });
     } catch (_) {
