@@ -285,7 +285,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         }
                       } else {
                         // 일반 알림 화면으로 이동 (임시 주석 처리 혹은 NoticeListPage 이동)
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const NoticeListPage()));
+                        // TODO: 알림 화면으로 이동
                       }
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -867,7 +867,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final useVerticalLayout = constraints.maxHeight > 160;
-                      
+
                       Widget imageWidget = ClipRRect(
                         borderRadius: BorderRadius.circular(10),
                         child: _latestYoutubeVideoId == null
@@ -975,9 +975,52 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                         height: 1.2,
                                                       ),
                                                 ),
-                          ),
-                        ],
-                      );
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    if (_latestYoutubeTitle.isNotEmpty)
+                                      Text(
+                                        _latestYoutubeTitle,
+                                        maxLines: useVerticalLayout ? 2 : 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                              color: Colors.white,
+                                              height: 1.3,
+                                              fontSize: isTablet ? 14 : 12,
+                                            ),
+                                      ),
+                                  ],
+                                ));
+
+                      if (useVerticalLayout) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(child: imageWidget),
+                            const SizedBox(height: 10),
+                            textWidget,
+                          ],
+                        );
+                      } else {
+                        final thumbW = math.min(
+                          isTablet ? 176.0 : 152.0,
+                          constraints.maxWidth * (isTablet ? 0.42 : 0.38),
+                        );
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(width: thumbW, child: imageWidget),
+                            SizedBox(width: isTablet ? 12 : 10),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: textWidget,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
                     },
                   ),
                 ),
