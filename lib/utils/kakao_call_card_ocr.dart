@@ -552,6 +552,8 @@ class KakaoCallCardOcr {
     if (line.contains('도착하시면')) return true;
     if (line.contains('출발지에 도착')) return true;
     if (line.contains('탑승하신 후')) return true;
+    if (line.contains('운행 시작 전')) return true;
+    if (line.contains('운행 시작')) return true;
     return false;
   }
 
@@ -882,7 +884,7 @@ class KakaoCallCardOcr {
       waypoint: cleanedWaypoint,
       startLocation: finalStart,
       endLocation: finalEnd,
-      grossFare: parsedIncome,
+      grossFare: parsedIncome ?? 0,
     );
   }
 }

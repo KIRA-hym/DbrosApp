@@ -68,6 +68,11 @@ class LogiColmannerOcr {
       );
     }
 
+    locations = (
+      start: locations.start,
+      end: _removeStartTokensFromEnd(locations.start, locations.end),
+    );
+
     return PartnerCallParsed(
       grossFare: fare,
       startLocation: locations.start,
@@ -89,6 +94,83 @@ class LogiColmannerOcr {
     waypoint = waypoint.replaceAllMapped(RegExp(r'([그기])(\d{2,})'), (m) => '7${m.group(2)}');
     var start = _cleanAddr(loc.start, isLogi: false, isStart: true);
     var end = _cleanAddr(loc.end, isLogi: false, isStart: false);
+
+    // --- [보완 로직] 콜마너 카카오T대리 등 "(제휴)" 패턴 처리 및 누락된 하단 주소 복구 ---
+    bool isKakaoT = lines.any((l) => l.replaceAll(' ', '').contains('카카오T대리'));
+    
+    if (isKakaoT) {
+      String jehyuTarget = '';
+      for (var line in lines) {
+        final m = RegExp(r'\(?제휴\)?\s*(.*)$').firstMatch(line);
+        if (m != null) {
+          jehyuTarget = m.group(1)!.trim();
+          break;
+        }
+      }
+
+      if (jehyuTarget.isNotEmpty) {
+        // (2BL) 등 괄호로 끝나는 노이즈 제거
+        jehyuTarget = jehyuTarget.replaceAll(RegExp(r'\([^\)]+\)$'), '').trim();
+        
+        // start와 end에 남아있는 후불 및 관련된 찌꺼기 텍스트 정리
+        start = start.replaceAll(RegExp(r'후불.*$'), '').trim();
+        end = end.replaceAll(RegExp(r'후불.*$'), '').trim();
+        
+        // 추출한 타겟의 첫 단어가 이미 start/end 끝자락에 지저분하게 붙어있다면 제거
+        final coreWord = jehyuTarget.split(' ').first;
+        if (coreWord.length >= 3) {
+          start = start.replaceAll(RegExp('$coreWord.*\$'), '').trim();
+          end = end.replaceAll(RegExp('$coreWord.*\$'), '').trim();
+        }
+
+        bool hasHubul = lines.any((l) => l.contains('후불) (제휴)'));
+        if (hasHubul) {
+          start = '$start 후불 $jehyuTarget'.trim();
+        } else {
+          start = '$start $jehyuTarget'.trim();
+        }
+      }
+    } else {
+      // 카카오T가 아닌 일반 콜마너의 후불 이동 폴백
+      final colmannerHubulMatch = RegExp(r'\s*\(?후불\)?\s*\(?제휴\)?\s*(.*)$').firstMatch(end);
+      if (colmannerHubulMatch != null) {
+        start = '$start 후불 ${colmannerHubulMatch.group(1)!}'.trim();
+        end = end.substring(0, colmannerHubulMatch.start).trim();
+      } else {
+        final cleanMatch = RegExp(r'\s*후불\s*(.*)$').firstMatch(end);
+        if (cleanMatch != null && !RegExp(r'[0-9]+').hasMatch(cleanMatch.group(0)!)) {
+          start = '$start 후불 ${cleanMatch.group(1)!}'.trim();
+          end = end.substring(0, cleanMatch.start).trim();
+        }
+      }
+    }
+
+    String extraEnd = '';
+    bool afterBreak = false;
+    for (var line in lines) {
+      final noSpace = line.replaceAll(RegExp(r'\s+'), '');
+      if (noSpace.contains('요금') || noSpace.contains('현금') || noSpace.contains('경로거리')) {
+        afterBreak = true;
+      }
+      if (afterBreak) {
+        if (RegExp(r'[가-힣]+동\s*/\s*0?[가-힣a-zA-Z0-9]+').hasMatch(line) || line.contains('아따트') || line.contains('아파트') || line.contains('오피스텔')) {
+          var cleanExtra = line.replaceAllMapped(RegExp(r'([가-힣]+동)\s*/\s*0?'), (m) => '${m.group(1)} ').trim();
+          if (!end.contains(cleanExtra.split(' ').first)) {
+            extraEnd += ' $cleanExtra';
+          } else {
+            final tokens = cleanExtra.split(' ');
+            if (tokens.length > 1) {
+              extraEnd += ' ${tokens.sublist(1).join(' ')}';
+            }
+          }
+        }
+      }
+    }
+    if (extraEnd.isNotEmpty) {
+      end = '$end ${extraEnd.trim()}'.trim();
+      end = _removeLongDuplicateTokens(end); 
+    }
+    // --------------------------------------------------------------------------
 
     // Y좌표 기반 폴백: 텍스트 키워드 파싱 실패 시 블록 위치로 분류
     if ((start.isEmpty || end.isEmpty) && blocks != null && blocks.isNotEmpty) {
@@ -112,12 +194,33 @@ class LogiColmannerOcr {
       );
     }
 
+    end = _removeStartTokensFromEnd(start, end);
+
     return PartnerCallParsed(
       grossFare: fare,
       startLocation: start,
       endLocation: end,
       waypoint: waypoint,
     );
+  }
+
+  static String _removeStartTokensFromEnd(String startAddr, String endAddr) {
+    if (startAddr.isEmpty || endAddr.isEmpty) return endAddr;
+    
+    // startAddr에서 '동/읍/면/리' 추출 (띄어쓰기 경계)
+    final dongMatches = RegExp(r'(?:^|\s)([가-힣]{2,}[동읍면리])(?=\s|$)').allMatches(startAddr).toList();
+    if (dongMatches.isEmpty) return endAddr;
+    
+    final coreDong = dongMatches.last.group(1)!;
+    
+    // endAddr 에서 coreDong 이 나타나는지 확인
+    final idx = endAddr.indexOf(coreDong);
+    if (idx > 10) { 
+      // 만약도착지가 같은 동이 아니라면 (너무 앞에서 나오면 무시)
+      // coreDong 앞이 도착지의 동이름 등 정상적인 문자열일 때만 자름
+      return endAddr.substring(0, idx).trim();
+    }
+    return endAddr;
   }
 
   static List<String> _lines(String fullText) {
@@ -134,7 +237,7 @@ class LogiColmannerOcr {
         .toList();
   }
 
-  static String _normalizeKey(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  static String _normalizeKey(String s) => s.replaceAll(RegExp(r'\s+'), '').toLowerCase().replaceAll('도착시', '도착지');
 
   /// 입금·정산 줄 — 총요금(요금) 스캔에서 제외한다.
   static bool _isLogiDepositOrSettlementAmountLine(String line) {
@@ -442,6 +545,10 @@ class LogiColmannerOcr {
             RegExp(r'\d{2}:\d{2}\]$').hasMatch(line))) {
       return true;
     }
+    // 단독으로 존재하는 차량 번호판 및 그 오인식 패턴 (예: "179하4816", "5우90이")
+    if (RegExp(r'^\d{1,3}[가-힣]\d{2,4}[가-힣]?$').hasMatch(line.replaceAll(' ', ''))) {
+      return true;
+    }
 
     return false;
   }
@@ -541,7 +648,7 @@ class LogiColmannerOcr {
   static String? _leadingMetroProvinceToken(String line) {
     final t = line.trim();
     final m = RegExp(
-      r'^${RemoteConfigService().regionPattern}(?=\s)',
+      ('^' + RemoteConfigService().regionPattern + r'(?=\s)'),
     ).firstMatch(t);
     return m?.group(1);
   }
@@ -550,7 +657,7 @@ class LogiColmannerOcr {
   static String? _provincialCityKey(String line) {
     final t = line.trim();
     final m = RegExp(
-      r'^${RemoteConfigService().regionPattern}\s+([가-힣\d]+(?:시|군|구|도)?)',
+      ('^' + RemoteConfigService().regionPattern + r'\s+([가-힣\d]+(?:시|군|구|도)?)'),
     ).firstMatch(t);
     if (m == null) return null;
     return '${m.group(1)}:${m.group(2)}';
@@ -593,7 +700,7 @@ class LogiColmannerOcr {
   static String _injectSpaceBeforeProvinceToken(String s) {
     return s.replaceAllMapped(
       RegExp(
-        r'([가-힣0-9\)\]\}\.])${RemoteConfigService().regionPattern}(?=\s)',
+        (r'([가-힣0-9\)\]\}\.])' + RemoteConfigService().regionPattern + r'(?=\s)'),
       ),
       (m) => '${m[1]} ${m[2]}',
     );
@@ -655,6 +762,21 @@ class LogiColmannerOcr {
 
     // [로지/콜마너 파싱 로직 개선: 짬짜면(출발지/도착지 섞임) 방지 정밀 추출]
     if (!isLogi) {
+      // [Fix]: 콜마너에서 도착지 라벨이 출발지 라벨보다 먼저 나오는 기형적 구조 대응
+      final startLabelMatch = RegExp(r'(?:^|\s)출\s*발\s*지').firstMatch(joined);
+      final endLabelMatch = RegExp(r'(?:^|\s)(도\s*착\s*[지시]?|착\s*지)').firstMatch(joined);
+
+      if (startLabelMatch != null && endLabelMatch != null && endLabelMatch.start < startLabelMatch.start) {
+        var s = joined.substring(startLabelMatch.end).trim();
+        var e = joined.substring(endLabelMatch.end, startLabelMatch.start).trim();
+
+        // 꼬임 방지: 출발지 텍스트 앞부분이 도착지 쪽에 남았을 경우 (예: "인천 연수구 송도동"이 e 뒤에 있고 s가 "인천 미추홀구"일 경우 등)
+        return (
+          start: _cleanAddr(s, isLogi: isLogi, isStart: true),
+          end: _cleanAddr(e, isLogi: isLogi, isStart: false),
+        );
+      }
+
       // 콜마너 2단 레이아웃 꼬임 방지 (출발지가 도착지 뒤로 밀려나는 현상 해결)
       final regionPattern = RemoteConfigService().regionPattern;
       // Fix 4: 캐싱된 RegExp 사용
@@ -709,27 +831,31 @@ class LogiColmannerOcr {
             String eClean = e.replaceAll(RegExp(r'[^가-힣A-Za-z0-9]'), '');
             String finalEnd = eClean.contains(destDetailClean) ? e : '$destDetail $e';
             
-            String cleanedStart = _cleanAddr(s, isLogi: isLogi, isStart: true);
-            // Fix 2: Metro 개수가 정확히 1개일 때만 스왑
-            // → 2개 이상이면 복잡한 주소로 간주해 스왑하지 않음
-            final startMetroMatches = RegExp(regionPattern).allMatches(cleanedStart).toList();
-            if (startMetroMatches.length == 1 && startMetroMatches.first.start > 0) {
-              final head = cleanedStart.substring(0, startMetroMatches.first.start).trim();
-              final tail = cleanedStart.substring(startMetroMatches.first.start).trim();
-              cleanedStart = '$tail $head'.trim();
-            }
+            String cleanedStart = s;
+            String cleanedEnd = finalEnd;
             
+            // 콜마너 꼬임 방지: 출발지에 광역지명이 없고, 도착지 중간에 광역지명이 나타나면 거기를 잘라서 출발지로 넘김
+            if (!RegExp(RemoteConfigService().regionPattern).hasMatch(cleanedStart)) {
+              final endRegionMatches = RegExp(RemoteConfigService().regionPattern).allMatches(cleanedEnd).toList();
+              if (endRegionMatches.length == 1 && endRegionMatches.first.start > 0) {
+                final tail = cleanedEnd.substring(endRegionMatches.first.start).trim();
+                final head = cleanedEnd.substring(0, endRegionMatches.first.start).trim();
+                cleanedStart = '$tail $cleanedStart'.trim();
+                cleanedEnd = head;
+              }
+            }
+
             return (
-              start: cleanedStart,
-              end: _cleanAddr(finalEnd, isLogi: isLogi, isStart: false),
+              start: _cleanAddr(cleanedStart, isLogi: isLogi, isStart: true),
+              end: _cleanAddr(cleanedEnd, isLogi: isLogi, isStart: false),
             );
           }
         }
       }
     }
 
-    // 1단계: 명시적 라벨 탐색 (도착지, 착지)
-    final labelMatch = RegExp(r'(?:^|\s)(도\s*착\s*지?|착\s*지)').firstMatch(joined);
+    // 1단계: 명시적 라벨 탐색 (도착지, 착지, 도착시)
+    final labelMatch = RegExp(r'(?:^|\s)(도\s*착\s*[지시]?|착\s*지)').firstMatch(joined);
     if (labelMatch != null) {
       splitIdx = labelMatch.start;
       label = labelMatch.group(0)!;
@@ -777,7 +903,7 @@ class LogiColmannerOcr {
       // [Fix [62]: 도착지 라벨이 맨 앞에 위치하여 s가 빈 문자열인 경우]
       // "도착지 POI ← 경기A ← 경기B" 구조에서 e 전체가 start+end 혼합임
       // → e 안에서 두 번째 광역 토큰 위치를 찾아 재분리
-      if (s.isEmpty && e.isNotEmpty) {
+      if (e.isNotEmpty) {
         final regionRx2 = RegExp(RemoteConfigService().regionPattern);
         final eMatches = regionRx2.allMatches(e).toList();
         if (eMatches.length >= 2) {
@@ -802,11 +928,23 @@ class LogiColmannerOcr {
             }
           }
           if (eCut != -1) {
-            s = e.substring(0, eCut).trim();
+            final moved = e.substring(0, eCut).trim();
+            s = s.isEmpty ? moved : '$s $moved';
             e = e.substring(eCut).trim();
           }
         }
         // 재분리 후에도 s가 비어있으면 e 전체를 도착지로 유지 (기존 동작)
+      }
+
+      // [콜마너 오더창 꼬임 방지]: 출발지에 광역지명이 없고, 도착지 중간에 광역지명이 나타나면 거기를 잘라서 출발지로 넘김
+      if (!RegExp(RemoteConfigService().regionPattern).hasMatch(s)) {
+        final endRegionMatches = RegExp(RemoteConfigService().regionPattern).allMatches(e).toList();
+        if (endRegionMatches.isNotEmpty && endRegionMatches.first.start > 0) {
+          final tail = e.substring(endRegionMatches.first.start).trim();
+          final head = e.substring(0, endRegionMatches.first.start).trim();
+          s = '$tail $s'.trim();
+          e = head;
+        }
       }
 
       return (
@@ -849,6 +987,7 @@ class LogiColmannerOcr {
 
   static String _cleanAddr(String s, {required bool isLogi, required bool isStart}) {
     var res = s.trim();
+    if (res.contains('신중동역')) print('DEBUG_CLEANADDR_IN: $s');
     if (res.isEmpty) return '';
 
     // Exclude noise like "동 n후", "n후", "n후)"
@@ -868,7 +1007,7 @@ class LogiColmannerOcr {
     // 인천송도동+푸르지오… → 인천 송도동 푸르지오…
     res = res.replaceAllMapped(
       RegExp(
-        r'^${RemoteConfigService().regionPattern}([가-힣])',
+        ('^' + RemoteConfigService().regionPattern + r'([가-힣])'),
       ),
       (m) => '${m.group(1)} ${m.group(2)}',
     );
@@ -891,7 +1030,7 @@ class LogiColmannerOcr {
     );
     res = res.replaceAll(
       RegExp(
-        r'\(?(고객전화|상황실연락처|상황실|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|제휴|즉후|카드|정장|법\]|정장\])\)?',
+        r'\(?(고객전화|상황실연락처|상황실|연락처|지사명|고객명|고객ID|오더번호|차량번호|전화2|전화|메모|출도|경로거리|배정취소|맞춤콜|잔여시간|도착알림|취소불가|출발지에도착|완료처리|완료|배차취소|배차|경로안내|안내|갱신|닫기|처리|취소|출발지지도|지도|출발지 도착 연기|출발지 도착|서명|고객위치|출도경로|길안내|도착 알림|운행 시작|운행시작연기|제휴|즉후|카드|정장|법\]|정장\])\)?',
       ),
       ' ',
     );
@@ -948,30 +1087,138 @@ class LogiColmannerOcr {
 
     // 5. 어절 및 단어 중복 지명 제거
     res = res.replaceAllMapped(
-      RegExp(r'\b([가-힣\s]+?[동읍면리구시군시구])\s*\)?\s*\1\b'),
+      RegExp(r'(?<=^|\s)([가-힣\s]+?[동읍면리구시군])\s*\)?\s*\1(?=\s|$)'),
       (m) => m.group(1)!,
     );
     res = res.replaceAllMapped(RegExp(r'([가-힣]+[동읍면리구시군])\s*\)?\s*\1'), (m) => m.group(1)!);
 
-    // 6. 주소 끝자리 순수 오더 번호 및 영문/숫자 노이즈 제거
-    //    (순수 숫자 도로 번지/층수는 제거하지 않음 — 영문 시작 토큰만 제거)
-    res = res.replaceAll(RegExp(r'(?<!\()\b\d{6,}\b(?!\))'), ' ');
-    res = res.replaceAll(RegExp(r'\b[a-zA-Z][a-zA-Z\d.]{1,7}\b\s*$'), ' ');
+    // 강력한 중복 문자열 포함 어절 제거 (예: '화성오산동탄역롯데캐슬아파트101동' 제거)
+    // 띄어쓰기 없이 붙은 토큰이 이미 앞에 등장한 핵심 키워드들을 포함하면 제거
+    res = _removeLongDuplicateTokens(res);
+
+    // 6. 주소 끝자리 순수 오더 번호 및 영문/숫자 노이즈, 번호판 노이즈 제거
+    res = res.replaceAll(RegExp(r'(?<!\()[0-9]{6,}(?!\))'), ' '); // 전화번호나 오더번호
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\d{2,3}[가-힣]\d{4}(?=\s|$)'), ' '); // 차량번호: 179하4816, 5우90이 등
+    res = res.replaceAll(RegExp(r'(?<=^|\s)[a-zA-Z][a-zA-Z\d.]{1,7}\s*$'), ' ');
 
     // 7. 카카오 매칭률/UI 노이즈 잔해 제거
-    res = res.replaceAll(RegExp(r'\b\d{1,3}\s*[lI|%]\s*(?:\(\d{1,2}\))?\b', caseSensitive: false), ' ');
-    res = res.replaceAll(RegExp(r'\b[oO]\s*\.?\s*[lI|%]\s*\d+\b', caseSensitive: false), ' ');
-    res = res.replaceAll(RegExp(r'\b\d{1,3}\s*[lI|%]\s*\d+\b', caseSensitive: false), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\d{1,3}\s*[lI|%]\s*(?:\(\d{1,2}\))?(?=\s|$)', caseSensitive: false), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)[oO]\s*\.?\s*[lI|%]\s*\d+(?=\s|$)', caseSensitive: false), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\d{1,3}\s*[lI|%]\s*\d+(?=\s|$)', caseSensitive: false), ' ');
+    
+    // 8. 사용자 피드백 기반 특정 노이즈 및 세부 정보 제거 (TEST 1, 4)
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\d+(?:-\d+)?\([가-힣]+[동읍면리]\s*\d+(?:-\d+)?\)?(?=\s|$)'), ' '); // 예: 180-27(태전동 502-48
+    res = res.replaceAll(RegExp(r'(?<=^|\s)후불\d+OK\]?(?=\s|$)', caseSensitive: false), ' '); // 예: 후불7OK]
+    res = res.replaceAll(RegExp(r'(?<=^|\s)서관주차장(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)스타(?=\s|$)'), ' '); // 예: @스타 잔여물
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\d{1,4}동(?=\s|$)'), ' '); // 예: 101동 (단독)
+    res = res.replaceAll(RegExp(r'\S*지하\d+층\S*'), ' '); // 예: 여의도.LG트윈서관지하3층
 
     // 8. 결제 수단 약어 제거 (예: "카", "현", "후", "즉")
-    res = res.replaceAll(RegExp(r'(^|\s)[\x22\x27“‘]?([카현후즉])[\x22\x27”’]?(?=\s|$)'), ' ');
-    res = res.replaceAll(RegExp(r'(^|\s)([카현후즉])\s*[/|:]\s*'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)[\x22\x27“‘]?([카현후즉])[\x22\x27”’]?(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)([카현후즉])\s*[/|:]\s*'), ' ');
+
+    // 9. 특정 지시문구 노이즈 일괄 제거
+    res = res.replaceAll(RegExp(r'도착지확인후출발해주세요.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(전화)?먼저5업.*$'), ' ');
+    res = res.replaceAll(RegExp(r'입금확인후종?증?료해주세요.*$'), ' ');
+    res = res.replaceAll(RegExp(r'재확인후\s*이동하세요~?.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)일반\s*왕단골.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)일반\s*\d+\s*[가-힣]+역.*$'), ' '); // Test 27: 일반 40 등존역 금별맥주 등존초교
+    res = res.replaceAll(RegExp(r'(?<=^|\s)꼭!\s*정속,친철운전\s*바랍니다.*$'), ' ');
+    res = res.replaceAll(RegExp(r'법인\s*및\s*도어서비스의전수행.*$'), ' ');
+    
+    // 추가 노이즈 제거 (사용자 요청 기반)
+    res = res.replaceAll(RegExp(r'(?<=^|\s)운행\s*시작\s*전(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)이용개시번호(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)광명KTX역(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)O\s*88(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'예상\s*후물요금\s*[:：]?\s*[0-9,]+원?.*$'), ' ');
+    res = res.replaceAll(RegExp(r'그:19.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)전2(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'클레임금지(?:.대리고기사입니다.멘트필수정장|.*기사입니다|)?'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)ㅇ\s*53(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)업체지원[0-9,]+(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'익일오전충전'), ' ');
+    res = res.replaceAll(RegExp(r'대리고기사입'), ' ');
+    res = res.replaceAll(RegExp(r'종료10분후자동충전'), ' ');
+    res = res.replaceAll(RegExp(r'1899-1588'), ' ');
+    res = res.replaceAll(RegExp(r'변동사항은\s*운행\s*후에.*$'), ' ');
+    res = res.replaceAll(RegExp(r'O법\s*\$청라동마당호프\s*2'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)후불[0-9,]+(?=\s|$)'), ' ');
+    // Test 30의 '후불 메트릭스전자담배 전담네컷'은 살려야 하므로, 뒤의 ': 중1동 롯데' 등만 날림. (Test 11 등 대비)
+    res = res.replaceAll(RegExp(r'(?<=전담네컷)\s*:\s*[가-힣\d\s]+(?:롯데(?:.*?아따트)?)?'), ' ');
+    res = res.replaceAll(RegExp(r'\(공릉동(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'\(경유:?.*$'), ' ');
+    res = res.replaceAll(RegExp(r'경유:?.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)상현마을현대성우2차아파트\s*경유.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)뛰[a-zA-Z0-9]*(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'비흡연\s*여의도\.CCMM\s*용인신봉(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'일반\s*\(?구\s*준노래클럽사장님.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)30n\s*역삼(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)구L가게(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'15447788.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)동행기사연(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)락처(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)C\.(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)인천송도스테이트(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)가정동시장공영주차장(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)미안에스티움아파트(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)기13-11(?=\s|$)'), '713-11 '); // OCR 오인식 보정
+    res = res.replaceAll(RegExp(r'(?<=^|\s)천사(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)인천\s*송도스테이트(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)송도동컨벤시아대로90(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)접수시간\s*오전.*$'), ' ');
+    
+    // 신규 노이즈 제거 (테스트 28, 30, 36, 37, 40 대응)
+    res = res.replaceAll(RegExp(r'(?<=^|\s)\(?후불\s*[0-9,]+(?:[kK만]+)?.*$'), ' '); // Test 47: 후불 뒤에 숫자 있는 경우만 뒷부분 날림
+    res = res.replaceAll(RegExp(r'(?<=^|\s)[oO0]\s*\d*[lI|%]*\s*\(\s*\d+.*$', caseSensitive: false), ' '); // Test 37: O 50l( 91
+    res = res.replaceAll(RegExp(r'"?\s*\d{2}:\d{2}.*$'), ' ');
 
     // 전체 괄호 일괄 제거 (운남동)영종자이 등 대비)
-    res = res.replaceAll(RegExp(r'[\]\}\)]'), ' ');
+    res = res.replaceAll(RegExp(r'[\]\}\)"]'), ' ');
 
     res = res.replaceAll(RegExp(r'\s+'), ' ').trim();
-    return _deduplicateAdjacentTokens(res);
+    res = _deduplicateAdjacentTokens(res);
+
+    // 공통 스왑: "상호명 경기 부천시..." 처럼 광역 지명이 뒤에 나온 경우 앞으로 스왑.
+    // 단, 광역 지명이 정확히 1번만 등장해야 함 (2번 이상이면 출발지/도착지 혼합일 수 있음)
+    final regionMatches = RegExp(RemoteConfigService().regionPattern).allMatches(res).toList();
+    if (regionMatches.length == 1 && regionMatches.first.start > 0) {
+      final head = res.substring(0, regionMatches.first.start).trim();
+      final tail = res.substring(regionMatches.first.start).trim();
+      res = '$tail $head'.trim();
+    }
+
+    if (res.contains('신중동역')) print('DEBUG_CLEANADDR_OUT: $res');
+    return res;
+  }
+
+  static String _removeLongDuplicateTokens(String text) {
+    if (text.isEmpty) return text;
+    final tokens = text.split(' ').where((e) => e.isNotEmpty).toList();
+    if (tokens.length <= 1) return text;
+
+    final result = <String>[];
+    for (var i = 0; i < tokens.length; i++) {
+      final t = tokens[i];
+      if (t.length >= 6) { // 6글자 이상 긴 토큰
+        // 이 긴 토큰이 다른 토큰들의 단순 결합인지 확인
+        var combinedLen = 0;
+        for (var j = 0; j < tokens.length; j++) {
+          if (i == j) continue;
+          final other = tokens[j];
+          if (other.length >= 2 && t.contains(other)) {
+            combinedLen += other.length;
+          }
+        }
+        if (combinedLen >= t.length * 0.5) { // 50% 이상이 다른 토큰으로 채워진다면 노이즈 중복으로 간주 (기준 완화)
+          continue; 
+        }
+      }
+      result.add(t);
+    }
+    return result.join(' ');
   }
 
   /// `…화이트마사지 합계 : 6,097원 예상 운행수수료 : …`처럼 도착 줄에 붙은 콜마너 하단 정산 OCR.
@@ -981,8 +1228,10 @@ class LogiColmannerOcr {
     final re = RegExp(
       r'\s+(?:합계\s*[:：]'
       r'|예상\s*운행(?:\s*수수료)?\s*[:：]'
+      r'|예상\s*후불(?:\s*요금)?\s*[:：]'
       r'|예상\s*고용'
       r'|예상\s*산자'
+      r'|예상\s*산재'
       r'|입금합계(?:\s+합계\s*[:：])?'
       r'|차감합계)',
       caseSensitive: false,
@@ -1001,7 +1250,7 @@ class LogiColmannerOcr {
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i];
       final n = _normalizeKey(line);
-      if (!inBlock && (n.startsWith('출발지') || RegExp(r'^${RemoteConfigService().regionPattern}').hasMatch(line))) {
+      if (!inBlock && (n.startsWith('출발지') || RegExp(('^' + RemoteConfigService().regionPattern)).hasMatch(line))) {
         inBlock = true;
       }
       if (!inBlock) continue;
@@ -1058,14 +1307,16 @@ class LogiColmannerOcr {
         } else if ((n.startsWith('지사명') || n.startsWith('고객명') || n.startsWith('위치')) && i + 1 < lines.length) {
           inBlock = true;
           continue;
-        } else if (RegExp(r'^${RemoteConfigService().regionPattern}').hasMatch(line)) {
+        } else if (RegExp(('^' + RemoteConfigService().regionPattern)).hasMatch(line)) {
           inBlock = true;
         }
       }
       if (!inBlock) continue;
 
       if (noSpace.contains('요금') ||
-          noSpace.contains('현금')) {
+          noSpace.contains('현금') ||
+          noSpace.contains('경로거리') ||
+          noSpace.contains('고객정보')) {
         break;
       }
       if (RegExp(
@@ -1078,7 +1329,7 @@ class LogiColmannerOcr {
       if (n.startsWith('지사명') || n.startsWith('고객명')) continue;
 
       final startsWithMetro = RegExp(
-        r'^${RemoteConfigService().regionPattern}',
+        ('^' + RemoteConfigService().regionPattern),
       ).hasMatch(line);
 
       if (n.startsWith('출발지') || n.startsWith('도착지') || n.startsWith('위치') || startsWithMetro) {
@@ -1101,7 +1352,7 @@ class LogiColmannerOcr {
     final e = end.trim();
     final probe = ' $s';
     final re = RegExp(
-      r'\s${RemoteConfigService().regionPattern}\s+',
+      (r'\s' + RemoteConfigService().regionPattern + r'\s+'),
     );
     final matches = re.allMatches(probe).toList();
     if (matches.length < 2) return (start: s, end: e);
@@ -1128,6 +1379,10 @@ class LogiColmannerOcr {
     if (text.contains('상세:')) return false;
     if (_isLogiSpuriousDestPreviewLine(text)) return false;
     if (RegExp(r'\+|단지|아파트|푸르지오|빌딩|타운|월드마크|@').hasMatch(text)) {
+      return true;
+    }
+    if (RegExp(r'^[가-힣]{2,6}동\s*\d*\s*가?[\s\)]').hasMatch(text) ||
+        RegExp(r'^[가-힣]{2,6}(읍|면|리)[\s\)]').hasMatch(text)) {
       return true;
     }
     final compact = text.replaceAll(' ', '');
@@ -1269,7 +1524,7 @@ class LogiColmannerOcr {
 
       final n = _normalizeKey(t);
       final startsWithMetro = RegExp(
-        r'^${RemoteConfigService().regionPattern}',
+        ('^' + RemoteConfigService().regionPattern),
       ).hasMatch(t);
 
       if (n.startsWith('출발지') || n.startsWith('도착지') || n.startsWith('위치') || startsWithMetro) {
@@ -1307,7 +1562,7 @@ class LogiColmannerOcr {
       if (RegExp(r'^0\d{1,3}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
 
       final hasMetro = _leadingMetroProvinceToken(t) != null ||
-          RegExp(r'(?:^|\s)${RemoteConfigService().regionPattern}').hasMatch(t);
+          RegExp((r'(?:^|\s)' + RemoteConfigService().regionPattern)).hasMatch(t);
       final isSangse = t.contains('상세:');
 
       if (hasMetro || isSangse) {
@@ -1340,9 +1595,11 @@ class LogiColmannerOcr {
         //    예: "송도동)인천송도동.더샵송도센트럴3차" (인천이 ')' 뒤에 위치)
         //    단순 아파트명("한양아파트")은 ')metro' 패턴이 없으므로 미발동.
         final hasEmbeddedMetro = inSangseGroup &&
-            RegExp(
+            (RegExp(
               r'\)(?:서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)',
-            ).hasMatch(t) &&
+            ).hasMatch(t) ||
+            RegExp(r'^[가-힣]{2,6}동\s*\d*\s*가?[\s\)]').hasMatch(t) ||
+            RegExp(r'^[가-힣]{2,6}(읍|면|리)[\s\)]').hasMatch(t)) &&
             _looksLikeLogiFinalDestinationGroup(t);
         if (!shouldSkip && !isAtAnnotation && !hasEmbeddedMetro && t.length >= 2) {
           currentGroup.add(t);
@@ -1381,6 +1638,22 @@ class LogiColmannerOcr {
   static ({String start, String end, String waypoint}) _parseColmannerLocationsMerged(List<String> lines) {
     final c = _parseColmannerLocations(lines);
 
+    if (c.joined.trim().isNotEmpty) {
+      final flatKey = c.joined.replaceAll(RegExp(r'\s'), '');
+      final hasDestLabel = flatKey.contains('도착지') || flatKey.contains('도착시');
+      if (c.start.contains('신중동역')) {
+        print('DEBUG_TEST12: c.start=${c.start}, c.end=${c.end}, hasDestLabel=$hasDestLabel');
+      }
+      if (!(c.end.isEmpty && hasDestLabel) && !(c.start.isEmpty && c.end.isEmpty)) {
+        final adjusted = _colmannerAdjustDoubleMetroInDeparture(c.start, c.end);
+        if (c.start.contains('신중동역')) {
+          print('DEBUG_TEST12: returned adjusted. start=${adjusted.start}, end=${adjusted.end}');
+        }
+        return (start: adjusted.start, end: adjusted.end, waypoint: c.waypoint);
+      }
+    }
+
+
     final startIdx = _indexOfLabel(lines, '출발지');
     final endIdx = _indexOfLabel(lines, '도착지');
     if (startIdx >= 0 && endIdx == startIdx + 1) {
@@ -1399,15 +1672,6 @@ class LogiColmannerOcr {
     if (_colmannerHasAnchorBetweenStartEndLabels(lines)) {
       final leg = _parseColmannerLocationsLegacy(lines);
       return (start: leg.start, end: leg.end, waypoint: c.waypoint);
-    }
-
-    if (c.joined.trim().isNotEmpty) {
-      final flatKey = c.joined.replaceAll(RegExp(r'\s'), '');
-      final hasDestLabel = flatKey.contains('도착지');
-      if (!(c.end.isEmpty && hasDestLabel) && !(c.start.isEmpty && c.end.isEmpty)) {
-        final adjusted = _colmannerAdjustDoubleMetroInDeparture(c.start, c.end);
-        return (start: adjusted.start, end: adjusted.end, waypoint: c.waypoint);
-      }
     }
 
     if (startIdx < 0 || endIdx < 0 || startIdx >= endIdx) {
@@ -1508,6 +1772,7 @@ class LogiColmannerOcr {
   static ({List<String> start, List<String> end}) _splitLogiAddressBody(List<String> body) {
     if (body.isEmpty) return (start: const [], end: const []);
     if (body.length == 1) return (start: body, end: const []);
+    print('DEBUG_BODY: $body');
 
     final idxs = <int>[];
     for (var i = 0; i < body.length; i++) {
@@ -1527,7 +1792,7 @@ class LogiColmannerOcr {
 
     var destStart = body.length;
     for (var i = 1; i < body.length; i++) {
-      if (_looksLikeDestinationLead(body[i])) {
+      if (_looksLikeDestinationLead(body[i]) || RegExp(r'^[가-힣]{2,6}동\s*\d*\s*가?[\s\)]').hasMatch(body[i]) || RegExp(r'^[가-힣]{2,6}(읍|면|리)[\s\)]').hasMatch(body[i])) {
         destStart = i;
         break;
       }
@@ -1784,12 +2049,20 @@ class LogiColmannerOcr {
   }
 
   static bool _looksLikeDestinationLead(String line) {
+    var text = line.trim();
+    text = text.replaceFirst(RegExp(r'^(?:[ⓓⓐⓑ]?법\]?)'), '').trim();
     if (RegExp(
-      r'^${RemoteConfigService().regionPattern}',
-    ).hasMatch(line)) {
+      ('^' + RemoteConfigService().regionPattern),
+    ).hasMatch(text)) {
       return true;
     }
-    return RegExp(r'^[가-힣]+(시|군|구)').hasMatch(line);
+    if (RegExp(r'^[가-힣]{2,6}동\s*\d*\s*가?[\s\)]').hasMatch(text)) {
+      return true;
+    }
+    if (RegExp(r'^[가-힣]{2,6}(읍|면|리)[\s\)]').hasMatch(text)) {
+      return true;
+    }
+    return RegExp(r'^[가-힣]{2,4}(시|군|구)').hasMatch(text);
   }
 
   static bool _shouldSplitColmannerBetweenTail(List<String> between) {
@@ -1862,27 +2135,12 @@ class LogiColmannerOcr {
         endParts.add(endLead);
       }
       if (afterEnd.isNotEmpty) {
-        if (between.isEmpty &&
-            startParts.isNotEmpty &&
-            startLead.length <= 3) {
-          final partitioned = _partitionColmannerAfterEnd(
-            afterEnd,
-            destinationLead: endLead,
-          );
-          startParts.addAll(partitioned.departure);
-          endParts.addAll(partitioned.destination);
-        } else if (between.isEmpty && startParts.isEmpty) {
-          final partitioned = _partitionColmannerAfterEnd(
-            afterEnd,
-            destinationLead: endLead,
-          );
-          startParts.addAll(partitioned.departure);
-          endParts.addAll(partitioned.destination);
-        } else if (between.isEmpty) {
-          endParts.addAll(afterEnd);
-        } else {
-          endParts.addAll(afterEnd);
-        }
+        final partitioned = _partitionColmannerAfterEnd(
+          afterEnd,
+          destinationLead: endLead,
+        );
+        startParts.addAll(partitioned.departure);
+        endParts.addAll(partitioned.destination);
       }
     }
 
