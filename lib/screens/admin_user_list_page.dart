@@ -60,7 +60,7 @@ class _AdminUserListPageState extends State<AdminUserListPage> {
 
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: isBanned ? Colors.redAccent.withOpacity(0.2) : const Color(0xFF1F222A),
+                  backgroundColor: isBanned ? Colors.redAccent.withOpacity(0.2) : Theme.of(context).cardTheme.color!,
                   child: Icon(
                     isAdmin ? Icons.admin_panel_settings : Icons.person,
                     color: isBanned ? Colors.redAccent : const Color(0xFFFFC700),
@@ -101,7 +101,7 @@ class _AdminUserListPageState extends State<AdminUserListPage> {
                         value: isBanned,
                         activeColor: Colors.redAccent,
                         inactiveThumbColor: const Color(0xFFFFC700),
-                        inactiveTrackColor: const Color(0xFF1F222A),
+                        inactiveTrackColor: Theme.of(context).cardTheme.color!,
                         onChanged: (val) => _toggleBanStatus(uid, val),
                       ),
               );

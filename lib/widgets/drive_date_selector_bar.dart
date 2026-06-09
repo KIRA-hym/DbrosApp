@@ -58,7 +58,7 @@ class DriveDateSelectorBar extends StatelessWidget {
 
     final picked = await AppBottomSheet.show<DateTime>(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -164,7 +164,7 @@ class DriveDateSelectorBar extends StatelessWidget {
     final displayText = DateFormat('yyyy-MM-dd').format(sel);
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

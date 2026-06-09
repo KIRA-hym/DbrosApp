@@ -118,7 +118,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(20),
       ),
       padding: const EdgeInsets.all(16),
@@ -128,13 +128,13 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(icon, color: const Color(0xFFFFC700), size: 22),
+              Icon(icon, color: Theme.of(context).primaryColor, size: 22),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   title,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: const Color(0xFFFFC700),
+                        color: Theme.of(context).primaryColor,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
@@ -239,7 +239,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.dark(primary: Color(0xFFFFC700), surface: Color(0xFF1F222A)),
+            colorScheme: ColorScheme.dark(primary: const Color(0xFFFFC700), surface: Theme.of(context).cardTheme.color!),
           ),
           child: child ?? const SizedBox.shrink(),
         );
@@ -262,7 +262,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
       builder: (ctx, child) {
         return Theme(
           data: Theme.of(ctx).copyWith(
-            colorScheme: const ColorScheme.dark(primary: Color(0xFFFFC700), surface: Color(0xFF1F222A)),
+            colorScheme: ColorScheme.dark(primary: const Color(0xFFFFC700), surface: Theme.of(context).cardTheme.color!),
           ),
           child: child ?? const SizedBox.shrink(),
         );
@@ -280,24 +280,24 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
     final formMaxW = ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEdit ? '지출 수정' : '지출 작성',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFFFFC700),
+                color: Theme.of(context).primaryColor,
               ),
         ),
         actions: [
           TextButton(
             onPressed: _save,
-            child: const Text('등록', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+            child: Text('등록', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -314,7 +314,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _pickDate,
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                    style: OutlinedButton.styleFrom(foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                     child: Text(_dateYmd),
                   ),
                 ),
@@ -322,7 +322,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _pickTime,
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white),
+                    style: OutlinedButton.styleFrom(foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                     child: Text(_timeHm),
                   ),
                 ),
@@ -344,15 +344,15 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
                         : (_categoryName != null && _categories.contains(_categoryName)
                             ? _categoryName
                             : _categories.first),
-                    dropdownColor: const Color(0xFF1F222A),
+                    dropdownColor: Theme.of(context).cardTheme.color!,
                     decoration: InputDecoration(
                       filled: true,
-                      fillColor: const Color(0xFF16181D),
+                      fillColor: Theme.of(context).scaffoldBackgroundColor,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                     ),
                     items: _categories
                         .map(
-                          (c) => DropdownMenuItem(value: c, child: Text(c, style: const TextStyle(color: Colors.white))),
+                          (c) => DropdownMenuItem(value: c, child: Text(c, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)))),
                         )
                         .toList(),
                     onChanged: _onCategorySelected,
@@ -368,12 +368,12 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
               textAlign: TextAlign.right,
               keyboardType: TextInputType.number,
               inputFormatters: [thousandSeparatorFormatter],
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFF16181D),
+                fillColor: Theme.of(context).scaffoldBackgroundColor,
                 hintText: '금액 (원)',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+                hintStyle: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.3)),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
@@ -386,12 +386,12 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
               controller: _memoCon,
               minLines: 3,
               maxLines: 6,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFF16181D),
+                fillColor: Theme.of(context).scaffoldBackgroundColor,
                 hintText: '메모 (선택)',
-                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.35)),
+                hintStyle: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.35)),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),

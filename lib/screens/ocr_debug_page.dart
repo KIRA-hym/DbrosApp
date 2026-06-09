@@ -369,7 +369,7 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    backgroundColor: const Color(0xFF1F222A),
+                    backgroundColor: Theme.of(context).cardTheme.color!,
                     title: const Text('로그 삭제', style: TextStyle(color: Colors.white)),
                     content: const Text('저장된 모든 OCR 로그를 삭제하시겠습니까?', style: TextStyle(color: Colors.white70)),
                     actions: [
@@ -512,7 +512,7 @@ class _ResultCardState extends State<_ResultCard> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: hasIssue ? const Color(0xFFFF5252).withValues(alpha: 0.5) : const Color(0xFF2E323C),

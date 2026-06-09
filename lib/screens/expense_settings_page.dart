@@ -66,17 +66,17 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
     final versionFs = isTablet ? 12.0 : 11.0;
     final versionStyle = TextStyle(
       fontFamily: 'GmarketSans',
-      color: Colors.white,
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
       fontSize: versionFs,
       fontWeight: FontWeight.w500,
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           '지출 설정',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: const Color(0xFFFFC700)),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Theme.of(context).primaryColor),
         ),
       ),
       body: ResponsiveBody(
@@ -107,7 +107,7 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       padding: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.75),
@@ -133,14 +133,14 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(borderRadius)),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '데이터 백업/복원',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           Row(
@@ -150,11 +150,11 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                   onPressed: () {
                     _showBackupOptions();
                   },
-                  icon: const Icon(Icons.cloud_upload, color: Colors.white),
-                  label: const Text('백업'),
+                  icon: Icon(Icons.cloud_upload, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text('백업'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -166,11 +166,11 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                   onPressed: () {
                     _showRestoreOptions();
                   },
-                  icon: const Icon(Icons.cloud_download, color: Colors.white),
-                  label: const Text('복원'),
+                  icon: Icon(Icons.cloud_download, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text('복원'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2196F3),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -181,7 +181,7 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
           SizedBox(height: spacing),
           Text(
             '• 운행일지·지출 설정 어디서 백업하든 동일 파일에 두 데이터가 포함됩니다.\n• 복원 시 운행일지와 지출이 함께 반영됩니다.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
           ),
         ],
       ),
@@ -191,7 +191,7 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
   void _showBackupOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -199,21 +199,21 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('백업 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('백업 위치 선택', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
-                title: const Text('단말기 (Downloads) 저장', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('단말기 내 다운로드 폴더에 즉시 저장합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                leading: Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: Text('단말기 (Downloads) 저장', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                subtitle: Text('단말기 내 다운로드 폴더에 즉시 저장합니다.', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToLocalDevice(context);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
-                title: const Text('구글 드라이브 등 공유 저장', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('공유 창을 열어 드라이브 앱으로 내보냅니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                leading: Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
+                title: Text('구글 드라이브 등 공유 저장', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                subtitle: Text('공유 창을 열어 드라이브 앱으로 내보냅니다.', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), fontSize: 12)),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToDrive(context);
@@ -229,7 +229,7 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
   void _showRestoreOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -237,12 +237,12 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('복원 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              Text('복원 위치 선택', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
-                title: const Text('단말기에서 가져오기', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('단말기 내의 백업 폴더에서 파일을 선택합니다.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                leading: Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: Text('단말기에서 가져오기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                subtitle: Text('단말기 내의 백업 폴더에서 파일을 선택합니다.', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), fontSize: 12)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final ok = await BackupService.restoreFromFilePicker(context);
@@ -250,9 +250,9 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
-                title: const Text('구글 드라이브에서 가져오기', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('좌측 메뉴에서 Google Drive를 선택해주세요.', style: TextStyle(color: Colors.white54, fontSize: 12)),
+                leading: Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
+                title: Text('구글 드라이브에서 가져오기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                subtitle: Text('좌측 메뉴에서 Google Drive를 선택해주세요.', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), fontSize: 12)),
                 onTap: () async {
                   Navigator.pop(ctx);
                   final ok = await BackupService.restoreFromFilePicker(context);
@@ -274,14 +274,14 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(borderRadius)),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '지출항목 관리',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           Row(
@@ -299,11 +299,11 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('추가'),
+                  icon: Icon(Icons.add, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text('추가'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -322,11 +322,11 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                       }
                     });
                   },
-                  icon: const Icon(Icons.delete, color: Colors.white),
-                  label: const Text('삭제'),
+                  icon: Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text('삭제'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF5252),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -337,16 +337,16 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
           if (_showAdd) ...[
             SizedBox(height: spacing),
             Container(
-              decoration: BoxDecoration(color: const Color(0xFF16181D), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: BorderRadius.circular(12)),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _newCatCon,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                       decoration: InputDecoration(
                         labelText: '새 지출 항목',
-                        labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+                        labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
                         floatingLabelStyle: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 16 : 12),
@@ -369,10 +369,10 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$t 항목이 추가되었습니다.')));
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFC700),
+                      backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.black,
                     ),
-                    child: const Text('저장', style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text('저장', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -386,13 +386,13 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF16181D),
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ListTile(
-                  title: Text(name, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)),
+                  title: Text(name, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                   trailing: IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                    icon: Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
                     onPressed: () async {
                       await ExpenseRepository.deleteCategory(id);
                       if (!mounted) return;
@@ -417,25 +417,25 @@ class _ExpenseSettingsPageState extends State<ExpenseSettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(borderRadius)),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '화면 설정',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('폰트 크기 조절 버튼', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+            title: Text('폰트 크기 조절 버튼', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
             subtitle: Text(
               '우측 하단에 폰트 크기 조절 버튼 표시',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
             ),
             value: _showFloatingButtons,
-            activeThumbColor: const Color(0xFFFFC700),
+            activeThumbColor: Theme.of(context).primaryColor,
             onChanged: (value) {
               setState(() => _showFloatingButtons = value);
               SettingsService.setShowFloatingButtons(value);

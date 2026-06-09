@@ -261,13 +261,13 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
     }
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
             onPressed: prev,
-            icon: Icon(Icons.chevron_left, color: const Color(0xFFFFC700), size: iconSize),
+            icon: Icon(Icons.chevron_left, color: Theme.of(context).primaryColor, size: iconSize),
             constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
           ),
           SizedBox(width: padding),
@@ -275,13 +275,13 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
             padding: EdgeInsets.symmetric(horizontal: padding * 1.5, vertical: padding),
             child: Text(
               _dateLabel(),
-              style: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: 14),
+              style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: 14),
             ),
           ),
           SizedBox(width: padding),
           IconButton(
             onPressed: canNext ? next : null,
-            icon: Icon(Icons.chevron_right, color: const Color(0xFFFFC700), size: iconSize),
+            icon: Icon(Icons.chevron_right, color: Theme.of(context).primaryColor, size: iconSize),
             constraints: BoxConstraints(minWidth: buttonSize, minHeight: buttonSize),
           ),
         ],
@@ -304,13 +304,13 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
     final padding = isTablet ? 24.0 : math.min(16.0, screenWidth * 0.04);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           '지출 통계',
           style: TextStyle(
             fontFamily: 'GmarketSans',
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
             fontSize: isTablet ? 20 : 18,
             fontWeight: FontWeight.w700,
           ),
@@ -318,7 +318,7 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
       ),
       body: ResponsiveBody(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+            ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
             : LayoutBuilder(
               builder: (context, constraints) {
                 final maxH = constraints.maxHeight.isFinite ? constraints.maxHeight : screenHeight * 0.75;
@@ -349,12 +349,12 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
                                     _load();
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: t == _selectedPeriod ? const Color(0xFFFFC700) : const Color(0xFF1F222A),
-                                    foregroundColor: t == _selectedPeriod ? Colors.black : Colors.white,
+                                    backgroundColor: t == _selectedPeriod ? Theme.of(context).primaryColor : Theme.of(context).cardTheme.color!,
+                                    foregroundColor: t == _selectedPeriod ? Colors.black : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                                     padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 16, vertical: compact ? 6 : 8),
                                   ),
-                                  child: Text(t, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  child: Text(t, style: TextStyle(fontWeight: FontWeight.w700)),
                                 ),
                               )
                               .toList(),
@@ -364,12 +364,12 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               '전체 통계',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.w700, fontSize: 16),
                             ),
                           ),
                           Flexible(
@@ -396,14 +396,14 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
                               NumberFormat('#,###').format(_stats['totalExpense'] ?? 0),
                               const Color(0xFFFF5252),
                             ),
-                            _statCard('총 건수', '${_stats['totalCount'] ?? 0}', Colors.white),
+                            _statCard('총 건수', '${_stats['totalCount'] ?? 0}', (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                           ],
                         ),
                       ),
                       SizedBox(height: compact ? 10 : 16),
-                      const Text(
+                      Text(
                         '수익 분석',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
+                        style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       SizedBox(height: compact ? 8 : 12),
                       Expanded(
@@ -462,16 +462,16 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
   Widget _statCard(String title, String value, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
             title,
-            style: const TextStyle(color: Color(0xFF6E717C), fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(color: Color(0xFF6E717C), fontWeight: FontWeight.bold, fontSize: 14),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Expanded(
             child: Align(
               alignment: Alignment.centerRight,
@@ -490,13 +490,13 @@ class _ExpenseStatsPageState extends State<ExpenseStatsPage> {
 
   Widget _chartBox(String title, Widget chart) {
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF1F222A), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(color: Theme.of(context).cardTheme.color!, borderRadius: BorderRadius.circular(20)),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-          const SizedBox(height: 8),
+          Text(title, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 13)),
+          SizedBox(height: 8),
           Expanded(child: chart),
         ],
       ),

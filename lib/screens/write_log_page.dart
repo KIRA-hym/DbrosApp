@@ -619,22 +619,22 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final TimeOfDay? picked = await showDialog<TimeOfDay>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         content: SizedBox(
           height: 180,
           child: Row(
             children: [
-              Expanded(child: CupertinoPicker(scrollController: hourController, itemExtent: 36, onSelectedItemChanged: (value) => selectedHour = value, children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)))))),
-              const Center(child: Text(":", style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold))),
-              Expanded(child: CupertinoPicker(scrollController: minuteController, itemExtent: 36, onSelectedItemChanged: (value) => selectedMinute = value, children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white)))))),
+              Expanded(child: CupertinoPicker(scrollController: hourController, itemExtent: 36, onSelectedItemChanged: (value) => selectedHour = value, children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))))))),
+              Center(child: Text(":", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 20, fontWeight: FontWeight.bold))),
+              Expanded(child: CupertinoPicker(scrollController: minuteController, itemExtent: 36, onSelectedItemChanged: (value) => selectedMinute = value, children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))))))),
             ],
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("취소", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey))),
-          TextButton(onPressed: () => Navigator.of(context).pop(TimeOfDay(hour: selectedHour, minute: selectedMinute)), child: Text("확인", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFFFFC700)))),
+          TextButton(onPressed: () => Navigator.of(context).pop(TimeOfDay(hour: selectedHour, minute: selectedMinute)), child: Text("확인", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).primaryColor))),
         ],
       ),
     );
@@ -705,7 +705,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     final picked = await AppBottomSheet.show<DateTime>(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -721,10 +721,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
                     child: Row(
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white)),
+                        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                         const Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.chevron_left, color: Color(0xFFFFC700)),
+                          icon: Icon(Icons.chevron_left, color: Color(0xFFFFC700)),
                           onPressed: () {
                             final prev = selected.subtract(const Duration(days: 1));
                             if (prev.isBefore(firstOfMonth)) return;
@@ -733,10 +733,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         ),
                         Text(
                           DateFormat('yyyy-MM-dd').format(selected),
-                          style: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.chevron_right, color: Color(0xFFFFC700)),
+                          icon: Icon(Icons.chevron_right, color: Color(0xFFFFC700)),
                           onPressed: () {
                             final next = selected.add(const Duration(days: 1));
                             if (next.isAfter(maxDate)) return;
@@ -746,7 +746,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       ],
                     ),
                   ),
-                  const Divider(color: Colors.white12, height: 1),
+                  Divider(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.12), height: 1),
                   Expanded(
                     child: ListView.builder(
                       itemCount: dates.length,
@@ -757,7 +757,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                           title: Text(
                             DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(d),
                             style: TextStyle(
-                              color: isSelected ? const Color(0xFFFFC700) : Colors.white,
+                              color: isSelected ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                               fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
                             ),
                           ),
@@ -773,18 +773,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         Expanded(
                           child: TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
+                            child: Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        SizedBox(width: 8),
                         Expanded(
                           child: ElevatedButton(
                             onPressed: () => Navigator.pop(ctx, selected),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFC700),
+                              backgroundColor: Theme.of(context).primaryColor,
                               foregroundColor: Colors.black,
                             ),
-                            child: const Text('확인'),
+                            child: Text('확인'),
                           ),
                         ),
                       ],
@@ -879,7 +879,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return IconButton(
       icon: Icon(
         has ? Icons.edit_location_alt : Icons.add_location_alt,
-        color: has ? const Color(0xFF4CAF50) : const Color(0xFFFFC700),
+        color: has ? const Color(0xFF4CAF50) : Theme.of(context).primaryColor,
         size: 22,
       ),
       onPressed: forStart ? _openStartMapPicker : _openEndMapPicker,
@@ -1034,10 +1034,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               builder: (ctx) => TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
                 style: TextButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.15),
+                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('예', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+                child: Text('예', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -1198,9 +1198,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             isTablet ? 12.0 : 8.0,
             isTablet ? 10.0 : 8.0,
           ),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1F222A),
-            border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color!,
+            border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
           ),
           child: Row(
             children: [
@@ -1208,24 +1208,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 child: OutlinedButton(
                   onPressed: closeQuickPanel,
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF6E717C)),
+                    side: BorderSide(color: Color(0xFF6E717C)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(vertical: isTablet ? 12 : 10),
                   ),
-                  child: const Text('닫기', style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w700)),
+                  child: Text('닫기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontWeight: FontWeight.w700)),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
                   onPressed: _saveDriveLog,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFC700),
+                    backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.black,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(vertical: isTablet ? 12 : 10),
                   ),
-                  child: const Text('등록', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text('등록', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
               ),
             ],
@@ -1249,7 +1249,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Material(
-                      color: const Color(0xFF121418),
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       child: Column(
                         children: [
                           Expanded(child: form),
@@ -1267,16 +1267,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         centerTitle: true,
         leading: _logId != null || widget.initialDate != null
-          ? IconButton(icon: Icon(Icons.arrow_back, color: Colors.white, size: iconSize.toDouble()), onPressed: () => Navigator.pop(context)) 
+          ? IconButton(icon: Icon(Icons.arrow_back, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize.toDouble()), onPressed: () => Navigator.pop(context)) 
           : null,
         title: Text(
           _logId != null ? '운행 일지 수정' : '운행 일지 작성',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: const Color(0xFFFFC700)),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
           overflow: TextOverflow.ellipsis,
         ),
         actions: [
@@ -1290,11 +1290,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             child: TextButton(
               onPressed: _saveDriveLog, 
               style: TextButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.1),
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
               ),
-              child: Text(_logId != null ? "수정" : "등록", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold))
+              child: Text(_logId != null ? "수정" : "등록", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))
             ),
           )
         ],
@@ -1317,7 +1317,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             Row(
               children: [
                 Expanded(child: _buildDropdown(bottomMargin: 0)),
-                const SizedBox(width: 12),
+                SizedBox(width: 12),
                 Expanded(
                   child: _buildInputField(
                     _incomeCon,
@@ -1346,7 +1346,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                  icon: const Icon(Icons.image, color: Color(0xFFFFC700)),
+                  icon: Icon(Icons.image, color: Color(0xFFFFC700)),
                   onPressed: () => showDialog(
                     context: context,
                     builder: (_) => Dialog(
@@ -1355,7 +1355,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         onTap: () => Navigator.pop(context),
                         child: Container(
                           decoration: BoxDecoration(
-                            border: Border.all(color: const Color(0xFFFFC700), width: 2.0),
+                            border: Border.all(color: Theme.of(context).primaryColor, width: 2.0),
                           ),
                           child: Image.file(_capturedImage!),
                         ),
@@ -1366,12 +1366,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                icon: const Icon(Icons.style, color: Color(0xFFFFC700)),
+                icon: Icon(Icons.style, color: Color(0xFFFFC700)),
                 onPressed: _openGallery,
               ),
             ],
           )),
-          const SizedBox(height: 14),
+          SizedBox(height: 14),
           _buildInputGroup("운행 경로", Icons.directions, [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1379,9 +1379,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 Row(
                   children: [
                     Expanded(
-                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -1395,29 +1395,29 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       child: Text(
                         "+경유",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: const Color(0xFFFFC700),
+                              color: Theme.of(context).primaryColor,
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
                   focusNode: _startLocFocusNode,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: const Color(0xFF121418),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
             ),
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
@@ -1436,7 +1436,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       Row(
         children: [
           Expanded(child: _buildInputField(_dateCon, label: "운행 일자", readOnly: true, onTap: _showDateQuickPicker, bottomMargin: 0)),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(child: _buildInputField(_timeCon, label: "운행 시간", readOnly: true, onTap: _showTimeQuickPicker, bottomMargin: 0)),
         ],
       ),
@@ -1450,18 +1450,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               Row(
                 children: [
                   Expanded(child: _buildDropdown(bottomMargin: 0)),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, focusNode: _incomeFocusNode, onChanged: (_) => _captureGrossAndApplyDeductions())),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _buildComboInputField(
                 _transportCon,
                 label: "지출",
                 selectedValue: _safeExpenseCategory(),
                 dropdownItems: SettingsService.expenseList.isNotEmpty
                     ? SettingsService.expenseList
-                    : const ['기타'],
+                    : ['기타'],
                 focusNode: _transportFocusNode,
                 isNumber: true,
                 onDropdownChanged: (value) {
@@ -1477,7 +1477,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 selectedValue: _safeIncomeCategory(),
                 dropdownItems: SettingsService.incomeList.isNotEmpty
                     ? SettingsService.incomeList
-                    : const ['기타'],
+                    : ['기타'],
                 focusNode: _waypointTipFocusNode,
                 isNumber: true,
                 onDropdownChanged: (value) {
@@ -1495,7 +1495,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                    icon: const Icon(Icons.image, color: Color(0xFFFFC700)),
+                    icon: Icon(Icons.image, color: Color(0xFFFFC700)),
                     onPressed: () => showDialog(
                       context: context, 
                       builder: (_) => Dialog(
@@ -1503,7 +1503,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         child: GestureDetector(
                           onTap: () => Navigator.pop(context), 
                           child: Container(
-                            decoration: BoxDecoration(border: Border.all(color: const Color(0xFFFFC700), width: 2.0)),
+                            decoration: BoxDecoration(border: Border.all(color: Theme.of(context).primaryColor, width: 2.0)),
                             child: Image.file(_capturedImage!)
                           )
                         )
@@ -1513,7 +1513,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                  icon: const Icon(Icons.style, color: Color(0xFFFFC700)),
+                  icon: Icon(Icons.style, color: Color(0xFFFFC700)),
                   onPressed: _openGallery,
                 ),
               ],
@@ -1529,9 +1529,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 Row(
                   children: [
                     Expanded(
-                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
+                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -1545,29 +1545,29 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       child: Text(
                         "+경유추가",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: const Color(0xFFFFC700),
+                          color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextField(
                   controller: _startLocCon,
                   focusNode: _startLocFocusNode,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: const Color(0xFF121418),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                     suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
               ],
             ),
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
@@ -1582,7 +1582,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 ? IconButton(
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                    icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                    icon: Icon(Icons.map, color: Color(0xFFFFC700)),
                     onPressed: _openNaverMapRoute,
                   )
                 : null,
@@ -1606,20 +1606,20 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               child: Column(
                 children: [
                   _buildDateTimeSection(),
-                  const SizedBox(height: gap),
+                  SizedBox(height: gap),
                   _buildProgramMoneySection(),
                 ],
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.only(bottom: bottomPad),
               child: Column(
                 children: [
                   _buildRouteSection(),
-                  const SizedBox(height: gap),
+                  SizedBox(height: gap),
                   _buildMemoSection(),
                 ],
               ),
@@ -1634,11 +1634,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       child: Column(
         children: [
           _buildDateTimeSection(),
-          const SizedBox(height: gap),
+          SizedBox(height: gap),
           _buildProgramMoneySection(),
-          const SizedBox(height: gap),
+          SizedBox(height: gap),
           _buildRouteSection(),
-          const SizedBox(height: gap),
+          SizedBox(height: gap),
           _buildMemoSection(),
         ],
       ),
@@ -1647,7 +1647,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   Widget _buildInputGroup(String title, IconData icon, List<Widget> children, {Widget? trailing}) {
     return Container(
-      decoration: BorderedSection.decoration(),
+      decoration: BorderedSection.decoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1655,27 +1655,27 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                Icon(icon, color: const Color(0xFFFFC700), size: 20),
-                const SizedBox(width: 8),
+                Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+                SizedBox(width: 8),
                 Text(
                   title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontFamily: 'GmarketSans',
-                    color: Colors.white,
+                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 if (title == "프로그램 및 금액") ...[
-                  const SizedBox(width: 6),
+                  SizedBox(width: 6),
                   GestureDetector(
                     onTap: _showOcrHelpDialog,
                     child: Container(
                       padding: const EdgeInsets.all(3),
-                      decoration: const BoxDecoration(
-                        color: Colors.white10,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).dividerColor,
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.help_outline,
                         color: Color(0xFFFFC700),
                         size: 14,
@@ -1700,8 +1700,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
-        const SizedBox(height: 8),
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        SizedBox(height: 8),
         TextField(
           controller: controller,
           focusNode: focusNode,
@@ -1712,15 +1712,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
           decoration: InputDecoration(
             suffix: suffixWidget,
             suffixIcon: suffixIcon,
             filled: true,
-            fillColor: const Color(0xFF121418),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
+            fillColor: Theme.of(context).scaffoldBackgroundColor,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),
         ),
@@ -1742,8 +1742,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C))),
-        const SizedBox(height: 8),
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -1752,17 +1752,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 height: 48,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF121418),
-                  border: Border.all(color: Colors.white10),
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  border: Border.all(color: Theme.of(context).dividerColor),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
                     value: dropdownItems.contains(selectedValue) ? selectedValue : dropdownItems.first,
-                    dropdownColor: const Color(0xFF1F222A),
-                    icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                    dropdownColor: Theme.of(context).cardTheme.color!,
+                    icon: Icon(Icons.arrow_drop_down, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7)),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                     onChanged: onDropdownChanged,
                     items: dropdownItems.map((String item) {
                       return DropdownMenuItem<String>(
@@ -1774,7 +1774,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: 12),
             Expanded(
               child: SizedBox(
                 height: 48,
@@ -1785,13 +1785,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   textAlign: isNumber ? TextAlign.right : TextAlign.left,
                   keyboardType: isNumber ? TextInputType.number : TextInputType.text,
                   inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: const Color(0xFF121418),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Colors.white10)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: Color(0xFFFFC700))),
+                    fillColor: Theme.of(context).scaffoldBackgroundColor,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
@@ -1799,7 +1799,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: 16),
       ],
     );
   }
@@ -1813,22 +1813,22 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("프로그램", style: TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
-        const SizedBox(height: 8),
+        Text("프로그램", style: TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
+        SizedBox(height: 8),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFF121418),
-            border: Border.all(color: Colors.white10),
+            color: Theme.of(context).scaffoldBackgroundColor,
+            border: Border.all(color: Theme.of(context).dividerColor),
             borderRadius: BorderRadius.circular(8),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               isExpanded: true,
               value: selected,
-              dropdownColor: const Color(0xFF1F222A),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+              dropdownColor: Theme.of(context).cardTheme.color!,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
               items: options.map((program) {
                 return DropdownMenuItem<String>(
                   value: program,
@@ -1864,13 +1864,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             _buildOcrHelpItem("1", "상단 시간 포함 필수",
                 "캡처 이미지 상단의 상태바 시간까지 함께 캡처되어야 운행 시간이 자동으로 셋팅됩니다. (기기 시간은 24시 설정 기준)",
                 Icons.access_time),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildOcrHelpItem("2", "로지 앱 캡처 범위",
                 "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.", Icons.crop_free),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildOcrHelpItem("3", "콜마너 앱 캡처 범위",
                 "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.", Icons.location_on_outlined),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildOcrHelpItem("4", "미니 팝업/스티커 주의",
                 "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
                 Icons.warning_amber_rounded),
@@ -1887,9 +1887,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1897,28 +1897,28 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFC700).withValues(alpha: 0.1),
+              color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: const Color(0xFFFFC700), size: 16),
+            child: Icon(icon, color: Theme.of(context).primaryColor, size: 16),
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "$step. $title",
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: 4),
                 Text(
                   desc,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Color(0xFF8A8D96),
                     fontSize: 12,
                     height: 1.4,

@@ -346,7 +346,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       if (_currentMode == MapFilterMode.reference) {
         color = Colors.purple;
       } else {
-        color = const Color(0xFFFFC700);
+        color = Theme.of(context).primaryColor;
       }
       final cacheKey = '${cluster.count}_${color.value}';
       if (!_clusterIcons.containsKey(cacheKey)) {
@@ -372,7 +372,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
       painter.text = TextSpan(
         text: text,
-        style: TextStyle(fontSize: size / 2.5, color: Colors.white, fontWeight: FontWeight.bold),
+        style: TextStyle(fontSize: size / 2.5, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
       );
       painter.layout();
       painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
@@ -431,11 +431,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.location_on, color: Color(0xFFFF5252), size: 16),
-            const SizedBox(width: 4),
+            Icon(Icons.location_on, color: Color(0xFFFF5252), size: 16),
+            SizedBox(width: 4),
             Text(
               primary,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
             ),
           ],
         ),
@@ -444,7 +444,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFFFFC700).withValues(alpha: 0.9),
+            color: Theme.of(context).primaryColor.withValues(alpha: 0.9),
           ),
         ),
       ],
@@ -454,17 +454,17 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         toolbarHeight: 56,
         title: _buildAppBarTitle(),
         titleSpacing: 16,
         centerTitle: true,
-        backgroundColor: const Color(0xFF121418),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: Color(0xFFFFC700)),
             )
           : _buildMap(),
@@ -477,7 +477,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       children: [
         _tabButton('콜레이더', MapFilterMode.radar),
         _tabButton('콜포인트', MapFilterMode.reference),
-        const SizedBox(width: 8),
+        SizedBox(width: 8),
       ],
     );
   }
@@ -490,14 +490,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFFFC700) : Colors.transparent,
+          color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFFFC700)),
+          border: Border.all(color: Theme.of(context).primaryColor),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: isSelected ? Colors.black : const Color(0xFFFFC700),
+            color: isSelected ? Colors.black : Theme.of(context).primaryColor,
             fontWeight: FontWeight.bold,
             fontSize: 13,
           ),
@@ -508,10 +508,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Widget _buildMap() {
     if (kIsWeb) {
-      return const Center(
+      return Center(
         child: Text(
           '웹 환경에서는 지도를 지원하지 않습니다.',
-          style: TextStyle(color: Colors.white70),
+          style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7)),
         ),
       );
     }
@@ -566,19 +566,19 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0xFF16181D).withValues(alpha: 0.9),
+          color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white24),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _legendItem(const Color(0xFFFF5252), '내 좌표'),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             _legendItem(Colors.lightBlueAccent, '공유된 좌표'),
             if (_currentMode == MapFilterMode.all) ...[
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               _legendItem(Colors.purpleAccent, '콜포인트'),
             ],
           ],
@@ -596,8 +596,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           color: color,
           size: 16,
         ),
-        const SizedBox(width: 6),
-        Text(text, style: const TextStyle(color: Colors.white, fontSize: 12)),
+        SizedBox(width: 6),
+        Text(text, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 12)),
       ],
     );
   }

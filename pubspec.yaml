@@ -129,6 +129,7 @@ flutter:
   assets:
     - assets/icon.png
     - assets/title.png
+    - assets/title_light.png
     - assets/splash.png
     - shorebird.yaml
 

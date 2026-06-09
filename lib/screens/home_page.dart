@@ -44,7 +44,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   final bool _isLoading = false;
   Timer? _workDateTick;
 
-  List<Map<String, dynamic>> _recentLogs = const [];
+  List<Map<String, dynamic>> _recentLogs = [];
   int _recentLogIndex = 0;
   Timer? _recentLogTicker;
   String? _latestYoutubeVideoId;
@@ -239,9 +239,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: const Color(0xFF121418),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           appBar: AppBar(
-            backgroundColor: const Color(0xFF121418),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             elevation: 0,
             toolbarHeight: 70,
             leadingWidth: padding + 40,
@@ -264,7 +264,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           backgroundColor: Colors.transparent,
                         );
                       }
-                      return const Icon(Icons.account_circle, color: Colors.white, size: 40);
+                      return Icon(Icons.account_circle, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: 40);
                     },
                   ),
                 ),
@@ -292,14 +292,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
+                        Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
                         if (ApkUpdateService.instance.hasApkUpdate)
                           Positioned(
                             right: 0,
                             top: 0,
                             child: Container(
                               padding: const EdgeInsets.all(3),
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: Color(0xFFFF5252),
                                 shape: BoxShape.circle,
                               ),
@@ -330,7 +330,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: ResponsiveBody(
                   fullWidthWhenExpanded: true,
                   child: _isLoading
-                      ? const Center(
+                      ? Center(
                           child: CircularProgressIndicator(
                             color: Color(0xFFFFC700),
                           ),
@@ -444,7 +444,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         color: Colors.transparent,
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1F222A).withValues(alpha: 0.85),
+            color: Theme.of(context).cardTheme.color!.withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: const Color(0xFFFF5252).withValues(alpha: 0.5),
@@ -465,17 +465,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 Icons.campaign,
                 color: isImportant
                     ? const Color(0xFFFF5252)
-                    : const Color(0xFFFFC700),
+                    : Theme.of(context).primaryColor,
                 size: 22,
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.only(top: 1.0),
                   child: Text(
                     noticeMsg,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                       fontSize: 14,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
@@ -483,7 +483,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
               InkWell(
                 onTap: () {
                   setState(() {
@@ -491,7 +491,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   });
                 },
                 borderRadius: BorderRadius.circular(20),
-                child: const Padding(
+                child: Padding(
                   padding: EdgeInsets.all(8.0),
                   child: Icon(Icons.close, color: Color(0xFF9FA3AE), size: 18),
                 ),
@@ -566,17 +566,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF2C2F36)),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: _openTodayDailyList,
-          splashColor: const Color(0xFFFFC700).withValues(alpha: 0.12),
-          highlightColor: Colors.white10,
+          splashColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+          highlightColor: Theme.of(context).dividerColor,
           child: Padding(
             padding: const EdgeInsets.all(20.0),
             child: Column(
@@ -588,32 +588,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   children: [
                     Text(
                       dateFull,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                      style: TextStyle(
+                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const Icon(
+                    Icon(
                       Icons.arrow_forward_ios,
-                      color: Colors.white,
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                       size: 14,
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text(
+                    Text(
                       '오늘 순익',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    SizedBox(height: 10),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -621,18 +621,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       children: [
                         Text(
                           NumberFormat('#,###').format(statsProvider.todayNet),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Color(0xFFFFC700),
                             fontSize: 34,
                             fontWeight: FontWeight.w700,
                             height: 1.1,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        const Text(
+                        SizedBox(width: 4),
+                        Text(
                           '원',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -641,11 +641,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
+                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -654,16 +654,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               '운행건수',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                 fontSize: 13,
                               ),
                             ),
                             Text(
                               '${statsProvider.todayLogs}건',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Color(0xFF4DABF7),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15,
@@ -675,23 +675,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       Container(
                         width: 1,
                         height: 24,
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1),
                         margin: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                       Expanded(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               '지출',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                 fontSize: 13,
                               ),
                             ),
                             Text(
                               '${NumberFormat('#,###').format(statsProvider.todayExpenses)}원',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Color(0xFFFF5252),
                                 fontWeight: FontWeight.w700,
                                 fontSize: 15,
@@ -720,12 +720,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(14),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
+                color: Theme.of(context).cardTheme.color!,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFC700)),
+                border: Border.all(color: Theme.of(context).primaryColor),
               ),
               alignment: Alignment.center,
-              child: const Row(
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.timer_outlined, color: Color(0xFFFFC700), size: 20),
@@ -736,7 +736,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: InkWell(
             onTap: () {
@@ -754,17 +754,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(14),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
+                color: Theme.of(context).cardTheme.color!,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFFFC700)),
+                border: Border.all(color: Theme.of(context).primaryColor),
               ),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
-                  const SizedBox(width: 6),
-                  Text('주변 콜맵', style: TextStyle(color: kMapFeaturesEnabled ? const Color(0xFFFFC700) : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
+                  SizedBox(width: 6),
+                  Text('주변 콜맵', style: TextStyle(color: kMapFeaturesEnabled ? Theme.of(context).primaryColor : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
                 ],
               ),
             ),
@@ -786,23 +786,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(16),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
+                color: Theme.of(context).cardTheme.color!,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2C2F36)),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               alignment: Alignment.center,
-              child: const Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.credit_card, color: Color(0xFFFFC700), size: 32),
                   SizedBox(height: 10),
-                  Text('콜카드 단건등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text('콜카드 단건등록', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15)),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        SizedBox(width: 12),
         Expanded(
           child: InkWell(
             onTap: () async {
@@ -812,17 +812,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             borderRadius: BorderRadius.circular(16),
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
+                color: Theme.of(context).cardTheme.color!,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF2C2F36)),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               alignment: Alignment.center,
-              child: const Column(
+              child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.library_add_check, color: Color(0xFFFFC700), size: 32),
                   SizedBox(height: 10),
-                  Text('콜카드 다중등록', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text('콜카드 다중등록', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15)),
                 ],
               ),
             ),
@@ -838,10 +838,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final titleFs = isTablet ? 13.5 : 12.0;
 
     return Container(
-      decoration: BorderedSection.decoration(),
+      decoration: BorderedSection.decoration(context),
       clipBehavior: Clip.antiAlias,
       child: Material(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: _openYoutubeBanner,
@@ -856,7 +856,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'GmarketSans',
-                    color: const Color(0xFFFFC700),
+                    color: Theme.of(context).primaryColor,
                     fontWeight: FontWeight.w700,
                     fontSize: titleFs,
                     height: 1.2,
@@ -872,9 +872,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         borderRadius: BorderRadius.circular(10),
                         child: _latestYoutubeVideoId == null
                             ? Container(
-                                color: const Color(0xFF16181D),
+                                color: Theme.of(context).cardTheme.color!,
                                 alignment: Alignment.center,
-                                child: const Column(
+                                child: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -901,9 +901,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 width: double.infinity,
                                 height: double.infinity,
                                 errorBuilder: (_, _, _) => Container(
-                                  color: const Color(0xFF16181D),
+                                  color: Theme.of(context).cardTheme.color!,
                                   alignment: Alignment.center,
-                                  child: const Column(
+                                  child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -928,7 +928,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       );
 
                       Widget textWidget = _youtubeLoading
-                          ? const Align(
+                          ? Align(
                               alignment: Alignment.centerLeft,
                               child: SizedBox(
                                 width: 18,
@@ -970,7 +970,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                                 child: Text(
                                                   _latestYoutubePublishedDot,
                                                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                        color: const Color(0xFF6E717C),
+                                                        color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                                                         fontSize: 10,
                                                         height: 1.2,
                                                       ),
@@ -985,7 +985,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         maxLines: useVerticalLayout ? 2 : 3,
                                         overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              color: Colors.white,
+                                              color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                               height: 1.3,
                                               fontSize: isTablet ? 14 : 12,
                                             ),
@@ -998,7 +998,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(child: imageWidget),
-                            const SizedBox(height: 10),
+                            SizedBox(height: 10),
                             textWidget,
                           ],
                         );
@@ -1048,7 +1048,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final bodyFs = ResponsiveLayout.summaryValueFontSize(context);
     final titleStyle = TextStyle(
       fontFamily: 'GmarketSans',
-      color: Colors.white,
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
       fontWeight: FontWeight.w700,
       fontSize: recentTitleFs,
       height: 1.12,
@@ -1056,14 +1056,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (_recentLogs.isEmpty) {
       return Container(
-        decoration: BorderedSection.decoration(),
+        decoration: BorderedSection.decoration(context),
         padding: EdgeInsets.all(outerPadding),
         child: Align(
           alignment: Alignment.centerLeft,
           child: Text(
             '최근운행일지\n아직 등록된 운행일지가 없습니다.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: const Color(0xFF6E717C),
+              color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
               height: 1.35,
             ),
           ),
@@ -1092,13 +1092,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final end = (log['end_location'] ?? '').toString().trim();
     final hasWaypoint = waypoint.isNotEmpty;
     final metaTextStyle = TextStyle(
-      color: Colors.white70,
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
       fontWeight: FontWeight.w500,
       height: 1.1,
       fontSize: bodyFs,
     );
     final routeTextStyle = TextStyle(
-      color: Colors.white70,
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
       fontWeight: FontWeight.w500,
       height: 1.1,
       fontSize: bodyFs,
@@ -1110,7 +1110,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
 
     return Container(
-      decoration: BorderedSection.decoration(),
+      decoration: BorderedSection.decoration(context),
       clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
@@ -1218,7 +1218,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         ),
                                       ),
                                       if (expense > 0) ...[
-                                        const SizedBox(width: 8),
+                                        SizedBox(width: 8),
                                         Text(
                                           '지출 ${NumberFormat('#,###').format(expense)}',
                                           style: moneyBaseStyle.copyWith(
@@ -1230,11 +1230,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              SizedBox(width: 8),
                               Text(
                                 '순익 ${NumberFormat('#,###').format(net)}',
                                 style: moneyBaseStyle.copyWith(
-                                  color: const Color(0xFFFFC700),
+                                  color: Theme.of(context).primaryColor,
                                 ),
                               ),
                             ],
@@ -1290,7 +1290,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         width: isTablet ? 86 : 76,
                         height: double.infinity,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF16181D),
+                          color: Theme.of(context).cardTheme.color!,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: const Color(
@@ -1304,14 +1304,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           children: [
                             Icon(
                               Icons.map,
-                              color: const Color(0xFFFFC700),
+                              color: Theme.of(context).primaryColor,
                               size: isTablet ? 26 : 22,
                             ),
                             SizedBox(height: isTablet ? 4 : 2),
                             Text(
                               '주변 콜맵',
                               style: TextStyle(
-                                color: const Color(0xFFFFC700),
+                                color: Theme.of(context).primaryColor,
                                 fontSize: isTablet ? 11 : 10,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -1339,7 +1339,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   ) {
     return SizedBox.expand(
       child: Material(
-        color: const Color(0xFF16181D),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(16),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1349,7 +1349,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: const Color(0xFFFFC700), size: iconSz),
+                Icon(icon, color: Theme.of(context).primaryColor, size: iconSz),
                 SizedBox(height: (textFs * 0.25).clamp(4.0, 8.0)),
                 FittedBox(
                   fit: BoxFit.scaleDown,
@@ -1359,7 +1359,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     maxLines: label.contains('\n') ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                       fontWeight: FontWeight.bold,
                       fontSize: textFs,
                       height: 1.15,

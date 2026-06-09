@@ -71,7 +71,7 @@ class _AdminPushDialogState extends State<AdminPushDialog> {
         fillColor: const Color(0xFF121418),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF2A2E38)),
+          borderSide: BorderSide(color: (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4))),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -91,7 +91,7 @@ class _AdminPushDialogState extends State<AdminPushDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Row(
         children: [

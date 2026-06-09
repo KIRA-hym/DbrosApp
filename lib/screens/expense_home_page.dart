@@ -93,9 +93,9 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     final weekdayLong = DateFormat('EEEE', 'ko').format(today);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF121418),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 20.0,
@@ -128,7 +128,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.end,
                           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: const Color(0xFFFFC700),
+                                color: Theme.of(context).primaryColor,
                                 fontWeight: FontWeight.bold,
                               ),
                         ),
@@ -264,13 +264,13 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       borderRadius: BorderRadius.circular(20),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        splashColor: const Color(0xFFFFC700).withValues(alpha: 0.12),
-        highlightColor: Colors.white10,
+        splashColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+        highlightColor: Theme.of(context).dividerColor,
         child: Padding(
           padding: EdgeInsets.all(outerPad),
           child: LayoutBuilder(
@@ -294,7 +294,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         Expanded(
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF16181D),
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Padding(
@@ -311,7 +311,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                                         '당월 지출',
                                         maxLines: 1,
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                           fontWeight: FontWeight.bold,
                                           fontSize: netFs,
                                           height: 1.12,
@@ -349,7 +349,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                         Expanded(
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: const Color(0xFF16181D),
+                              color: Theme.of(context).scaffoldBackgroundColor,
                               borderRadius: BorderRadius.circular(14),
                             ),
                             child: Padding(
@@ -366,7 +366,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                                         dateCompact,
                                         maxLines: 1,
                                         style: TextStyle(
-                                          color: Colors.white,
+                                          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                           fontWeight: FontWeight.bold,
                                           fontSize: netFs,
                                           height: 1.12,
@@ -385,7 +385,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                                           weekdayLong,
                                           textAlign: TextAlign.right,
                                           style: TextStyle(
-                                            color: Colors.white,
+                                            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                             fontWeight: FontWeight.bold,
                                             fontSize: netFs,
                                             height: 1.05,
@@ -424,7 +424,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                             icon: Icons.receipt_long,
                             label: '당월 항목 수',
                             value: '${_byCategory.length}개',
-                            valueColor: const Color(0xFFFFC700),
+                            valueColor: Theme.of(context).primaryColor,
                             cell: cell,
                             netFs: netFs,
                           ),
@@ -456,7 +456,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF16181D),
+        color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
@@ -475,7 +475,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     label,
                     maxLines: 1,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                       fontWeight: FontWeight.bold,
                       fontSize: netFs,
                       height: 1.12,
@@ -494,10 +494,10 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
                     height: box,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF121418),
+                        color: Theme.of(context).scaffoldBackgroundColor,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Center(child: Icon(icon, color: const Color(0xFFFFC700), size: iconSz)),
+                      child: Center(child: Icon(icon, color: Theme.of(context).primaryColor, size: iconSz)),
                     ),
                   ),
                   SizedBox(width: (cell * 0.035).clamp(10.0, 16.0)),
@@ -535,7 +535,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
   Widget _chartSection({required String title, required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(20),
       ),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -545,7 +545,7 @@ class _ExpenseHomePageState extends State<ExpenseHomePage> {
           Text(
             title,
             style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: const Color(0xFFFFC700),
+                  color: Theme.of(context).primaryColor,
                   fontWeight: FontWeight.w700,
                 ),
           ),

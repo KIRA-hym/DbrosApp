@@ -108,15 +108,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       barrierDismissible: false,
       builder: (context) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
-          backgroundColor: const Color(0xFF1F222A),
+          backgroundColor: Theme.of(context).cardTheme.color!,
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const CircularProgressIndicator(color: Color(0xFFFFC700)),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 "콜카드를 분석 중입니다...",
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
               ),
               const SizedBox(height: 8),
               Text(
@@ -284,19 +284,19 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     final spacing = isTablet ? 24.0 : 20.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           "콜카드 다중등록",
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
           ),
         ),
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            color: Colors.white,
+            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
             size: isTablet ? 26 : 24,
           ),
           onPressed: () => Navigator.pop(context),
@@ -306,7 +306,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             IconButton(
               icon: Icon(
                 Icons.clear_all,
-                color: const Color(0xFFFFC700),
+                color: Theme.of(context).primaryColor,
                 size: isTablet ? 26 : 24,
               ),
               onPressed: _clearAll,
@@ -332,7 +332,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
                   Text(
                     '근무일자',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF6E717C),
+                      color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -426,7 +426,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),
           border: Border.all(
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
             width: borderWidth,
           ),
         ),
@@ -498,7 +498,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             Text(
               "저장 중...",
               style: TextStyle(
-                color: Colors.white,
+                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                 fontSize: titleFontSize,
                 fontWeight: FontWeight.w500,
               ),
@@ -507,7 +507,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
             Text(
               "${_parsedLogs.length}건의 운행일지 처리 중",
               style: TextStyle(
-                color: const Color(0xFF6E717C),
+                color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                 fontSize: infoFontSize,
               ),
             ),

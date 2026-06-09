@@ -26,6 +26,7 @@ import '../widgets/apk_update_dialog.dart';
 import '../widgets/list_manage_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
+import '../widgets/settings/theme_settings_section.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
 import '../services/db_helper.dart';
@@ -172,6 +173,7 @@ class _SettingsPageState extends State<SettingsPage> {
         },
       ),
       _buildNoticeSection(),
+      const ThemeSettingsSection(),
       _buildBackupRestoreSettings(),
       _buildSettingsGroup(
         "수수료 설정",
@@ -292,20 +294,20 @@ class _SettingsPageState extends State<SettingsPage> {
     final versionFs = isTablet ? 12.0 : 11.0;
     final versionStyle = TextStyle(
       fontFamily: 'GmarketSans',
-      color: Colors.white,
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
       fontSize: versionFs,
       fontWeight: FontWeight.w500,
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         title: Text(
           '운행 일지 설정',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFFFFC700),
+                color: Theme.of(context).primaryColor,
               ),
         ),
       ),
@@ -327,7 +329,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final label = _appVersionLabel.isEmpty ? '…' : _appVersionLabel;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.symmetric(horizontal: padding, vertical: padding * 0.75),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -374,23 +376,23 @@ class _SettingsPageState extends State<SettingsPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1F222A),
-          title: const Text('관리자 인증', style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).cardTheme.color!,
+          title: Text('관리자 인증', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
           content: TextField(
             controller: codeController,
             obscureText: true,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+            decoration: InputDecoration(
               hintText: '인증 코드를 입력하세요',
-              hintStyle: TextStyle(color: Colors.white54),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+              hintStyle: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).dividerColor)),
               focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('취소', style: TextStyle(color: Colors.white54)),
+              child: Text('취소', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
             ),
             TextButton(
               onPressed: () {
@@ -414,7 +416,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 }
               },
-              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+              child: Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
         );
@@ -429,7 +431,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,17 +439,17 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+              Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
               if (showChangeButton && onSave != null)
                 ElevatedButton(
                   onPressed: onSave,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFC700),
+                    backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.black,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  child: const Text("변경", style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: Text("변경", style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
             ],
           ),
@@ -461,14 +463,14 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildSettingsItem({
     required IconData icon,
     required String title,
-    Color titleColor = Colors.white,
+    Color titleColor = const Color(0xFFFFFFFF),
     VoidCallback? onTap,
   }) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: const Color(0xFFFFC700)),
+      leading: Icon(icon, color: Theme.of(context).primaryColor),
       title: Text(title, style: TextStyle(color: titleColor, fontSize: 16)),
-      trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
+      trailing: Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
       onTap: onTap,
     );
   }
@@ -482,10 +484,10 @@ class _SettingsPageState extends State<SettingsPage> {
       children: [
         RadioListTile<String>(
           contentPadding: EdgeInsets.zero,
-          title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+          title: Text(title, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
           value: value,
           groupValue: _insuranceType,
-          activeColor: const Color(0xFFFFC700),
+          activeColor: Theme.of(context).primaryColor,
           onChanged: (v) {
             setState(() {
               _insuranceType = v!;
@@ -505,15 +507,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final verticalPadding = isTablet ? 16.0 : 12.0;
 
     return Container(
-      decoration: BoxDecoration(color: const Color(0xFF16181D), borderRadius: BorderRadius.circular(borderRadius)),
+      decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: BorderRadius.circular(borderRadius)),
       child: TextField(
         controller: con, 
         keyboardType: TextInputType.number,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white),
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
         decoration: InputDecoration(
           labelText: label, 
-          labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
-          floatingLabelStyle: const TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+          labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
+          floatingLabelStyle: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
           border: InputBorder.none, 
           contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
         ),
@@ -603,18 +605,18 @@ class _SettingsPageState extends State<SettingsPage> {
     Color accentColor = const Color(0xFFFFC700),
   }) {
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Icon(icon, color: accentColor, size: 22),
         title: Text(
           title,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.white,
+            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
             fontWeight: FontWeight.w600,
           ),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+        trailing: Icon(Icons.chevron_right, color: Theme.of(context).dividerColor),
         onTap: onTap,
       ),
     );
@@ -626,21 +628,21 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '스크린샷 일지 자동저장',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text('자동 저장 사용', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+            title: Text('자동 저장 사용', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
             value: _screenshotAutoRegisterEnabled,
-            activeThumbColor: const Color(0xFFFFC700),
+            activeThumbColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked()) {
                 _showAdRewardDialog(context, () async {
@@ -704,9 +706,9 @@ class _SettingsPageState extends State<SettingsPage> {
       [
         ListTile(
           contentPadding: EdgeInsets.zero,
-          leading: const Icon(Icons.receipt_long, color: Color(0xFFFFC700)),
-          title: const Text('콜카드 인식 로그', style: TextStyle(color: Colors.white, fontSize: 16)),
-          trailing: const Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
+          leading: Icon(Icons.receipt_long, color: Color(0xFFFFC700)),
+          title: Text('콜카드 인식 로그', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 16)),
+          trailing: Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
           onTap: () {
             Navigator.push(context, MaterialPageRoute(builder: (_) => const OcrDebugPage()));
           },
@@ -718,7 +720,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showBackupOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -726,19 +728,19 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('백업 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
+              Text('백업 위치 선택', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
-                title: const Text('단말기 (Downloads) 저장', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: Text('단말기 (Downloads) 저장', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToLocalDevice(context);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
-                title: const Text('구글 드라이브 등 공유 저장', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.cloud_upload, color: Color(0xFF2196F3)),
+                title: Text('구글 드라이브 등 공유 저장', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.backupToDrive(context);
@@ -754,7 +756,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _showRestoreOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -762,19 +764,19 @@ class _SettingsPageState extends State<SettingsPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('복원 위치 선택', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
+              Text('복원 위치 선택', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 16),
               ListTile(
-                leading: const Icon(Icons.phone_android, color: Color(0xFFFFC700)),
-                title: const Text('단말기에서 가져오기', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                title: Text('단말기에서 가져오기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.restoreFromFilePicker(context);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
-                title: const Text('구글 드라이브에서 가져오기', style: TextStyle(color: Colors.white)),
+                leading: Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
+                title: Text('구글 드라이브에서 가져오기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
                 onTap: () {
                   Navigator.pop(ctx);
                   BackupService.restoreFromFilePicker(context);
@@ -798,12 +800,12 @@ class _SettingsPageState extends State<SettingsPage> {
         : lastBackupStr.split('T').first;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("데이터 백업/복원", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text("데이터 백업/복원", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           Row(
             children: [
@@ -812,11 +814,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () {
                     _showBackupOptions();
                   },
-                  icon: const Icon(Icons.cloud_upload, color: Colors.white),
-                  label: const Text("백업"),
+                  icon: Icon(Icons.cloud_upload, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text("백업"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -828,11 +830,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () {
                     _showRestoreOptions();
                   },
-                  icon: const Icon(Icons.cloud_download, color: Colors.white),
-                  label: const Text("복원"),
+                  icon: Icon(Icons.cloud_download, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text("복원"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2196F3),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -840,17 +842,17 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ],
           ),
-          const Divider(color: Color(0xFF2C2F38), height: 32),
+          Divider(color: Color(0xFF2C2F38), height: 32),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text("7일 주기 자동 백업 (ZIP)", style: TextStyle(color: Colors.white, fontSize: 16)),
+            title: Text("7일 주기 자동 백업 (ZIP)", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 16)),
             subtitle: Text(
               "최근 자동 백업일: $displayDate",
-              style: const TextStyle(color: Color(0xFF6E717C), fontSize: 12),
+              style: TextStyle(color: Color(0xFF6E717C), fontSize: 12),
             ),
             value: _autoBackupEnabled,
-            activeThumbColor: const Color(0xFFFFC700),
-            activeColor: const Color(0xFFFFC700).withOpacity(0.3),
+            activeThumbColor: Theme.of(context).primaryColor,
+            activeColor: Theme.of(context).primaryColor.withOpacity(0.3),
             onChanged: (value) async {
               await SettingsService.setAutoBackupEnabled(value);
               setState(() {
@@ -869,12 +871,12 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("콜포인트(좌표) 공유", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text("콜포인트(좌표) 공유", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           Row(
             children: [
@@ -883,11 +885,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () async {
                     await CallPointExportService.exportToCsv(context);
                   },
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  label: const Text("내보내기"),
+                  icon: Icon(Icons.share, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text("내보내기"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF4CAF50),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -899,11 +901,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   onPressed: () async {
                     await CallPointExportService.importFromCsv(context);
                   },
-                  icon: const Icon(Icons.download, color: Colors.white),
-                  label: const Text("가져오기"),
+                  icon: Icon(Icons.download, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  label: Text("가져오기"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2196F3),
-                    foregroundColor: Colors.white,
+                    foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
                   ),
@@ -922,17 +924,17 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("데이터 정리", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+          Text("데이터 정리", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           DropdownButtonFormField<String>(
             value: _imagePurgePeriod,
-            dropdownColor: const Color(0xFF1F222A),
-            decoration: const InputDecoration(
+            dropdownColor: Theme.of(context).cardTheme.color!,
+            decoration: InputDecoration(
               labelText: "오래된 콜카드 이미지 정리 기준",
               labelStyle: TextStyle(color: Color(0xFF6E717C), fontSize: 13),
               floatingLabelStyle: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
@@ -940,8 +942,8 @@ class _SettingsPageState extends State<SettingsPage> {
               enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF2C2F38))),
               focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
             ),
-            style: const TextStyle(color: Colors.white, fontSize: 15),
-            items: const [
+            style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 15),
+            items: [
               DropdownMenuItem(value: 'none', child: Text("선택 안 함")),
               DropdownMenuItem(value: '3_months', child: Text("3개월 이전 이미지")),
               DropdownMenuItem(value: '6_months', child: Text("6개월 이전 이미지")),
@@ -988,10 +990,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   );
                 }
               },
-              icon: const Icon(Icons.cleaning_services_outlined, color: Colors.black),
-              label: const Text("이미지 정리"),
+              icon: Icon(Icons.cleaning_services_outlined, color: Colors.black),
+              label: Text("이미지 정리"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.black,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 padding: EdgeInsets.symmetric(vertical: isTablet ? 14 : 10),
@@ -1009,21 +1011,21 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "상태바 퀵기능",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+            title: Text("고정 알림 (오늘 순익)", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
             value: _statusBarQuickEnabled,
-            activeThumbColor: const Color(0xFFFFC700),
+            activeThumbColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked()) {
                 _showAdRewardDialog(context, () async {
@@ -1073,18 +1075,18 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("화면 설정", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: const Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+          Text("화면 설정", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text("폰트 크기 조절 버튼", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.white)),
+            title: Text("폰트 크기 조절 버튼", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
             value: _showFloatingButtons,
-            activeThumbColor: const Color(0xFFFFC700),
+            activeThumbColor: Theme.of(context).primaryColor,
             onChanged: (value) {
               setState(() {
                 _showFloatingButtons = value;
@@ -1123,13 +1125,13 @@ class _SettingsPageState extends State<SettingsPage> {
       valueListenable: SettingsService.isPremiumUserNotifier,
       builder: (context, isPremium, child) {
         return Container(
-          decoration: BorderedSection.decoration(borderRadius: 12),
+          decoration: BorderedSection.decoration(context, borderRadius: 12),
           child: ListTile(
-            title: const Text('👑 [TEST] PRO 모드 (무료/유료 전환)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            subtitle: const Text('개발자 테스트용 강제 전환 스위치', style: TextStyle(color: Colors.white70, fontSize: 12)),
+            title: Text('👑 [TEST] PRO 모드 (무료/유료 전환)', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold)),
+            subtitle: Text('개발자 테스트용 강제 전환 스위치', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: 12)),
             trailing: Switch(
               value: isPremium,
-              activeColor: const Color(0xFFFFC700),
+              activeColor: Theme.of(context).primaryColor,
               onChanged: (value) async {
                 await SettingsService.setIsPremiumUser(value);
               },
@@ -1145,7 +1147,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final padding = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1154,31 +1156,31 @@ class _SettingsPageState extends State<SettingsPage> {
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFFC700),
-                side: const BorderSide(color: Color(0xFFFFC700)),
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Color(0xFFFFC700)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.campaign_rounded, size: 20),
-              label: const Text('공지사항 푸시 발송 (관리자)',
+              icon: Icon(Icons.campaign_rounded, size: 20),
+              label: Text('공지사항 푸시 발송 (관리자)',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => _openAdminPushDialog(),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFFC700),
-                side: const BorderSide(color: Color(0xFFFFC700)),
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Color(0xFFFFC700)),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              icon: const Icon(Icons.person, size: 20),
-              label: const Text('회원 관리 (관리자)',
+              icon: Icon(Icons.person, size: 20),
+              label: Text('회원 관리 (관리자)',
                   style: TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.push(
@@ -1198,15 +1200,15 @@ class _SettingsPageState extends State<SettingsPage> {
     final padding = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFFFC700),
-                side: const BorderSide(color: Color(0xFFFFC700)),
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Color(0xFFFFC700)),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1220,11 +1222,11 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.notifications, size: 20),
-                  const SizedBox(width: 8),
-                  const Text('알림목록', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Icon(Icons.notifications, size: 20),
+                  SizedBox(width: 8),
+                  Text('알림목록', style: TextStyle(fontWeight: FontWeight.bold)),
                   if (_unreadNoticeCount > 0) ...[
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -1233,7 +1235,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                       child: Text(
                         '$_unreadNoticeCount',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -1241,13 +1243,13 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white24),
-                backgroundColor: const Color(0xFF1F222A),
+                foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                side: BorderSide(color: Theme.of(context).dividerColor),
+                backgroundColor: Theme.of(context).cardTheme.color!,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -1262,24 +1264,24 @@ class _SettingsPageState extends State<SettingsPage> {
                   showDialog(
                     context: context,
                     builder: (ctx) => Dialog(
-                      backgroundColor: const Color(0xFF1F222A),
+                      backgroundColor: Theme.of(context).cardTheme.color!,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       child: Padding(
                         padding: const EdgeInsets.all(24.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Text(
+                            Text(
                               '업데이트 선택',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                             ),
-                            const SizedBox(height: 20),
+                            SizedBox(height: 20),
                             Row(
                               children: [
                                 Expanded(
                                   child: FilledButton(
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: const Color(0xFFFFC700),
+                                      backgroundColor: Theme.of(context).primaryColor,
                                       foregroundColor: Colors.black,
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1297,14 +1299,14 @@ class _SettingsPageState extends State<SettingsPage> {
                                       clipBehavior: Clip.none,
                                       alignment: Alignment.center,
                                       children: [
-                                        const Text('패치적용', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        Text('패치적용', style: TextStyle(fontWeight: FontWeight.bold)),
                                         Positioned(
                                           top: -8,
                                           right: -12,
                                           child: Container(
                                             width: 8,
                                             height: 8,
-                                            decoration: const BoxDecoration(
+                                            decoration: BoxDecoration(
                                               color: Colors.redAccent,
                                               shape: BoxShape.circle,
                                             ),
@@ -1314,12 +1316,12 @@ class _SettingsPageState extends State<SettingsPage> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 12),
+                                SizedBox(width: 12),
                                 Expanded(
                                   child: OutlinedButton(
                                     style: OutlinedButton.styleFrom(
-                                      foregroundColor: Colors.white,
-                                      side: const BorderSide(color: Colors.white24),
+                                      foregroundColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                      side: BorderSide(color: Theme.of(context).dividerColor),
                                       padding: const EdgeInsets.symmetric(vertical: 14),
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     ),
@@ -1330,7 +1332,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                         await launchUrl(url, mode: LaunchMode.externalApplication);
                                       }
                                     },
-                                    child: const Text('APK다운', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    child: Text('APK다운', style: TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               ],
@@ -1354,7 +1356,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.download, size: 20),
@@ -1369,7 +1371,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Container(
                         width: 8,
                         height: 8,
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: Colors.redAccent,
                           shape: BoxShape.circle,
                         ),
@@ -1394,33 +1396,33 @@ class _SettingsPageState extends State<SettingsPage> {
     final spacing = isTablet ? 20.0 : 16.0;
 
     return Container(
-      decoration: BorderedSection.decoration(borderRadius: 12),
+      decoration: BorderedSection.decoration(context, borderRadius: 12),
       padding: EdgeInsets.all(padding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             "과거 데이터 좌표 일괄 업데이트",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
           ),
           SizedBox(height: spacing),
           Text(
             '과거에 등록되어 좌표가 비어있는 운행일지 데이터들을 추려, 주소를 좌표로 자동 변환하여 채워 넣습니다.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _runBatchGeocodeUpdate,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
+                backgroundColor: Theme.of(context).primaryColor,
                 foregroundColor: Colors.black,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              icon: const Icon(Icons.pin_drop),
-              label: const Text('좌표 일괄 업데이트 시작', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              icon: Icon(Icons.pin_drop),
+              label: Text('좌표 일괄 업데이트 시작', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],
@@ -1454,12 +1456,12 @@ class _SettingsPageState extends State<SettingsPage> {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1F222A),
+          backgroundColor: Theme.of(context).cardTheme.color!,
           content: Row(
-            children: const [
+            children: [
               CircularProgressIndicator(color: Color(0xFFFFC700)),
               SizedBox(width: 16),
-              Text('광고 시청 중... (테스트)', style: TextStyle(color: Colors.white)),
+              Text('광고 시청 중... (테스트)', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
             ],
           ),
         ),
@@ -1556,20 +1558,20 @@ class _BatchGeocodeProgressDialogState extends State<_BatchGeocodeProgressDialog
         children: [
           Text(
             '$_processed / $total 건 처리',
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 16, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             _isFinished ? '좌표 반영 $_updated건' : '주소를 좌표로 변환하는 중입니다…',
-            style: const TextStyle(color: Color(0xFF9FA3AE), fontSize: 13),
+            style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 13),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: _isFinished ? 1.0 : progress,
               minHeight: 8,
-              color: const Color(0xFFFFC700),
+              color: Theme.of(context).primaryColor,
               backgroundColor: Colors.grey[800],
             ),
           ),

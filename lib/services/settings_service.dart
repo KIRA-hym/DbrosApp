@@ -1,11 +1,13 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show ThemeMode;
 
 class SettingsService {
   static late SharedPreferences _prefs;
   static final ValueNotifier<bool> _showFloatingButtonsNotifier = ValueNotifier(true);
   static final ValueNotifier<bool> _isOwnerModeNotifier = ValueNotifier(false);
   static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
+  static final ValueNotifier<ThemeMode> _themeModeNotifier = ValueNotifier(ThemeMode.dark);
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
@@ -51,6 +53,7 @@ class SettingsService {
     _showFloatingButtonsNotifier.value = showFloatingButtons;
     _isOwnerModeNotifier.value = isOwnerMode;
     _isPremiumUserNotifier.value = isPremiumUser;
+    _themeModeNotifier.value = themeMode;
   }
 
   /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
@@ -97,6 +100,19 @@ class SettingsService {
   static ValueNotifier<bool> get showFloatingButtonsNotifier => _showFloatingButtonsNotifier;
   static ValueNotifier<bool> get isOwnerModeNotifier => _isOwnerModeNotifier;
   static ValueNotifier<bool> get isPremiumUserNotifier => _isPremiumUserNotifier;
+  static ValueNotifier<ThemeMode> get themeModeNotifier => _themeModeNotifier;
+
+  static ThemeMode get themeMode {
+    final modeString = _prefs.getString('themeMode') ?? 'dark';
+    if (modeString == 'light') return ThemeMode.light;
+    return ThemeMode.dark;
+  }
+
+  static Future<void> setThemeMode(ThemeMode mode) async {
+    final modeString = mode == ThemeMode.light ? 'light' : 'dark';
+    await _prefs.setString('themeMode', modeString);
+    _themeModeNotifier.value = mode;
+  }
 
   static bool get isOwnerMode => _prefs.getBool('isOwnerMode') ?? false;
   static Future<void> setIsOwnerMode(bool value) async {

@@ -45,7 +45,7 @@ class MyInfoPage extends StatelessWidget {
               Center(
                 child: CircleAvatar(
                   radius: 48,
-                  backgroundColor: const Color(0xFF1F222A),
+                  backgroundColor: Theme.of(context).cardTheme.color!,
                   backgroundImage: (photoUrl != null && photoUrl.isNotEmpty)
                       ? NetworkImage(photoUrl)
                       : null,
@@ -128,7 +128,7 @@ class MyInfoPage extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         title: const Text('로그아웃', style: TextStyle(color: Colors.white)),
         content: const Text('정말 로그아웃 하시겠습니까?', style: TextStyle(color: Colors.white70)),
         actions: [
@@ -153,7 +153,7 @@ class MyInfoPage extends StatelessWidget {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         title: const Text('회원 탈퇴', style: TextStyle(color: Color(0xFFFF5252))),
         content: const Text(
           '정말 탈퇴하시겠습니까?\n\n탈퇴 시 모든 데이터가 삭제되며 복구할 수 없습니다.\n\n⚠️ 주의: 앱스토어/플레이스토어에서 정기 구독 중인 상품이 있다면, 스토어에서 직접 구독을 해지하셔야 추가 결제가 발생하지 않습니다.',

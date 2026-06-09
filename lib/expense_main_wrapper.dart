@@ -206,7 +206,7 @@ class _ExpenseMainWrapperState extends State<ExpenseMainWrapper> {
                               onPressed: () async {
                                 await FontSizeService.resetFontSize();
                               },
-                              backgroundColor: const Color(0xFF1F222A),
+                              backgroundColor: Theme.of(context).cardTheme.color!,
                               mini: true,
                               child: const Icon(Icons.refresh, color: Color(0xFFFFC700)),
                             ),

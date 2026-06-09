@@ -195,7 +195,7 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                         hintText: '동·번지·건물명 검색',
                         hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45)),
                         filled: true,
-                        fillColor: const Color(0xFF1F222A),
+                        fillColor: Theme.of(context).cardTheme.color!,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(color: Colors.white10),

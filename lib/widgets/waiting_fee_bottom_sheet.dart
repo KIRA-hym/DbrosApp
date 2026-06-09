@@ -13,7 +13,7 @@ class WaitingFeeBottomSheet extends StatefulWidget {
     return AppBottomSheet.show<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1F222A),
+      backgroundColor: Theme.of(context).cardTheme.color!,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

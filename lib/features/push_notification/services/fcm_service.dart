@@ -104,7 +104,7 @@ class FcmService {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF1F222A),
+            backgroundColor: Theme.of(context).cardTheme.color!,
             title: Text(title, style: const TextStyle(color: Colors.white)),
             content: Text(body, style: const TextStyle(color: Colors.white70)),
             actions: [

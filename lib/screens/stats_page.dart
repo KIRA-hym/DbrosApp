@@ -265,7 +265,7 @@ class _StatsPageState extends State<StatsPage> {
       maxLines: compact ? 2 : 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: const Color(0xFFFFC700),
+        color: Theme.of(context).primaryColor,
         fontWeight: FontWeight.bold,
         fontSize: fontSize,
       ),
@@ -280,7 +280,7 @@ class _StatsPageState extends State<StatsPage> {
           onPressed: onPrevious,
           icon: Icon(
             Icons.chevron_left,
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
             size: iconSize,
           ),
           constraints: BoxConstraints(
@@ -294,7 +294,7 @@ class _StatsPageState extends State<StatsPage> {
           onPressed: canGoNext ? onNext : null,
           icon: Icon(
             Icons.chevron_right,
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
             size: iconSize,
           ),
           constraints: BoxConstraints(
@@ -309,9 +309,9 @@ class _StatsPageState extends State<StatsPage> {
     return Container(
       width: compact ? double.infinity : null,
       decoration: BoxDecoration(
-        color: const Color(0xFF1F222A),
+        color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(compact ? 10 : 20),
-        border: compact ? Border.all(color: Colors.white10) : null,
+        border: compact ? Border.all(color: Theme.of(context).dividerColor) : null,
       ),
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 2, vertical: 2)
@@ -742,7 +742,7 @@ class _StatsPageState extends State<StatsPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(
+      builder: (context) => Center(
         child: CircularProgressIndicator(color: Color(0xFFFFC700)),
       ),
     );
@@ -798,21 +798,21 @@ class _StatsPageState extends State<StatsPage> {
     final chartTitleFontSize = (isExpanded ? 14.0 : 12.0) * fontScale;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         title: Text(
           '운행 일지 통계',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.bold,
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
           ),
         ),
       ),
       body: ResponsiveBody(
         fullWidthWhenExpanded: true,
         child: _isLoading
-            ? const Center(
+            ? Center(
                 child: CircularProgressIndicator(color: Color(0xFFFFC700)),
               )
             : LayoutBuilder(
@@ -1043,7 +1043,7 @@ class _StatsPageState extends State<StatsPage> {
       _statMetricCard(
         title: '순이익',
         value: NumberFormat('#,###').format(_stats['totalNet'] ?? 0),
-        valueColor: const Color(0xFFFFC700),
+        valueColor: Theme.of(context).primaryColor,
         titleFontSize: titleFontSize,
         valueFontSize: valueFontSize,
         icon: Icons.account_balance_wallet,
@@ -1070,7 +1070,7 @@ class _StatsPageState extends State<StatsPage> {
         _statMetricCard(
           title: '근무·운행 건수',
           value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-          valueColor: Colors.white,
+          valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
           icon: Icons.local_taxi,
@@ -1079,7 +1079,7 @@ class _StatsPageState extends State<StatsPage> {
         _statMetricCard(
           title: '운행 건수',
           value: '${_stats['totalCount'] ?? 0}',
-          valueColor: Colors.white,
+          valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
           titleFontSize: titleFontSize,
           valueFontSize: valueFontSize,
           icon: Icons.local_taxi,
@@ -1089,7 +1089,7 @@ class _StatsPageState extends State<StatsPage> {
 
   TextStyle _sectionTitleStyle(double fontSize) => TextStyle(
     fontFamily: 'GmarketSans',
-    color: Colors.white,
+    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
     fontWeight: FontWeight.w700,
     fontSize: fontSize,
     height: 1.12,
@@ -1140,11 +1140,11 @@ class _StatsPageState extends State<StatsPage> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: t == _selectedPeriod
-                  ? const Color(0xFFFFC700)
-                  : const Color(0xFF1F222A),
+                  ? Theme.of(context).primaryColor
+                  : Theme.of(context).cardTheme.color!,
               foregroundColor: t == _selectedPeriod
                   ? Colors.black
-                  : Colors.white,
+                  : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
@@ -1274,11 +1274,11 @@ class _StatsPageState extends State<StatsPage> {
                 if (totalFee == 0 &&
                     transportCategoryRows.isEmpty &&
                     extraExpenseCategories.isEmpty)
-                  _buildDetailRow('내역 없음', '-', Colors.white38),
+                  _buildDetailRow('내역 없음', '-', Theme.of(context).dividerColor),
               ],
               total: fmt.format(_stats['totalExpenses'] ?? 0),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
             _buildDetailSection(
               title: '수익 세부',
               color: Colors.lightBlueAccent,
@@ -1291,7 +1291,7 @@ class _StatsPageState extends State<StatsPage> {
                     Colors.lightBlueAccent,
                   ),
                 if (incomeCategoryRows.isEmpty)
-                  _buildDetailRow('내역 없음', '-', Colors.white38),
+                  _buildDetailRow('내역 없음', '-', Theme.of(context).dividerColor),
               ],
               total: fmt.format(_stats['totalExtraIncome'] ?? 0),
             ),
@@ -1317,7 +1317,7 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
@@ -1348,7 +1348,7 @@ class _StatsPageState extends State<StatsPage> {
               ),
             ],
           ),
-          const Divider(color: Colors.white12, height: 16),
+          Divider(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.12), height: 16),
           ...rows,
         ],
       ),
@@ -1360,7 +1360,7 @@ class _StatsPageState extends State<StatsPage> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Container(
             width: 4,
             height: 4,
@@ -1369,11 +1369,11 @@ class _StatsPageState extends State<StatsPage> {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: 13),
             ),
           ),
           Text(
@@ -1413,7 +1413,7 @@ class _StatsPageState extends State<StatsPage> {
   /// 펼침 전체통계 카드: 제목·표시값 동일 폰트(크기·패밀리·굵기).
   TextStyle _statMetricUnifiedTextStyle({
     required double fontSize,
-    Color color = Colors.white,
+    Color color = const Color(0xFFFFFFFF),
   }) {
     return TextStyle(
       fontFamily: 'GmarketSans',
@@ -1446,7 +1446,7 @@ class _StatsPageState extends State<StatsPage> {
         overflow: TextOverflow.ellipsis,
         style: _statMetricUnifiedTextStyle(
           fontSize: displayFs,
-          color: valueColor ?? Colors.white,
+          color: valueColor ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
         ),
       );
     }
@@ -1501,7 +1501,7 @@ class _StatsPageState extends State<StatsPage> {
 
         return Container(
           width: double.infinity,
-          decoration: BorderedSection.decoration(),
+          decoration: BorderedSection.decoration(context),
           padding: EdgeInsets.fromLTRB(hPad, effVPad + effTop, hPad, effVPad),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1512,10 +1512,10 @@ class _StatsPageState extends State<StatsPage> {
                   if (icon != null) ...[
                     Icon(
                       icon,
-                      color: const Color(0xFFFFC700),
+                      color: Theme.of(context).primaryColor,
                       size: effTitleFs,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                   ],
                   Expanded(
                     child: Text(
@@ -1571,7 +1571,7 @@ class _StatsPageState extends State<StatsPage> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontFamily: 'GmarketSans',
-                    color: Colors.white,
+                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     fontWeight: FontWeight.w700,
                     fontSize: sectionTitleFontSize,
                   ),
@@ -1580,7 +1580,7 @@ class _StatsPageState extends State<StatsPage> {
               if (kMapFeaturesEnabled) ...[
                 IconButton(
                   onPressed: _openRouteMap,
-                  icon: const Icon(Icons.map, color: Color(0xFFFFC700)),
+                  icon: Icon(Icons.map, color: Color(0xFFFFC700)),
                   tooltip: '기간 경로 지도',
                 ),
               ],
@@ -1711,7 +1711,7 @@ class _StatsPageState extends State<StatsPage> {
                     maxLines: maxTitleLines,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                       fontWeight: FontWeight.bold,
                       fontSize: titleFontSize,
                       height: 1.1,
@@ -1990,7 +1990,7 @@ class _StatsPageState extends State<StatsPage> {
                                     width: 6,
                                     height: barHeight,
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFFFFC700),
+                                      color: Theme.of(context).primaryColor,
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                   ),
@@ -2017,7 +2017,7 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: const Color(0xFF6E717C),
+                                    color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2027,11 +2027,11 @@ class _StatsPageState extends State<StatsPage> {
                                       : TextOverflow.ellipsis,
                                   softWrap: true,
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2),
                                 Text(
                                   NumberFormat('#,###').format(value),
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2210,7 +2210,7 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: const Color(0xFF6E717C),
+                                    color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2220,11 +2220,11 @@ class _StatsPageState extends State<StatsPage> {
                                       : TextOverflow.ellipsis,
                                   softWrap: true,
                                 ),
-                                const SizedBox(height: 2),
+                                SizedBox(height: 2),
                                 Text(
                                   _formatCurrencyK(value),
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2378,10 +2378,10 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       throw Exception('OSRM route status ${res.statusCode}');
     }
     final map = jsonDecode(res.body) as Map<String, dynamic>;
-    final routes = map['routes'] as List<dynamic>? ?? const [];
+    final routes = map['routes'] as List<dynamic>? ?? [];
     if (routes.isEmpty) return [from, to];
     final geometry = routes.first['geometry'] as Map<String, dynamic>?;
-    final coords = geometry?['coordinates'] as List<dynamic>? ?? const [];
+    final coords = geometry?['coordinates'] as List<dynamic>? ?? [];
     final points = <LatLng>[];
     for (final c in coords) {
       if (c is List && c.length >= 2) {
@@ -2456,7 +2456,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         out.add(
           Polyline(
             polylineId: PolylineId('road_$k'),
-            points: _roadRouteSegments[k] ?? const [],
+            points: _roadRouteSegments[k] ?? [],
             color: const Color(0xFF4FC3F7),
             width: 5,
           ),
@@ -2471,7 +2471,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         Polyline(
           polylineId: PolylineId('pair_$i'),
           points: [seg.start, seg.end],
-          color: const Color(0xFFFFC700),
+          color: Theme.of(context).primaryColor,
           width: 4,
         ),
       );
@@ -2515,25 +2515,25 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     final initial = widget.segments.first.start;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('${widget.periodLabel} 경로 지도'),
         actions: [
           TextButton.icon(
             onPressed: _roadRouteLoading ? null : _toggleRoadRoute,
             icon: _roadRouteLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : Icon(
                     _roadRouteEnabled ? Icons.route : Icons.alt_route,
-                    color: const Color(0xFFFFC700),
+                    color: Theme.of(context).primaryColor,
                   ),
             label: Text(
               _roadRouteEnabled ? '직선보기' : '도로경로보기',
-              style: const TextStyle(color: Color(0xFFFFC700)),
+              style: TextStyle(color: Color(0xFFFFC700)),
             ),
           ),
         ],
@@ -2543,13 +2543,13 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               widget.dateLabel,
-              style: const TextStyle(color: Color(0xFF9FA3AE), fontSize: 12),
+              style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 12),
             ),
           ),
         ),
       ),
       body: _markersLoading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: Color(0xFFFFC700)),
             )
           : GoogleMap(

@@ -13,18 +13,18 @@ class BorderedSection extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final double borderRadius;
 
-  static BoxDecoration decoration({double borderRadius = 12}) {
+  static BoxDecoration decoration(BuildContext context, {double borderRadius = 12}) {
     return BoxDecoration(
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: Colors.white10),
+      border: Border.all(color: Theme.of(context).dividerColor),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: decoration(borderRadius: borderRadius),
+      decoration: decoration(context, borderRadius: borderRadius),
       padding: padding ?? const EdgeInsets.all(16),
       child: child,
     );

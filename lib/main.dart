@@ -6,8 +6,6 @@ import 'package:provider/provider.dart';
 import 'services/remote_config_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
 import 'providers/today_stats_provider.dart';
-import 'dart:io' show Platform;
-import 'dart:ui';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -42,6 +40,7 @@ import 'services/screenshot_auto_register_service.dart';
 import 'utils/work_date_utils.dart';
 import 'utils/pro_feature_guard.dart';
 import 'services/shorebird_update_service.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -200,8 +199,11 @@ class DbrosApp extends StatelessWidget {
         return ValueListenableBuilder<bool>(
           valueListenable: SettingsService.isOwnerModeNotifier,
           builder: (context, isOwnerMode, child) {
-            return GestureDetector(
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            return ValueListenableBuilder<ThemeMode>(
+              valueListenable: SettingsService.themeModeNotifier,
+              builder: (context, themeMode, child) {
+                return GestureDetector(
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
               child: MaterialApp(
                 navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
@@ -213,58 +215,47 @@ class DbrosApp extends StatelessWidget {
               return MediaQuery(
                 data: mq.copyWith(textScaler: FontSizeService.combinedTextScaler(mq)),
                 child: Theme(
-                  data: ThemeData(
-                    brightness: Brightness.dark,
-                    fontFamily: 'GmarketSans',
-                    scaffoldBackgroundColor: const Color(0xFF121418), 
-                    primaryColor: const Color(0xFFFFC700), 
-                    colorScheme: const ColorScheme.dark(
-                      primary: Color(0xFFFFC700),
-                      surface: Color(0xFF1F222A), 
-                    ),
-                    appBarTheme: AppBarTheme(
-                      backgroundColor: const Color(0xFF1F222A),
-                      elevation: 0,
-                      scrolledUnderElevation: 0,
-                      surfaceTintColor: Colors.transparent,
-                      centerTitle: true,
-                      titleTextStyle: TextStyle(
-                        fontFamily: 'GmarketSans',
-                        fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), 
-                        fontWeight: FontWeight.w700, 
-                        color: Colors.white
+                  data: themeMode == ThemeMode.light 
+                    ? AppTheme.lightTheme.copyWith(
+                        textTheme: _buildScaledTextTheme(AppTheme.lightTheme.textTheme, headlineBonus),
+                        appBarTheme: AppTheme.lightTheme.appBarTheme.copyWith(
+                          titleTextStyle: AppTheme.lightTheme.appBarTheme.titleTextStyle?.copyWith(
+                            fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus),
+                          ),
+                        ),
+                        bottomNavigationBarTheme: AppTheme.lightTheme.bottomNavigationBarTheme.copyWith(
+                          selectedLabelStyle: TextStyle(
+                            fontFamily: 'GmarketSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: FontSizeService.getScaledFontSize(12),
+                          ),
+                          unselectedLabelStyle: TextStyle(
+                            fontFamily: 'GmarketSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: FontSizeService.getScaledFontSize(12),
+                          ),
+                        ),
+                      )
+                    : AppTheme.darkTheme.copyWith(
+                        textTheme: _buildScaledTextTheme(AppTheme.darkTheme.textTheme, headlineBonus),
+                        appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
+                          titleTextStyle: AppTheme.darkTheme.appBarTheme.titleTextStyle?.copyWith(
+                            fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus),
+                          ),
+                        ),
+                        bottomNavigationBarTheme: AppTheme.darkTheme.bottomNavigationBarTheme.copyWith(
+                          selectedLabelStyle: TextStyle(
+                            fontFamily: 'GmarketSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: FontSizeService.getScaledFontSize(12),
+                          ),
+                          unselectedLabelStyle: TextStyle(
+                            fontFamily: 'GmarketSans',
+                            fontWeight: FontWeight.w700,
+                            fontSize: FontSizeService.getScaledFontSize(12),
+                          ),
+                        ),
                       ),
-                    ),
-                    bottomNavigationBarTheme: BottomNavigationBarThemeData(
-                      backgroundColor: const Color(0xFF121418),
-                      selectedItemColor: const Color(0xFFFFC700),
-                      unselectedItemColor: const Color(0xFF6E717C),
-                      selectedLabelStyle: TextStyle(
-                        fontFamily: 'GmarketSans',
-                        fontWeight: FontWeight.w700,
-                        fontSize: FontSizeService.getScaledFontSize(12),
-                      ),
-                      unselectedLabelStyle: TextStyle(
-                        fontFamily: 'GmarketSans',
-                        fontWeight: FontWeight.w700,
-                        fontSize: FontSizeService.getScaledFontSize(12),
-                      ),
-                    ),
-                    textTheme: TextTheme(
-                      bodyLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16), color: Colors.white, fontWeight: FontWeight.w400),
-                      bodyMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w400),
-                      bodySmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w400),
-                      headlineLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(24 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      headlineMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(20 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      headlineSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      titleLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      titleMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(16 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      titleSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14 + headlineBonus), color: Colors.white, fontWeight: FontWeight.w700),
-                      labelLarge: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(14), color: Colors.white, fontWeight: FontWeight.w700),
-                      labelMedium: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(12), color: Colors.white, fontWeight: FontWeight.w700),
-                      labelSmall: TextStyle(fontFamily: 'GmarketSans', fontSize: FontSizeService.getScaledFontSize(10), color: Colors.white, fontWeight: FontWeight.w400),
-                    ),
-                  ),
                   child: child ?? const SizedBox.shrink(),
                 ),
               );
@@ -286,9 +277,28 @@ class DbrosApp extends StatelessWidget {
             ),
           ),
         );
-          },
-        );
       },
+    );
+      },
+    );
+      },
+    );
+  }
+
+  TextTheme _buildScaledTextTheme(TextTheme base, double headlineBonus) {
+    return base.copyWith(
+      bodyLarge: base.bodyLarge?.copyWith(fontSize: FontSizeService.getScaledFontSize(16), fontWeight: FontWeight.w400),
+      bodyMedium: base.bodyMedium?.copyWith(fontSize: FontSizeService.getScaledFontSize(14), fontWeight: FontWeight.w400),
+      bodySmall: base.bodySmall?.copyWith(fontSize: FontSizeService.getScaledFontSize(12), fontWeight: FontWeight.w400),
+      headlineLarge: base.headlineLarge?.copyWith(fontSize: FontSizeService.getScaledFontSize(24 + headlineBonus), fontWeight: FontWeight.w700),
+      headlineMedium: base.headlineMedium?.copyWith(fontSize: FontSizeService.getScaledFontSize(20 + headlineBonus), fontWeight: FontWeight.w700),
+      headlineSmall: base.headlineSmall?.copyWith(fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), fontWeight: FontWeight.w700),
+      titleLarge: base.titleLarge?.copyWith(fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus), fontWeight: FontWeight.w700),
+      titleMedium: base.titleMedium?.copyWith(fontSize: FontSizeService.getScaledFontSize(16 + headlineBonus), fontWeight: FontWeight.w700),
+      titleSmall: base.titleSmall?.copyWith(fontSize: FontSizeService.getScaledFontSize(14 + headlineBonus), fontWeight: FontWeight.w700),
+      labelLarge: base.labelLarge?.copyWith(fontSize: FontSizeService.getScaledFontSize(14), fontWeight: FontWeight.w700),
+      labelMedium: base.labelMedium?.copyWith(fontSize: FontSizeService.getScaledFontSize(12), fontWeight: FontWeight.w700),
+      labelSmall: base.labelSmall?.copyWith(fontSize: FontSizeService.getScaledFontSize(10), fontWeight: FontWeight.w400),
     );
   }
 }
@@ -469,14 +479,14 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
             ),
           ),
           Container(
-            decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
             ),
             child: BottomNavigationBar(
               type: BottomNavigationBarType.fixed,
-              backgroundColor: const Color(0xFF121418),
-              selectedItemColor: const Color(0xFFFFC700), 
-              unselectedItemColor: const Color(0xFF6E717C), 
+              backgroundColor: Theme.of(context).bottomNavigationBarTheme.backgroundColor,
+              selectedItemColor: Theme.of(context).bottomNavigationBarTheme.selectedItemColor, 
+              unselectedItemColor: Theme.of(context).bottomNavigationBarTheme.unselectedItemColor, 
               selectedFontSize: FontSizeService.getScaledFontSize(12),
               unselectedFontSize: FontSizeService.getScaledFontSize(12),
               selectedLabelStyle: TextStyle(
@@ -558,7 +568,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
                     onPressed: () async {
                       await FontSizeService.resetFontSize();
                     },
-                    backgroundColor: const Color(0xFF1F222A),
+                    backgroundColor: Theme.of(context).cardTheme.color!,
                     mini: true,
                     child: const Icon(Icons.refresh, color: Color(0xFFFFC700)),
                   ),

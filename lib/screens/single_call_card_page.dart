@@ -186,19 +186,19 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
     final spacing = isTablet ? 24.0 : 20.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           "콜카드 단건등록",
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
             fontWeight: FontWeight.w700,
-            color: const Color(0xFFFFC700),
+            color: Theme.of(context).primaryColor,
           ),
         ),
         leading: IconButton(
           icon: Icon(
             Icons.arrow_back,
-            color: Colors.white,
+            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
             size: isTablet ? 26 : 24,
           ),
           onPressed: () => Navigator.pop(context),
@@ -223,7 +223,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
                   Text(
                     '근무일자',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFF6E717C),
+                      color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -314,7 +314,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
     final decoration = BoxDecoration(
       borderRadius: BorderRadius.circular(borderRadius),
-      border: Border.all(color: const Color(0xFFFFC700), width: borderWidth),
+      border: Border.all(color: Theme.of(context).primaryColor, width: borderWidth),
     );
 
     if (fillHeight) {
@@ -356,7 +356,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
             Text(
               _isSaving ? "저장 중..." : "콜카드 분석 중...",
               style: TextStyle(
-                color: Colors.white,
+                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                 fontSize: titleFontSize,
                 fontWeight: FontWeight.w500,
               ),

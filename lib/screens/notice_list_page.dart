@@ -47,7 +47,7 @@ class _NoticeListPageState extends State<NoticeListPage> {
         backgroundColor: const Color(0xFF121418),
         appBar: AppBar(
           title: const Text('공지 및 알림', style: TextStyle(fontFamily: 'GmarketSans', fontWeight: FontWeight.bold)),
-          backgroundColor: const Color(0xFF1F222A),
+          backgroundColor: Theme.of(context).cardTheme.color!,
           elevation: 0,
           centerTitle: true,
           bottom: const TabBar(
@@ -151,9 +151,9 @@ class _NoticeListPageState extends State<NoticeListPage> {
 
             return Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF1F222A),
+                color: Theme.of(context).cardTheme.color!,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2C2F36)),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: ExpansionTile(
                 shape: const RoundedRectangleBorder(side: BorderSide.none),
@@ -239,9 +239,9 @@ class _NoticeListPageState extends State<NoticeListPage> {
 
         return Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1F222A),
+            color: Theme.of(context).cardTheme.color!,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFF2C2F36)),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: ExpansionTile(
             onExpansionChanged: (expanded) async {

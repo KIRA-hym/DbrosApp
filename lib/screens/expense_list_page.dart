@@ -123,16 +123,16 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           '지출 목록',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: const Color(0xFFFFC700),
+                color: Theme.of(context).primaryColor,
               ),
         ),
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
       ),
       body: isExpanded
           ? _buildExpandedMasterDetailBody()
@@ -142,9 +142,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                   _buildMonthHeader(),
                   Expanded(
                     child: ColoredBox(
-                      color: const Color(0xFF121418),
+                      color: Theme.of(context).scaffoldBackgroundColor,
                       child: _isLoading
-                          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                          ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
                           : Opacity(
                               opacity: _isScrolled ? 1.0 : 0.0,
                               child: _buildDailyList(),
@@ -165,14 +165,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
         _buildMonthHeader(),
         Expanded(
           child: _isLoading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Expanded(
                       flex: 4,
                       child: ColoredBox(
-                        color: const Color(0xFF121418),
+                        color: Theme.of(context).scaffoldBackgroundColor,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -191,11 +191,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                         ),
                       ),
                     ),
-                    const VerticalDivider(width: 1, color: Colors.white10),
+                    VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
                     Expanded(
                       flex: 6,
                       child: selected == null
-                          ? const Center(
+                          ? Center(
                               child: Text(
                                 '왼쪽에서 날짜를 선택하세요',
                                 style: TextStyle(color: Color(0xFF6E717C)),
@@ -222,9 +222,9 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final infoFontSize = compact ? 12.0 : 13.0;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1F222A),
-        border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color!,
+        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,28 +235,28 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.white,
+                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                     fontWeight: FontWeight.bold,
                   ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
-                const SizedBox(height: 4),
+                Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
+                SizedBox(height: 4),
                 Row(
                   children: [
-                    const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                    Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
                     Expanded(
                       child: Text(
                         '₩${NumberFormat('#,###').format(_totalExpense)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.end,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Color(0xFFFF5252),
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -280,13 +280,13 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
     final iconSize = isTablet ? 28.0 : 24.0;
 
     return Container(
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       padding: EdgeInsets.symmetric(vertical: padding),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            icon: Icon(Icons.arrow_left, color: Colors.white, size: iconSize),
+            icon: Icon(Icons.arrow_left, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
             onPressed: () => _changeMonth(-1),
             constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
           ),
@@ -295,12 +295,12 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             DateFormat('yyyy년 MM월').format(_focusedMonth),
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                 ),
           ),
           SizedBox(width: isTablet ? 20 : 16),
           IconButton(
-            icon: Icon(Icons.arrow_right, color: Colors.white, size: iconSize),
+            icon: Icon(Icons.arrow_right, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
             onPressed: () => _changeMonth(1),
             constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
           ),
@@ -338,22 +338,22 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
             return Container(
               key: isToday ? _todayKey : null,
               decoration: BoxDecoration(
-                color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
-                border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+                color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
+                border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
               ),
               child: ListTile(
                 contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                leading: Icon(Icons.label, color: isToday ? const Color(0xFFFFC700) : Colors.white70, size: iconSize),
+                leading: Icon(Icons.label, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), size: iconSize),
                 title: Text(
                   '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: isToday ? const Color(0xFFFFC700) : Colors.white70,
+                        color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 trailing: Text(
                   masterDetailMode ? '' : '<지출 입력>',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6E717C)),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
                 ),
                 onTap: () {
                   if (masterDetailMode && onSelectDate != null) {
@@ -386,8 +386,8 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
           return Container(
             key: isToday ? _todayKey : null,
             decoration: BoxDecoration(
-              color: isSelected ? const Color(0xFF2A2E38) : const Color(0xFF1F222A),
-              border: const Border(bottom: BorderSide(color: Colors.white10, width: 0.5)),
+              color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
+              border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
             ),
             child: InkWell(
               onTap: () {
@@ -407,7 +407,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.receipt_long, color: isToday ? const Color(0xFFFFC700) : Colors.white, size: iconSize),
+                    Icon(Icons.receipt_long, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
                     SizedBox(width: spacing),
                     Expanded(
                       child: Row(
@@ -420,14 +420,14 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: isToday ? const Color(0xFFFFC700) : Colors.white,
+                                    color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                   ),
                             ),
                           ),
                           SizedBox(width: spacing),
                           Text(
                             '$logCount건',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white),
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                           ),
                           const Spacer(),
                           Flexible(
@@ -468,7 +468,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       child: SafeArea(
         top: false,
         child: Row(
@@ -479,7 +479,7 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
                 '[ 월간 합계 ]',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
               ),
             ),
             SizedBox(width: spacing),
@@ -487,11 +487,11 @@ class _ExpenseListPageState extends State<ExpenseListPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: infoFontSize)),
+                  Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
                   SizedBox(height: spacing),
                   Row(
                     children: [
-                      const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
                       Expanded(
                         child: Text(
                           '₩${NumberFormat('#,###').format(_totalExpense)}',
@@ -626,9 +626,9 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
     final hPad = compact ? 8.0 : (ResponsiveLayout.isTablet(context) ? 12.0 : 8.0);
     final sideSlot = compact ? 96.0 : 0.0;
     final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
-        ?.copyWith(fontWeight: FontWeight.bold, color: Colors.white);
+        ?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white));
     return Container(
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       padding: EdgeInsets.symmetric(vertical: padding, horizontal: hPad),
       child: Row(
         children: [
@@ -654,8 +654,8 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      icon: const Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
-                      label: const Text(
+                      icon: Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                      label: Text(
                         '입력',
                         style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
                       ),
@@ -675,9 +675,9 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
         _buildDailyDetailDateHeader(),
         Expanded(
           child: _loading
-              ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
               : ColoredBox(
-                  color: const Color(0xFF121418),
+                  color: Theme.of(context).scaffoldBackgroundColor,
                   child: Column(
                     children: [
                       Expanded(child: _buildListBody()),
@@ -698,21 +698,21 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
           children: [
             Text(
               widget.embedded ? '이 날짜에 등록된 지출이 없습니다' : '등록된 지출이 없습니다.',
-              style: const TextStyle(color: Color(0xFF6E717C), fontSize: 14),
+              style: TextStyle(color: Color(0xFF6E717C), fontSize: 14),
               textAlign: TextAlign.center,
             ),
             if (widget.embedded) ...[
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               FilledButton.icon(
                 onPressed: _openAddExpense,
-                icon: const Icon(Icons.add, size: 22),
-                label: const Text(
+                icon: Icon(Icons.add, size: 22),
+                label: Text(
                   '지출 입력',
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC700),
-                  foregroundColor: const Color(0xFF121418),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Theme.of(context).scaffoldBackgroundColor,
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
@@ -729,7 +729,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
   Widget build(BuildContext context) {
     if (widget.embedded) {
       return ColoredBox(
-        color: const Color(0xFF121418),
+        color: Theme.of(context).scaffoldBackgroundColor,
         child: _buildDetailBody(),
       );
     }
@@ -739,11 +739,11 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
     final titleFontSize = isTablet ? 18.0 : 16.0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121418),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1F222A),
+        backgroundColor: Theme.of(context).cardTheme.color!,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
+          icon: Icon(Icons.arrow_back_ios, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(widget.dateTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: titleFontSize)),
@@ -753,9 +753,9 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
         children: [
           Expanded(
             child: _loading
-                ? const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+                ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
                 : ColoredBox(
-                    color: const Color(0xFF121418),
+                    color: Theme.of(context).scaffoldBackgroundColor,
                     child: Column(
                       children: [
                         Expanded(child: _buildListBody()),
@@ -767,14 +767,14 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
         ],
       ),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Colors.white10, width: 0.5)),
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
         ),
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
-          backgroundColor: const Color(0xFF121418),
-          selectedItemColor: const Color(0xFFFFC700),
-          unselectedItemColor: const Color(0xFF6E717C),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          selectedItemColor: Theme.of(context).primaryColor,
+          unselectedItemColor: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
           selectedFontSize: 12,
           unselectedFontSize: 12,
           currentIndex: 1,
@@ -792,7 +792,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
             ExpenseNavBus.goToTab(index);
             Navigator.of(context).popUntil((r) => r.settings.name == '/expense_main');
           },
-          items: const [
+          items: [
             BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: '홈'),
             BottomNavigationBarItem(icon: Icon(Icons.list_alt), activeIcon: Icon(Icons.list_alt), label: '목록'),
             BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: '작성'),
@@ -827,12 +827,12 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
             color: Colors.red,
             alignment: Alignment.centerRight,
             padding: EdgeInsets.only(right: horizontalPadding),
-            child: const Column(
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.delete, color: Colors.white),
+                Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
                 SizedBox(height: 4),
-                Text('삭제', style: TextStyle(color: Colors.white)),
+                Text('삭제', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
               ],
             ),
           ),
@@ -874,23 +874,23 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
               });
             },
             child: Container(
-              decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white10, width: 0.5))),
+              decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5))),
               padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     '[ $dateLabel $timeLabel ]  $cat',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                    style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         '1건',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                        style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.w600, fontSize: 15),
                       ),
                       const Spacer(),
                       Flexible(
@@ -899,17 +899,17 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
                           alignment: Alignment.centerRight,
                           child: Text(
                             '₩${NumberFormat('#,###').format(amount)}',
-                            style: const TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold, fontSize: 15),
+                            style: TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold, fontSize: 15),
                           ),
                         ),
                       ),
                     ],
                   ),
                   if (memo.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       memo,
-                      style: const TextStyle(color: Color(0xFF69F0AE), fontSize: 14, height: 1.25),
+                      style: TextStyle(color: Color(0xFF69F0AE), fontSize: 14, height: 1.25),
                     ),
                   ],
                 ],
@@ -930,7 +930,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
-      color: const Color(0xFF1F222A),
+      color: Theme.of(context).cardTheme.color!,
       child: SafeArea(
         top: false,
         child: Row(
@@ -941,7 +941,7 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
                 '[ 일일 합계 ]',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
               ),
             ),
             SizedBox(width: spacing),
@@ -949,11 +949,11 @@ class _DailyExpenseListPageState extends State<DailyExpenseListPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('$_totalCount건', style: TextStyle(color: Colors.white, fontSize: valueFontSize)),
+                  Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: valueFontSize)),
                   SizedBox(height: spacing),
                   Row(
                     children: [
-                      const Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                      Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
                       Expanded(
                         child: Text(
                           '₩${NumberFormat('#,###').format(_totalExpense)}',

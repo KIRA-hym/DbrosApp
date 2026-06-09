@@ -122,7 +122,7 @@ class _ListManageDialogState extends State<ListManageDialog> {
           backgroundColor: const Color(0xCC1F222A),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.white10),
+            side: BorderSide(color: Theme.of(context).dividerColor),
           ),
           insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
           child: Padding(
@@ -135,13 +135,13 @@ class _ListManageDialogState extends State<ListManageDialog> {
                 Row(
                   children: [
                     Icon(widget.icon, color: widget.accentColor, size: 20),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         widget.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontFamily: 'GmarketSans',
-                          color: Colors.white,
+                          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -166,7 +166,7 @@ class _ListManageDialogState extends State<ListManageDialog> {
                     ),
                   ],
                 ),
-                const Divider(color: Colors.white12, height: 20),
+                Divider(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.12), height: 20),
 
                 // ─── 입력란 (추가 눌렀을 때, 목록 위) ───────────
                 if (_showInput) ...[
@@ -177,7 +177,7 @@ class _ListManageDialogState extends State<ListManageDialog> {
                     accentColor: widget.accentColor,
                     onSubmit: _save,
                   ),
-                  const SizedBox(height: 10),
+                  SizedBox(height: 10),
                 ],
 
                 // ─── 항목 목록 ───────────────────────────────────
@@ -191,7 +191,7 @@ class _ListManageDialogState extends State<ListManageDialog> {
                           child: Center(
                             child: Text(
                               '항목이 없습니다.',
-                              style: TextStyle(color: Colors.white38, fontSize: 14),
+                              style: TextStyle(color: Theme.of(context).dividerColor, fontSize: 14),
                             ),
                           ),
                         )
@@ -206,12 +206,12 @@ class _ListManageDialogState extends State<ListManageDialog> {
                 ),
 
                 // ─── 닫기 버튼 ───────────────────────────────────
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text('닫기', style: TextStyle(color: Color(0xFF9FA3AE))),
+                    child: Text('닫기', style: TextStyle(color: Color(0xFF9FA3AE))),
                   ),
                 ),
               ],
@@ -265,9 +265,9 @@ class _AddSaveButton extends StatelessWidget {
       children: [
         TextButton(
           onPressed: onCancel,
-          child: const Text('취소', style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 13)),
+          child: Text('취소', style: TextStyle(color: Color(0xFF9FA3AE), fontSize: 13)),
         ),
-        const SizedBox(width: 4),
+        SizedBox(width: 4),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: hasInput
@@ -275,17 +275,17 @@ class _AddSaveButton extends StatelessWidget {
                   key: const ValueKey('save'),
                   onPressed: saving ? null : onSave,
                   style: TextButton.styleFrom(
-                    backgroundColor: const Color(0xFFFFC700).withValues(alpha: 0.15),
+                    backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   ),
                   child: saving
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC700)),
                         )
-                      : const Text(
+                      : Text(
                           '저장',
                           style: TextStyle(
                             color: Color(0xFFFFC700),
@@ -313,21 +313,21 @@ class _ItemRow extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: [
-          const SizedBox(width: 14),
+          SizedBox(width: 14),
           Expanded(
             child: Text(
               item,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
+              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 14),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 19),
+            icon: Icon(Icons.delete_outline, color: Colors.redAccent, size: 19),
             padding: const EdgeInsets.all(8),
             constraints: const BoxConstraints(),
             onPressed: onDelete,
@@ -359,7 +359,7 @@ class _InputRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.07),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: accentColor.withValues(alpha: 0.4)),
       ),
@@ -368,10 +368,10 @@ class _InputRow extends StatelessWidget {
         focusNode: focusNode,
         textInputAction: TextInputAction.done,
         onSubmitted: (_) => onSubmit(),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 14),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: Color(0xFF6E717C), fontSize: 14),
+          hintStyle: TextStyle(color: Color(0xFF6E717C), fontSize: 14),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         ),

@@ -48,7 +48,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)));
+      return Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)));
     }
 
     return Column(
@@ -61,7 +61,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
             labelKey: 'program',
           ),
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         Expanded(
           child: _chartCard(
             title: '시간대별 순익',
@@ -84,7 +84,7 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
     }).toList();
 
     return Container(
-      decoration: BorderedSection.decoration(),
+      decoration: BorderedSection.decoration(context),
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,16 +93,16 @@ class HomeDailyChartsPanelState extends State<HomeDailyChartsPanel> {
             title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
           ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Expanded(
             child: validData.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text('데이터가 없습니다', style: TextStyle(color: Color(0xFF6E717C), fontSize: 12)),
                   )
                 : StatsBarChartBody(
@@ -153,7 +153,7 @@ class StatsBarChartBody extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.only(top: 4, bottom: 4, right: 8),
       itemCount: data.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      separatorBuilder: (_, __) => SizedBox(height: 12),
       itemBuilder: (context, index) {
         final item = data[index];
         String rawLabel = item[labelKey]?.toString() ?? '';
@@ -170,7 +170,7 @@ class StatsBarChartBody extends StatelessWidget {
                 Expanded(
                   child: Text(
                     rawLabel,
-                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 11, fontWeight: FontWeight.w500),
                     maxLines: programLabels ? 2 : 1,
                     overflow: programLabels ? TextOverflow.visible : TextOverflow.ellipsis,
                     softWrap: true,
@@ -182,10 +182,10 @@ class StatsBarChartBody extends StatelessWidget {
                     child: Text(
                       '${count}건',
                       textAlign: TextAlign.right,
-                      style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: Color(0xFF9E9E9E), fontSize: 10, fontWeight: FontWeight.w500),
                     ),
                   ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 SizedBox(
                   width: 64,
                   child: Text(
@@ -198,7 +198,7 @@ class StatsBarChartBody extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            SizedBox(height: 6),
             LayoutBuilder(
               builder: (context, constraints) {
                 return Stack(
@@ -206,7 +206,7 @@ class StatsBarChartBody extends StatelessWidget {
                     Container(
                       height: 6,
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.05),
                         borderRadius: BorderRadius.circular(3),
                       ),
                     ),
