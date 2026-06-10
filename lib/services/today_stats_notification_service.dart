@@ -13,6 +13,7 @@ import '../main.dart' show MainWrapper;
 import 'db_helper.dart';
 import 'notification_permission_service.dart';
 import 'settings_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// 알림 패널 고정 알림: 오늘 수입·지출.
 /// Android는 표준 플러그인 액션이 별 줄로 가므로, 네이티브 RemoteViews 한 줄 레이아웃을 사용합니다.
@@ -57,6 +58,8 @@ class TodayStatsNotificationService {
       final action = map['action'] as String?;
       if (action == 'quick_register') {
         _openQuickRegisterPanel();
+      } else if (action == 'open_home') {
+        _openHomeScreen();
       } else {
         _openFullWriteScreen();
       }
@@ -109,6 +112,19 @@ class TodayStatsNotificationService {
     });
   }
 
+  void _openHomeScreen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final nav = rootNavigatorKey.currentState;
+      if (nav == null) return;
+      nav.pushAndRemoveUntil(
+        MaterialPageRoute<void>(
+          builder: (_) => const MainWrapper(initialIndex: 0),
+        ),
+        (route) => false,
+      );
+    });
+  }
+
   void _openFullWriteScreen() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final nav = rootNavigatorKey.currentState;
@@ -132,10 +148,32 @@ class TodayStatsNotificationService {
 
     final String displayDay = WorkDateUtils.effectiveWorkDateYmd();
     final totals = await DriveLogDatabase.instance.getTodayIncomeExpenseByWorkDate(displayDay);
+    
+    // Read clock state
+    final prefs = await SharedPreferences.getInstance();
+    final clockInStr = prefs.getString('work_timer_clock_in_time');
+    final savedWorkDate = prefs.getString('work_timer_work_date');
+    final savedElapsed = prefs.getInt('work_timer_elapsed_seconds') ?? 0;
+    
+    int elapsedSeconds = 0;
+    bool isClockedIn = false;
+    
+    if (clockInStr != null && savedWorkDate == displayDay) {
+      final clockInTime = DateTime.tryParse(clockInStr);
+      if (clockInTime != null) {
+        isClockedIn = true;
+        final diff = DateTime.now().difference(clockInTime).inSeconds;
+        elapsedSeconds = savedElapsed + diff;
+        if (elapsedSeconds < 0) elapsedSeconds = 0;
+      }
+    }
+
     await _showNative(
       income: totals['income'] ?? 0,
       expense: totals['expense'] ?? 0,
       workDate: displayDay,
+      elapsedSeconds: elapsedSeconds,
+      isClockedIn: isClockedIn,
     );
   }
 
@@ -166,6 +204,8 @@ class TodayStatsNotificationService {
     required int income,
     required int expense,
     required String workDate,
+    required int elapsedSeconds,
+    required bool isClockedIn,
   }) async {
     try {
       await AndroidIntent(
@@ -176,6 +216,8 @@ class TodayStatsNotificationService {
           'income': income,
           'expense': expense,
           'workDate': workDate,
+          'elapsedSeconds': elapsedSeconds,
+          'isClockedIn': isClockedIn,
         },
       ).sendBroadcast();
     } catch (_) {}
@@ -184,6 +226,8 @@ class TodayStatsNotificationService {
         'income': income,
         'expense': expense,
         'workDate': workDate,
+        'elapsedSeconds': elapsedSeconds,
+        'isClockedIn': isClockedIn,
       });
     } catch (_) {}
   }

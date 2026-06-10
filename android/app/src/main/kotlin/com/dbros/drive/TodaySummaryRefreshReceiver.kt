@@ -14,7 +14,9 @@ class TodaySummaryRefreshReceiver : BroadcastReceiver() {
         val income = intent.getIntExtra(EXTRA_INCOME, 0)
         val expense = intent.getIntExtra(EXTRA_EXPENSE, 0)
         val workDate = intent.getStringExtra(EXTRA_WORK_DATE) ?: return
-        TodaySummaryNotifier.show(context.applicationContext, income, expense, workDate)
+        val elapsedSeconds = intent.getIntExtra(EXTRA_ELAPSED, 0)
+        val isClockedIn = intent.getBooleanExtra(EXTRA_CLOCKED_IN, false)
+        TodaySummaryNotifier.show(context.applicationContext, income, expense, workDate, elapsedSeconds, isClockedIn)
     }
 
     companion object {
@@ -22,5 +24,7 @@ class TodaySummaryRefreshReceiver : BroadcastReceiver() {
         const val EXTRA_INCOME = "income"
         const val EXTRA_EXPENSE = "expense"
         const val EXTRA_WORK_DATE = "workDate"
+        const val EXTRA_ELAPSED = "elapsedSeconds"
+        const val EXTRA_CLOCKED_IN = "isClockedIn"
     }
 }

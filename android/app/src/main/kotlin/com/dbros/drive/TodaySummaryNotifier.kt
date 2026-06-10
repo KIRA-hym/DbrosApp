@@ -24,24 +24,53 @@ object TodaySummaryNotifier {
     private const val RC_QUICK = 94003
     private const val RC_UNDISMISS = 94004
 
-    private val lastSnapshot = AtomicReference<Triple<Int, Int, String>?>(null)
+    private val lastSnapshot = AtomicReference<Snapshot?>(null)
 
-    fun show(context: Context, income: Int, expense: Int, workDate: String) {
+    data class Snapshot(
+        val income: Int,
+        val expense: Int,
+        val workDate: String,
+        val elapsedSeconds: Int,
+        val isClockedIn: Boolean
+    )
+
+    fun show(
+        context: Context,
+        income: Int,
+        expense: Int,
+        workDate: String,
+        elapsedSeconds: Int,
+        isClockedIn: Boolean
+    ) {
         if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
             return
         }
         ensureChannel(context)
-        lastSnapshot.set(Triple(income, expense, workDate))
+        lastSnapshot.set(Snapshot(income, expense, workDate, elapsedSeconds, isClockedIn))
 
         val pkg = context.packageName
         val compact = RemoteViews(pkg, R.layout.notification_today_one_row)
-        val line1 = formatWorkDateLine(workDate)
-        compact.setTextViewText(R.id.notification_compact_line1, line1)
-        compact.setTextViewText(R.id.notification_compact_line2, formatNetLine(income, expense))
         val expanded = RemoteViews(pkg, R.layout.notification_today_expanded)
-        val line2 = formatNetLine(income, expense)
+
+        val line1 = formatLine1(workDate, income, expense)
+        compact.setTextViewText(R.id.notification_compact_line1, line1)
         expanded.setTextViewText(R.id.notification_expanded_line1, line1)
-        expanded.setTextViewText(R.id.notification_expanded_line2, line2)
+
+        if (isClockedIn) {
+            val baseTime = android.os.SystemClock.elapsedRealtime() - (elapsedSeconds * 1000L)
+            compact.setChronometer(R.id.notification_chronometer, baseTime, "%s", true)
+            expanded.setChronometer(R.id.notification_expanded_chronometer, baseTime, "%s", true)
+            compact.setViewVisibility(R.id.notification_chronometer, android.view.View.VISIBLE)
+            expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.VISIBLE)
+        } else {
+            compact.setChronometer(R.id.notification_chronometer, 0L, "-", false)
+            expanded.setChronometer(R.id.notification_expanded_chronometer, 0L, "-", false)
+            // Or just leave it stopped with 00:00 format, or show "-" by setting text on a standard TextView instead.
+            // setChronometer with format "-" is supported, but to be safe we can just stop it.
+            // Since we set format to "%s" above, we just stop it and it might show 00:00.
+            // Actually, we can just hide chronometer and show text "-" in the Line2 text if we wanted, but Chronometer format "-" works.
+        }
+
         expanded.setTextViewText(
             R.id.notification_expanded_income_expense,
             formatIncomeExpenseOneLine(income, expense)
@@ -51,7 +80,7 @@ object TodaySummaryNotifier {
 
         val intentFull = Intent(context, MainActivity::class.java).apply {
             flags = intentFlags
-            putExtra("notification_action", "open_full_write")
+            putExtra("notification_action", "open_home")
         }
         val intentQuick = Intent(context, MainActivity::class.java).apply {
             flags = intentFlags
@@ -80,10 +109,12 @@ object TodaySummaryNotifier {
         )
 
         compact.setOnClickPendingIntent(R.id.notification_compact_line1, piFull)
-        compact.setOnClickPendingIntent(R.id.notification_compact_line2, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_line2_text, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_chronometer, piFull)
         compact.setOnClickPendingIntent(R.id.notification_quick, piQuick)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line1, piFull)
-        expanded.setOnClickPendingIntent(R.id.notification_expanded_line2, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_line2_text, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_chronometer, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_income_expense, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_quick_expanded, piQuick)
 
@@ -123,7 +154,7 @@ object TodaySummaryNotifier {
     /** 스와이프 제거 직후 — 마지막 요약이 있고 앱이 살아 있으면 즉시 다시 표시. */
     fun reshowAfterDismiss(context: Context) {
         val snap = lastSnapshot.get() ?: return
-        show(context, snap.first, snap.second, snap.third)
+        show(context, snap.income, snap.expense, snap.workDate, snap.elapsedSeconds, snap.isClockedIn)
     }
 
     private fun ensureChannel(context: Context) {
@@ -144,14 +175,10 @@ object TodaySummaryNotifier {
         }
     }
 
-    /** 접힌·펼침 1줄 공통: 근무일자 라벨 + 날짜 */
-    private fun formatWorkDateLine(workDate: String): String = "근무일자 : $workDate"
-
-    /** 접힌 2줄·펼침 2줄 공통: 순익만 */
-    private fun formatNetLine(income: Int, expense: Int): String {
+    private fun formatLine1(workDate: String, income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
-        return "💰순익 ${df.format(net)}원"
+        return "근무일자 : $workDate  |  💰순익 ${df.format(net)}원"
     }
 
     /** 펼침 하단 한 줄: 수입 · 지출 */

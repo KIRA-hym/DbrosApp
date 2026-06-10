@@ -67,9 +67,8 @@ class GalleryObserverService : Service() {
 
             restoreForegroundNotification()
             
-            // "자동감지 실행중" 알림이 뒤늦게 떠서 기존 퀵등록 알림을 밀어내는 현상 방지:
-            // 알림을 띄운 직후 투데이 요약을 갱신하여 최상단으로 끌어올림
-            TodaySummaryNotifier.reshowAfterDismiss(this)
+            // "자동감지 실행중" 알림 갱신 처리
+            // (v3: TodaySummaryNotifier의 강제 부활 버그 방지를 위해 연동 해제함)
             
             return START_STICKY
         } catch (e: Exception) {

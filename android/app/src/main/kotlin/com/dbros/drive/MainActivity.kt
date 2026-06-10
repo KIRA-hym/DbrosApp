@@ -27,7 +27,9 @@ class MainActivity : FlutterActivity() {
                     val income = call.argument<Int>("income") ?: 0
                     val expense = call.argument<Int>("expense") ?: 0
                     val workDate = call.argument<String>("workDate") ?: ""
-                    TodaySummaryNotifier.show(this, income, expense, workDate)
+                    val elapsedSeconds = call.argument<Int>("elapsedSeconds") ?: 0
+                    val isClockedIn = call.argument<Boolean>("isClockedIn") ?: false
+                    TodaySummaryNotifier.show(this, income, expense, workDate, elapsedSeconds, isClockedIn)
                     result.success(null)
                 }
                 "cancel" -> {

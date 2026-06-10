@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/db_helper.dart';
 import '../utils/work_date_utils.dart';
+import '../services/today_stats_notification_service.dart';
 
 class WorkTimerProvider extends ChangeNotifier {
   bool _isClockedIn = false;
@@ -98,6 +99,7 @@ class WorkTimerProvider extends ChangeNotifier {
 
     _startTimer();
     notifyListeners();
+    TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
   }
 
   Future<void> clockOut() async {
@@ -129,6 +131,7 @@ class WorkTimerProvider extends ChangeNotifier {
       _clockInTime = null;
       _currentWorkDate = null;
       notifyListeners();
+      TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     }
   }
 
@@ -185,6 +188,7 @@ class WorkTimerProvider extends ChangeNotifier {
       _currentWorkDate = null;
       _elapsedSeconds = 0;
       notifyListeners();
+      TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     }
   }
 
