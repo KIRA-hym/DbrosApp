@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
+import '../config/feature_flags.dart';
 
 class SettingsService {
   static late SharedPreferences _prefs;
@@ -247,6 +248,7 @@ class SettingsService {
       await _prefs.setBool('screenshotAutoRegisterEnabled', value);
 
   static bool isFeatureUnlocked() {
+    if (!kMonetizationEnabled) return true;
     final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
     if (expireMs == 0) return false;
     return DateTime.now().millisecondsSinceEpoch <= expireMs;

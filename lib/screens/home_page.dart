@@ -21,6 +21,8 @@ import '../widgets/drive_log_source_chip.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
+import 'my_info_page.dart';
+import 'settings_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
@@ -251,7 +253,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 alignment: Alignment.centerLeft,
                 child: InkWell(
                   onTap: () {
-                    // Profile 탭 시 이동 등 추후 연결 가능
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => const MyInfoPage()));
                   },
                   borderRadius: BorderRadius.circular(20),
                   child: Consumer<AuthService>(
@@ -284,8 +286,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           await launchUrl(uri, mode: LaunchMode.externalApplication);
                         }
                       } else {
-                        // 일반 알림 화면으로 이동 (임시 주석 처리 혹은 NoticeListPage 이동)
-                        // TODO: 알림 화면으로 이동
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
                       }
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -380,6 +381,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           SizedBox(height: sectionGap),
                                           const AdBannerWidget(),
                                           SizedBox(height: sectionGap),
+                                          AnimatedRecentLogs(
+                                            logs: statsProvider.recentDateLogs,
+                                            isTablet: true,
+                                          ),
                                           Expanded(
                                             child: _buildYoutubeSection(),
                                           ),
@@ -407,6 +412,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   SizedBox(height: sectionGap),
                                   const AdBannerWidget(),
                                   SizedBox(height: sectionGap),
+                                  AnimatedRecentLogs(
+                                    logs: statsProvider.recentDateLogs,
+                                    isTablet: false,
+                                  ),
                                   Expanded(
                                     child: _buildYoutubeSection(),
                                   ),
@@ -1370,6 +1379,245 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class AnimatedRecentLogs extends StatefulWidget {
+  final List<Map<String, dynamic>> logs;
+  final bool isTablet;
+
+  const AnimatedRecentLogs({
+    Key? key,
+    required this.logs,
+    required this.isTablet,
+  }) : super(key: key);
+
+  @override
+  State<AnimatedRecentLogs> createState() => _AnimatedRecentLogsState();
+}
+
+class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
+  late ScrollController _scrollController;
+  Timer? _timer;
+  final double _itemHeight = 44.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _startAutoScroll();
+  }
+
+  void _startAutoScroll() {
+    if (widget.logs.isEmpty) return;
+    final int visibleCount = widget.isTablet ? 4 : 2;
+    if (widget.logs.length <= visibleCount) return;
+
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!_scrollController.hasClients) return;
+      
+      final currentScroll = _scrollController.offset;
+      _scrollController.animateTo(
+        currentScroll + _itemHeight,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnimatedRecentLogs oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.logs != widget.logs || oldWidget.isTablet != widget.isTablet) {
+      _timer?.cancel();
+      if (_scrollController.hasClients) {
+         _scrollController.jumpTo(0);
+      }
+      _startAutoScroll();
+    }
+  }
+
+  Color _getProgramColor(String program) {
+    if (program.contains('카카오')) return const Color(0xFFFFC700);
+    if (program.contains('로지')) return Colors.greenAccent;
+    if (program.contains('콜마너')) return Colors.blueAccent;
+    if (program.contains('아이콘')) return Colors.orangeAccent;
+    if (program.contains('티맵')) return Colors.tealAccent;
+    if (program.contains('대리')) return Colors.pinkAccent;
+    return Colors.white70;
+  }
+
+  String _shortenProgramName(String program) {
+    if (program.contains('카카오')) {
+      if (program.contains('일반')) return '카(일)';
+      if (program.contains('제휴')) return '카(제)';
+      if (program.contains('맞춤')) return '카(맞)';
+      if (program.contains('프리미엄') || program.contains('블랙')) return '카(프)';
+      return '카카오';
+    }
+    if (program.contains('콜마너')) return '콜마';
+    if (program.contains('핸들포유')) return '핸들';
+    if (program.contains('로지')) return '로지';
+    if (program.contains('아이콘')) return '아이콘';
+    if (program.contains('티맵')) return '티맵';
+    return program;
+  }
+
+  String _extractDong(String address) {
+    if (address.trim().isEmpty) return '정보없음';
+    final parts = address.trim().split(RegExp(r'\s+'));
+    for (int i = parts.length - 1; i >= 0; i--) {
+      final p = parts[i];
+      if (p.endsWith('동') || p.endsWith('읍') || p.endsWith('면') || p.endsWith('구') || p.endsWith('리') || p.endsWith('로')) {
+        return p;
+      }
+    }
+    return parts.last;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.logs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final int visibleCount = widget.isTablet ? 4 : 2;
+    final double titleHeight = 30.0;
+    final double paddingHeight = 24.0;
+    final double containerHeight = titleHeight + paddingHeight + (_itemHeight * visibleCount);
+
+    final bool isScrollable = widget.logs.length > visibleCount;
+    final double titleFs = widget.isTablet ? 13.5 : 12.0;
+
+    return Container(
+      height: containerHeight,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BorderedSection.decoration(context),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                '최근 운행일지',
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  color: Theme.of(context).primaryColor,
+                  fontWeight: FontWeight.w700,
+                  fontSize: titleFs,
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (widget.logs.isNotEmpty)
+                Text(
+                  widget.logs.first['work_date']?.toString() ?? '',
+                  style: TextStyle(
+                    fontFamily: 'GmarketSans',
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: titleFs - 2.0,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: isScrollable ? null : widget.logs.length,
+              itemBuilder: (context, index) {
+                final log = widget.logs[index % widget.logs.length];
+                final programName = (log['program'] ?? '-').toString();
+                final shortProgram = _shortenProgramName(programName);
+                final start = (log['start_location'] ?? '').toString();
+                final end = (log['end_location'] ?? '').toString();
+                final fare = (log['gross_fare'] as int?) ?? 0;
+                final driveTime = (log['drive_time'] ?? '').toString();
+
+                final startDong = _extractDong(start);
+                final endDong = _extractDong(end);
+                final route = '$startDong -> $endDong';
+
+                return SizedBox(
+                  height: _itemHeight,
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(8.0),
+                      border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            driveTime,
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: Theme.of(context).textTheme.bodySmall?.color,
+                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          width: 55,
+                          child: Text(
+                            shortProgram,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _getProgramColor(programName),
+                              fontWeight: FontWeight.bold,
+                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            route,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Theme.of(context).textTheme.bodyMedium?.color,
+                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${NumberFormat('#,###').format(fare)}원',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

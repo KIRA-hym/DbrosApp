@@ -15,6 +15,7 @@ class TodayStatsProvider extends ChangeNotifier {
   int todayNet = 0;
   int todayExpenses = 0;
   List<Map<String, dynamic>> recentLogs = [];
+  List<Map<String, dynamic>> recentDateLogs = [];
   String currentWorkDateYmd = '';
 
   Future<void> refresh() async {
@@ -22,6 +23,7 @@ class TodayStatsProvider extends ChangeNotifier {
       currentWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
       final summary = await DriveLogDatabase.instance.getTodayStatsByWorkDate(currentWorkDateYmd);
       recentLogs = await DriveLogDatabase.instance.getRecentLogs(limit: 5);
+      recentDateLogs = await DriveLogDatabase.instance.getLogsForMostRecentWorkDate();
       
       totalLogs = await DriveLogDatabase.instance.getTotalLogCount();
       todayLogs = summary['count'] as int? ?? 0;

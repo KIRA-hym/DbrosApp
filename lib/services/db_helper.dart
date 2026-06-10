@@ -643,6 +643,24 @@ class DriveLogDatabase {
     return db.query('drive_logs', orderBy: 'work_date DESC, drive_date DESC, drive_time DESC', limit: limit);
   }
 
+  Future<List<Map<String, dynamic>>> getLogsForMostRecentWorkDate() async {
+    if (kIsWeb) return _mockLogsAllForWeb();
+    final db = await database;
+    final maxDateRow = await db.rawQuery(
+      'SELECT MAX(work_date) as max_date FROM drive_logs WHERE work_date IS NOT NULL AND TRIM(work_date) != ""'
+    );
+    if (maxDateRow.isEmpty || maxDateRow.first['max_date'] == null) {
+      return [];
+    }
+    final maxDate = maxDateRow.first['max_date'] as String;
+    return db.query(
+      'drive_logs',
+      where: 'work_date = ?',
+      whereArgs: [maxDate],
+      orderBy: 'drive_date DESC, drive_time DESC',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getAllDriveLogsForExport() async {
     if (kIsWeb) return _mockLogsAllForWeb();
     final db = await database;

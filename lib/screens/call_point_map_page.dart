@@ -65,7 +65,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       [],
       _updateMarkers,
       markerBuilder: _markerBuilder,
-      stopClusteringZoom: 14.5,
+      stopClusteringZoom: 13.5,
     );
   }
 

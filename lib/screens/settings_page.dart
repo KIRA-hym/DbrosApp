@@ -385,8 +385,9 @@ class _SettingsPageState extends State<SettingsPage> {
             decoration: InputDecoration(
               hintText: '인증 코드를 입력하세요',
               hintStyle: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey)),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFFFFC700))),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
           actions: [
