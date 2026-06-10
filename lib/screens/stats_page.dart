@@ -707,6 +707,7 @@ class _StatsPageState extends State<StatsPage> {
 
   List<TripSegment> _buildTripSegments(List<Map<String, dynamic>> logs) {
     final trips = <TripSegment>[];
+    final fmt = NumberFormat('#,###');
     for (final log in logs) {
       final startLat = (log['start_lat'] as num?)?.toDouble();
       final startLng = (log['start_lng'] as num?)?.toDouble();
@@ -716,6 +717,13 @@ class _StatsPageState extends State<StatsPage> {
       final program = (log['program'] ?? '').toString();
       final startLoc = (log['start_location'] ?? '').toString();
       final endLoc = (log['end_location'] ?? '').toString();
+      
+      final gross = (log['gross_income'] as num?)?.toInt() ?? 0;
+      final tip = (log['tip'] as num?)?.toInt() ?? 0;
+      final fee = (log['fee'] as num?)?.toInt() ?? 0;
+      final transport = (log['transport_cost'] as num?)?.toInt() ?? 0;
+      final income = (gross + tip - fee - transport).clamp(0, 999999999);
+      final incomeStr = '${fmt.format(income)}원';
 
       if (startLat != null &&
           startLng != null &&
@@ -726,9 +734,9 @@ class _StatsPageState extends State<StatsPage> {
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
             startSnippet:
-                '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+                '$time · $program\n[출발] ${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'}\n운행요금: $incomeStr',
             endSnippet:
-                '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
+                '$time · $program\n[도착] ${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'}\n운행요금: $incomeStr',
           ),
         );
       }
@@ -2301,8 +2309,8 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
 
   Future<void> _generateNumberedMarkers() async {
     final markers = <Marker>{};
-    // 50개를 초과하는 대량 데이터(월간/연간 등)일 경우, 커스텀 비트맵 렌더링으로 인한 UI 먹통(ANR)을 방지하기 위해 심플 마커 사용
-    final bool useSimpleMarkers = widget.segments.length > 50;
+    // 500개를 초과하는 대량 데이터(월간/연간 등)일 경우, 커스텀 비트맵 렌더링으로 인한 UI 먹통(ANR)을 방지하기 위해 심플 마커 사용
+    final bool useSimpleMarkers = widget.segments.length > 500;
 
     for (int i = 0; i < widget.segments.length; i++) {
       final seg = widget.segments[i];

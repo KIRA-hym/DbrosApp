@@ -80,17 +80,17 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<void> _precacheIcons() async {
     _logIconMine ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 40,
+      size: 80,
       style: MarkerDataStyle.solid,
       color: const Color(0xFF10B981), // 녹색
     );
     _logIconOther ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 40,
+      size: 80,
       style: MarkerDataStyle.hollow,
       color: const Color(0xFF3B82F6), // 파란색
     );
     _refIcon ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 60,
+      size: 120,
       style: MarkerDataStyle.hotspot,
       color: const Color(0xFFF59E0B), // 주황색
     );
@@ -587,12 +587,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _legendItem(const Color(0xFFFF5252), '내 좌표'),
+            _legendItem(const Color(0xFF10B981), '내 좌표', MarkerDataStyle.solid),
             SizedBox(height: 4),
-            _legendItem(Colors.lightBlueAccent, '공유된 좌표'),
+            _legendItem(const Color(0xFF3B82F6), '공유된 좌표', MarkerDataStyle.hollow),
             if (_currentMode == MapFilterMode.all) ...[
               SizedBox(height: 4),
-              _legendItem(Colors.purpleAccent, '콜포인트'),
+              _legendItem(const Color(0xFFF59E0B), '콜포인트', MarkerDataStyle.hotspot),
             ],
           ],
         ),
@@ -600,15 +600,60 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
-  Widget _legendItem(Color color, String text) {
+  Widget _legendItem(Color color, String text, MarkerDataStyle style) {
+    Widget iconWidget;
+    switch (style) {
+      case MarkerDataStyle.solid:
+        iconWidget = Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black87, width: 1.5),
+          ),
+        );
+        break;
+      case MarkerDataStyle.hollow:
+        iconWidget = Container(
+          width: 14,
+          height: 14,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            shape: BoxShape.circle,
+            border: Border.all(color: color, width: 2),
+          ),
+        );
+        break;
+      case MarkerDataStyle.hotspot:
+        iconWidget = Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [color.withOpacity(0.9), color.withOpacity(0.1), Colors.transparent],
+              stops: const [0.0, 0.7, 1.0],
+            ),
+          ),
+          child: Center(
+            child: Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+        );
+        break;
+    }
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          color == Colors.purpleAccent ? Icons.star : Icons.favorite,
-          color: color,
-          size: 16,
-        ),
+        iconWidget,
         SizedBox(width: 6),
         Text(text, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 12)),
       ],

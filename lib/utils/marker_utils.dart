@@ -52,7 +52,7 @@ class MarkerUtils {
     required int callNumber,
     required bool isStart,
     required Color borderColor,
-    double size = 100,
+    double size = 120,
   }) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
