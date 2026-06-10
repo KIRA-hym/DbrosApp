@@ -2285,6 +2285,14 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   Set<Marker> _markers = {};
   bool _markersLoading = true;
 
+  static const List<Color> _segmentColors = [
+    Color(0xFF3B82F6), // Blue
+    Color(0xFFF97316), // Orange
+    Color(0xFFA855F7), // Purple
+    Color(0xFF14B8A6), // Teal
+    Color(0xFFEC4899), // Pink
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -2304,6 +2312,8 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       BitmapDescriptor startIcon;
       BitmapDescriptor endIcon;
 
+      final segColor = _segmentColors[i % _segmentColors.length];
+
       if (useSimpleMarkers) {
         startIcon = BitmapDescriptor.defaultMarkerWithHue(
           isFirstStart ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueAzure,
@@ -2313,13 +2323,17 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         );
         if (i % 20 == 0) await Future.delayed(Duration.zero); // UI 스레드 양보
       } else {
-        startIcon = await MarkerUtils.createCustomMarkerBitmap(
-          '${i + 1}',
-          bgColor: isFirstStart ? Colors.green[800]! : Colors.green,
+        startIcon = await MarkerUtils.createCallSegmentMarkerBitmap(
+          callNumber: i + 1,
+          isStart: true,
+          borderColor: segColor,
+          size: 100,
         );
-        endIcon = await MarkerUtils.createCustomMarkerBitmap(
-          '${i + 1}',
-          bgColor: isLastEnd ? Colors.red[800]! : Colors.redAccent,
+        endIcon = await MarkerUtils.createCallSegmentMarkerBitmap(
+          callNumber: i + 1,
+          isStart: false,
+          borderColor: segColor,
+          size: 100,
         );
       }
 
@@ -2449,30 +2463,32 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   }
 
   Set<Polyline> _buildPolylines() {
+    final out = <Polyline>{};
     if (_roadRouteEnabled && _roadRouteSegments.isNotEmpty) {
-      final out = <Polyline>{};
       final keys = _roadRouteSegments.keys.toList()..sort();
       for (final k in keys) {
+        final segColor = _segmentColors[k % _segmentColors.length];
         out.add(
           Polyline(
             polylineId: PolylineId('road_$k'),
             points: _roadRouteSegments[k] ?? [],
-            color: const Color(0xFF4FC3F7),
-            width: 5,
+            color: segColor,
+            width: 6,
           ),
         );
       }
       return out;
     }
-    final out = <Polyline>{};
+    
     for (int i = 0; i < widget.segments.length; i++) {
       final seg = widget.segments[i];
+      final segColor = _segmentColors[i % _segmentColors.length];
       out.add(
         Polyline(
           polylineId: PolylineId('pair_$i'),
           points: [seg.start, seg.end],
-          color: Theme.of(context).primaryColor,
-          width: 4,
+          color: segColor,
+          width: 3,
         ),
       );
     }

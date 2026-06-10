@@ -149,7 +149,7 @@ class _ActionsRow extends StatelessWidget {
     if (actions.length <= 2) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        children: _intersperse(actions, const SizedBox(width: 8)),
+        children: _intersperse(actions.map((a) => Expanded(child: a)).toList(), const SizedBox(width: 8)),
       );
     }
     return Column(
@@ -204,18 +204,15 @@ class GlassDialogConfirmButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (filled) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: onPressed,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFC700),
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-          ),
-          child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      return ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFFC700),
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
         ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       );
     }
     return TextButton(
@@ -231,13 +228,29 @@ class GlassDialogDestructiveButton extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.label = '삭제',
+    this.filled = false,
   });
   final VoidCallback onPressed;
   final String label;
+  final bool filled;
 
   @override
-  Widget build(BuildContext context) => TextButton(
+  Widget build(BuildContext context) {
+    if (filled) {
+      return ElevatedButton(
         onPressed: onPressed,
-        child: Text(label, style: const TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFFFF5252),
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
       );
+    }
+    return TextButton(
+      onPressed: onPressed,
+      child: Text(label, style: const TextStyle(color: Color(0xFFFF5252), fontWeight: FontWeight.bold)),
+    );
+  }
 }

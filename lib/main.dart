@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'services/remote_config_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
 import 'providers/today_stats_provider.dart';
+import 'providers/work_timer_provider.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -101,6 +102,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => TodayStatsProvider.instance..refresh()),
         ChangeNotifierProvider(create: (_) => AuthService.instance),
+        ChangeNotifierProvider(create: (_) => WorkTimerProvider()),
       ],
       child: const DbrosApp(),
     ),

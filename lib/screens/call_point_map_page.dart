@@ -11,6 +11,7 @@ import 'package:geocoding/geocoding.dart';
 
 import '../services/db_helper.dart';
 import '../utils/call_map_placemark_title.dart';
+import '../utils/marker_utils.dart';
 
 class CallPointData with ClusterItem {
   final Map<String, dynamic> data;
@@ -78,9 +79,21 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Future<void> _precacheIcons() async {
-    _logIconMine ??= await _getMarkerBitmap(80, color: const Color(0xFFFF5252), isHeart: true);
-    _logIconOther ??= await _getMarkerBitmap(80, color: Colors.lightBlueAccent, isHeart: true);
-    _refIcon ??= await _getMarkerBitmap(80, color: Colors.purpleAccent, isStar: true);
+    _logIconMine ??= await MarkerUtils.createDataMarkerBitmap(
+      size: 40,
+      style: MarkerDataStyle.solid,
+      color: const Color(0xFF10B981), // 녹색
+    );
+    _logIconOther ??= await MarkerUtils.createDataMarkerBitmap(
+      size: 40,
+      style: MarkerDataStyle.hollow,
+      color: const Color(0xFF3B82F6), // 파란색
+    );
+    _refIcon ??= await MarkerUtils.createDataMarkerBitmap(
+      size: 60,
+      style: MarkerDataStyle.hotspot,
+      color: const Color(0xFFF59E0B), // 주황색
+    );
   }
 
   Future<void> _initMap() async {

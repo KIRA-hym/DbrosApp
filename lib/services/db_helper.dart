@@ -169,6 +169,7 @@ class DriveLogDatabase {
         await _ensureExpenseTables(db);
         await _ensureCallPointsTable(db);
         await _ensureLocalNoticesTable(db);
+        await _ensureDailyWorkSessionsTable(db);
       },
     );
   }
@@ -186,6 +187,18 @@ class DriveLogDatabase {
     try {
       await db.execute('ALTER TABLE local_notices ADD COLUMN is_read INTEGER DEFAULT 0');
     } catch (_) {}
+  }
+
+  Future<void> _ensureDailyWorkSessionsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS daily_work_sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        work_date TEXT NOT NULL UNIQUE,
+        clock_in_time TEXT,
+        clock_out_time TEXT,
+        total_seconds INTEGER DEFAULT 0
+      )
+    ''');
   }
 
   Future<void> _ensureExpenseTables(Database db) async {
@@ -641,6 +654,75 @@ class DriveLogDatabase {
     if (kIsWeb) return _mockLogsAllForWeb().reversed.take(limit).toList();
     final db = await database;
     return db.query('drive_logs', orderBy: 'work_date DESC, drive_date DESC, drive_time DESC', limit: limit);
+  }
+
+  Future<int> getTotalInsuranceFee(String month) async {
+    final db = await database;
+    final res = await db.rawQuery('''
+      SELECT SUM(insurance_fee) as total
+      FROM drive_logs
+      WHERE work_date LIKE ?
+    ''', ['$month-%']);
+    return (res.first['total'] as int?) ?? 0;
+  }
+
+  // --- Daily Work Sessions ---
+
+  final Map<String, Map<String, dynamic>> _mockDailyWorkSessions = {};
+
+  Future<Map<String, dynamic>?> getDailyWorkSession(String workDate) async {
+    if (kIsWeb) return _mockDailyWorkSessions[workDate];
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'daily_work_sessions',
+      where: 'work_date = ?',
+      whereArgs: [workDate],
+    );
+    if (maps.isNotEmpty) {
+      return maps.first;
+    }
+    return null;
+  }
+
+  Future<void> saveDailyWorkSession({
+    required String workDate,
+    required int totalSeconds,
+    required String clockInTime,
+    required String clockOutTime,
+  }) async {
+    if (kIsWeb) {
+      _mockDailyWorkSessions[workDate] = {
+        'work_date': workDate,
+        'clock_in_time': clockInTime,
+        'clock_out_time': clockOutTime,
+        'total_seconds': totalSeconds,
+      };
+      return;
+    }
+    final db = await database;
+    await db.insert(
+      'daily_work_sessions',
+      {
+        'work_date': workDate,
+        'clock_in_time': clockInTime,
+        'clock_out_time': clockOutTime,
+        'total_seconds': totalSeconds,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteDailyWorkSession(String workDate) async {
+    if (kIsWeb) {
+      _mockDailyWorkSessions.remove(workDate);
+      return;
+    }
+    final db = await database;
+    await db.delete(
+      'daily_work_sessions',
+      where: 'work_date = ?',
+      whereArgs: [workDate],
+    );
   }
 
   Future<List<Map<String, dynamic>>> getLogsForMostRecentWorkDate() async {

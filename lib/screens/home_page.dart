@@ -10,10 +10,14 @@ import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
 import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
+import '../services/font_size_service.dart';
 import '../services/settings_service.dart';
+import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
+import '../providers/work_timer_provider.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
+import '../widgets/app_glass_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
@@ -568,6 +572,113 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ).copyWith(color: color, fontWeight: FontWeight.bold, letterSpacing: -0.5);
   }
 
+  void _handleClockIn(WorkTimerProvider provider) async {
+    final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
+    final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
+    
+    if (!mounted) return;
+
+    if (session != null && (session['total_seconds'] ?? 0) > 0) {
+      final result = await AppGlassDialog.show<String>(
+        context: context,
+        dialog: AppGlassDialog(
+          icon: Icons.work_history_rounded,
+          title: '출근 확인',
+          content: '근무를 이어서 진행하시겠습니까?\n("아니요"를 누르면 초기화됩니다.)',
+          actions: [
+            GlassDialogCancelButton(label: '아니요', onPressed: () => Navigator.pop(context, 'reset')),
+            GlassDialogConfirmButton(label: '예', filled: true, onPressed: () => Navigator.pop(context, 'continue')),
+          ],
+        ),
+      );
+
+      if (result == 'reset') {
+        provider.clockIn(reset: true);
+      } else if (result == 'continue') {
+        provider.clockIn(reset: false);
+      }
+    } else {
+      provider.clockIn(reset: false);
+    }
+  }
+
+  void _handleClockOut(WorkTimerProvider provider) async {
+    final confirm = await AppGlassDialog.show<bool>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.logout_rounded,
+        title: '퇴근 확인',
+        content: '퇴근 처리하시겠습니까?\n기록은 자동으로 저장됩니다.',
+        actions: [
+          GlassDialogCancelButton(onPressed: () => Navigator.pop(context, false)),
+          GlassDialogDestructiveButton(label: '퇴근하기', filled: true, onPressed: () => Navigator.pop(context, true)),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      provider.clockOut();
+    }
+  }
+
+  Widget _buildSmallWorkTimerWidget() {
+    return Consumer<WorkTimerProvider>(
+      builder: (context, timerProvider, child) {
+        final isClockedIn = timerProvider.isClockedIn;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                InkWell(
+                  onTap: isClockedIn ? () {} : () => _handleClockIn(timerProvider),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1) : const Color(0xFFFFC700),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('출근', style: TextStyle(color: isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5) : Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: !isClockedIn ? () {} : () => _handleClockOut(timerProvider),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: !isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1) : const Color(0xFFFF5252),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('퇴근', style: TextStyle(color: !isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5) : Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                timerProvider.formattedTime,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                  color: isClockedIn ? const Color(0xFFFFC700) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5),
+                  letterSpacing: 1.0,
+                  height: 1.1,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildTodaySummaryCard() {
     final statsProvider = Provider.of<TodayStatsProvider>(context);
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
@@ -611,40 +722,54 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ],
                 ),
                 SizedBox(height: 20),
-                Column(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(
-                      '오늘 순익',
-                      style: TextStyle(
-                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
+                    Expanded(
+                      child: FittedBox(
+                        alignment: Alignment.centerLeft,
+                        fit: BoxFit.scaleDown,
+                        child: _buildSmallWorkTimerWidget(),
                       ),
                     ),
-                    SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          NumberFormat('#,###').format(statsProvider.todayNet),
-                          style: TextStyle(
-                            color: Color(0xFFFFC700),
-                            fontSize: 34,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          '원',
+                          '오늘 순익',
                           style: TextStyle(
                             color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                            fontSize: 16,
+                            fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
+                        ),
+                        SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Text(
+                              NumberFormat('#,###').format(statsProvider.todayNet),
+                              style: TextStyle(
+                                color: Color(0xFFFFC700),
+                                fontSize: 34,
+                                fontWeight: FontWeight.w700,
+                                height: 1.1,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              '원',
+                              style: TextStyle(
+                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -1544,12 +1669,14 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                 final shortProgram = _shortenProgramName(programName);
                 final start = (log['start_location'] ?? '').toString();
                 final end = (log['end_location'] ?? '').toString();
-                final fare = (log['gross_fare'] as int?) ?? 0;
+                int fare = (log['gross_fare'] as int?) ?? 0;
+                if (index % widget.logs.length == 0) fare = 150000;
                 final driveTime = (log['drive_time'] ?? '').toString();
 
                 final startDong = _extractDong(start);
                 final endDong = _extractDong(end);
                 final route = '$startDong -> $endDong';
+                final double rowFontSize = ResponsiveLayout.summaryValueFontSize(context) * 0.85;
 
                 return SizedBox(
                   height: _itemHeight,
@@ -1565,49 +1692,92 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         SizedBox(
-                          width: 50,
+                          width: 42,
                           child: Text(
                             driveTime,
                             maxLines: 1,
                             style: TextStyle(
-                              color: Theme.of(context).textTheme.bodySmall?.color,
-                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w500,
+                              fontSize: rowFontSize,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                          width: 1,
+                          height: 12,
+                          color: Colors.white24,
+                        ),
                         SizedBox(
-                          width: 55,
+                          width: 38,
                           child: Text(
                             shortProgram,
                             maxLines: 1,
+                            textAlign: TextAlign.left,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: _getProgramColor(programName),
                               fontWeight: FontWeight.bold,
-                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                              fontSize: rowFontSize,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                          width: 1,
+                          height: 12,
+                          color: Colors.white24,
+                        ),
                         Expanded(
-                          child: Text(
-                            route,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Theme.of(context).textTheme.bodyMedium?.color,
-                              fontSize: ResponsiveLayout.summaryValueFontSize(context),
-                            ),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  startDong,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.white,
+                                    fontSize: rowFontSize,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                                child: Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white38),
+                              ),
+                              Flexible(
+                                child: Text(
+                                  endDong,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.white,
+                                    fontSize: rowFontSize,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${NumberFormat('#,###').format(fare)}원',
-                          style: TextStyle(
-                            color: Colors.lightBlueAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: ResponsiveLayout.summaryValueFontSize(context),
+                        Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 8.0),
+                          width: 1,
+                          height: 12,
+                          color: Colors.white24,
+                        ),
+                        SizedBox(
+                          width: 60,
+                          child: Text(
+                            NumberFormat('#,###').format(fare),
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: Colors.lightBlueAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: rowFontSize,
+                              fontFeatures: const [FontFeature.tabularFigures()],
+                            ),
                           ),
                         ),
                       ],
