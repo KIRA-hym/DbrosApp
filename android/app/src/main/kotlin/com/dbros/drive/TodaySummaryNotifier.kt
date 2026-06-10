@@ -58,17 +58,19 @@ object TodaySummaryNotifier {
 
         if (isClockedIn) {
             val baseTime = android.os.SystemClock.elapsedRealtime() - (elapsedSeconds * 1000L)
+            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간 : ")
+            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간 : ")
+            
             compact.setChronometer(R.id.notification_chronometer, baseTime, "%s", true)
             expanded.setChronometer(R.id.notification_expanded_chronometer, baseTime, "%s", true)
             compact.setViewVisibility(R.id.notification_chronometer, android.view.View.VISIBLE)
             expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.VISIBLE)
         } else {
-            compact.setChronometer(R.id.notification_chronometer, 0L, "-", false)
-            expanded.setChronometer(R.id.notification_expanded_chronometer, 0L, "-", false)
-            // Or just leave it stopped with 00:00 format, or show "-" by setting text on a standard TextView instead.
-            // setChronometer with format "-" is supported, but to be safe we can just stop it.
-            // Since we set format to "%s" above, we just stop it and it might show 00:00.
-            // Actually, we can just hide chronometer and show text "-" in the Line2 text if we wanted, but Chronometer format "-" works.
+            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간 : -")
+            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간 : -")
+            
+            compact.setViewVisibility(R.id.notification_chronometer, android.view.View.GONE)
+            expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.GONE)
         }
 
         expanded.setTextViewText(
