@@ -289,7 +289,8 @@ class DriveLogDatabase {
         log_id INTEGER,
         user_id TEXT,
         gross_fare INTEGER DEFAULT 0,
-        waypoint TEXT
+        waypoint TEXT,
+        memo TEXT
       )
     ''');
     
@@ -309,6 +310,9 @@ class DriveLogDatabase {
       if (!columns.contains('waypoint')) {
         await db.execute('ALTER TABLE call_points ADD COLUMN waypoint TEXT');
       }
+      if (!columns.contains('memo')) {
+        await db.execute('ALTER TABLE call_points ADD COLUMN memo TEXT');
+      }
       
       // 기존에 존재하는 콜포인트의 user_id를 'admin'으로 초기화
       await db.execute("UPDATE call_points SET user_id = 'admin' WHERE type = 'reference' AND user_id IS NULL");
@@ -318,21 +322,24 @@ class DriveLogDatabase {
     final refCount = Sqflite.firstIntValue(await db.rawQuery("SELECT COUNT(*) FROM call_points WHERE type IN ('reference', 'restroom', 'shuttle')")) ?? 0;
     if (refCount < 500) {
       await db.execute("DELETE FROM call_points WHERE type IN ('reference', 'restroom', 'shuttle')");
-      
-      final batch = db.batch();
-      for (var r in defaultCallPoints) {
-        batch.insert('call_points', {
-          'type': r['type'],
-          'is_mine': 0,
-          'start_location': r['start_location'],
-          'start_lat': r['start_lat'],
-          'start_lng': r['start_lng'],
-          'user_id': r['user_id'],
-          'memo': r['memo'],
-          'created_at': DateTime.now().toIso8601String(),
-        });
+      try {
+        final batch = db.batch();
+        for (var r in defaultCallPoints) {
+          batch.insert('call_points', {
+            'type': r['type'],
+            'is_mine': 0,
+            'start_location': r['start_location'],
+            'start_lat': r['start_lat'],
+            'start_lng': r['start_lng'],
+            'user_id': r['user_id'],
+            'memo': r['memo'],
+            'created_at': DateTime.now().toIso8601String(),
+          });
+        }
+        await batch.commit(noResult: true);
+      } catch (e) {
+        if (kDebugMode) print('[DB] call_points seeding error: $e');
       }
-      await batch.commit(noResult: true);
     }
   }
 
