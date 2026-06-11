@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>Dbros App - Map Marker Concepts (Per-Call Segments)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+  <style>
+    :root {
+      --bg-color: #121418;
+      --map-bg: #1e222b;
+      --start-bg: #10B981;  /* 출: 녹색 */
+      --end-bg: #EF4444;    /* 도: 빨간색 */
+      --route-call1: #3B82F6; /* 콜 1번 라인색 */
+      --route-call2: #F59E0B; /* 콜 2번 라인색 */
+      --text: #F3F4F6;
+    }
+    
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 5px;
+      text-align: center;
+    }
+    
+    p.desc {
+      color: #9ca3af;
+      margin-top: 0;
+      margin-bottom: 30px;
+      text-align: center;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .container {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      justify-content: center;
+      max-width: 1400px;
+    }
+
+    .section {
+      background-color: var(--map-bg);
+      border: 1px solid #2d313a;
+      border-radius: 20px;
+      padding: 30px;
+      width: 400px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    }
+    
+    .section::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px; z-index: 0;
+    }
+
+    .section h2 {
+      position: relative; z-index: 1; font-size: 17px; margin-top: 0; margin-bottom: 25px;
+      color: #fff; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .canvas {
+      position: relative; height: 380px; z-index: 1; background: rgba(0,0,0,0.1);
+      border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;
+    }
+
+    /* =========================================
+       핀 디자인 (1출, 1도 방식)
+       ========================================= */
+    .paired-pin {
+      position: absolute;
+      background: #272a33;
+      border: 2px solid #888;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-weight: 800;
+      font-size: 13px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+      z-index: 3;
+    }
+    /* 핀 꼬리표 (아래쪽 뾰족한 부분) */
+    .paired-pin::after {
+      content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+      border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid #272a33;
+    }
+    .paired-pin::before {
+      content: ''; position: absolute; bottom: -8.5px; left: 50%; transform: translateX(-50%);
+      border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 7px solid #888; z-index: -1;
+    }
+
+    /* 출/도 텍스트 하이라이트 */
+    .pin-num { color: #fff; }
+    .pin-type-start { color: var(--start-bg); }
+    .pin-type-end { color: var(--end-bg); }
+
+    /* 콜별 색상 통일성 부여 (테두리로 구분) */
+    .pin-call1 { border-color: var(--route-call1); }
+    .pin-call1::before { border-top-color: var(--route-call1); }
+    
+    .pin-call2 { border-color: var(--route-call2); }
+    .pin-call2::before { border-top-color: var(--route-call2); }
+
+
+    /* =========================================
+       직선 경로 선 (Solid, visible line)
+       ========================================= */
+    .straight-solid-1 {
+      position: absolute; top: 100px; left: 110px; width: 140px; height: 3px;
+      background: var(--route-call1); transform: rotate(15deg); transform-origin: left top; z-index: 0;
+      box-shadow: 0 0 5px rgba(59, 130, 246, 0.4);
+    }
+    .straight-solid-2 {
+      position: absolute; top: 220px; left: 60px; width: 220px; height: 3px;
+      background: var(--route-call2); transform: rotate(-10deg); transform-origin: left top; z-index: 0;
+      box-shadow: 0 0 5px rgba(245, 158, 11, 0.4);
+    }
+
+    /* =========================================
+       도로 경로 선 (Thick glowing curved lines)
+       ========================================= */
+    .road-svg {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0;
+    }
+    .road-path-1 {
+      fill: none; stroke: var(--route-call1); stroke-width: 5;
+      stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6));
+    }
+    .road-path-2 {
+      fill: none; stroke: var(--route-call2); stroke-width: 5;
+      stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.6));
+    }
+
+    /* 주석 박스 */
+    .note {
+      position: absolute; bottom: 15px; left: 15px; right: 15px;
+      font-size: 11px; color: #d1d5db; line-height: 1.5;
+      background: rgba(0,0,0,0.6); padding: 10px; border-radius: 8px; z-index: 5;
+    }
+
+  </style>
+</head>
+<body>
+
+  <h1>운행 기록 기반 경로 지도 디자인 제안</h1>
+  <p class="desc">
+    "1출->1도", "2출->2도" 처럼 <b>단일 콜 단위로 분절된 운행 동선</b>에 최적화된 시각화입니다.<br>
+    점선 대신 확실하게 보이는 실선(직선)을 사용하며, 콜마다 고유 색상을 부여하여 흐름을 명확하게 합니다.
+  </p>
+
+  <div class="container">
+
+    <!-- 1. 직선 경로 모드 (초기 뷰) -->
+    <div class="section">
+      <h2>1. 경로 지도 (초기: 단색 실선 직선뷰)</h2>
+      <div class="canvas">
+        
+        <!-- 콜 1 라인 -->
+        <div class="straight-solid-1"></div>
+        <!-- 콜 2 라인 -->
+        <div class="straight-solid-2"></div>
+
+        <!-- 1번 콜 (출/도) -->
+        <div class="paired-pin pin-call1" style="top: 75px; left: 75px;">
+          <span class="pin-num">1</span><span class="pin-type-start">출</span>
+        </div>
+        <div class="paired-pin pin-call1" style="top: 115px; left: 230px;">
+          <span class="pin-num">1</span><span class="pin-type-end">도</span>
+        </div>
+
+        <!-- 2번 콜 (출/도) -->
+        <div class="paired-pin pin-call2" style="top: 195px; left: 25px;">
+          <span class="pin-num">2</span><span class="pin-type-start">출</span>
+        </div>
+        <div class="paired-pin pin-call2" style="top: 155px; left: 260px;">
+          <span class="pin-num">2</span><span class="pin-type-end">도</span>
+        </div>
+
+        <div class="note">
+          * 흐릿한 점선 대신 <b>뚜렷하고 깔끔한 실선(Solid Line)</b>을 사용합니다.<br>
+          * 운행 콜 단위(1번, 2번) 별로 <b>마커 테두리와 선 색상을 맞춤화</b>하여 시각적으로 묶어줍니다.<br>
+          * 1도와 2출 사이(빈 차 이동)는 선이 이어지지 않음을 명확히 보여줍니다.
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 도로 경로 모드 (버튼 탭 시) -->
+    <div class="section">
+      <h2>2. 경로 지도 (활성: 도로 경로뷰)</h2>
+      <div class="canvas">
+        
+        <svg class="road-svg">
+          <!-- 1번 콜 도로 곡선 -->
+          <path class="road-path-1" d="M 95 95 Q 140 70, 160 110 T 250 135" />
+          <!-- 2번 콜 도로 곡선 -->
+          <path class="road-path-2" d="M 45 215 Q 90 250, 150 200 T 280 175" />
+        </svg>
+
+        <!-- 1번 콜 (출/도) -->
+        <div class="paired-pin pin-call1" style="top: 75px; left: 75px;">
+          <span class="pin-num">1</span><span class="pin-type-start">출</span>
+        </div>
+        <div class="paired-pin pin-call1" style="top: 115px; left: 230px;">
+          <span class="pin-num">1</span><span class="pin-type-end">도</span>
+        </div>
+
+        <!-- 2번 콜 (출/도) -->
+        <div class="paired-pin pin-call2" style="top: 195px; left: 25px;">
+          <span class="pin-num">2</span><span class="pin-type-start">출</span>
+        </div>
+        <div class="paired-pin pin-call2" style="top: 155px; left: 260px;">
+          <span class="pin-num">2</span><span class="pin-type-end">도</span>
+        </div>
+
+        <div class="note">
+          * [도로경로보기]를 누르면 동일한 콜 색상(파란색, 주황색)을 유지하면서 선이 <b>실제 도로를 따라가는 두꺼운 야간 네비게이션 스타일 곡선</b>으로 전환됩니다.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

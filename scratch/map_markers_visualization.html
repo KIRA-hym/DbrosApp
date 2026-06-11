@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지도 마커 시각화</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121418;
+            color: #ffffff;
+            padding: 40px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        th {
+            background-color: #1a1d24;
+            color: #ccc;
+        }
+        .color-box {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background-color: #2a2d35;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h2>지도 마커 시각화 (CallPointMapPage)</h2>
+    <p>현재 앱에 구현되어 있는 마커들의 시각적인 형태와 색상입니다.</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>마커 종류</th>
+                <th>설명</th>
+                <th>색상 코드</th>
+                <th>시각화 (SVG)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>내 콜로그</strong></td>
+                <td>내가 등록한 콜 레이더 데이터</td>
+                <td><span class="color-box" style="color:#FF5252;">Red (#FF5252)</span></td>
+                <td>
+                    <svg width="60" height="60" viewBox="0 0 100 100">
+                        <path d="M 50 25 C 62.5 0, 100 0, 100 37.5 C 100 62.5, 50 87.5, 50 87.5 C 50 87.5, 0 62.5, 0 37.5 C 0 0, 37.5 0, 50 25" fill="#FF5252"/>
+                    </svg>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>타인 콜로그</strong></td>
+                <td>다른 사람이 공유한 콜 레이더 데이터</td>
+                <td><span class="color-box" style="color:#40C4FF;">Light Blue (#40C4FF)</span></td>
+                <td>
+                    <svg width="60" height="60" viewBox="0 0 100 100">
+                        <path d="M 50 25 C 62.5 0, 100 0, 100 37.5 C 100 62.5, 50 87.5, 50 87.5 C 50 87.5, 0 62.5, 0 37.5 C 0 0, 37.5 0, 50 25" fill="#40C4FF"/>
+                    </svg>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>콜포인트</strong></td>
+                <td>기준이 되는 콜포인트 (추천/참조 지역)</td>
+                <td><span class="color-box" style="color:#E040FB;">Purple (#E040FB)</span></td>
+                <td>
+                    <svg width="60" height="60" viewBox="0 0 100 100">
+                        <polygon points="50,0 61.8,38.2 100,38.2 69.1,61.8 80.9,100 50,76.4 19.1,100 30.9,61.8 0,38.2 38.2,38.2" fill="#E040FB"/>
+                    </svg>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>클러스터 (일반)</strong></td>
+                <td>여러 개의 콜로그가 겹쳤을 때 묶음 표시</td>
+                <td><span class="color-box" style="color:#FFC700;">Yellow (#FFC700)</span></td>
+                <td>
+                    <svg width="60" height="60" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="50" fill="#FFC700"/>
+                        <text x="50" y="65" font-family="sans-serif" font-size="40" fill="black" text-anchor="middle" font-weight="bold">5</text>
+                    </svg>
+                </td>
+            </tr>
+            <tr>
+                <td><strong>클러스터 (콜포인트)</strong></td>
+                <td>여러 개의 콜포인트가 겹쳤을 때 묶음 표시</td>
+                <td><span class="color-box" style="color:#9C27B0;">Purple (#9C27B0)</span></td>
+                <td>
+                    <svg width="60" height="60" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="50" fill="#9C27B0"/>
+                        <text x="50" y="65" font-family="sans-serif" font-size="40" fill="white" text-anchor="middle" font-weight="bold">3</text>
+                    </svg>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

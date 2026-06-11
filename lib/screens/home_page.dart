@@ -30,6 +30,7 @@ import 'settings_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
+import '../widgets/permission_disclosure_dialog.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 import '../services/auth_service.dart';
@@ -80,6 +81,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadNotices();
     ApkUpdateService.instance.checkForUpdate().then((_) {
       if (mounted) setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        PermissionDisclosureDialog.showIfNeeded(context);
+      }
     });
   }
 

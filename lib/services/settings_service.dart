@@ -286,4 +286,10 @@ class SettingsService {
 
   static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? 'https://script.google.com/macros/s/AKfycbzo6cx79n-eIZYkrd7ZJxzsCA9BC63FQ7JqFI45BInY9ES9YKjDCDI9vJRTFFwiGtvA/exec';
   static Future<void> setGasWebhookUrl(String value) async => await _prefs.setString('gasWebhookUrl', value);
+
+  static bool get hasAgreedPermissionsDisclosure => _prefs.getBool('hasAgreedPermissionsDisclosure') ?? false;
+  static Future<void> setHasAgreedPermissionsDisclosure(bool value) async => await _prefs.setBool('hasAgreedPermissionsDisclosure', value);
+
+  static double get quickRegisterOpacity => _prefs.getDouble('quickRegisterOpacity') ?? 0.7;
+  static Future<void> setQuickRegisterOpacity(double value) async => await _prefs.setDouble('quickRegisterOpacity', value);
 }

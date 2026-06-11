@@ -1177,7 +1177,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
 
     if (widget.quickPanel) {
-      const double quickUiOpacity = 0.7;
+      final double quickUiOpacity = SettingsService.quickRegisterOpacity;
       final closeQuickPanel = () async {
         if (widget.fromOverlay) {
           await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();

@@ -47,6 +47,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _perTripInsCon = TextEditingController(text: SettingsService.perTripInsurance.toString());
   String _insuranceType = SettingsService.insuranceType;
   bool _showFloatingButtons = SettingsService.showFloatingButtons;
+  double _quickRegisterOpacity = SettingsService.quickRegisterOpacity;
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
   String _imagePurgePeriod = SettingsService.imagePurgePeriod;
@@ -1093,6 +1094,22 @@ class _SettingsPageState extends State<SettingsPage> {
                 _showFloatingButtons = value;
               });
               SettingsService.setShowFloatingButtons(value);
+            },
+          ),
+          const SizedBox(height: 16),
+          Text("퀵등록 배경 투명도", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+          Slider(
+            value: _quickRegisterOpacity,
+            min: 0.1,
+            max: 1.0,
+            divisions: 9,
+            activeColor: Theme.of(context).primaryColor,
+            label: '${(_quickRegisterOpacity * 100).round()}%',
+            onChanged: (value) {
+              setState(() {
+                _quickRegisterOpacity = value;
+              });
+              SettingsService.setQuickRegisterOpacity(value);
             },
           ),
         ],
