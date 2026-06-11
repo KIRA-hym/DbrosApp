@@ -35,6 +35,7 @@ import '../utils/snackbar_utils.dart';
 import '../services/call_point_export_service.dart';
 import '../features/push_notification/widgets/admin_push_dialog.dart';
 import 'notice_list_page.dart';
+import '../services/google_sheets_share_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -879,6 +880,60 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text("콜포인트(좌표) 공유", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold)),
+          SizedBox(height: spacing),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                final confirm = await AppGlassDialog.show<bool>(
+                  context: context,
+                  dialog: AppGlassDialog(
+                    icon: Icons.cloud_upload_rounded,
+                    title: '내 좌표 전체 공유하기',
+                    content: '내 운행일지에 등록된 모든 정상 좌표(출발지/경유지/도착지)를 주변콜맵 구글 시트로 전송하시겠습니까?\n\n이 작업은 익명으로 안전하게 전송되며 다른 기사님들과 꿀통을 공유하는 데 쓰입니다.',
+                    actions: [
+                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+                      Builder(
+                        builder: (ctx) => GlassDialogConfirmButton(
+                          label: '전송하기',
+                          onPressed: () => Navigator.pop(ctx, true),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                
+                if (confirm == true) {
+                  // Show loading
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(child: CircularProgressIndicator()),
+                  );
+                  
+                  final success = await GoogleSheetsShareService.shareMyCoordinates(AuthService.instance.userDoc?['uid'] ?? 'unknown');
+                  
+                  if (context.mounted) Navigator.pop(context); // Hide loading
+                  
+                  if (context.mounted) {
+                    if (success) {
+                      SnackBarUtils.showSuccess(context, '좌표가 성공적으로 공유되었습니다!');
+                    } else {
+                      SnackBarUtils.showError(context, '좌표 공유에 실패했습니다. (URL 설정 또는 네트워크를 확인해주세요)');
+                    }
+                  }
+                }
+              },
+              icon: Icon(Icons.cloud_upload_rounded, color: Colors.white),
+              label: Text("내 좌표 전체 공유하기 (클라우드)"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE91E63),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding: EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
           SizedBox(height: spacing),
           Row(
             children: [

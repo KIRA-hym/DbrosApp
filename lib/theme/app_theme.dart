@@ -51,6 +51,53 @@ class AppTheme {
     );
   }
 
+  // AMOLED 블랙 테마
+  static ThemeData get amoledTheme {
+    return ThemeData(
+      brightness: Brightness.dark,
+      fontFamily: fontFamily,
+      scaffoldBackgroundColor: Colors.black,
+      primaryColor: const Color(0xFFFFC700),
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFFFFC700),
+        surface: Colors.black,
+        surfaceContainerHighest: Color(0xFF2C2F38), // divider or border color
+        onSurface: Colors.white,
+        error: Color(0xFFFF5252),
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: Colors.white,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        backgroundColor: Colors.black,
+        selectedItemColor: Color(0xFFFFC700),
+        unselectedItemColor: Color(0xFF6E717C),
+      ),
+      dividerColor: const Color(0xFF2C2F38),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF2C2F38),
+        thickness: 1,
+      ),
+      cardTheme: CardThemeData(
+        color: Colors.black,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: Color(0xFF2C2F38)),
+        ),
+      ),
+    );
+  }
+
   // 라이트 테마
   static ThemeData get lightTheme {
     return ThemeData(

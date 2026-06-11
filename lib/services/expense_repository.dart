@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 
 import 'db_helper.dart';
@@ -13,7 +14,54 @@ class ExpenseRepository {
 
   static Future<Database> get _db async => DriveLogDatabase.instance.database;
 
+  static List<Map<String, dynamic>> _mockEntriesForWeb() {
+    final now = DateTime.now();
+    final List<Map<String, dynamic>> entries = [];
+    int idCounter = 1;
+
+    for (int i = 0; i <= 30; i++) {
+      final targetDate = now.subtract(Duration(days: i));
+      final ymd = "${targetDate.year}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
+      
+      // 일요일은 휴무
+      if (targetDate.weekday == DateTime.sunday) continue;
+
+      // 간헐적으로 지출 발생 (2일에 1번 꼴)
+      if (i % 2 == 0) {
+        entries.add({
+          'id': idCounter++,
+          'expense_date': ymd,
+          'written_at': DateTime.now().toIso8601String(),
+          'category_name': '식대',
+          'amount': 8000 + (i % 3) * 1000,
+          'memo': '저녁 식사',
+        });
+      }
+      
+      // 5일에 1번씩 주유비 발생
+      if (i % 5 == 0) {
+        entries.add({
+          'id': idCounter++,
+          'expense_date': ymd,
+          'written_at': DateTime.now().toIso8601String(),
+          'category_name': '주유비',
+          'amount': 30000,
+          'memo': '주유',
+        });
+      }
+    }
+    return entries;
+  }
+
   static Future<List<Map<String, dynamic>>> getCategories() async {
+    if (kIsWeb) {
+      return [
+        {'id': 1, 'name': '식대', 'sort_order': 0},
+        {'id': 2, 'name': '주유비', 'sort_order': 1},
+        {'id': 3, 'name': '보험료', 'sort_order': 2},
+        {'id': 4, 'name': '수리비', 'sort_order': 3},
+      ];
+    }
     final db = await _db;
     return db.query('expense_categories', orderBy: 'sort_order ASC, id ASC');
   }
@@ -24,6 +72,7 @@ class ExpenseRepository {
   }
 
   static Future<int?> findCategoryIdByName(String name) async {
+    if (kIsWeb) return null;
     final db = await _db;
     final rows = await db.query(
       'expense_categories',
@@ -55,6 +104,7 @@ class ExpenseRepository {
   }
 
   static Future<List<Map<String, dynamic>>> getEntriesByExpenseMonth(String yearMonth) async {
+    if (kIsWeb) return _mockEntriesForWeb().where((e) => (e['expense_date'] as String).startsWith(yearMonth)).toList();
     final db = await _db;
     return db.query(
       'expense_entries',
@@ -65,6 +115,7 @@ class ExpenseRepository {
   }
 
   static Future<List<Map<String, dynamic>>> getEntriesForExpenseDate(String ymd) async {
+    if (kIsWeb) return _mockEntriesForWeb().where((e) => e['expense_date'] == ymd).toList();
     final db = await _db;
     return db.query(
       'expense_entries',
@@ -78,6 +129,12 @@ class ExpenseRepository {
     String startYmd,
     String endYmd,
   ) async {
+    if (kIsWeb) {
+      return _mockEntriesForWeb().where((e) {
+        final d = e['expense_date'] as String;
+        return d.compareTo(startYmd) >= 0 && d.compareTo(endYmd) <= 0;
+      }).toList();
+    }
     final db = await _db;
     return db.query(
       'expense_entries',
@@ -88,6 +145,10 @@ class ExpenseRepository {
   }
 
   static Future<int> sumAmountForExpenseMonth(String yearMonth) async {
+    if (kIsWeb) {
+      final entries = await getEntriesByExpenseMonth(yearMonth);
+      return entries.fold<int>(0, (s, e) => s + (e['amount'] as int));
+    }
     final db = await _db;
     final r = await db.rawQuery(
       'SELECT COALESCE(SUM(amount), 0) AS s FROM expense_entries WHERE expense_date LIKE ?',
@@ -97,6 +158,10 @@ class ExpenseRepository {
   }
 
   static Future<int> sumAmountForExpenseDate(String ymd) async {
+    if (kIsWeb) {
+      final entries = await getEntriesForExpenseDate(ymd);
+      return entries.fold<int>(0, (s, e) => s + (e['amount'] as int));
+    }
     final db = await _db;
     final r = await db.rawQuery(
       'SELECT COALESCE(SUM(amount), 0) AS s FROM expense_entries WHERE expense_date = ?',
@@ -106,6 +171,10 @@ class ExpenseRepository {
   }
 
   static Future<int> sumAmountForExpenseDateRange(String startYmd, String endYmd) async {
+    if (kIsWeb) {
+      final entries = await getEntriesByExpenseDateRange(startYmd, endYmd);
+      return entries.fold<int>(0, (s, e) => s + (e['amount'] as int));
+    }
     final db = await _db;
     final r = await db.rawQuery(
       'SELECT COALESCE(SUM(amount), 0) AS s FROM expense_entries WHERE expense_date >= ? AND expense_date <= ?',
@@ -115,6 +184,10 @@ class ExpenseRepository {
   }
 
   static Future<int> countForExpenseDate(String ymd) async {
+    if (kIsWeb) {
+      final entries = await getEntriesForExpenseDate(ymd);
+      return entries.length;
+    }
     final db = await _db;
     final r = await db.rawQuery(
       'SELECT COUNT(*) AS c FROM expense_entries WHERE expense_date = ?',
@@ -125,6 +198,25 @@ class ExpenseRepository {
 
   /// 월별: 지출이 있는 항목만 (amount > 0).
   static Future<List<Map<String, dynamic>>> aggregateByCategoryForMonthNonEmpty(String yearMonth) async {
+    if (kIsWeb) {
+      final entries = await getEntriesByExpenseMonth(yearMonth);
+      final map = <String, int>{};
+      final countMap = <String, int>{};
+      for (final e in entries) {
+        final label = e['category_name'] as String;
+        final amt = e['amount'] as int;
+        map[label] = (map[label] ?? 0) + amt;
+        countMap[label] = (countMap[label] ?? 0) + 1;
+      }
+      final out = <Map<String, dynamic>>[];
+      for (final key in map.keys) {
+        if (map[key]! > 0) {
+          out.add({'label': key, 'amount': map[key], 'count': countMap[key]});
+        }
+      }
+      out.sort((a, b) => (b['amount'] as int).compareTo(a['amount'] as int));
+      return out;
+    }
     final db = await _db;
     final rows = await db.rawQuery(
       '''
@@ -154,6 +246,29 @@ class ExpenseRepository {
     String endYmd, {
     required bool includeAllDefinedCategories,
   }) async {
+    if (kIsWeb) {
+      final entries = await getEntriesByExpenseDateRange(startYmd, endYmd);
+      final map = <String, int>{};
+      final countMap = <String, int>{};
+      for (final e in entries) {
+        final label = e['category_name'] as String;
+        map[label] = (map[label] ?? 0) + (e['amount'] as int);
+        countMap[label] = (countMap[label] ?? 0) + 1;
+      }
+      if (includeAllDefinedCategories) {
+        final cats = await getCategoryNames();
+        for (final n in cats) {
+          map.putIfAbsent(n, () => 0);
+          countMap.putIfAbsent(n, () => 0);
+        }
+      }
+      final labels = map.keys.toList()..sort();
+      return labels.map((label) => <String, dynamic>{
+        'label': label,
+        'amount': map[label] ?? 0,
+        'count': countMap[label] ?? 0,
+      }).toList();
+    }
     final db = await _db;
     final rows = await db.rawQuery(
       '''
@@ -191,6 +306,27 @@ class ExpenseRepository {
   }
 
   static Future<List<Map<String, dynamic>>> aggregateByDayForMonth(String yearMonth) async {
+    if (kIsWeb) {
+      final entries = await getEntriesByExpenseMonth(yearMonth);
+      final map = <String, int>{};
+      final countMap = <String, int>{};
+      for (final e in entries) {
+        final ymd = e['expense_date'] as String;
+        map[ymd] = (map[ymd] ?? 0) + (e['amount'] as int);
+        countMap[ymd] = (countMap[ymd] ?? 0) + 1;
+      }
+      final out = <Map<String, dynamic>>[];
+      final keys = map.keys.toList()..sort();
+      for (final ymd in keys) {
+        out.add({
+          'ymd': ymd,
+          'dayLabel': '${ymd.split('-').last}일',
+          'amount': map[ymd] ?? 0,
+          'count': countMap[ymd] ?? 0,
+        });
+      }
+      return out;
+    }
     final db = await _db;
     final rows = await db.rawQuery(
       '''

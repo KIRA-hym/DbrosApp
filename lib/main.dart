@@ -204,8 +204,11 @@ class DbrosApp extends StatelessWidget {
             return ValueListenableBuilder<ThemeMode>(
               valueListenable: SettingsService.themeModeNotifier,
               builder: (context, themeMode, child) {
-                return GestureDetector(
-                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                return ValueListenableBuilder<bool>(
+                  valueListenable: SettingsService.isAmoledBlackNotifier,
+                  builder: (context, isAmoledBlack, child) {
+                    return GestureDetector(
+                      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
               child: MaterialApp(
                 navigatorKey: rootNavigatorKey,
             debugShowCheckedModeBanner: false,
@@ -238,14 +241,14 @@ class DbrosApp extends StatelessWidget {
                           ),
                         ),
                       )
-                    : AppTheme.darkTheme.copyWith(
-                        textTheme: _buildScaledTextTheme(AppTheme.darkTheme.textTheme, headlineBonus),
-                        appBarTheme: AppTheme.darkTheme.appBarTheme.copyWith(
-                          titleTextStyle: AppTheme.darkTheme.appBarTheme.titleTextStyle?.copyWith(
+                    : (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).copyWith(
+                        textTheme: _buildScaledTextTheme((isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).textTheme, headlineBonus),
+                        appBarTheme: (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).appBarTheme.copyWith(
+                          titleTextStyle: (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).appBarTheme.titleTextStyle?.copyWith(
                             fontSize: FontSizeService.getScaledFontSize(18 + headlineBonus),
                           ),
                         ),
-                        bottomNavigationBarTheme: AppTheme.darkTheme.bottomNavigationBarTheme.copyWith(
+                        bottomNavigationBarTheme: (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).bottomNavigationBarTheme.copyWith(
                           selectedLabelStyle: TextStyle(
                             fontFamily: 'GmarketSans',
                             fontWeight: FontWeight.w700,
@@ -279,8 +282,10 @@ class DbrosApp extends StatelessWidget {
             ),
           ),
         );
-      },
-    );
+              },
+            );
+          },
+        );
       },
     );
       },

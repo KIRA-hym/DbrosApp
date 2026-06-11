@@ -3,6 +3,8 @@ import '../../services/settings_service.dart';
 import '../bordered_section.dart';
 import '../../utils/responsive_layout.dart';
 
+enum UIThemeMode { light, dark, amoled }
+
 class ThemeSettingsSection extends StatelessWidget {
   const ThemeSettingsSection({super.key});
 
@@ -34,28 +36,53 @@ class ThemeSettingsSection extends StatelessWidget {
           ValueListenableBuilder<ThemeMode>(
             valueListenable: SettingsService.themeModeNotifier,
             builder: (context, themeMode, _) {
-              return Row(
-                children: [
-                  Expanded(
-                    child: _buildThemeOption(
-                      context: context,
-                      title: '다크 모드',
-                      value: ThemeMode.dark,
-                      groupValue: themeMode,
-                      icon: Icons.dark_mode,
-                    ),
-                  ),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: _buildThemeOption(
-                      context: context,
-                      title: '라이트 모드',
-                      value: ThemeMode.light,
-                      groupValue: themeMode,
-                      icon: Icons.light_mode,
-                    ),
-                  ),
-                ],
+              return ValueListenableBuilder<bool>(
+                valueListenable: SettingsService.isAmoledBlackNotifier,
+                builder: (context, isAmoledBlack, _) {
+                  
+                  UIThemeMode currentUiMode;
+                  if (themeMode == ThemeMode.light) {
+                    currentUiMode = UIThemeMode.light;
+                  } else if (isAmoledBlack) {
+                    currentUiMode = UIThemeMode.amoled;
+                  } else {
+                    currentUiMode = UIThemeMode.dark;
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _buildThemeOption(
+                          context: context,
+                          title: '밝은 테마',
+                          value: UIThemeMode.light,
+                          groupValue: currentUiMode,
+                          icon: Icons.light_mode,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _buildThemeOption(
+                          context: context,
+                          title: '어두운 테마',
+                          value: UIThemeMode.dark,
+                          groupValue: currentUiMode,
+                          icon: Icons.dark_mode,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _buildThemeOption(
+                          context: context,
+                          title: '절전 블랙 테마',
+                          value: UIThemeMode.amoled,
+                          groupValue: currentUiMode,
+                          icon: Icons.battery_charging_full, // Or Icons.nightlight_round
+                        ),
+                      ),
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -67,17 +94,28 @@ class ThemeSettingsSection extends StatelessWidget {
   Widget _buildThemeOption({
     required BuildContext context,
     required String title,
-    required ThemeMode value,
-    required ThemeMode groupValue,
+    required UIThemeMode value,
+    required UIThemeMode groupValue,
     required IconData icon,
   }) {
     final isSelected = value == groupValue;
     return GestureDetector(
-      onTap: () => SettingsService.setThemeMode(value),
+      onTap: () {
+        if (value == UIThemeMode.light) {
+          SettingsService.setThemeMode(ThemeMode.light);
+          SettingsService.setIsAmoledBlack(false);
+        } else if (value == UIThemeMode.dark) {
+          SettingsService.setThemeMode(ThemeMode.dark);
+          SettingsService.setIsAmoledBlack(false);
+        } else if (value == UIThemeMode.amoled) {
+          SettingsService.setThemeMode(ThemeMode.dark);
+          SettingsService.setIsAmoledBlack(true);
+        }
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+          color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.1) : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
           border: Border.all(
             color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).dividerColor,
             width: 1.5,
@@ -90,10 +128,11 @@ class ThemeSettingsSection extends StatelessWidget {
             SizedBox(height: 8),
             Text(
               title,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyLarge?.color,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 14,
+                fontSize: 13, // Slightly smaller to fit 3 options
               ),
             ),
           ],

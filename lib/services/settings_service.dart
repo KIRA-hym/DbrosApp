@@ -9,6 +9,7 @@ class SettingsService {
   static final ValueNotifier<bool> _isOwnerModeNotifier = ValueNotifier(false);
   static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
   static final ValueNotifier<ThemeMode> _themeModeNotifier = ValueNotifier(ThemeMode.dark);
+  static final ValueNotifier<bool> _isAmoledBlackNotifier = ValueNotifier(false);
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
@@ -55,6 +56,7 @@ class SettingsService {
     _isOwnerModeNotifier.value = isOwnerMode;
     _isPremiumUserNotifier.value = isPremiumUser;
     _themeModeNotifier.value = themeMode;
+    _isAmoledBlackNotifier.value = isAmoledBlack;
   }
 
   /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
@@ -102,6 +104,7 @@ class SettingsService {
   static ValueNotifier<bool> get isOwnerModeNotifier => _isOwnerModeNotifier;
   static ValueNotifier<bool> get isPremiumUserNotifier => _isPremiumUserNotifier;
   static ValueNotifier<ThemeMode> get themeModeNotifier => _themeModeNotifier;
+  static ValueNotifier<bool> get isAmoledBlackNotifier => _isAmoledBlackNotifier;
 
   static ThemeMode get themeMode {
     final modeString = _prefs.getString('themeMode') ?? 'dark';
@@ -113,6 +116,12 @@ class SettingsService {
     final modeString = mode == ThemeMode.light ? 'light' : 'dark';
     await _prefs.setString('themeMode', modeString);
     _themeModeNotifier.value = mode;
+  }
+
+  static bool get isAmoledBlack => _prefs.getBool('isAmoledBlack') ?? false;
+  static Future<void> setIsAmoledBlack(bool value) async {
+    await _prefs.setBool('isAmoledBlack', value);
+    _isAmoledBlackNotifier.value = value;
   }
 
   static bool get isOwnerMode => _prefs.getBool('isOwnerMode') ?? false;
@@ -284,7 +293,7 @@ class SettingsService {
   static String get lastAutoBackupDate => _prefs.getString('lastAutoBackupDate') ?? '';
   static Future<void> setLastAutoBackupDate(String value) async => await _prefs.setString('lastAutoBackupDate', value);
 
-  static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? 'https://script.google.com/macros/s/AKfycbzo6cx79n-eIZYkrd7ZJxzsCA9BC63FQ7JqFI45BInY9ES9YKjDCDI9vJRTFFwiGtvA/exec';
+  static String get gasWebhookUrl => _prefs.getString('gasWebhookUrl') ?? 'https://script.google.com/macros/s/AKfycbwHoWtFJ_tAxEG_hMMOdYRJDb2wE7EXyG6CG8IBLD-_yH2GWIDzgELM7wDFHjglNT-H/exec';
   static Future<void> setGasWebhookUrl(String value) async => await _prefs.setString('gasWebhookUrl', value);
 
   static bool get hasAgreedPermissionsDisclosure => _prefs.getBool('hasAgreedPermissionsDisclosure') ?? false;

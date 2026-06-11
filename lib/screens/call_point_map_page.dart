@@ -10,8 +10,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart'
 import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart'
     if (dart.library.html) '../utils/cluster_manager_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/db_helper.dart';
+import '../services/google_sheets_share_service.dart';
 import '../utils/call_map_placemark_title.dart';
 import '../utils/marker_utils.dart';
 
@@ -51,6 +53,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   BitmapDescriptor? _logIconMine;
   BitmapDescriptor? _logIconOther;
   BitmapDescriptor? _refIcon;
+  BitmapDescriptor? _restroomIcon;
+  BitmapDescriptor? _shuttleIcon;
   final Map<String, BitmapDescriptor> _clusterIcons = {};
 
   /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
@@ -81,21 +85,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Future<void> _precacheIcons() async {
-    _logIconMine ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 80,
-      style: MarkerDataStyle.solid,
-      color: const Color(0xFF10B981), // 녹색
-    );
-    _logIconOther ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 80,
-      style: MarkerDataStyle.hollow,
-      color: const Color(0xFF3B82F6), // 파란색
-    );
-    _refIcon ??= await MarkerUtils.createDataMarkerBitmap(
-      size: 120,
-      style: MarkerDataStyle.hotspot,
-      color: const Color(0xFFF59E0B), // 주황색
-    );
+    // 단순 동그라미 형태로 되돌리고, 요구사항(별모양 확대, 화장실/셔틀 빨간 테두리) 적용
+    _logIconMine ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.white, dy: 1.0);
+    _logIconOther ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.white, dy: 0.5);
+    _refIcon ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.white, textScale: 1.3, dy: -2.0);
+    _restroomIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.red, dy: 0.0);
+    _shuttleIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.red, dy: 0.0);
   }
 
   Future<void> _initMap() async {
@@ -227,10 +222,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         filtered = List<CallPointData>.from(_allPoints);
         break;
       case MapFilterMode.radar:
-        filtered = _allPoints.where((p) => p.data['type'] == 'log').toList();
+        filtered = _allPoints.where((p) => p.data['type'] == 'log' || p.data['type'] == 'shared').toList();
         break;
       case MapFilterMode.reference:
-        filtered = _allPoints.where((p) => p.data['type'] == 'reference').toList();
+        filtered = _allPoints.where((p) => p.data['type'] == 'reference' || p.data['type'] == 'restroom' || p.data['type'] == 'shuttle').toList();
         break;
     }
     _manager.setItems(filtered);
@@ -341,12 +336,21 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     if (!cluster.isMultiple) {
       final data = cluster.items.first.data;
       BitmapDescriptor icon;
-      if (data['type'] == 'log') {
-        if (data['is_mine'] == 1) {
-          icon = _logIconMine!;
+      if (data['type'] == 'log' || data['type'] == 'shared') {
+        if (data['is_mine'] == 1 || data['type'] == 'log') {
+          // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
+          if (data['is_mine'] == 1) {
+            icon = _logIconMine!;
+          } else {
+            icon = _logIconOther!;
+          }
         } else {
           icon = _logIconOther!;
         }
+      } else if (data['type'] == 'restroom') {
+        icon = _restroomIcon!;
+      } else if (data['type'] == 'shuttle') {
+        icon = _shuttleIcon!;
       } else {
         icon = _refIcon!;
       }
@@ -477,6 +481,51 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         centerTitle: true,
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.sync, color: Theme.of(context).primaryColor),
+            tooltip: '주변콜맵 업데이트',
+            onPressed: () async {
+              // 쿨타임 체크 (5분)
+              final prefs = await SharedPreferences.getInstance();
+              final lastSync = prefs.getInt('lastGoogleSheetSync') ?? 0;
+              final now = DateTime.now().millisecondsSinceEpoch;
+              if (now - lastSync < 5 * 60 * 1000) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('업데이트는 5분마다 가능합니다. 잠시 후 다시 시도해주세요.')),
+                );
+                return;
+              }
+
+              // 로딩 표시
+              if (!mounted) return;
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+
+              final success = await GoogleSheetsShareService.fetchSharedCoordinates();
+
+              if (!mounted) return;
+              Navigator.pop(context); // Hide loading
+
+              if (success) {
+                await prefs.setInt('lastGoogleSheetSync', now);
+                await _loadData(); // 마커 다시 불러오기
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('주변콜맵이 최신 정보로 업데이트되었습니다!')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('업데이트에 실패했습니다. 네트워크를 확인해주세요.')),
+                );
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _loading
           ? Center(
@@ -589,12 +638,16 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _legendItem(const Color(0xFF10B981), '내 좌표', MarkerDataStyle.solid),
+            _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.white, dy: 0.5),
             SizedBox(height: 4),
-            _legendItem(const Color(0xFF3B82F6), '공유된 좌표', MarkerDataStyle.hollow),
+            _legendItem(const Color(0xFF3B82F6), '공유좌표', '@', borderColor: Colors.white, dy: 0.5),
             if (_currentMode == MapFilterMode.all) ...[
               SizedBox(height: 4),
-              _legendItem(const Color(0xFFF59E0B), '콜포인트', MarkerDataStyle.hotspot),
+              _legendItem(const Color(0xFFFBBF24), '콜포인트', '★', borderColor: Colors.white, textScale: 1.3, dy: -1.0),
+              SizedBox(height: 4),
+              _legendItem(Colors.white, '화장실', '🚻', textColor: Colors.black87, borderColor: Colors.red),
+              SizedBox(height: 4),
+              _legendItem(Colors.white, '셔틀', '🚌', textColor: Colors.black87, borderColor: Colors.red),
             ],
           ],
         ),
@@ -602,61 +655,33 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
-  Widget _legendItem(Color color, String text, MarkerDataStyle style) {
-    Widget iconWidget;
-    switch (style) {
-      case MarkerDataStyle.solid:
-        iconWidget = Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black87, width: 1.5),
-          ),
-        );
-        break;
-      case MarkerDataStyle.hollow:
-        iconWidget = Container(
-          width: 14,
-          height: 14,
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            shape: BoxShape.circle,
-            border: Border.all(color: color, width: 2),
-          ),
-        );
-        break;
-      case MarkerDataStyle.hotspot:
-        iconWidget = Container(
-          width: 16,
-          height: 16,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [color.withOpacity(0.9), color.withOpacity(0.1), Colors.transparent],
-              stops: const [0.0, 0.7, 1.0],
-            ),
-          ),
-          child: Center(
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        );
-        break;
-    }
-
+  Widget _legendItem(Color bgColor, String text, String symbol, {Color textColor = Colors.white, double textScale = 1.0, Color borderColor = Colors.transparent, double dy = 0.0}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        iconWidget,
-        SizedBox(width: 6),
+        Container(
+          width: 18,
+          height: 18,
+          decoration: BoxDecoration(
+            color: bgColor,
+            shape: BoxShape.circle,
+            border: Border.all(color: borderColor == Colors.transparent ? Colors.black26 : borderColor, width: 1.5),
+          ),
+          alignment: Alignment.center,
+          child: Transform.translate(
+            offset: Offset(0, dy),
+            child: Text(
+              symbol,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 10 * textScale,
+                fontWeight: FontWeight.bold,
+                height: 1.0,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
         Text(text, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 12)),
       ],
     );

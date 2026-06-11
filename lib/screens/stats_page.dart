@@ -4,6 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:screenshot/screenshot.dart';
+import 'package:share_plus/share_plus.dart';
+import 'dart:typed_data';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 // 지도 기능은 웹에서 비활성화 (구글맵스 플러터 웹 미지원)
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
@@ -75,6 +80,8 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
+  final ScreenshotController _summaryScreenshotController = ScreenshotController();
+  
   String _selectedPeriod = "일간";
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _chartData = [];
@@ -742,6 +749,206 @@ class _StatsPageState extends State<StatsPage> {
       }
     }
     return trips;
+  }
+
+  Future<void> _shareSummaryPopupAsImage(BuildContext context) async {
+    try {
+      final bytes = await _summaryScreenshotController.capture();
+      if (bytes == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('캡처 실패')));
+        return;
+      }
+      final tempDir = await getTemporaryDirectory();
+      final file = await File('${tempDir.path}/summary_share.png').create();
+      await file.writeAsBytes(bytes);
+      final xFile = XFile(file.path);
+      await Share.shareXFiles(
+        [xFile],
+        text: '${_selectedPeriod == "주간" ? "주간" : _selectedPeriod == "월간" ? "월간" : "연간"} 운행 요약 공유',
+        sharePositionOrigin: Rect.fromLTWH(0, 0, MediaQuery.of(context).size.width, MediaQuery.of(context).size.height / 2),
+      );
+    } catch (e) {
+      debugPrint('Share error: $e');
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('공유 실패: $e')));
+    }
+  }
+
+  Future<void> _showStatsSummaryPopup() async {
+    if (_selectedPeriod == '일간') return; // 주간, 월간, 연간만 지원
+
+    final int workedDays = _stats['workDays'] ?? 0;
+    final int totalRevenue = _stats['totalRevenue'] ?? 0;
+    final int totalExpense = _stats['totalExpenses'] ?? 0;
+    final int totalExtraIncome = _stats['totalExtraIncome'] ?? 0;
+    final int totalNet = _stats['totalNet'] ?? 0;
+    final int totalRuns = _stats['totalCount'] ?? 0;
+
+    final int totalDays;
+    final now = DateTime.now();
+    final String startStr;
+    final String endStr;
+
+    if (_selectedPeriod == '주간') {
+      totalDays = 7;
+      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      startStr = DateFormat('yyyy-MM-dd').format(weekStart);
+      endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
+    } else if (_selectedPeriod == '월간') {
+      totalDays = DateTime(now.year, now.month + 1, 0).day;
+      startStr = DateFormat('yyyy-MM-01').format(_selectedDate);
+      final lastDay = DateTime(_selectedDate.year, _selectedDate.month + 1, 0);
+      endStr = DateFormat('yyyy-MM-dd').format(lastDay);
+    } else {
+      totalDays = 365;
+      startStr = '${_selectedDate.year}-01-01';
+      endStr = '${_selectedDate.year}-12-31';
+    }
+    
+    final int restDays = totalDays - workedDays;
+    final int avgNetIncome = workedDays > 0 ? (totalNet / workedDays).round() : 0;
+    final int avgRuns = workedDays > 0 ? (totalRuns / workedDays).round() : 0;
+
+    String pPeriod = 'yearly';
+    if (_selectedPeriod == '주간') pPeriod = 'weekly';
+    else if (_selectedPeriod == '월간') pPeriod = 'monthly';
+    
+    final programStats = await _getProgramStats(_selectedDate, pPeriod);
+    final catStats = await ExpenseRepository.aggregateByCategoryForRange(
+      startStr, endStr, includeAllDefinedCategories: false,
+    );
+
+    int kakaoRevenue = 0;
+    final List<Map<String, dynamic>> combinedProgramStats = [];
+    for (var p in programStats) {
+      final name = p['program'] as String;
+      final rev = p['revenue'] as int;
+      if (rev == 0) continue;
+      if (name.contains('카카오')) {
+        kakaoRevenue += rev;
+      } else {
+        combinedProgramStats.add(p);
+      }
+    }
+    if (kakaoRevenue > 0) {
+      combinedProgramStats.insert(0, {'program': '카카오', 'revenue': kakaoRevenue});
+    }
+
+    if (!mounted) return;
+
+    AppGlassDialog.show<void>(
+      context: context,
+      dialog: AppGlassDialog(
+        titleWidget: Row(
+          children: [
+            const Icon(Icons.assignment, color: Color(0xFFFFC700), size: 22),
+            const SizedBox(width: 8),
+            Text('$_selectedPeriod 운행 종합 요약', style: const TextStyle(fontFamily: 'GmarketSans', color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.share, size: 20),
+              color: Colors.white,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () => _shareSummaryPopupAsImage(context),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('확인', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+        contentWidget: Screenshot(
+          controller: _summaryScreenshotController,
+          child: Container(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('💰 수익 요약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber)),
+                const SizedBox(height: 8),
+                _buildSummaryRow('총 매출', totalRevenue),
+                ...combinedProgramStats.map((p) => _buildBreakdownRow(p['program'] as String, p['revenue'] as int)),
+                
+                const SizedBox(height: 8),
+                _buildSummaryRow('총 지출', totalExpense),
+                ...catStats.map((c) => _buildBreakdownRow(c['label'] as String, c['amount'] as int)),
+
+                const SizedBox(height: 8),
+                _buildSummaryRow('총 순익', totalNet, isHighlight: true),
+                _buildBreakdownRow('운행 수익', totalNet - totalExtraIncome),
+                _buildBreakdownRow('기타 수익', totalExtraIncome),
+
+                const SizedBox(height: 16),
+                const Text('🏃 활동 요약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent)),
+                const SizedBox(height: 8),
+                _buildSummaryTextRow('출근 현황', '$workedDays일 출근 (휴무 $restDays일)'),
+                _buildSummaryTextRow('일 평균 수익', '${NumberFormat('#,###').format(avgNetIncome)} 원'),
+                _buildSummaryTextRow('운행 건수', '총 $totalRuns건 (일 평균 $avgRuns건)'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBreakdownRow(String label, int value) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('↳ $label', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          Text('${NumberFormat('#,###').format(value)} 원', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryRow(String label, int value, {bool isHighlight = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 14)),
+          Text(
+            '${NumberFormat('#,###').format(value)} 원',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+              color: isHighlight ? Theme.of(context).primaryColor : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryTextRow(String label, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          ),
+          Expanded(
+            child: Text(
+              text,
+              textAlign: TextAlign.right,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _openRouteMap() async {
@@ -1573,15 +1780,29 @@ class _StatsPageState extends State<StatsPage> {
           child: Row(
             children: [
               Expanded(
-                child: Text(
-                  '전체 통계',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: 'GmarketSans',
-                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                    fontWeight: FontWeight.w700,
-                    fontSize: sectionTitleFontSize,
+                child: GestureDetector(
+                  onTap: _selectedPeriod != '일간' ? _showStatsSummaryPopup : null,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          '전체 통계',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: 'GmarketSans',
+                            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                            fontWeight: FontWeight.w700,
+                            fontSize: sectionTitleFontSize,
+                          ),
+                        ),
+                      ),
+                      if (_selectedPeriod != '일간')
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6.0),
+                          child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                        ),
+                    ],
                   ),
                 ),
               ),

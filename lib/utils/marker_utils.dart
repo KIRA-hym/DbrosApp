@@ -136,33 +136,48 @@ class MarkerUtils {
     Color bgColor = Colors.blue,
     Color textColor = Colors.white,
     double size = 80,
+    Color borderColor = Colors.white,
+    double textScale = 1.0,
+    double dy = 0.0,
   }) async {
     final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
     
-    final Paint paint = Paint()..color = bgColor;
-    final Radius radius = Radius.circular(size / 2);
+    final double width = size;
+    final double radius = width / 2;
     
-    // 원 그리기
-    canvas.drawRRect(
-      RRect.fromRectAndCorners(
-        Rect.fromLTWH(0.0, 0.0, size, size),
-        topLeft: radius,
-        topRight: radius,
-        bottomLeft: radius,
-        bottomRight: radius,
-      ),
-      paint,
-    );
+    // 원 모양 그리기
+    final Path path = Path();
+    path.addArc(Rect.fromLTWH(0, 0, width, width), 0, 2 * 3.141592653589793);
+    
+    // 배경색 채우기
+    final Paint bgPaint = Paint()
+      ..color = bgColor
+      ..style = PaintingStyle.fill;
+      
+    // 외곽선 (borderColor가 투명하지 않으면 그리기)
+    final Paint borderPaint = Paint()
+      ..color = borderColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0;
+    
+    // 그림자
+    canvas.drawShadow(path, Colors.black, 4.0, true);
+    
+    canvas.drawPath(path, bgPaint);
+    if (borderColor != Colors.transparent) {
+      canvas.drawPath(path, borderPaint);
+    }
 
-    // 텍스트 그리기
+    // 텍스트 그리기 (원의 중앙에)
     final TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
     painter.text = TextSpan(
       text: text,
       style: TextStyle(
-        fontSize: size / 2.5,
         color: textColor,
+        fontSize: width * 0.5 * textScale,
         fontWeight: FontWeight.bold,
+        height: 1.0,
       ),
     );
     
@@ -170,12 +185,12 @@ class MarkerUtils {
     painter.paint(
       canvas,
       Offset(
-        (size - painter.width) / 2,
-        (size - painter.height) / 2,
+        (width - painter.width) / 2,
+        (width - painter.height) / 2 + dy,
       ),
     );
 
-    final img = await pictureRecorder.endRecording().toImage(size.toInt(), size.toInt());
+    final img = await pictureRecorder.endRecording().toImage(width.toInt(), width.toInt());
     final data = await img.toByteData(format: ui.ImageByteFormat.png);
     
     return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());

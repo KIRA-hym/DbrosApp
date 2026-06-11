@@ -12,6 +12,7 @@ import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
 import '../services/font_size_service.dart';
 import '../services/settings_service.dart';
+import '../services/weather_service.dart';
 import '../services/db_helper.dart';
 import '../services/youtube_rss_service.dart';
 import '../providers/work_timer_provider.dart';
@@ -61,6 +62,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
 
+  WeatherInfo? _weatherInfo;
+
   List<Map<String, dynamic>> _activeNotices = [];
 
   @override
@@ -82,6 +85,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ApkUpdateService.instance.checkForUpdate().then((_) {
       if (mounted) setState(() {});
     });
+    _loadWeather();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         PermissionDisclosureDialog.showIfNeeded(context);
@@ -94,6 +98,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _activeNotices = notices;
+      });
+    }
+  }
+
+  void _loadWeather() async {
+    final weather = await WeatherService.fetchCurrentWeather();
+    if (mounted && weather != null) {
+      setState(() {
+        _weatherInfo = weather;
       });
     }
   }
@@ -422,10 +435,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   SizedBox(height: sectionGap),
                                   const AdBannerWidget(),
                                   SizedBox(height: sectionGap),
-                                  AnimatedRecentLogs(
-                                    logs: statsProvider.recentDateLogs,
-                                    isTablet: false,
-                                  ),
                                   Expanded(
                                     child: _buildYoutubeSection(),
                                   ),
@@ -712,14 +721,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      dateFull,
-                      style: TextStyle(
-                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              dateFull,
+                              style: TextStyle(
+                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_weatherInfo != null) ...[
+                            const SizedBox(width: 8),
+                            InkWell(
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(_weatherInfo!.message),
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: Text(
+                                  '${_weatherInfo!.emoji} ${_weatherInfo!.temperature}°',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Icon(
                       Icons.arrow_forward_ios,
                       color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
@@ -1543,7 +1594,7 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
 
   void _startAutoScroll() {
     if (widget.logs.isEmpty) return;
-    final int visibleCount = widget.isTablet ? 4 : 2;
+    final int visibleCount = 3;
     if (widget.logs.length <= visibleCount) return;
 
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
@@ -1621,7 +1672,7 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
       return const SizedBox.shrink();
     }
 
-    final int visibleCount = widget.isTablet ? 4 : 2;
+    final int visibleCount = 3;
     final double titleHeight = 30.0;
     final double paddingHeight = 24.0;
     final double containerHeight = titleHeight + paddingHeight + (_itemHeight * visibleCount);
