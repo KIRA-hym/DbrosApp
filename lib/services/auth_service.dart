@@ -42,15 +42,25 @@ class AuthService extends ChangeNotifier {
       _cancelSubscription();
       notifyListeners();
     } else {
+      // Firebase Auth 확인 즉시 authenticated 상태 전환 → 홈화면 즉시 진입
+      // Firestore 동기화 & banned 체크는 백그라운드로 처리
       _user = firebaseUser;
-      await _syncUserToFirestore(firebaseUser);
-      // Firestore 스냅샷 응답 전에도 인증 완료 상태를 즉시 반영하여 무한 로딩 방지
-      if (_status == AuthStatus.uninitialized) {
-        _status = AuthStatus.authenticated;
-        notifyListeners();
-      }
-      _listenToBannedStatus(firebaseUser.uid);
+      _status = AuthStatus.authenticated;
+      notifyListeners();
+
+      // 백그라운드에서 Firestore 동기화 및 밴 여부 체크
+      unawaited(_syncUserToFirestoreBackground(firebaseUser));
     }
+  }
+
+  Future<void> _syncUserToFirestoreBackground(User firebaseUser) async {
+    try {
+      await _syncUserToFirestore(firebaseUser);
+    } catch (e) {
+      debugPrint('[AuthService] Firestore sync error (non-critical): $e');
+    }
+    // Firestore 동기화 완료 후 밴 여부 실시간 감지 시작
+    _listenToBannedStatus(firebaseUser.uid);
   }
 
   Future<void> _syncUserToFirestore(User user) async {
