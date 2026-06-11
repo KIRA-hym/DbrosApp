@@ -59,7 +59,9 @@ void main() async {
       await Firebase.initializeApp();
     }
     await RemoteConfigService().initialize();
-    await FcmService.instance.init();
+    // FCM init은 getToken() 등 네트워크 호출 포함 → 타임아웃 없어 블로킹 위험
+    // unawaited로 백그라운드에서 처리
+    unawaited(FcmService.instance.init());
   } catch (e) {
     debugPrint('Firebase init error (Web preview?): $e');
   }
@@ -91,7 +93,12 @@ void main() async {
   if (!kIsWeb && Platform.isAndroid) {
     await NotificationPermissionService.ensureForEnabledFeatures();
   }
-  await TodayStatsNotificationService.instance.initialize();
+  // TodayStatsNotification 초기화에서 refreshFromDbIfEnabled → _showNative →
+  // Android native invokeMethod 가 타임아웃 없이 블로킹할 수 있음
+  // 채널 핸들러 등록(즉시)만 하고, 첫 refresh는 runApp() 이후 백그라운드로 처리
+  await TodayStatsNotificationService.instance.initialize(
+    triggerInitialRefresh: false, // ← 블로킹 방지
+  );
 
   if (!kIsWeb && Platform.isAndroid) {
     unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
@@ -111,6 +118,10 @@ void main() async {
   Future.microtask(() async {
     try {
       await BackupService.runAutoBackupIfNeeded();
+    } catch (_) {}
+    // runApp() 이후 백그라운드에서 알림 새로고침 (네이티브 채널 블로킹 방지)
+    try {
+      await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     } catch (_) {}
   });
 }
