@@ -94,6 +94,7 @@ class Polyline {
 }
 
 class GoogleMapController {
+  int get mapId => 0;
   Future<void> animateCamera(CameraUpdate update) async {}
   Future<double> getZoomLevel() async => 15.0;
   Future<void> showMarkerInfoWindow(MarkerId markerId) async {}

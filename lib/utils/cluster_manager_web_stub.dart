@@ -22,7 +22,7 @@ class ClusterManager<T extends ClusterItem> {
     double stopClusteringZoom = 15.0,
   });
 
-  void setMapId(int mapId) {}
+  Future<void> setMapId(int mapId) async {}
   void setItems(List<T> items) {}
   void onCameraMove(CameraPosition position) {}
   void updateMap() {}
