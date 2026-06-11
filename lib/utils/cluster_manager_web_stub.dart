@@ -25,4 +25,5 @@ class ClusterManager<T extends ClusterItem> {
   void setMapId(int mapId) {}
   void setItems(List<T> items) {}
   void onCameraMove(CameraPosition position) {}
+  void updateMap() {}
 }
