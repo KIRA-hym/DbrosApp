@@ -56,22 +56,30 @@ void main() async {
         ),
       );
     } else {
-      await Firebase.initializeApp();
+      // 5초 타임아웃: Firebase 초기화가 네트워크 이슈로 무한 대기하는 것 방지
+      try {
+        await Firebase.initializeApp().timeout(const Duration(seconds: 5));
+      } on Exception catch (e) {
+        debugPrint('[main] Firebase.initializeApp error/timeout: $e');
+      }
     }
-    await RemoteConfigService().initialize();
-    // FCM init은 getToken() 등 네트워크 호출 포함 → 타임아웃 없어 블로킹 위험
-    // unawaited로 백그라운드에서 처리
+    // RemoteConfigService는 네트워크 fetchAndActivate 포함 → 백그라운드 처리
+    unawaited(RemoteConfigService().initialize());
+    // FCM init은 getToken() 등 네트워크 호출 포함 → 백그라운드 처리
     unawaited(FcmService.instance.init());
   } catch (e) {
     debugPrint('Firebase init error (Web preview?): $e');
   }
 
-  try {
-    await MobileAds.instance.initialize();
-    RewardedAdService.loadAd();
-  } catch (e) {
-    debugPrint('AdMob init error: $e');
-  }
+  // MobileAds.initialize()는 Google 서버 통신 포함 → 블로킹 방지, 백그라운드 처리
+  unawaited(Future(() async {
+    try {
+      await MobileAds.instance.initialize();
+      RewardedAdService.loadAd();
+    } catch (e) {
+      debugPrint('AdMob init error: $e');
+    }
+  }));
   
   // 폴드 펼침·태블릿 가로 모드 포함 (Z Fold 6 등)
   await SystemChrome.setPreferredOrientations(const [
