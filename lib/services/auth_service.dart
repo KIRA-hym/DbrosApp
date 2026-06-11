@@ -44,6 +44,11 @@ class AuthService extends ChangeNotifier {
     } else {
       _user = firebaseUser;
       await _syncUserToFirestore(firebaseUser);
+      // Firestore 스냅샷 응답 전에도 인증 완료 상태를 즉시 반영하여 무한 로딩 방지
+      if (_status == AuthStatus.uninitialized) {
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+      }
       _listenToBannedStatus(firebaseUser.uid);
     }
   }
