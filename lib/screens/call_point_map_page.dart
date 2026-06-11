@@ -5,7 +5,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' hide Cluster, ClusterManager;
+import 'package:google_maps_flutter/google_maps_flutter.dart'
+    if (dart.library.html) '../utils/maps_web_stub.dart' hide Cluster, ClusterManager;
 import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
 import 'package:geocoding/geocoding.dart';
 
