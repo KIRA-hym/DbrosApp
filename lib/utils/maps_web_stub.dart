@@ -111,6 +111,8 @@ class GoogleMap extends StatelessWidget {
     this.mapToolbarEnabled,
     this.onTap,
     this.onCameraMove,
+    this.onCameraIdle,
+    this.compassEnabled,
     this.padding = EdgeInsets.zero,
   });
 
@@ -124,6 +126,8 @@ class GoogleMap extends StatelessWidget {
   final bool? mapToolbarEnabled;
   final void Function(LatLng)? onTap;
   final void Function(CameraPosition)? onCameraMove;
+  final VoidCallback? onCameraIdle;
+  final bool? compassEnabled;
   final EdgeInsets padding;
 
   @override
