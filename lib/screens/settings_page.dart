@@ -917,9 +917,13 @@ class _SettingsPageState extends State<SettingsPage> {
                   
                   if (context.mounted) {
                     if (success) {
-                      SnackBarUtils.showSuccess(context, '좌표가 성공적으로 공유되었습니다!');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('좌표가 성공적으로 공유되었습니다!'), backgroundColor: Colors.green),
+                      );
                     } else {
-                      SnackBarUtils.showError(context, '좌표 공유에 실패했습니다. (URL 설정 또는 네트워크를 확인해주세요)');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('좌표 공유에 실패했습니다. (URL 설정 또는 네트워크를 확인해주세요)'), backgroundColor: Colors.red),
+                      );
                     }
                   }
                 }

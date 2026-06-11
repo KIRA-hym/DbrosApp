@@ -106,7 +106,6 @@ class GoogleSheetsShareService {
           }
         });
         
-        DriveLogDatabase.instance.notifyListeners();
         return true;
       }
       return false;
