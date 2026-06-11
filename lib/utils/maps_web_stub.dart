@@ -63,6 +63,7 @@ class Marker {
     this.anchor = const Offset(0.5, 1.0),
     this.draggable = false,
     this.onDragEnd,
+    this.onTap,
   });
   final MarkerId markerId;
   final LatLng position;
@@ -71,6 +72,7 @@ class Marker {
   final Offset anchor;
   final bool draggable;
   final void Function(LatLng)? onDragEnd;
+  final VoidCallback? onTap;
 }
 
 class PolylineId {
@@ -93,6 +95,8 @@ class Polyline {
 
 class GoogleMapController {
   Future<void> animateCamera(CameraUpdate update) async {}
+  Future<double> getZoomLevel() async => 15.0;
+  Future<void> showMarkerInfoWindow(MarkerId markerId) async {}
 }
 
 class GoogleMap extends StatelessWidget {
@@ -106,6 +110,7 @@ class GoogleMap extends StatelessWidget {
     this.zoomControlsEnabled,
     this.mapToolbarEnabled,
     this.onTap,
+    this.padding = EdgeInsets.zero,
   });
 
   final CameraPosition initialCameraPosition;
@@ -117,6 +122,7 @@ class GoogleMap extends StatelessWidget {
   final bool? zoomControlsEnabled;
   final bool? mapToolbarEnabled;
   final void Function(LatLng)? onTap;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
