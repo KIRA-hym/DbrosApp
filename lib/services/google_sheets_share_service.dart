@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:dbros_app/services/db_helper.dart';
+import 'package:dbros_app/services/auth_service.dart';
 import 'settings_service.dart';
 
 class GoogleSheetsShareService {
@@ -76,16 +77,28 @@ class GoogleSheetsShareService {
     try {
       final response = await http.get(Uri.parse(_scriptUrl)).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200 || response.statusCode == 302) {
-        final List<dynamic> data = jsonDecode(response.body);
+        final String currentUserId = AuthService.instance.userDoc?['uid']?.toString() ?? 'unknown';
         
         final db = await DriveLogDatabase.instance.database;
         await db.transaction((txn) async {
+          // 기존에 잘못 저장된 내 공유 좌표 (type='shared'이고 user_id가 내 uid) 일괄 삭제
+          if (currentUserId != 'unknown' && currentUserId.isNotEmpty) {
+            await txn.delete(
+              'call_points',
+              where: 'type = ? AND user_id = ?',
+              whereArgs: ['shared', currentUserId],
+            );
+          }
+
           for (var item in data) {
             final double lat = double.tryParse(item['lat'].toString()) ?? 0.0;
             final double lng = double.tryParse(item['lng'].toString()) ?? 0.0;
             if (lat == 0.0 || lng == 0.0) continue;
 
             final String uid = item['user_id']?.toString() ?? '';
+            // 내 좌표는 주변콜맵(공유 좌표)으로 다시 저장하지 않음 (겹침 방지)
+            if (uid.isNotEmpty && uid == currentUserId) continue;
+
             final String createdAt = item['timestamp']?.toString() ?? '';
             final String rawType = item['type']?.toString() ?? 'shared';
             final String mappedType = rawType == 'reference' ? 'reference' : 'shared';
