@@ -890,7 +890,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   dialog: AppGlassDialog(
                     icon: Icons.cloud_upload_rounded,
                     title: '내 좌표 전체 공유하기',
-                    content: '내 운행일지에 등록된 모든 정상 좌표(출발지/경유지/도착지)를 주변콜맵 구글 시트로 전송하시겠습니까?\n\n이 작업은 익명으로 안전하게 전송되며 다른 기사님들과 꿀통을 공유하는 데 쓰입니다.',
+                    content: '내 운행일지에 등록된 모든 정상 좌표(출발지/경유지/도착지)를 주변콜맵 구글 시트로 전송하시겠습니까?\n\n이 작업은 익명으로 안전하게 전송되며 다른 기사님들과 꿀콜을 공유하는 데 쓰입니다.',
                     actions: [
                       Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
                       Builder(

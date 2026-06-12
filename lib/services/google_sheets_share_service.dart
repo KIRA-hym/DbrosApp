@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:dbros_app/services/db_helper.dart';
+import 'settings_service.dart';
 
 class GoogleSheetsShareService {
-  // TODO: 대표님이 Apps Script 배포 후 발급받은 URL을 여기에 붙여넣으세요.
-  static const String _scriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL';
+  static String get _scriptUrl => SettingsService.gasWebhookUrl;
 
   static Future<bool> isConfigured() async {
     return _scriptUrl.startsWith('https://script.google.com/macros/s/');

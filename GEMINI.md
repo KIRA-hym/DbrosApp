@@ -76,9 +76,9 @@ shorebird patch android
    - 예) `1.0.12+101209` → `1.0.13+101301`
 3. 사용자가 승인한 버전으로 `pubspec.yaml`의 `version:` 값을 수정한다.
 
-### 단계 2: Shorebird 릴리즈 빌드
+### 단계 2: Shorebird 릴리즈 빌드 (APK 전용)
 ```powershell
-shorebird release android
+$env:SKIP_JDK_VERSION_CHECK="true"; shorebird release android --artifact apk
 ```
 빌드 완료 후 APK 경로 확인:
 `build\app\outputs\flutter-apk\app-release.apk`
