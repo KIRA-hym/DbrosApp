@@ -636,6 +636,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  void _handleResetWorkTime(WorkTimerProvider provider) async {
+    if (provider.elapsedSeconds == 0) return; // 이미 0이면 동작 안 함
+
+    final confirm = await AppGlassDialog.show<bool>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.refresh_rounded,
+        title: '근무시간 초기화',
+        content: '근무시간을 초기화 하시겠습니까?',
+        actions: [
+          GlassDialogCancelButton(onPressed: () => Navigator.pop(context, false)),
+          GlassDialogDestructiveButton(label: '예', filled: true, onPressed: () => Navigator.pop(context, true)),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      provider.resetWorkTimeForToday();
+    }
+  }
+
   Widget _buildSmallWorkTimerWidget() {
     return Consumer<WorkTimerProvider>(
       builder: (context, timerProvider, child) {
@@ -660,7 +681,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
                 const SizedBox(width: 6),
                 InkWell(
-                  onTap: !isClockedIn ? () {} : () => _handleClockOut(timerProvider),
+                  onTap: !isClockedIn ? () => _handleResetWorkTime(timerProvider) : () => _handleClockOut(timerProvider),
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

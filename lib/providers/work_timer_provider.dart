@@ -141,6 +141,22 @@ class WorkTimerProvider extends ChangeNotifier {
     await prefs.remove(_prefWorkDateKey);
   }
 
+  Future<void> resetWorkTimeForToday() async {
+    final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
+    await DriveLogDatabase.instance.deleteDailyWorkSession(currentWorkDate);
+    _elapsedSeconds = 0;
+    
+    // 혹시 모를 잔존 상태 제거
+    final prefs = await SharedPreferences.getInstance();
+    await _clearState(prefs);
+    _isClockedIn = false;
+    _clockInTime = null;
+    _currentWorkDate = null;
+    
+    notifyListeners();
+    TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+  }
+
   Future<void> _forceClockOutForRollover(String oldWorkDate) async {
     try {
       final latestHm = await DriveLogDatabase.instance.getLatestDriveTimeHmOnWorkDate(oldWorkDate);

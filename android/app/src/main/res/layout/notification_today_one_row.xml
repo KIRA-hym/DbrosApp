@@ -21,7 +21,8 @@
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:ellipsize="end"
-            style="@style/TextAppearance.Compat.Notification.Title" />
+            android:textStyle="bold"
+            style="@style/TextAppearance.Compat.Notification.Line2" />
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -35,24 +36,29 @@
                 android:layout_height="wrap_content"
                 android:maxLines="1"
                 android:text="⏰ 근무시간 : "
+                android:textStyle="bold"
                 style="@style/TextAppearance.Compat.Notification.Line2" />
 
             <Chronometer
                 android:id="@+id/notification_chronometer"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                style="@style/TextAppearance.Compat.Notification.Line2" />
-
-            <TextView
-                android:id="@+id/notification_compact_line2_net"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:maxLines="1"
                 android:textStyle="bold"
-                style="@style/TextAppearance.Compat.Notification.Title" />
+                style="@style/TextAppearance.Compat.Notification.Line2" />
         </LinearLayout>
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/notification_compact_line2_net"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:maxLines="1"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        style="@style/TextAppearance.Compat.Notification.Title" />
 
     <TextView
         android:id="@+id/notification_quick"

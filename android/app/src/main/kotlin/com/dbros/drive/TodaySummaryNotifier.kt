@@ -77,11 +77,6 @@ object TodaySummaryNotifier {
             expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.GONE)
         }
 
-        expanded.setTextViewText(
-            R.id.notification_expanded_income_expense,
-            formatIncomeExpenseOneLine(income, expense)
-        )
-
         val intentFlags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
         val intentFull = Intent(context, MainActivity::class.java).apply {
@@ -121,7 +116,6 @@ object TodaySummaryNotifier {
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line1, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line2_text, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_chronometer, piFull)
-        expanded.setOnClickPendingIntent(R.id.notification_expanded_income_expense, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_quick_expanded, piQuick)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -182,18 +176,12 @@ object TodaySummaryNotifier {
     }
 
     private fun formatLine1(workDate: String): String {
-        return "근무일자 : $workDate"
+        return "📅 근무일자 : $workDate"
     }
 
     private fun formatNetProfit(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
         return "💰순익 ${df.format(net)}원"
-    }
-
-    /** 펼침 하단 한 줄: 수입 · 지출 */
-    private fun formatIncomeExpenseOneLine(income: Int, expense: Int): String {
-        val df = DecimalFormat("#,###")
-        return "수입 ${df.format(income)}원 · 지출 ${df.format(expense)}원"
     }
 }

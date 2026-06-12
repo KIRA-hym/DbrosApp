@@ -146,9 +146,16 @@ class MarkerUtils {
     final double width = size;
     final double radius = width / 2;
     
+    // 외곽선이 이미지 경계에 잘리지 않도록 테두리 두께만큼 여백을 줍니다.
+    final double strokeWidth = 4.0;
+    final Rect circleRect = Rect.fromCenter(
+        center: Offset(radius, radius), 
+        width: width - strokeWidth, 
+        height: width - strokeWidth);
+
     // 원 모양 그리기
     final Path path = Path();
-    path.addArc(Rect.fromLTWH(0, 0, width, width), 0, 2 * 3.141592653589793);
+    path.addArc(circleRect, 0, 2 * 3.141592653589793);
     
     // 배경색 채우기
     final Paint bgPaint = Paint()
@@ -159,9 +166,9 @@ class MarkerUtils {
     final Paint borderPaint = Paint()
       ..color = borderColor
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3.0;
+      ..strokeWidth = strokeWidth;
     
-    // 그림자
+    // 그림자 (반경을 약간 줄여서 그림자가 잘리지 않도록 함)
     canvas.drawShadow(path, Colors.black, 4.0, true);
     
     canvas.drawPath(path, bgPaint);
