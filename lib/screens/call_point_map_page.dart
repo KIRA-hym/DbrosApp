@@ -294,13 +294,13 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     final createdAtStr = data['created_at']?.toString().trim() ?? '';
     String displayDateTime = '';
     if (createdAtStr.length >= 16) {
-      displayDateTime = createdAtStr.substring(0, 16);
+      displayDateTime = createdAtStr.substring(0, 16).replaceAll('T', ' ');
     } else {
-      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr : '시간 정보 없음';
+      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr.replaceAll('T', ' ') : '시간 정보 없음';
     }
 
     final program = data['program']?.toString().trim() ?? '';
-    final programLine = program.isNotEmpty ? ' $program' : '';
+    final programLine = program.isNotEmpty ? ' · $program' : '';
     
     final startLoc = data['start_location']?.toString().trim() ?? '';
     final endLoc = data['end_location']?.toString().trim() ?? '';
