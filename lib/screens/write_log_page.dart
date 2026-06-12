@@ -1133,10 +1133,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     // [자동출근] 신규 일지 등록 시 미출근 상태이면 현재 시각으로 자동 출근 처리.
     // 출근 버튼을 누르지 않은 채 일지를 등록한 경우에도 자동으로 출근 이벤트 발생.
     // 수정(edit) 모드에서는 출근 상태를 변경하지 않음.
+    // [오버레이 예외 방지] 오버레이 컨텍스트에는 MultiProvider가 없어 WorkTimerProvider를
+    // 읽을 수 없으므로 try-catch로 안전하게 처리. 오버레이에서는 자동출근 생략.
     if (_logId == null) {
-      final timer = context.read<WorkTimerProvider>();
-      if (!timer.isClockedIn) {
-        await timer.clockIn();
+      try {
+        final timer = context.read<WorkTimerProvider>();
+        if (!timer.isClockedIn) {
+          await timer.clockIn();
+        }
+      } catch (_) {
+        // 오버레이 등 WorkTimerProvider가 없는 환경에서는 자동출근 생략
       }
     }
     final String workStr = _workDateCon.text.trim();
@@ -1215,7 +1221,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             isTablet ? 10.0 : 8.0,
           ),
           decoration: BoxDecoration(
-            color: Theme.of(context).cardTheme.color!,
+            color: Theme.of(context).cardTheme.color ?? const Color(0xFF1F222A),
             border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
           ),
           child: Row(
@@ -1265,7 +1271,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: Material(
-                      color: Theme.of(context).scaffoldBackgroundColor,
+                      // 오버레이 컨텍스트는 ThemeData가 단순하여 scaffoldBackgroundColor가
+                      // Colors.transparent일 수 있으므로, cardTheme.color 우선 사용
+                      color: Theme.of(context).cardTheme.color ?? const Color(0xFF1F222A),
                       child: Column(
                         children: [
                           Expanded(child: form),
