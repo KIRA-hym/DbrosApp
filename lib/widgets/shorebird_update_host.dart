@@ -59,12 +59,12 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
       return;
     }
 
-    if (event.stage == PatchStage.ready) {
+    if (event.stage == PatchStage.ready || event.stage == PatchStage.error) {
       if (_dialogShown && _stageNotifier != null) {
-        _stageNotifier!.value = PatchStage.ready;
+        _stageNotifier!.value = event.stage;
       } else if (!_dialogShown) {
         _dialogShown = true;
-        _stageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.ready);
+        _stageNotifier = ShorebirdUpdateDialog.show(context, event.stage);
       }
     }
   }

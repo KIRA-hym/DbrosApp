@@ -11,6 +11,9 @@ enum PatchStage {
 
   /// 다운로드 완료 — 재시작하면 적용됨
   ready,
+
+  /// 다운로드 중 오류 발생
+  error,
 }
 
 /// 패치 이벤트 데이터
@@ -86,7 +89,7 @@ class ShorebirdUpdateService {
           await _updater.update();
           await _storePendingPatchNumber();
           if (kDebugMode) debugPrint('[Shorebird] 다운로드 완료');
-          await _emitReadyIfNew();
+          await _emitReadyIfNew(forceEmit: true);
           return true;
 
         case UpdateStatus.restartRequired:
@@ -102,6 +105,7 @@ class ShorebirdUpdateService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] 예외: $e');
+      _ctrl.add(const PatchEvent(PatchStage.error));
     }
     return false;
   }
@@ -151,7 +155,7 @@ class ShorebirdUpdateService {
     } catch (_) {}
   }
 
-  Future<void> _emitReadyIfNew() async {
+  Future<void> _emitReadyIfNew({bool forceEmit = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final current = await _updater.readCurrentPatch();
@@ -170,17 +174,19 @@ class ShorebirdUpdateService {
 
       if (pendingNumber == null) {
         if (kDebugMode) debugPrint('[Shorebird] pending 없음 — 다이얼로그 생략');
+        if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
         return;
       }
 
       // 이미 적용된 패치와 같으면 알림 불필요
       if (current?.number == pendingNumber) {
         await prefs.remove(_prefPendingPatch);
+        if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
         return;
       }
 
       final notified = prefs.getInt(_prefNotifiedPatch);
-      if (notified == pendingNumber) {
+      if (notified == pendingNumber && !forceEmit) {
         if (kDebugMode) debugPrint('[Shorebird] #$pendingNumber 이미 알림함');
         return;
       }
@@ -190,6 +196,7 @@ class ShorebirdUpdateService {
       if (kDebugMode) debugPrint('[Shorebird] ready 이벤트 #$pendingNumber');
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] emitReady 오류: $e');
+      if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
     }
   }
 

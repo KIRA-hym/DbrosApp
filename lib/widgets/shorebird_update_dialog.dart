@@ -77,6 +77,8 @@ class _ShorebirdUpdateDialogBodyState
     });
     if (_stage == PatchStage.ready) {
       _checkController.forward();
+    } else if (_stage == PatchStage.error) {
+      // 에러 발생 시 애니메이션 등 불필요
     }
   }
 
@@ -150,6 +152,21 @@ class _ShorebirdUpdateDialogBodyState
         ),
       );
     }
+    if (_stage == PatchStage.error) {
+      return Container(
+        width: 64,
+        height: 64,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF44336).withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.error_outline_rounded,
+          color: Color(0xFFF44336),
+          size: 36,
+        ),
+      );
+    }
 
     // ready 단계: 체크 아이콘 (탄성 애니메이션)
     return ScaleTransition(
@@ -173,11 +190,15 @@ class _ShorebirdUpdateDialogBodyState
   Widget _buildTexts() {
     final title = _stage == PatchStage.downloading
         ? '업데이트 다운로드 중'
-        : '업데이트 준비 완료';
+        : _stage == PatchStage.error
+            ? '업데이트 오류'
+            : '업데이트 준비 완료';
 
     final subtitle = _stage == PatchStage.downloading
         ? '최신 패치를 다운로드하는 중입니다.\n잠시만 기다려주세요...'
-        : '새 패치가 준비되었습니다.\n확인을 누르면 앱이 완전히 종료됩니다.\n이후 바탕화면에서 다시 실행해 주시면\n업데이트가 즉시 적용됩니다.';
+        : _stage == PatchStage.error
+            ? '패치를 다운로드하는 중 오류가 발생했습니다.\n네트워크 상태를 확인하고 나중에 다시 시도해 주세요.'
+            : '새 패치가 준비되었습니다.\n확인을 누르면 앱이 완전히 종료됩니다.\n이후 바탕화면에서 다시 실행해 주시면\n업데이트가 즉시 적용됩니다.';
 
     return Column(
       children: [
@@ -224,6 +245,31 @@ class _ShorebirdUpdateDialogBodyState
             style: TextStyle(color: Color(0xFF7A7D8A), fontSize: 11),
           ),
         ],
+      );
+    }
+
+    if (_stage == PatchStage.error) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF2A2D3A),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            '확인',
+            style: TextStyle(
+              fontFamily: 'GmarketSans',
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
       );
     }
 
