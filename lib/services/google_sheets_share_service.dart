@@ -77,6 +77,7 @@ class GoogleSheetsShareService {
     try {
       final response = await http.get(Uri.parse(_scriptUrl)).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200 || response.statusCode == 302) {
+        final List<dynamic> data = jsonDecode(response.body);
         final String currentUserId = AuthService.instance.userDoc?['uid']?.toString() ?? 'unknown';
         
         final db = await DriveLogDatabase.instance.database;
