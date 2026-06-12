@@ -291,18 +291,25 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       );
     }
 
-    final driveTime = data['drive_time']?.toString().trim() ?? '';
-    final dayNight = _dayNightLeadingIcon(driveTime.isNotEmpty ? driveTime : null);
+    final createdAtStr = data['created_at']?.toString().trim() ?? '';
+    String displayDateTime = '';
+    if (createdAtStr.length >= 16) {
+      displayDateTime = createdAtStr.substring(0, 16);
+    } else {
+      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr : '시간 정보 없음';
+    }
+
     final program = data['program']?.toString().trim() ?? '';
+    final programLine = program.isNotEmpty ? ' $program' : '';
+    
     final startLoc = data['start_location']?.toString().trim() ?? '';
     final endLoc = data['end_location']?.toString().trim() ?? '';
-    final timeLine = driveTime.isNotEmpty ? driveTime : '—';
-    final programLine = program.isNotEmpty ? program : '—';
     final routeLine = startLoc.isNotEmpty || endLoc.isNotEmpty
         ? '${startLoc.isNotEmpty ? startLoc : '—'} → ${endLoc.isNotEmpty ? endLoc : '—'}'
         : '출발·도착 정보 없음';
+        
     return InfoWindow(
-      title: '$dayNight$timeLine · $programLine',
+      title: '$displayDateTime$programLine',
       snippet: routeLine,
     );
   }
