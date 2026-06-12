@@ -52,9 +52,13 @@ object TodaySummaryNotifier {
         val compact = RemoteViews(pkg, R.layout.notification_today_one_row)
         val expanded = RemoteViews(pkg, R.layout.notification_today_expanded)
 
-        val line1 = formatLine1(workDate, income, expense)
+        val line1 = formatLine1(workDate)
         compact.setTextViewText(R.id.notification_compact_line1, line1)
         expanded.setTextViewText(R.id.notification_expanded_line1, line1)
+
+        val netStr = formatNetProfit(income, expense)
+        compact.setTextViewText(R.id.notification_compact_line2_net, netStr)
+        expanded.setTextViewText(R.id.notification_expanded_line2_net, netStr)
 
         if (isClockedIn) {
             val baseTime = android.os.SystemClock.elapsedRealtime() - (elapsedSeconds * 1000L)
@@ -177,10 +181,14 @@ object TodaySummaryNotifier {
         }
     }
 
-    private fun formatLine1(workDate: String, income: Int, expense: Int): String {
+    private fun formatLine1(workDate: String): String {
+        return "근무일자 : $workDate"
+    }
+
+    private fun formatNetProfit(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
-        return "근무일자 : $workDate  |  💰순익 ${df.format(net)}원"
+        return "💰순익 ${df.format(net)}원"
     }
 
     /** 펼침 하단 한 줄: 수입 · 지출 */

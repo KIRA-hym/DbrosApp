@@ -42,6 +42,15 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 style="@style/TextAppearance.Compat.Notification.Line2" />
+
+            <TextView
+                android:id="@+id/notification_compact_line2_net"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:maxLines="1"
+                android:textStyle="bold"
+                style="@style/TextAppearance.Compat.Notification.Title" />
         </LinearLayout>
     </LinearLayout>
 
@@ -57,5 +66,6 @@
         android:paddingEnd="8dp"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"
+        android:visibility="gone"
         android:background="?android:attr/selectableItemBackgroundBorderless" />
 </LinearLayout>

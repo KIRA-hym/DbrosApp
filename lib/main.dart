@@ -156,9 +156,7 @@ class _QuickRegisterOverlayApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        fontFamily: 'GmarketSans',
+      theme: AppTheme.amoledTheme.copyWith(
         scaffoldBackgroundColor: Colors.transparent,
       ),
       home: const _QuickRegisterOverlayRoot(),
