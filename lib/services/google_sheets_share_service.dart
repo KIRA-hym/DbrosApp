@@ -36,7 +36,8 @@ class GoogleSheetsShareService {
         'start_location': log['start_location'] ?? '',
         'waypoint': log['waypoint'] ?? '',
         'end_location': log['end_location'] ?? '',
-        // 메모 및 요금은 개인정보/민감정보이므로 공유에서 제외
+        'gross_fare': log['gross_fare'] ?? 0,
+        // 메모는 개인정보/민감정보이므로 공유에서 제외
       };
     }).toList();
 
