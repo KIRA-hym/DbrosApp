@@ -911,18 +911,18 @@ class _SettingsPageState extends State<SettingsPage> {
                     builder: (context) => const Center(child: CircularProgressIndicator()),
                   );
                   
-                  final success = await GoogleSheetsShareService.shareMyCoordinates(AuthService.instance.userDoc?['uid'] ?? 'unknown');
+                  final result = await GoogleSheetsShareService.shareMyCoordinates(AuthService.instance.userDoc?['uid'] ?? 'unknown');
                   
                   if (context.mounted) Navigator.pop(context); // Hide loading
                   
                   if (context.mounted) {
-                    if (success) {
+                    if (result.success) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('좌표가 성공적으로 공유되었습니다!'), backgroundColor: Colors.green),
+                        SnackBar(content: Text(result.message == '성공' ? '좌표가 성공적으로 공유되었습니다!' : result.message), backgroundColor: Colors.green),
                       );
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('좌표 공유에 실패했습니다. (URL 설정 또는 네트워크를 확인해주세요)'), backgroundColor: Colors.red),
+                        SnackBar(content: Text('좌표 공유에 실패했습니다: ${result.message}'), backgroundColor: Colors.red),
                       );
                     }
                   }

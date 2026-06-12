@@ -11,8 +11,8 @@ class GoogleSheetsShareService {
   }
 
   /// 1. 내 좌표 공유 (POST)
-  static Future<bool> shareMyCoordinates(String userUid) async {
-    if (!await isConfigured()) return false;
+  static Future<({bool success, String message})> shareMyCoordinates(String userUid) async {
+    if (!await isConfigured()) return (success: false, message: 'URL이 설정되지 않았습니다.');
 
     // drive_logs에서 위/경도가 존재하는 모든 내역 추출
     final db = await DriveLogDatabase.instance.database;
@@ -21,7 +21,7 @@ class GoogleSheetsShareService {
       where: 'start_lat IS NOT NULL AND start_lat != 0.0 AND start_lng IS NOT NULL AND start_lng != 0.0',
     );
 
-    if (logs.isEmpty) return true; // 공유할 데이터 없음
+    if (logs.isEmpty) return (success: true, message: '공유할 좌표 데이터가 없습니다.');
 
     final List<Map<String, dynamic>> payload = logs.map((log) {
       return {
@@ -45,16 +45,27 @@ class GoogleSheetsShareService {
         Uri.parse(_scriptUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(payload),
-      );
+      ).timeout(const Duration(seconds: 45));
 
-      if (response.statusCode == 200) {
-        final result = jsonDecode(response.body);
-        return result['status'] == 'success';
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        try {
+          final result = jsonDecode(response.body);
+          if (result['status'] == 'success') {
+            return (success: true, message: '성공');
+          } else {
+            return (success: false, message: '서버 에러: ${result['message'] ?? '알 수 없는 오류'}');
+          }
+        } catch (_) {
+          return (success: false, message: '응답 해석 실패 (구글 시트 웹앱 설정을 확인하세요)');
+        }
       }
-      return false;
+      return (success: false, message: 'HTTP 상태 코드 오류: ${response.statusCode}');
     } catch (e) {
       print('Google Sheets Share Error: $e');
-      return false;
+      if (e.toString().contains('Timeout')) {
+        return (success: false, message: '시간 초과 (데이터가 많거나 네트워크가 불안정합니다)');
+      }
+      return (success: false, message: '오류 발생: $e');
     }
   }
 
@@ -63,8 +74,8 @@ class GoogleSheetsShareService {
     if (!await isConfigured()) return false;
 
     try {
-      final response = await http.get(Uri.parse(_scriptUrl));
-      if (response.statusCode == 200) {
+      final response = await http.get(Uri.parse(_scriptUrl)).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200 || response.statusCode == 302) {
         final List<dynamic> data = jsonDecode(response.body);
         
         final db = await DriveLogDatabase.instance.database;
