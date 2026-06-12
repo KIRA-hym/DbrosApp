@@ -161,7 +161,7 @@ class _ShorebirdUpdateDialogBodyState
           shape: BoxShape.circle,
         ),
         child: const Icon(
-          Icons.error_outline_rounded,
+          Icons.warning_amber_rounded,
           color: Color(0xFFF44336),
           size: 36,
         ),
