@@ -48,7 +48,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _perTripInsCon = TextEditingController(text: SettingsService.perTripInsurance.toString());
   String _insuranceType = SettingsService.insuranceType;
   bool _showFloatingButtons = SettingsService.showFloatingButtons;
-  double _quickRegisterOpacity = SettingsService.quickRegisterOpacity;
+  // [원복] _quickRegisterOpacity 제거: 퀵등록 투명도 슬라이더 기능 원복으로 불필요
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
   String _imagePurgePeriod = SettingsService.imagePurgePeriod;
@@ -1155,22 +1155,9 @@ class _SettingsPageState extends State<SettingsPage> {
               SettingsService.setShowFloatingButtons(value);
             },
           ),
-          const SizedBox(height: 16),
-          Text("퀵등록 배경 투명도", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
-          Slider(
-            value: _quickRegisterOpacity,
-            min: 0.1,
-            max: 1.0,
-            divisions: 9,
-            activeColor: Theme.of(context).primaryColor,
-            label: '${(_quickRegisterOpacity * 100).round()}%',
-            onChanged: (value) {
-              setState(() {
-                _quickRegisterOpacity = value;
-              });
-              SettingsService.setQuickRegisterOpacity(value);
-            },
-          ),
+          // [원복] 퀵등록 배경 투명도 슬라이더 제거
+          // Opacity 위젯이 Scaffold 전체를 감싸면서 배경 블러 및 터치 이벤트 오작동 버그 발생.
+          // 투명도는 write_log_page.dart의 backgroundColor(0xCC000000)로 고정 유지.
         ],
       ),
     );

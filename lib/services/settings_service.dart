@@ -299,6 +299,8 @@ class SettingsService {
   static bool get hasAgreedPermissionsDisclosure => _prefs.getBool('hasAgreedPermissionsDisclosure') ?? false;
   static Future<void> setHasAgreedPermissionsDisclosure(bool value) async => await _prefs.setBool('hasAgreedPermissionsDisclosure', value);
 
-  static double get quickRegisterOpacity => _prefs.getDouble('quickRegisterOpacity') ?? 0.7;
-  static Future<void> setQuickRegisterOpacity(double value) async => await _prefs.setDouble('quickRegisterOpacity', value);
+  // [원복] quickRegisterOpacity getter/setter 제거
+  // 퀵등록 배경 투명도를 사용자가 직접 조절하는 기능을 추가했으나,
+  // Opacity 위젯이 Scaffold 전체를 감싸면서 배경 블러 + 터치 이벤트 흡수 버그 발생.
+  // 투명도는 write_log_page.dart의 backgroundColor(0xCC000000)로 하드코딩 유지.
 }

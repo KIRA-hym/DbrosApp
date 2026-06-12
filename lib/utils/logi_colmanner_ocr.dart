@@ -1022,6 +1022,11 @@ class LogiColmannerOcr {
       (m) => '${m.group(1)} ${m.group(2)}',
     );
     res = res.replaceAll(RegExp(r'[Q|/\\{}<>@]'), ' ');
+    // 콜마너 법인 태그 OCR 오인식 제거: ★천사 → [좋/★/@/☆] + 천사 형태로 인식되는 패턴.
+    // 예) '서울 양천구 목동 경인양행 좋천사' → '서울 양천구 목동 경인양행'
+    // 주의: '천사동', '천사로' 등 일반 주소명은 앞에 특수문자가 없으므로 무영향.
+    res = res.replaceAll(RegExp(r'[좋★☆※]\s*천사\S*'), '');
+
 
     // OCR 노이즈 ')' 제거: 한글/숫자 사이 닫는 괄호 (예: 가정동)가정로 → 가정동 가정로)
     res = res.replaceAllMapped(

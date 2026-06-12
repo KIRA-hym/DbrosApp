@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
@@ -21,6 +22,7 @@ import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../main_navigation.dart';
+import '../providers/work_timer_provider.dart'; // [자동출근] 일지 등록 시 미출근이면 자동 출근 처리
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
 import '../utils/responsive_layout.dart';
@@ -1125,7 +1127,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return;
     }
 
+    // 저장 성공 후 처리
     if (!mounted) return;
+
+    // [자동출근] 신규 일지 등록 시 미출근 상태이면 현재 시각으로 자동 출근 처리.
+    // 출근 버튼을 누르지 않은 채 일지를 등록한 경우에도 자동으로 출근 이벤트 발생.
+    // 수정(edit) 모드에서는 출근 상태를 변경하지 않음.
+    if (_logId == null) {
+      final timer = context.read<WorkTimerProvider>();
+      if (!timer.isClockedIn) {
+        await timer.clockIn();
+      }
+    }
     final String workStr = _workDateCon.text.trim();
     final String savedMsg =
         _logId != null ? "운행일지가 수정되었습니다." : "운행일지가 등록되었습니다.";
@@ -1177,7 +1190,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
 
     if (widget.quickPanel) {
-      final double quickUiOpacity = SettingsService.quickRegisterOpacity;
+      // [원복] quickUiOpacity / Opacity 래퍼 제거
+      // 투명도 설정 기능 추가 시 Opacity 위젯이 Scaffold 전체를 감싸면서
+      // 배경 블러 + 버튼 터치 이벤트 흡수 버그 발생.
+      // 배경 투명도는 Scaffold의 backgroundColor(0xCC000000)으로 고정 유지.
       final closeQuickPanel = () async {
         if (widget.fromOverlay) {
           await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
@@ -1233,11 +1249,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         ),
       );
 
-      return Opacity(
-        opacity: quickUiOpacity,
-        child: Scaffold(
-          backgroundColor: const Color(0xCC000000),
-          body: SafeArea(
+      // [원복] Opacity 래퍼 제거 → Scaffold 직접 반환
+      // 기존: return Opacity(opacity: quickUiOpacity, child: Scaffold(...))
+      return Scaffold(
+        backgroundColor: const Color(0xCC000000), // 80% 불투명 검정 — 기존 반투명 UI 유지
+        body: SafeArea(
             child: Padding(
               padding: const EdgeInsets.only(top: 36.0),
               child: Center(
@@ -1262,8 +1278,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               ),
             ),
           ),
-        ),
-      );
+        );
     }
 
     return Scaffold(
