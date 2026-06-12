@@ -85,12 +85,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Future<void> _precacheIcons() async {
-    // 단순 동그라미 형태로 되돌리고, 요구사항(별모양 확대, 화장실/셔틀 빨간 테두리) 적용
-    _logIconMine ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.white, dy: 1.0);
-    _logIconOther ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.white, dy: 0.5);
-    _refIcon ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.white, textScale: 1.3, dy: -2.0);
-    _restroomIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.red, dy: 0.0);
-    _shuttleIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.red, dy: 0.0);
+    // 단순 동그라미 형태로 되돌리고, 요구사항(별모양 확대, 마커 테두리 검정색 적용)
+    _logIconMine ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.black, dy: 1.0);
+    _logIconOther ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.black, dy: 0.5);
+    _refIcon ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.black, textScale: 1.3, dy: -2.0);
+    _restroomIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
+    _shuttleIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
   }
 
   Future<void> _initMap() async {
@@ -179,7 +179,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     final List<Map<String, dynamic>> rows = await db.query(
       'call_points',
       orderBy: 'created_at DESC',
-      limit: 500,
+      limit: 20000,
     );
 
     List<CallPointData> points = [];
@@ -329,56 +329,38 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
-    Color color = Colors.red;
     final infoWindow = _infoWindowForCluster(cluster);
     final markerId = MarkerId(cluster.getId());
 
-    if (!cluster.isMultiple) {
-      final data = cluster.items.first.data;
-      BitmapDescriptor icon;
-      if (data['type'] == 'log' || data['type'] == 'shared') {
-        if (data['is_mine'] == 1 || data['type'] == 'log') {
-          // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
-          if (data['is_mine'] == 1) {
-            icon = _logIconMine!;
-          } else {
-            icon = _logIconOther!;
-          }
+    // 클러스터 여부 상관없이 첫 번째 마커의 데이터로 아이콘 렌더링 (줌아웃 시 겹쳐서 단일 마커로 보이게 함)
+    final data = cluster.items.first.data;
+    BitmapDescriptor icon;
+    if (data['type'] == 'log' || data['type'] == 'shared') {
+      if (data['is_mine'] == 1 || data['type'] == 'log') {
+        // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
+        if (data['is_mine'] == 1) {
+          icon = _logIconMine!;
         } else {
           icon = _logIconOther!;
         }
-      } else if (data['type'] == 'restroom') {
-        icon = _restroomIcon!;
-      } else if (data['type'] == 'shuttle') {
-        icon = _shuttleIcon!;
       } else {
-        icon = _refIcon!;
+        icon = _logIconOther!;
       }
-      return Marker(
-        markerId: markerId,
-        position: cluster.location,
-        infoWindow: infoWindow,
-        onTap: () => _onMarkerTap(cluster),
-        icon: icon,
-      );
+    } else if (data['type'] == 'restroom') {
+      icon = _restroomIcon!;
+    } else if (data['type'] == 'shuttle') {
+      icon = _shuttleIcon!;
     } else {
-      if (_currentMode == MapFilterMode.reference) {
-        color = Colors.purple;
-      } else {
-        color = Theme.of(context).primaryColor;
-      }
-      final cacheKey = '${cluster.count}_${color.value}';
-      if (!_clusterIcons.containsKey(cacheKey)) {
-        _clusterIcons[cacheKey] = await _getMarkerBitmap(100, text: cluster.count.toString(), color: color);
-      }
-      return Marker(
-        markerId: markerId,
-        position: cluster.location,
-        infoWindow: infoWindow,
-        onTap: () => _onMarkerTap(cluster),
-        icon: _clusterIcons[cacheKey]!,
-      );
+      icon = _refIcon!;
     }
+
+    return Marker(
+      markerId: markerId,
+      position: cluster.location,
+      infoWindow: infoWindow,
+      onTap: () => _onMarkerTap(cluster),
+      icon: icon,
+    );
   }
 
   Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text, Color color = Colors.red, bool isStar = false, bool isHeart = false}) async {
@@ -638,16 +620,16 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.white, dy: 0.5),
+            _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.black, dy: 0.5),
             SizedBox(height: 4),
-            _legendItem(const Color(0xFF3B82F6), '공유좌표', '@', borderColor: Colors.white, dy: 0.5),
+            _legendItem(const Color(0xFF3B82F6), '공유좌표', '@', borderColor: Colors.black, dy: 0.5),
             if (_currentMode == MapFilterMode.all) ...[
               SizedBox(height: 4),
-              _legendItem(const Color(0xFFFBBF24), '콜포인트', '★', borderColor: Colors.white, textScale: 1.3, dy: -1.0),
+              _legendItem(const Color(0xFFFBBF24), '콜포인트', '★', borderColor: Colors.black, textScale: 1.3, dy: -1.0),
               SizedBox(height: 4),
-              _legendItem(Colors.white, '화장실', '🚻', textColor: Colors.black87, borderColor: Colors.red),
+              _legendItem(Colors.white, '화장실', '🚻', textColor: Colors.black87, borderColor: Colors.black),
               SizedBox(height: 4),
-              _legendItem(Colors.white, '셔틀', '🚌', textColor: Colors.black87, borderColor: Colors.red),
+              _legendItem(Colors.white, '셔틀', '🚌', textColor: Colors.black87, borderColor: Colors.black),
             ],
           ],
         ),
