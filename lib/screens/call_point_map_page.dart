@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:intl/intl.dart' hide TextDirection;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
@@ -300,7 +302,19 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
 
     final program = data['program']?.toString().trim() ?? '';
-    final programLine = program.isNotEmpty ? ' · $program' : '';
+    final grossFareRaw = data['gross_fare'];
+    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
+    
+    String programLine = '';
+    if (program.isNotEmpty) {
+      if (grossFare > 0) {
+        programLine = ' · $program ${NumberFormat('#,###').format(grossFare)}';
+      } else {
+        programLine = ' · $program';
+      }
+    } else if (grossFare > 0) {
+      programLine = ' · ${NumberFormat('#,###').format(grossFare)}';
+    }
     
     final startLoc = data['start_location']?.toString().trim() ?? '';
     final endLoc = data['end_location']?.toString().trim() ?? '';
