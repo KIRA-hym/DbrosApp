@@ -85,7 +85,7 @@ class ProFeatureGuard {
                 foregroundColor: Colors.black,
               ),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('광고 보고 이용하기'),
+              child: const Text('확인'),
             ),
           ),
         ],
