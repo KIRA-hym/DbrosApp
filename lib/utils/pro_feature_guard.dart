@@ -39,18 +39,22 @@ class ProFeatureGuard {
           builder: (ctx) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
         );
 
+        bool rewardEarned = false;
+
         RewardedAdService.showAd(
           onEarnedReward: () async {
-            await FeatureUsageService.incrementAdUsage(featureKey);
-            if (context.mounted) Navigator.pop(context); // Close loading
-            onGranted();
+            rewardEarned = true;
           },
-          onAdClosed: () {
-            if (context.mounted) Navigator.pop(context); // Close loading if closed without reward
+          onAdClosed: () async {
+            if (context.mounted) Navigator.pop(context); // Close loading dialog
+            if (rewardEarned) {
+              await FeatureUsageService.incrementAdUsage(featureKey);
+              onGranted();
+            }
           },
           onAdFailed: () {
             if (context.mounted) {
-              Navigator.pop(context); // Close loading
+              Navigator.pop(context); // Close loading dialog
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('광고 로드에 실패했습니다. 나중에 다시 시도해주세요.')),
               );
