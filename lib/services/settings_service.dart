@@ -258,6 +258,7 @@ class SettingsService {
 
   static bool isFeatureUnlocked() {
     if (!kMonetizationEnabled) return true;
+    if (isPremiumUser) return true;
     final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
     if (expireMs == 0) return false;
     return DateTime.now().millisecondsSinceEpoch <= expireMs;
