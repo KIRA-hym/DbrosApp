@@ -398,19 +398,15 @@ class _SettingsPageState extends State<SettingsPage> {
               child: Text('취소', style: TextStyle(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 final code = codeController.text.trim();
                 Navigator.pop(context);
                 if (code == '1234') { // TODO: 실제 사용할 어드민 코드로 변경
-                  final isAdmin = AuthService.instance.userDoc?['isAdmin'] == true;
-                  if (isAdmin) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const AdminUserListPage()),
-                    );
-                  } else {
+                  final currentState = SettingsService.isOwnerMode;
+                  await SettingsService.setIsOwnerMode(!currentState);
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('접근 권한이 없는 계정입니다.')),
+                      SnackBar(content: Text(currentState ? '오너 모드가 해제되었습니다.' : '오너 모드가 활성화되었습니다.')),
                     );
                   }
                 } else {
