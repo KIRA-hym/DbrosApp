@@ -402,8 +402,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             child: _buildRegisterRow(),
                                           ),
                                           SizedBox(height: sectionGap),
-                                          const AdBannerWidget(),
-                                          SizedBox(height: sectionGap),
+
                                           AnimatedRecentLogs(
                                             logs: statsProvider.recentDateLogs,
                                             isTablet: true,
@@ -433,8 +432,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     child: _buildRegisterRow(),
                                   ),
                                   SizedBox(height: sectionGap),
-                                  const AdBannerWidget(),
-                                  SizedBox(height: sectionGap),
+
                                   Expanded(
                                     child: _buildYoutubeSection(),
                                   ),
