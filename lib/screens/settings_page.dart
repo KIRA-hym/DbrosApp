@@ -222,12 +222,12 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
       _buildFloatingButtonSettings(),
       if (!kIsWeb && Platform.isAndroid) _buildScreenshotAutoRegisterSettings(),
-      _buildCallPointShareSettings(),
-      if (!kIsWeb && Platform.isAndroid) _buildOcrParseLogSettings(),
+      if (SettingsService.isOwnerMode) _buildCallPointShareSettings(),
+      if (SettingsService.isOwnerMode && !kIsWeb && Platform.isAndroid) _buildOcrParseLogSettings(),
       _buildStorageSettings(),
-      if (!kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
+      if (SettingsService.isOwnerMode && !kIsWeb && kMapFeaturesEnabled) _buildBatchGeocodeSettings(),
       if (SettingsService.isOwnerMode) _buildAdminPushSection(),
-      if (kMonetizationEnabled) _buildProModeTestToggle(),
+      if (SettingsService.isOwnerMode && kMonetizationEnabled) _buildProModeTestToggle(),
       _buildVersionInfoSection(versionStyle),
     ];
   }
