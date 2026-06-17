@@ -20,7 +20,10 @@ class WorkTimerProvider extends ChangeNotifier {
 
   String? _currentWorkDate;
 
+  static WorkTimerProvider? instance;
+
   WorkTimerProvider() {
+    instance = this;
     _loadState();
   }
 
@@ -50,6 +53,14 @@ class WorkTimerProvider extends ChangeNotifier {
       }
     } else {
       await _clearState(prefs);
+      // 퇴근 상태이더라도 오늘 일자의 저장된 근무시간이 있다면 불러와서 표시
+      final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
+      if (session != null) {
+        _elapsedSeconds = (session['total_seconds'] as int?) ?? 0;
+        _currentWorkDate = currentWorkDate;
+      } else {
+        _elapsedSeconds = 0;
+      }
     }
     notifyListeners();
   }
@@ -100,6 +111,18 @@ class WorkTimerProvider extends ChangeNotifier {
     _startTimer();
     notifyListeners();
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+  }
+
+  Future<void> autoClockInIfNeeded() async {
+    if (_isClockedIn) return;
+    final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
+    final logs = await DriveLogDatabase.instance.getRecentLogs(limit: 1);
+    if (logs.isNotEmpty) {
+      final lastLogDate = logs.first['work_date']?.toString();
+      if (lastLogDate == currentWorkDate) {
+        await clockIn(reset: false);
+      }
+    }
   }
 
   Future<void> clockOut() async {

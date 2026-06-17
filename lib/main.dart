@@ -94,6 +94,7 @@ void main() async {
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     TodayStatsProvider.instance.refresh();
+    WorkTimerProvider.instance?.autoClockInIfNeeded();
   };
   ExpenseRepository.afterExpensesChanged = () {
     ExpenseHomePage.requestRefresh();

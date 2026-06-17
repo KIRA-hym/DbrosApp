@@ -72,7 +72,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
     
     // 광고가 로딩 중이거나 실패한 경우, 레이아웃 밀림 방지를 위해 동일한 높이의 빈 공간 유지
     return Container(
-      color: const Color(0xFF121418),
+      color: Colors.red, // 디버깅용: 코드가 적용되었는지 확인하기 위해 빨간색으로 변경
       width: 320,
       height: 50,
     );
