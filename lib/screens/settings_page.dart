@@ -401,7 +401,7 @@ class _SettingsPageState extends State<SettingsPage> {
               onPressed: () async {
                 final code = codeController.text.trim();
                 Navigator.pop(context);
-                if (code == '1234') { // TODO: 실제 사용할 어드민 코드로 변경
+                if (code == 'HYM') {
                   final currentState = SettingsService.isOwnerMode;
                   await SettingsService.setIsOwnerMode(!currentState);
                   if (context.mounted) {
