@@ -174,7 +174,11 @@ class ShorebirdUpdateService {
 
       if (pendingNumber == null) {
         if (kDebugMode) debugPrint('[Shorebird] pending 없음 — 다이얼로그 생략');
-        if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
+        if (forceEmit) {
+          // update()가 예외 없이 성공했으나 플러그인이 아직 다음 패치 번호를 반환하지 못하는 경우
+          // 업데이트 자체는 다운로드 완료된 상태이므로 성공(ready) 이벤트를 발생시킵니다.
+          _ctrl.add(const PatchEvent(PatchStage.ready));
+        }
         return;
       }
 
