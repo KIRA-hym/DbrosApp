@@ -48,6 +48,10 @@ int? parseLogiFareFromOcrText(String raw) {
 
   String prepare(String r) {
     var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
+    
+    // [보완] 숫자에 붙은 '2!' 나 '1!' 등은 '원'의 전형적인 오인식이므로 선제 제거
+    s = s.replaceAll(RegExp(r'[12]!+$'), '');
+    
     s = s.replaceAll(RegExp(r'원|₩|P'), '');
     s = s.replaceAll(RegExp(r'[!]+'), '');
     // I0000 / l0000 — l→1 치환 전에 7만원 패턴 인식

@@ -269,19 +269,38 @@ class LogiColmannerOcr {
   }
 
   static int? _bestGrossFareFromAdjacentAmountLines(Iterable<String> lines) {
-    int? bestStrict;
+    final amounts = <int>[];
     for (final raw in lines) {
       final trimmed = raw.trim();
       if (trimmed.isEmpty) continue;
       if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
       if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
       if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+      // [보완] 전화번호, 시간 등 대괄호 노이즈 배제
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) continue;
+      if (RegExp(r'\d{2,4}-\d{3,4}-\d{4}').hasMatch(trimmed)) continue;
+
       final v = _strictFareDigitsFromLine(trimmed);
       if (v != null && v >= 1000 && v <= 999_999) {
-        if (bestStrict == null || v > bestStrict) bestStrict = v;
+        if (!amounts.contains(v)) amounts.add(v);
       }
     }
-    return bestStrict;
+
+    if (amounts.isEmpty) return null;
+
+    // [보완] 수수료(5000)의 '원'이 오인식되어 50002 -> 50000이 된 경우 배제
+    // 요금 X와 그 2배인 Y(오인식된 수수료)가 같이 존재하고, Y의 정상 수수료(Y/5)가 없다면 Y는 가짜(수수료 오인식)
+    final toRemove = <int>{};
+    for (final x in amounts) {
+      final y = x * 2;
+      if (amounts.contains(y) && !amounts.contains(y ~/ 5)) {
+        toRemove.add(y);
+      }
+    }
+    amounts.removeWhere((a) => toRemove.contains(a));
+
+    if (amounts.isEmpty) return null;
+    return amounts.reduce((a, b) => a > b ? a : b);
   }
 
   /// 로지 입금액 스택에 보이는 금액(플랫폼 수수료, 약 총요금의 20%)인지 판별한다.
@@ -339,6 +358,19 @@ class LogiColmannerOcr {
     }
 
     if (amounts.isEmpty) return null;
+
+    // [보완] 수수료 오인식(X-2X) 방어
+    final toRemove = <int>{};
+    for (final x in amounts) {
+      final y = x * 2;
+      if (amounts.contains(y) && !amounts.contains(y ~/ 5)) {
+        toRemove.add(y);
+      }
+    }
+    amounts.removeWhere((a) => toRemove.contains(a));
+
+    if (amounts.isEmpty) return null;
+
     if (amounts.length >= 2) {
       var best = amounts.reduce((a, b) => a > b ? a : b);
       for (final a in amounts) {
