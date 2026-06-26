@@ -28,6 +28,24 @@ int? normalizeLogiFareDigitToken(String digits) {
 int? parseLogiFareFromOcrText(String raw) {
   if (raw.trim().isEmpty) return null;
 
+  // [보완] 명백한 전화번호, 시간, 콜센터 메모 등 요금이 아닌 패턴 필터링
+  // 역할별로 정규식을 쪼개어 가독성 및 유지보수성을 높입니다.
+  
+  // 1. 대괄호로 둘러싸인 콜센터 메모 패턴 (예: [1517-3500 151-3500 00:40])
+  final memoBracketPattern = RegExp(r'^\s*\[.*\]\s*$');
+  
+  // 2. 전화번호 패턴 (예: 1517-3500, 0508-5017-1112)
+  final phonePattern1 = RegExp(r'\d{2,4}-\d{3,4}-\d{4}');
+  final phonePattern2 = RegExp(r'\d{4}-\d{4}');
+  
+  // 3. 시간 패턴 (예: 00:40, 14:30) - 요금 문자열이 없을 때만 차단
+  final timePattern = RegExp(r'\d{1,2}:\d{2}');
+
+  if (memoBracketPattern.hasMatch(raw)) return null;
+  if (phonePattern1.hasMatch(raw)) return null;
+  if (phonePattern2.hasMatch(raw)) return null;
+  if (timePattern.hasMatch(raw) && !raw.contains('요금')) return null;
+
   String prepare(String r) {
     var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
     s = s.replaceAll(RegExp(r'원|₩|P'), '');
