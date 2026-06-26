@@ -8,9 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
-    if (dart.library.html) '../utils/maps_web_stub.dart' hide Cluster, ClusterManager;
-import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart'
-    if (dart.library.html) '../utils/cluster_manager_web_stub.dart';
+    if (dart.library.html) '../utils/maps_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,14 +17,11 @@ import '../services/google_sheets_share_service.dart';
 import '../utils/call_map_placemark_title.dart';
 import '../utils/marker_utils.dart';
 
-class CallPointData with ClusterItem {
+class CallPointData {
   final Map<String, dynamic> data;
   final LatLng position;
 
   CallPointData({required this.data, required this.position});
-
-  @override
-  LatLng get location => position;
 }
 
 enum MapFilterMode { all, radar, reference }
@@ -39,7 +34,6 @@ class CallPointMapPage extends StatefulWidget {
 }
 
 class _CallPointMapPageState extends State<CallPointMapPage> {
-  late ClusterManager _manager;
   final Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = {};
   Position? _currentPosition;
@@ -65,25 +59,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   @override
   void initState() {
     super.initState();
-    _manager = _initClusterManager();
     _initMap();
-  }
-
-  ClusterManager _initClusterManager() {
-    return ClusterManager<CallPointData>(
-      [],
-      _updateMarkers,
-      markerBuilder: _markerBuilder,
-      stopClusteringZoom: 13.5,
-    );
-  }
-
-  void _updateMarkers(Set<Marker> markers) {
-    if (mounted) {
-      setState(() {
-        _markers = markers;
-      });
-    }
   }
 
   Future<void> _precacheIcons() async {
@@ -211,7 +187,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           _localDetailZoom,
         ),
       );
-      _manager.updateMap();
     } catch (e) {
       debugPrint('현재 위치 카메라 이동 오류: $e');
     }
@@ -230,7 +205,17 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         filtered = _allPoints.where((p) => p.data['type'] == 'reference' || p.data['type'] == 'restroom' || p.data['type'] == 'shuttle').toList();
         break;
     }
-    _manager.setItems(filtered);
+    
+    final newMarkers = <Marker>{};
+    for (final point in filtered) {
+      newMarkers.add(_buildMarker(point));
+    }
+    
+    if (mounted) {
+      setState(() {
+        _markers = newMarkers;
+      });
+    }
   }
 
   void _onFilterTap(MapFilterMode mode) {
@@ -267,20 +252,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return startLoc;
   }
 
-  /// 마커 탭 시 Google Maps 기본 말풍선(마커 바로 아래).
-  InfoWindow _infoWindowForCluster(Cluster<CallPointData> cluster) {
-    if (!cluster.isMultiple) {
-      return _infoWindowForPoint(cluster.items.first);
-    }
-    final first = cluster.items.first;
-    final base = _infoWindowForPoint(first);
-    final extra = cluster.count - 1;
-    if (extra <= 0) return base;
-    return InfoWindow(
-      title: base.title,
-      snippet: '${base.snippet ?? ''} · 외 $extra건',
-    );
-  }
+
 
   InfoWindow _infoWindowForPoint(CallPointData point) {
     final data = point.data;
@@ -328,33 +300,20 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
-  Future<void> _onMarkerTap(Cluster<CallPointData> cluster) async {
+  Future<void> _onMarkerTap(CallPointData point) async {
     if (!_controller.isCompleted) return;
     try {
       final controller = await _controller.future;
-      if (cluster.isMultiple) {
-        final zoom = await controller.getZoomLevel();
-        await controller.animateCamera(
-          CameraUpdate.newLatLngZoom(
-            cluster.location,
-            (zoom + 1.5).clamp(_localDetailZoom, 20.0),
-          ),
-        );
-        _manager.updateMap();
-        return;
-      }
-      await controller.showMarkerInfoWindow(MarkerId(cluster.getId()));
+      await controller.showMarkerInfoWindow(MarkerId(point.data['id'].toString()));
     } catch (e) {
       debugPrint('마커 InfoWindow 표시 오류: $e');
     }
   }
 
-  Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
-    final infoWindow = _infoWindowForCluster(cluster);
-    final markerId = MarkerId(cluster.getId());
-
-    // 클러스터 여부 상관없이 첫 번째 마커의 데이터로 아이콘 렌더링 (줌아웃 시 겹쳐서 단일 마커로 보이게 함)
-    final data = cluster.items.first.data;
+  Marker _buildMarker(CallPointData point) {
+    final infoWindow = _infoWindowForPoint(point);
+    final markerId = MarkerId(point.data['id'].toString());
+    final data = point.data;
     BitmapDescriptor icon;
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
@@ -377,9 +336,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     return Marker(
       markerId: markerId,
-      position: cluster.location,
+      position: point.position,
       infoWindow: infoWindow,
-      onTap: () => _onMarkerTap(cluster),
+      onTap: () => _onMarkerTap(point),
       icon: icon,
     );
   }
@@ -606,11 +565,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
               if (!_controller.isCompleted) {
                 _controller.complete(controller);
               }
-              await _manager.setMapId(controller.mapId);
               await _focusOnCurrentLocation();
             },
-            onCameraMove: _manager.onCameraMove,
-            onCameraIdle: _manager.updateMap,
             markers: _markers,
             myLocationEnabled: _permissionGranted,
             myLocationButtonEnabled: _permissionGranted,
