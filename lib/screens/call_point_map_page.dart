@@ -207,8 +207,27 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
     
     final newMarkers = <Marker>{};
+    final locationCounts = <String, int>{};
+    
+    int index = 0;
     for (final point in filtered) {
-      newMarkers.add(_buildMarker(point));
+      final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
+      final overlapCount = locationCounts[locKey] ?? 0;
+      locationCounts[locKey] = overlapCount + 1;
+      
+      double jitterLat = point.position.latitude;
+      double jitterLng = point.position.longitude;
+      
+      // 완전히 같은 위치에 있는 마커들이 서로를 가리지 않도록 약간 분산 (jitter)
+      if (overlapCount > 0) {
+        // overlapCount에 따라 대각선으로 약 1.5~2미터 간격 벌림
+        jitterLat += (overlapCount * 0.000015);
+        jitterLng += (overlapCount * 0.000015);
+      }
+      
+      final adjustedPosition = LatLng(jitterLat, jitterLng);
+      newMarkers.add(_buildMarker(point, adjustedPosition, index));
+      index++;
     }
     
     if (mounted) {
@@ -310,16 +329,20 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
   }
 
-  Marker _buildMarker(CallPointData point) {
+  Marker _buildMarker(CallPointData point, LatLng position, int index) {
     final infoWindow = _infoWindowForPoint(point);
-    final markerId = MarkerId(point.data['id'].toString());
+    // index를 포함하여 MarkerId 중복을 원천 차단
+    final markerId = MarkerId('${point.data['id']}_$index');
     final data = point.data;
     BitmapDescriptor icon;
+    double zIndex = 0.0;
+    
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
         // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
         if (data['is_mine'] == 1) {
           icon = _logIconMine!;
+          zIndex = 5.0; // 내 위치 우선순위
         } else {
           icon = _logIconOther!;
         }
@@ -328,18 +351,21 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       }
     } else if (data['type'] == 'restroom') {
       icon = _restroomIcon!;
+      zIndex = 10.0; // 화장실 최우선 노출
     } else if (data['type'] == 'shuttle') {
       icon = _shuttleIcon!;
+      zIndex = 10.0; // 셔틀 최우선 노출
     } else {
       icon = _refIcon!;
     }
 
     return Marker(
       markerId: markerId,
-      position: point.position,
+      position: position,
       infoWindow: infoWindow,
       onTap: () => _onMarkerTap(point),
       icon: icon,
+      zIndex: zIndex,
     );
   }
 
