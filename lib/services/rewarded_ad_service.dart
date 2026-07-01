@@ -6,8 +6,8 @@ class RewardedAdService {
   static bool _isAdLoaded = false;
   // Android 테스트용 ID. 실서비스 시 프로덕션 ID로 교체 필요.
   static const String adUnitId = kReleaseMode 
-      ? 'ca-app-pub-3940256099942544/5224354917' 
-      : 'ca-app-pub-3940256099942544/5224354917';
+      ? 'ca-app-pub-8895373923384999/3927806132' // 실제 보상형 광고 ID
+      : 'ca-app-pub-3940256099942544/5224354917'; // 테스트용 보상형 광고 ID
 
   static void loadAd() {
     RewardedAd.load(

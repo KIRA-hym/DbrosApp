@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import '../config/feature_flags.dart';
 import '../services/settings_service.dart';
 
@@ -19,7 +19,9 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
   final String _adUnitId = kIsWeb
       ? ''
       : Platform.isAndroid
-          ? 'ca-app-pub-3940256099942544/6300978111' // Android Test Banner ID
+          ? (kReleaseMode 
+              ? 'ca-app-pub-8895373923384999/4246536184' // Android Real Banner ID
+              : 'ca-app-pub-3940256099942544/6300978111') // Android Test Banner ID
           : 'ca-app-pub-3940256099942544/2934735716'; // iOS Test Banner ID
 
   @override

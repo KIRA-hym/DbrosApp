@@ -99,7 +99,7 @@ class ProFeatureGuard {
       dialog: AppGlassDialog(
         icon: Icons.workspace_premium,
         titleWidget: const Text(
-          '👑 PRO 전용 기능',
+          '👑 프리미엄 구독 전용',
           style: TextStyle(
             fontFamily: 'GmarketSans',
             color: Color(0xFFFFC700),
@@ -107,7 +107,7 @@ class ProFeatureGuard {
             fontSize: 16,
           ),
         ),
-        content: '오늘 이용 가능한 모든 횟수(광고 포함)를 소진했습니다.\nPRO로 업그레이드하고 무제한으로 이용해 보세요!',
+        content: '오늘 이용 가능한 모든 횟수(광고 포함)를 소진했습니다.\n프리미엄 구독으로 업그레이드하고 무제한으로 이용해 보세요!',
         actions: [
           Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
           Builder(
@@ -118,9 +118,11 @@ class ProFeatureGuard {
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                // TODO: Navigate to PRO purchase page
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('정식 출시 때 제공될 예정입니다!')),
+                );
               },
-              child: const Text('PRO 알아보기'),
+              child: const Text('프리미엄 구독 알아보기'),
             ),
           ),
         ],

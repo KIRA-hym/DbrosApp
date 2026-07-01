@@ -23,6 +23,7 @@ import '../services/apk_update_service.dart';
 import '../utils/responsive_layout.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../widgets/apk_update_dialog.dart';
+import '../services/rewarded_ad_service.dart';
 import '../widgets/list_manage_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
@@ -1511,27 +1512,35 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (confirm == true) {
       if (!context.mounted) return;
-      // TODO: 실제 리워드 광고 연동 (google_mobile_ads)
+      
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: Theme.of(context).cardTheme.color!,
-          content: Row(
-            children: [
-              CircularProgressIndicator(color: Color(0xFFFFC700)),
-              SizedBox(width: 16),
-              Text('광고 시청 중... (테스트)', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
-            ],
-          ),
-        ),
+        builder: (ctx) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
       );
-      await Future.delayed(const Duration(seconds: 2));
-      if (!context.mounted) return;
-      Navigator.pop(context); // 닫기
 
-      await SettingsService.unlockFeaturesByAd();
-      onSuccess();
+      bool rewardEarned = false;
+
+      RewardedAdService.showAd(
+        onEarnedReward: () async {
+          rewardEarned = true;
+        },
+        onAdClosed: () async {
+          if (context.mounted) Navigator.pop(context); // Close loading dialog
+          if (rewardEarned) {
+            await SettingsService.unlockFeaturesByAd();
+            onSuccess();
+          }
+        },
+        onAdFailed: () {
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('광고 로드에 실패했습니다. 나중에 다시 시도해주세요.')),
+            );
+          }
+        },
+      );
     }
   }
 }

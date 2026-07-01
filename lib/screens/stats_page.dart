@@ -335,6 +335,7 @@ class _StatsPageState extends State<StatsPage> {
     final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDate(
       dateStr,
     );
+    final session = await DriveLogDatabase.instance.getWorkSessionForWorkDate(dateStr);
     return {
       'totalRevenue': stats['gross'] ?? 0,
       'totalNet': stats['net'] ?? 0,
@@ -342,6 +343,9 @@ class _StatsPageState extends State<StatsPage> {
       'totalExtraIncome': stats['extra_income'] ?? 0,
       'workDays': 1,
       'totalCount': stats['count'] ?? 0,
+      'workSeconds': session?['total_seconds'] as int? ?? 0,
+      'clockInTime': session?['clock_in_time'] as String?,
+      'clockOutTime': session?['clock_out_time'] as String?,
     };
   }
 
@@ -368,6 +372,8 @@ class _StatsPageState extends State<StatsPage> {
           (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
       totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
+    final int totalWorkSeconds = await DriveLogDatabase.instance
+        .getTotalWorkSecondsForWorkDateRange(startStr, endStr);
     return {
       'totalRevenue': totalRevenue,
       'totalNet': totalNet,
@@ -375,6 +381,7 @@ class _StatsPageState extends State<StatsPage> {
       'totalExtraIncome': totalExtraIncome,
       'workDays': _distinctWorkDateCount(logs),
       'totalCount': logs.length,
+      'workSeconds': totalWorkSeconds,
     };
   }
 
@@ -397,6 +404,8 @@ class _StatsPageState extends State<StatsPage> {
           (log['fee'] as int? ?? 0) + (log['transport_cost'] as int? ?? 0);
       totalExtraIncome += (log['waypoint_tip'] as int? ?? 0);
     }
+    final int totalWorkSeconds = await DriveLogDatabase.instance
+        .getTotalWorkSecondsForWorkMonth(yearMonth);
     return {
       'totalRevenue': totalRevenue,
       'totalNet': totalNet,
@@ -404,6 +413,7 @@ class _StatsPageState extends State<StatsPage> {
       'totalExtraIncome': totalExtraIncome,
       'workDays': _distinctWorkDateCount(logs),
       'totalCount': logs.length,
+      'workSeconds': totalWorkSeconds,
     };
   }
 
@@ -441,6 +451,7 @@ class _StatsPageState extends State<StatsPage> {
       'totalExtraIncome': totalExtraIncome,
       'workDays': distinctWorkDates.length,
       'totalCount': totalCount,
+      'workSeconds': 0, // 연간 근무시간은 현재 쿼리가 복잡하므로 보류 또는 별도 계산 필요 (일단 0 처리, 요약 팝업에선 연간 시급 숨김)
     };
   }
 
@@ -774,7 +785,6 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<void> _showStatsSummaryPopup() async {
-    if (_selectedPeriod == '일간') return; // 주간, 월간, 연간만 지원
 
     final int workedDays = _stats['workDays'] ?? 0;
     final int totalRevenue = _stats['totalRevenue'] ?? 0;
@@ -788,7 +798,11 @@ class _StatsPageState extends State<StatsPage> {
     final String startStr;
     final String endStr;
 
-    if (_selectedPeriod == '주간') {
+    if (_selectedPeriod == '일간') {
+      totalDays = 1;
+      startStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
+      endStr = startStr;
+    } else if (_selectedPeriod == '주간') {
       totalDays = 7;
       final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
       startStr = DateFormat('yyyy-MM-dd').format(weekStart);
@@ -808,8 +822,16 @@ class _StatsPageState extends State<StatsPage> {
     final int avgNetIncome = workedDays > 0 ? (totalNet / workedDays).round() : 0;
     final int avgRuns = workedDays > 0 ? (totalRuns / workedDays).round() : 0;
 
+    final int workSeconds = _stats['workSeconds'] ?? 0;
+    final String? clockInTime = _stats['clockInTime'] as String?;
+    final String? clockOutTime = _stats['clockOutTime'] as String?;
+    final int totalHours = workSeconds ~/ 3600;
+    final int totalMinutes = (workSeconds % 3600) ~/ 60;
+    final int avgHourly = workSeconds > 0 ? (totalNet / (workSeconds / 3600)).round() : 0;
+
     String pPeriod = 'yearly';
-    if (_selectedPeriod == '주간') pPeriod = 'weekly';
+    if (_selectedPeriod == '일간') pPeriod = 'daily';
+    else if (_selectedPeriod == '주간') pPeriod = 'weekly';
     else if (_selectedPeriod == '월간') pPeriod = 'monthly';
     
     final programStats = await _getProgramStats(_selectedDate, pPeriod);
@@ -885,14 +907,94 @@ class _StatsPageState extends State<StatsPage> {
                 const SizedBox(height: 16),
                 const Text('🏃 활동 요약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent)),
                 const SizedBox(height: 8),
-                _buildSummaryTextRow('출근 현황', '$workedDays일 출근 (휴무 $restDays일)'),
-                _buildSummaryTextRow('일 평균 수익', '${NumberFormat('#,###').format(avgNetIncome)} 원'),
-                _buildSummaryTextRow('운행 건수', '총 $totalRuns건 (일 평균 $avgRuns건)'),
+                if (_selectedPeriod != '일간')
+                  _buildSummaryTextRow('출근 현황', '$workedDays일 출근 (휴무 $restDays일)'),
+                if (_selectedPeriod != '일간')
+                  _buildSummaryTextRow('일 평균 수익', '${NumberFormat('#,###').format(avgNetIncome)} 원'),
+                
+                if (_selectedPeriod == '일간') ...[
+                  if (clockInTime != null)
+                    _buildSummaryTextRow('근무 시간', '${DateFormat('HH:mm').format(DateTime.parse(clockInTime))} ~ ${clockOutTime != null ? DateFormat('HH:mm').format(DateTime.parse(clockOutTime)) : '진행중'}')
+                  else
+                    _buildSummaryTextRow('근무 시간', '기록 없음'),
+                  _buildSummaryTextRow('총 소요', '${totalHours}시간 ${totalMinutes}분'),
+                ] else if (_selectedPeriod != '연간') ...[
+                  _buildSummaryTextRow('총 근무 시간', '${totalHours}시간'),
+                ],
+
+                if (_selectedPeriod != '연간' && workSeconds > 0)
+                  _buildSummaryTextRow('시간당 수익', '${NumberFormat('#,###').format(avgHourly)} 원'),
+
+                if (_selectedPeriod == '일간')
+                  _buildSummaryTextRow('운행 건수', '총 $totalRuns건')
+                else
+                  _buildSummaryTextRow('운행 건수', '총 $totalRuns건 (일 평균 $avgRuns건)'),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showQuickSummaryPopup() {
+    if (_stats.isEmpty) return;
+    
+    final int workSeconds = _stats['workSeconds'] ?? 0;
+    final String? clockInTime = _stats['clockInTime'] as String?;
+    final String? clockOutTime = _stats['clockOutTime'] as String?;
+    final int totalNet = _stats['totalNet'] ?? 0;
+    
+    final int totalHours = workSeconds ~/ 3600;
+    final int totalMinutes = (workSeconds % 3600) ~/ 60;
+    final int avgHourly = workSeconds > 0 ? (totalNet / (workSeconds / 3600)).round() : 0;
+    
+    String title = '⏰ 오늘의 근무 요약';
+    String timeLine = '';
+    
+    if (_selectedPeriod == '일간') {
+      if (clockInTime != null) {
+        final inDt = DateTime.parse(clockInTime);
+        final inHm = DateFormat('HH:mm').format(inDt);
+        String outHm = '진행중';
+        if (clockOutTime != null) {
+          final outDt = DateTime.parse(clockOutTime);
+          outHm = DateFormat('HH:mm').format(outDt);
+        }
+        timeLine = '$inHm ~ $outHm (총 ${totalHours}시간 ${totalMinutes}분)';
+      } else {
+        timeLine = '기록 없음 (총 0시간)';
+      }
+    } else {
+      title = '⏰ $_selectedPeriod 근무 요약';
+      timeLine = '총 근무 ${totalHours}시간';
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Theme.of(context).cardTheme.color,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(title, style: const TextStyle(fontFamily: 'GmarketSans', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(timeLine, style: const TextStyle(fontSize: 15, color: Colors.white)),
+              const SizedBox(height: 8),
+              if (_selectedPeriod != '연간')
+                Text('시간당 평균 ${NumberFormat('#,###').format(avgHourly)} 원', style: const TextStyle(fontSize: 15, color: Color(0xFFFFC700))),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+            ),
+          ],
+        );
+      }
     );
   }
 
@@ -1281,24 +1383,26 @@ class _StatsPageState extends State<StatsPage> {
           icon: Icons.money_off,
         ),
       ),
-      if (_selectedPeriod != '일간')
-        _statMetricCard(
-          title: '근무·운행 건수',
-          value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-          valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-          titleFontSize: titleFontSize,
-          valueFontSize: valueFontSize,
-          icon: Icons.local_taxi,
-        )
-      else
-        _statMetricCard(
-          title: '운행 건수',
-          value: '${_stats['totalCount'] ?? 0}',
-          valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-          titleFontSize: titleFontSize,
-          valueFontSize: valueFontSize,
-          icon: Icons.local_taxi,
-        ),
+      GestureDetector(
+        onTap: _showQuickSummaryPopup,
+        child: _selectedPeriod != '일간'
+            ? _statMetricCard(
+                title: '근무·운행 건수',
+                value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
+                valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                titleFontSize: titleFontSize,
+                valueFontSize: valueFontSize,
+                icon: Icons.local_taxi,
+              )
+            : _statMetricCard(
+                title: '운행 건수',
+                value: '${_stats['totalCount'] ?? 0}',
+                valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                titleFontSize: titleFontSize,
+                valueFontSize: valueFontSize,
+                icon: Icons.local_taxi,
+              ),
+      ),
     ];
   }
 

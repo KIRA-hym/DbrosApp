@@ -1,8 +1,9 @@
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
 import 'package:dbros_app/data/default_call_points.dart';
 
+import 'package:intl/intl.dart';
 import '../utils/drive_time_format.dart';
 import '../utils/geocoding_utils.dart';
 import '../utils/work_date_utils.dart';
@@ -204,6 +205,7 @@ class DriveLogDatabase {
         await _ensureCallPointsTable(db);
         await _ensureLocalNoticesTable(db);
         await _ensureDailyWorkSessionsTable(db);
+        await _migrateExpenseDates(db);
       },
     );
   }
@@ -258,6 +260,39 @@ class DriveLogDatabase {
       )
     ''');
   }
+
+  Future<void> _migrateExpenseDates(Database db) async {
+    try {
+      final rows = await db.query('expense_entries');
+      for (final row in rows) {
+        final id = row['id'] as int;
+        final expenseDate = row['expense_date'] as String;
+        final writtenAtStr = row['written_at'] as String;
+
+        try {
+          final writtenAt = DateTime.parse(writtenAtStr);
+          final expectedYmd = DateFormat('yyyy-MM-dd').format(writtenAt);
+          // 입력 날짜가 현재 달력 날짜(기본값)로 그대로 저장되었을 경우 (새벽 시간대 입력 등)
+          if (expenseDate == expectedYmd) {
+            final effectiveYmd = WorkDateUtils.effectiveWorkDateYmd(writtenAt);
+            if (effectiveYmd != expenseDate) {
+              await db.update(
+                'expense_entries',
+                {'expense_date': effectiveYmd},
+                where: 'id = ?',
+                whereArgs: [id],
+              );
+            }
+          }
+        } catch (_) {
+          // 파싱 에러 무시
+        }
+      }
+    } catch (e) {
+      debugPrint('Expense migration error: $e');
+    }
+  }
+
 
   /// `drive_logs`에 좌표가 있는 일지를 `call_points`(type=log)와 동기화합니다.
   /// 백업 복원·스키마 복구 시 사용합니다.
@@ -995,4 +1030,37 @@ class DriveLogDatabase {
     final db = await database;
     return await db.delete('local_notices');
   }
-}
+
+  // ── Work Sessions (근무 시간) ──────────────────────────────────
+  Future<Map<String, dynamic>?> getWorkSessionForWorkDate(String ymd) async {
+    if (kIsWeb) return null;
+    final db = await database;
+    final r = await db.query(
+      'daily_work_sessions',
+      where: 'work_date = ?',
+      whereArgs: [ymd],
+      limit: 1,
+    );
+    return r.isNotEmpty ? r.first : null;
+  }
+
+  Future<int> getTotalWorkSecondsForWorkDateRange(String startYmd, String endYmd) async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COALESCE(SUM(total_seconds), 0) as s FROM daily_work_sessions WHERE work_date >= ? AND work_date <= ?',
+      [startYmd, endYmd],
+    );
+    return (r.first['s'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<int> getTotalWorkSecondsForWorkMonth(String yearMonth) async {
+    if (kIsWeb) return 0;
+    final db = await database;
+    final r = await db.rawQuery(
+      'SELECT COALESCE(SUM(total_seconds), 0) as s FROM daily_work_sessions WHERE work_date LIKE ?',
+      ['$yearMonth-%'],
+    );
+    return (r.first['s'] as num?)?.toInt() ?? 0;
+  }
+}

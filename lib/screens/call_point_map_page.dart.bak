@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
-    if (dart.library.html) '../utils/maps_web_stub.dart';
+    if (dart.library.html) '../utils/maps_web_stub.dart' hide Cluster, ClusterManager;
+import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart'
+    if (dart.library.html) '../utils/cluster_manager_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -17,14 +19,17 @@ import '../services/google_sheets_share_service.dart';
 import '../utils/call_map_placemark_title.dart';
 import '../utils/marker_utils.dart';
 
-import '../services/settings_service.dart';
-
-class CallPointData {
+class CallPointData with ClusterItem {
   final Map<String, dynamic> data;
   final LatLng position;
 
   CallPointData({required this.data, required this.position});
+
+  @override
+  LatLng get location => position;
 }
+
+enum MapFilterMode { all, radar, reference }
 
 class CallPointMapPage extends StatefulWidget {
   const CallPointMapPage({super.key});
@@ -34,6 +39,7 @@ class CallPointMapPage extends StatefulWidget {
 }
 
 class _CallPointMapPageState extends State<CallPointMapPage> {
+  late ClusterManager _manager;
   final Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = {};
   Position? _currentPosition;
@@ -42,7 +48,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   String _areaTitle = '';
   String _areaSubline = '';
 
-  List<String> _visibleTypes = [];
+  MapFilterMode _currentMode = MapFilterMode.all;
   List<CallPointData> _allPoints = [];
 
   // 캐싱된 마커 비트맵
@@ -59,8 +65,25 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   @override
   void initState() {
     super.initState();
-    _visibleTypes = SettingsService.mapVisibleTypes;
+    _manager = _initClusterManager();
     _initMap();
+  }
+
+  ClusterManager _initClusterManager() {
+    return ClusterManager<CallPointData>(
+      [],
+      _updateMarkers,
+      markerBuilder: _markerBuilder,
+      stopClusteringZoom: 13.5,
+    );
+  }
+
+  void _updateMarkers(Set<Marker> markers) {
+    if (mounted) {
+      setState(() {
+        _markers = markers;
+      });
+    }
   }
 
   Future<void> _precacheIcons() async {
@@ -188,107 +211,37 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           _localDetailZoom,
         ),
       );
+      _manager.updateMap();
     } catch (e) {
       debugPrint('현재 위치 카메라 이동 오류: $e');
     }
   }
 
   void _applyFilter() {
-    final List<CallPointData> filtered = _allPoints.where((p) {
-      final type = p.data['type'];
-      final isMine = p.data['is_mine'] == 1;
-      
-      if (type == 'log' && isMine) return _visibleTypes.contains('log_mine');
-      if (type == 'log' && !isMine) return _visibleTypes.contains('log_other');
-      if (type == 'shared') return _visibleTypes.contains('shared');
-      if (type == 'reference') return _visibleTypes.contains('reference');
-      if (type == 'restroom') return _visibleTypes.contains('restroom');
-      if (type == 'shuttle') return _visibleTypes.contains('shuttle');
-      return false;
-    }).toList();
-    
-    final newMarkers = <Marker>{};
-    final locationCounts = <String, int>{};
-    
-    int index = 0;
-    for (final point in filtered) {
-      final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
-      final overlapCount = locationCounts[locKey] ?? 0;
-      locationCounts[locKey] = overlapCount + 1;
-      
-      double jitterLat = point.position.latitude;
-      double jitterLng = point.position.longitude;
-      
-      // 완전히 같은 위치에 있는 마커들이 서로를 가리지 않도록 약간 분산 (jitter)
-      if (overlapCount > 0) {
-        // overlapCount에 따라 대각선으로 약 1.5~2미터 간격 벌림
-        jitterLat += (overlapCount * 0.000015);
-        jitterLng += (overlapCount * 0.000015);
-      }
-      
-      final adjustedPosition = LatLng(jitterLat, jitterLng);
-      newMarkers.add(_buildMarker(point, adjustedPosition, index));
-      index++;
+    final List<CallPointData> filtered;
+    switch (_currentMode) {
+      case MapFilterMode.all:
+        filtered = List<CallPointData>.from(_allPoints);
+        break;
+      case MapFilterMode.radar:
+        filtered = _allPoints.where((p) => p.data['type'] == 'log' || p.data['type'] == 'shared').toList();
+        break;
+      case MapFilterMode.reference:
+        filtered = _allPoints.where((p) => p.data['type'] == 'reference' || p.data['type'] == 'restroom' || p.data['type'] == 'shuttle').toList();
+        break;
     }
-    
-    if (mounted) {
-      setState(() {
-        _markers = newMarkers;
-      });
-    }
+    _manager.setItems(filtered);
   }
 
-  void _showFilterBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Widget _buildCheckbox(String key, String title, Color color) {
-              final isSelected = _visibleTypes.contains(key);
-              return CheckboxListTile(
-                title: Text(title, style: const TextStyle(fontSize: 15)),
-                activeColor: color,
-                value: isSelected,
-                onChanged: (bool? value) async {
-                  if (value == true) {
-                    _visibleTypes.add(key);
-                  } else {
-                    _visibleTypes.remove(key);
-                  }
-                  await SettingsService.setMapVisibleTypes(_visibleTypes);
-                  setModalState(() {});
-                  _applyFilter();
-                },
-              );
-            }
-
-            return SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                      child: Text('지도 마커 표시 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    ),
-                    const Divider(),
-                    _buildCheckbox('log_mine', '내 일지 기록', const Color(0xFFEC4899)),
-                    _buildCheckbox('shared', '주변 공유/타인 일지', const Color(0xFF3B82F6)),
-                    _buildCheckbox('reference', '대기/콜포인트', const Color(0xFFFBBF24)),
-                    _buildCheckbox('restroom', '화장실', Colors.grey),
-                    _buildCheckbox('shuttle', '셔틀', Colors.grey),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+  void _onFilterTap(MapFilterMode mode) {
+    setState(() {
+      if (_currentMode == mode) {
+        _currentMode = MapFilterMode.all;
+      } else {
+        _currentMode = mode;
+      }
+    });
+    _applyFilter();
   }
 
   /// 운행시간 기준 낮(09~18) / 밤(18~09) — 일지 말풍선 제목 좌측.
@@ -314,7 +267,20 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return startLoc;
   }
 
-
+  /// 마커 탭 시 Google Maps 기본 말풍선(마커 바로 아래).
+  InfoWindow _infoWindowForCluster(Cluster<CallPointData> cluster) {
+    if (!cluster.isMultiple) {
+      return _infoWindowForPoint(cluster.items.first);
+    }
+    final first = cluster.items.first;
+    final base = _infoWindowForPoint(first);
+    final extra = cluster.count - 1;
+    if (extra <= 0) return base;
+    return InfoWindow(
+      title: base.title,
+      snippet: '${base.snippet ?? ''} · 외 $extra건',
+    );
+  }
 
   InfoWindow _infoWindowForPoint(CallPointData point) {
     final data = point.data;
@@ -362,30 +328,39 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
-  Future<void> _onMarkerTap(CallPointData point) async {
+  Future<void> _onMarkerTap(Cluster<CallPointData> cluster) async {
     if (!_controller.isCompleted) return;
     try {
       final controller = await _controller.future;
-      await controller.showMarkerInfoWindow(MarkerId(point.data['id'].toString()));
+      if (cluster.isMultiple) {
+        final zoom = await controller.getZoomLevel();
+        await controller.animateCamera(
+          CameraUpdate.newLatLngZoom(
+            cluster.location,
+            (zoom + 1.5).clamp(_localDetailZoom, 20.0),
+          ),
+        );
+        _manager.updateMap();
+        return;
+      }
+      await controller.showMarkerInfoWindow(MarkerId(cluster.getId()));
     } catch (e) {
       debugPrint('마커 InfoWindow 표시 오류: $e');
     }
   }
 
-  Marker _buildMarker(CallPointData point, LatLng position, int index) {
-    final infoWindow = _infoWindowForPoint(point);
-    // index를 포함하여 MarkerId 중복을 원천 차단
-    final markerId = MarkerId('${point.data['id']}_$index');
-    final data = point.data;
+  Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
+    final infoWindow = _infoWindowForCluster(cluster);
+    final markerId = MarkerId(cluster.getId());
+
+    // 클러스터 여부 상관없이 첫 번째 마커의 데이터로 아이콘 렌더링 (줌아웃 시 겹쳐서 단일 마커로 보이게 함)
+    final data = cluster.items.first.data;
     BitmapDescriptor icon;
-    double zIndex = 0.0;
-    
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
         // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
         if (data['is_mine'] == 1) {
           icon = _logIconMine!;
-          zIndex = 5.0; // 내 위치 우선순위
         } else {
           icon = _logIconOther!;
         }
@@ -394,21 +369,18 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       }
     } else if (data['type'] == 'restroom') {
       icon = _restroomIcon!;
-      zIndex = 10.0; // 화장실 최우선 노출
     } else if (data['type'] == 'shuttle') {
       icon = _shuttleIcon!;
-      zIndex = 10.0; // 셔틀 최우선 노출
     } else {
       icon = _refIcon!;
     }
 
     return Marker(
       markerId: markerId,
-      position: position,
+      position: cluster.location,
       infoWindow: infoWindow,
-      onTap: () => _onMarkerTap(point),
+      onTap: () => _onMarkerTap(cluster),
       icon: icon,
-      zIndex: zIndex,
     );
   }
 
@@ -514,11 +486,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.layers, color: Theme.of(context).primaryColor),
-            tooltip: '마커 표시 설정',
-            onPressed: _showFilterBottomSheet,
-          ),
-          IconButton(
             icon: Icon(Icons.sync, color: Theme.of(context).primaryColor),
             tooltip: '주변콜맵 업데이트',
             onPressed: () async {
@@ -533,22 +500,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
                 );
                 return;
               }
-
-              // 확인 팝업
-              if (!mounted) return;
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('주변콜맵 업데이트'),
-                  content: const Text('주변 콜맵 데이터를 서버에서 새로 불러오시겠습니까?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('확인')),
-                  ],
-                ),
-              );
-
-              if (confirm != true) return;
 
               // 로딩 표시
               if (!mounted) return;
@@ -587,6 +538,40 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     );
   }
 
+  Widget _buildFilterTabs() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _tabButton('콜레이더', MapFilterMode.radar),
+        _tabButton('콜포인트', MapFilterMode.reference),
+        SizedBox(width: 8),
+      ],
+    );
+  }
+
+  Widget _tabButton(String text, MapFilterMode mode) {
+    final isSelected = _currentMode == mode;
+    return GestureDetector(
+      onTap: () => _onFilterTap(mode),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? Theme.of(context).primaryColor : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Theme.of(context).primaryColor),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: isSelected ? Colors.black : Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildMap() {
     if (kIsWeb) {
@@ -621,8 +606,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
               if (!_controller.isCompleted) {
                 _controller.complete(controller);
               }
+              await _manager.setMapId(controller.mapId);
               await _focusOnCurrentLocation();
             },
+            onCameraMove: _manager.onCameraMove,
+            onCameraIdle: _manager.updateMap,
             markers: _markers,
             myLocationEnabled: _permissionGranted,
             myLocationButtonEnabled: _permissionGranted,
@@ -637,6 +625,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Widget _buildLegend() {
+    if (_currentMode == MapFilterMode.reference) return const SizedBox.shrink();
+
     return Positioned(
       top: 16,
       left: 16,
@@ -651,21 +641,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_visibleTypes.contains('log_mine'))
-              _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.black, dy: 0.5),
-            if (_visibleTypes.contains('shared')) ...[
-              SizedBox(height: 4),
-              _legendItem(const Color(0xFF3B82F6), '공유/타인좌표', '@', borderColor: Colors.black, dy: 0.5),
-            ],
-            if (_visibleTypes.contains('reference')) ...[
+            _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.black, dy: 0.5),
+            SizedBox(height: 4),
+            _legendItem(const Color(0xFF3B82F6), '공유좌표', '@', borderColor: Colors.black, dy: 0.5),
+            if (_currentMode == MapFilterMode.all) ...[
               SizedBox(height: 4),
               _legendItem(const Color(0xFFFBBF24), '콜포인트', '★', borderColor: Colors.black, textScale: 1.3, dy: -1.0),
-            ],
-            if (_visibleTypes.contains('restroom')) ...[
               SizedBox(height: 4),
               _legendItem(Colors.white, '화장실', '🚻', textColor: Colors.black87, borderColor: Colors.black),
-            ],
-            if (_visibleTypes.contains('shuttle')) ...[
               SizedBox(height: 4),
               _legendItem(Colors.white, '셔틀', '🚌', textColor: Colors.black87, borderColor: Colors.black),
             ],

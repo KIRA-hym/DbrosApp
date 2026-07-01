@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../utils/formatters.dart';
 import '../utils/responsive_layout.dart';
+import '../utils/work_date_utils.dart';
 import '../widgets/responsive_body.dart';
 
 import '../expense_nav_bus.dart';
@@ -57,7 +58,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
     if (widget.existing != null) {
       final e = widget.existing!;
       _entryId = (e['id'] as num?)?.toInt();
-      _dateYmd = e['expense_date']?.toString() ?? DateFormat('yyyy-MM-dd').format(now);
+      _dateYmd = e['expense_date']?.toString() ?? WorkDateUtils.effectiveWorkDateYmd(now);
       try {
         final w = DateTime.parse(e['written_at']?.toString() ?? '');
         _timeHm = DateFormat('HH:mm').format(w);
@@ -76,7 +77,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
           _dateYmd = pending;
           ExpenseWritePage.pendingExpenseDateNotifier.value = null;
         } else {
-          _dateYmd = DateFormat('yyyy-MM-dd').format(now);
+          _dateYmd = WorkDateUtils.effectiveWorkDateYmd(now);
         }
       }
       _timeHm = DateFormat('HH:mm').format(now);
@@ -221,7 +222,7 @@ class _ExpenseWritePageState extends State<ExpenseWritePage> {
     final now = DateTime.now();
     setState(() {
       _entryId = null;
-      _dateYmd = DateFormat('yyyy-MM-dd').format(now);
+      _dateYmd = WorkDateUtils.effectiveWorkDateYmd(now);
       _timeHm = DateFormat('HH:mm').format(now);
       _amountCon.clear();
       _memoCon.clear();
