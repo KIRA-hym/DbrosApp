@@ -22,6 +22,10 @@ import '../constants/app_colors.dart';
 import '../utils/responsive_layout.dart';
 import '../utils/marker_utils.dart';
 import '../widgets/responsive_body.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:provider/provider.dart';
+import '../providers/guide_provider.dart';
+import '../widgets/guide_content_widget.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -90,6 +94,13 @@ class _StatsPageState extends State<StatsPage> {
   bool _isBarChart = true;
   DateTime _selectedDate = DateTime.now();
 
+  // Guide Keys
+  final GlobalKey _keyPeriodSection = GlobalKey();
+  final GlobalKey _keySummarySection = GlobalKey();
+  final GlobalKey _keyExpenseIncomeCard = GlobalKey();
+  final GlobalKey _keyWorkCountCard = GlobalKey();
+  final GlobalKey _keyChartSection = GlobalKey();
+
   String _formatCurrencyK(int value) {
     if (value == 0) return '0';
     if (value % 1000 == 0) {
@@ -107,6 +118,22 @@ class _StatsPageState extends State<StatsPage> {
   void initState() {
     super.initState();
     _loadStats();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+      guideProvider.addListener(_onGuideRequested);
+      if (guideProvider.pendingGuideTarget == 'stats') {
+        _startGuideWhenReady();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.removeListener(_onGuideRequested);
+    super.dispose();
   }
 
   Future<void> _loadStats() async {
@@ -1103,6 +1130,159 @@ class _StatsPageState extends State<StatsPage> {
     }
   }
 
+  void _onGuideRequested() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    if (guideProvider.pendingGuideTarget == 'stats') {
+      _startGuideWhenReady();
+    }
+  }
+
+  void _startGuideWhenReady() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    _showStatsGuide();
+  }
+
+  void _showStatsGuide() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.clearGuide();
+
+    List<TargetFocus> targets = [];
+
+    if (_keyPeriodSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "stats_period",
+          keyTarget: _keyPeriodSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "기간별 통계 확인",
+                  description: "원하는 기간을 선택하여 나의 운행 통계를 간편하게 확인할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keySummarySection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "stats_summary",
+          keyTarget: _keySummarySection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "핵심 통계 요약",
+                  description: "선택한 기간 동안의 총 순이익과 수입, 지출 내역 및 전체 운행 건수를 한눈에 파악하세요.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyExpenseIncomeCard.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "stats_expense_income",
+          keyTarget: _keyExpenseIncomeCard,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "상세 내역 팝업",
+                  description: "이 카드를 터치하면 어떤 항목으로 지출이 발생했는지, 경유비 등 추가 수익은 얼마인지 상세 내역을 팝업으로 볼 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyWorkCountCard.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "stats_work_count",
+          keyTarget: _keyWorkCountCard,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "운행 요약 리포트",
+                  description: "건수 카드를 터치해 보세요! 해당 기간 동안의 일자별 운행 요약 리포트를 간략하게 확인할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyChartSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "stats_chart",
+          keyTarget: _keyChartSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "시각적인 수익 분석",
+                  description: "프로그램별, 요일별 수익 분포를 차트로 파악하여 나의 수입 패턴을 분석해 보세요!",
+                  controller: controller,
+                  isLast: true,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "건너뛰기",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      beforeFocus: (target) async {
+        if (target.keyTarget?.currentContext != null) {
+          try {
+            await Scrollable.ensureVisible(
+              target.keyTarget!.currentContext!,
+              duration: const Duration(milliseconds: 300),
+              alignment: 0.5,
+            );
+            await Future.delayed(const Duration(milliseconds: 100));
+          } catch (e) {
+            // ignore
+          }
+        }
+      },
+    ).show(context: context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isExpanded = ResponsiveLayout.isFoldOrTablet(context);
@@ -1199,8 +1379,10 @@ class _StatsPageState extends State<StatsPage> {
                                 ),
                                 SizedBox(height: cardGap),
                                 Expanded(
-                                  child: Row(
-                                    crossAxisAlignment:
+                                  child: Container(
+                                    key: _keyChartSection,
+                                    child: Row(
+                                      crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
                                       Expanded(
@@ -1223,6 +1405,7 @@ class _StatsPageState extends State<StatsPage> {
                                         ),
                                       ),
                                     ],
+                                  ),
                                   ),
                                 ),
                               ],
@@ -1259,8 +1442,10 @@ class _StatsPageState extends State<StatsPage> {
                           SizedBox(height: compact ? 12 : 12),
                           Expanded(
                             flex: chartsFlex,
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                            child: Container(
+                              key: _keyChartSection,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Expanded(
                                   child: _buildChartPanel(
@@ -1282,6 +1467,7 @@ class _StatsPageState extends State<StatsPage> {
                                   ),
                                 ),
                               ],
+                            ),
                             ),
                           ),
                         ],
@@ -1309,7 +1495,8 @@ class _StatsPageState extends State<StatsPage> {
 
   /// 펼침: 지표 4개 가로 1열.
   Widget _statCardsInRow(List<Widget> cards, double gap, double rowHeight) {
-    return SizedBox(
+    return Container(
+      key: _keySummarySection,
       height: rowHeight,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1325,7 +1512,9 @@ class _StatsPageState extends State<StatsPage> {
 
   /// 접힘·일반: 지표 2×2 — 부모 [Expanded] 높이에 맞춰 셀 크기 자동 분배.
   Widget _statCardsTwoByTwo(List<Widget> cards, double gap) {
-    return Column(
+    return Container(
+      key: _keySummarySection,
+      child: Column(
       children: [
         Expanded(
           child: Row(
@@ -1349,6 +1538,7 @@ class _StatsPageState extends State<StatsPage> {
           ),
         ),
       ],
+      ),
     );
   }
 
@@ -1373,9 +1563,11 @@ class _StatsPageState extends State<StatsPage> {
         valueFontSize: valueFontSize,
         icon: Icons.credit_card,
       ),
-      GestureDetector(
-        onTap: _showExpenseIncomeDetailPopup,
-        child: _statMetricCard(
+      Container(
+        key: _keyExpenseIncomeCard,
+        child: GestureDetector(
+          onTap: _showExpenseIncomeDetailPopup,
+          child: _statMetricCard(
           title: '지출/수익',
           valueBuilder: _expenseExtraIncomeRich,
           titleFontSize: titleFontSize,
@@ -1383,9 +1575,12 @@ class _StatsPageState extends State<StatsPage> {
           icon: Icons.money_off,
         ),
       ),
-      GestureDetector(
-        onTap: _showQuickSummaryPopup,
-        child: _selectedPeriod != '일간'
+      ),
+      Container(
+        key: _keyWorkCountCard,
+        child: GestureDetector(
+          onTap: _showQuickSummaryPopup,
+          child: _selectedPeriod != '일간'
             ? _statMetricCard(
                 title: '근무·운행 건수',
                 value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
@@ -1402,6 +1597,7 @@ class _StatsPageState extends State<StatsPage> {
                 valueFontSize: valueFontSize,
                 icon: Icons.local_taxi,
               ),
+      ),
       ),
     ];
   }
@@ -1444,9 +1640,11 @@ class _StatsPageState extends State<StatsPage> {
         : (wrapAlignment == WrapAlignment.start
               ? Alignment.centerLeft
               : Alignment.centerRight);
-    return Align(
-      alignment: align,
-      child: Wrap(
+    return Container(
+      key: _keyPeriodSection,
+      child: Align(
+        alignment: align,
+        child: Wrap(
         spacing: compact ? 6 : 10,
         runSpacing: compact ? 6 : 10,
         alignment: wrapAlignment,
@@ -1482,6 +1680,7 @@ class _StatsPageState extends State<StatsPage> {
             ),
           );
         }).toList(),
+      ),
       ),
     );
   }

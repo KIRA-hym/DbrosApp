@@ -42,6 +42,7 @@ import 'utils/work_date_utils.dart';
 import 'utils/pro_feature_guard.dart';
 import 'services/shorebird_update_service.dart';
 import 'theme/app_theme.dart';
+import 'providers/guide_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -119,6 +120,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => TodayStatsProvider.instance..refresh()),
         ChangeNotifierProvider(create: (_) => AuthService.instance),
         ChangeNotifierProvider(create: (_) => WorkTimerProvider()),
+        ChangeNotifierProvider(create: (_) => GuideProvider.instance),
       ],
       child: const DbrosApp(),
     ),

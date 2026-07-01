@@ -21,6 +21,10 @@ import '../utils/work_date_utils.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
+import 'package:provider/provider.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import '../providers/guide_provider.dart';
+import '../widgets/guide_content_widget.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -62,6 +66,12 @@ class _LogListPageState extends State<LogListPage> {
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _todayKey = GlobalKey();
+  
+  final GlobalKey _keyMonthHeader = GlobalKey();
+  final GlobalKey _keyShareButton = GlobalKey();
+  final GlobalKey _keyDailyList = GlobalKey();
+  final GlobalKey _keyMonthlySummary = GlobalKey();
+
   final ScreenshotController _monthShareScreenshotController = ScreenshotController();
   String? _masterDetailDate;
   /// 마스터-디테일 우측 패널 강제 갱신(하루 삭제·월 데이터 reload 등).
@@ -311,10 +321,132 @@ class _LogListPageState extends State<LogListPage> {
   void initState() {
     super.initState();
     _loadMonthData();
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+      guideProvider.addListener(_onGuideRequested);
+      if (guideProvider.pendingGuideTarget == 'list') {
+        _startGuideWhenReady();
+      }
+    });
+  }
+
+  void _startGuideWhenReady() async {
+    while (_isLoading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    _showListGuide();
+  }
+
+  void _onGuideRequested() {
+    if (!mounted) return;
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    if (guideProvider.pendingGuideTarget == 'list') {
+      _startGuideWhenReady();
+    }
+  }
+
+  void _showListGuide() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.clearGuide();
+
+    final targets = <TargetFocus>[
+      TargetFocus(
+        identify: "monthHeader",
+        keyTarget: _keyMonthHeader,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "월간 일지 이동",
+                description: "좌우 화살표를 눌러 이전/다음 달의 운행 기록을 확인할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "shareList",
+        keyTarget: _keyShareButton,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "월간 기록 공유",
+                description: "현재 보고 있는 월간 운행 내역 전체를 이미지로 캡처해서 카카오톡 등으로 공유할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    targets.add(
+      TargetFocus(
+        identify: "dailyList",
+        keyTarget: _keyDailyList,
+        shape: ShapeLightFocus.RRect,
+        radius: 8.0,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "상세 진입 및 스와이프 삭제",
+                description: "날짜를 터치하면 해당 일자의 상세 내역을 볼 수 있고, 항목을 왼쪽으로 스와이프하면 그 날의 기록을 모두 삭제할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    targets.add(
+      TargetFocus(
+        identify: "monthlySummary",
+        keyTarget: _keyMonthlySummary,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "월간 수입/지출 요약",
+                description: "한 달 동안의 총 운행 건수와 수입, 지출, 순수익을 한눈에 파악하세요!",
+                controller: controller,
+                isLast: true,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "건너뛰기",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+    ).show(context: context);
   }
 
   @override
   void dispose() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.removeListener(_onGuideRequested);
     _scrollController.dispose();
     super.dispose();
   }
@@ -357,6 +489,11 @@ class _LogListPageState extends State<LogListPage> {
       _isLoading = false;
       _syncMasterDetailDateInState();
       _detailRevision++;
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // Removed duplicate guide trigger
     });
 
     _scrollToToday();
@@ -434,6 +571,7 @@ class _LogListPageState extends State<LogListPage> {
         actions: [
           if (!_isLoading)
             TextButton(
+              key: _keyShareButton,
               onPressed: _shareMonthListAsImage,
               child: Text(
                 '공유',
@@ -457,12 +595,26 @@ class _LogListPageState extends State<LogListPage> {
                       color: Theme.of(context).scaffoldBackgroundColor,
                       child: _isLoading
                           ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                          : Opacity(
-                              opacity: _isScrolled ? 1.0 : 0.0,
-                              child: _buildDailyList(
-                                selectedDate: _masterDetailDate,
-                                masterDetailMode: false,
-                              ),
+                          : Stack(
+                              children: [
+                                Opacity(
+                                  opacity: _isScrolled ? 1.0 : 0.0,
+                                  child: _buildDailyList(
+                                    selectedDate: _masterDetailDate,
+                                    masterDetailMode: false,
+                                  ),
+                                ),
+                                if (_groupedLogs.isNotEmpty)
+                                  Positioned(
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    height: 70,
+                                    child: IgnorePointer(
+                                      child: Container(key: _keyDailyList),
+                                    ),
+                                  ),
+                              ],
                             ),
                     ),
                   ),
@@ -492,10 +644,24 @@ class _LogListPageState extends State<LogListPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
-                              child: _buildDailyList(
-                                masterDetailMode: true,
-                                selectedDate: selected,
-                                onSelectDate: (d) => setState(() => _masterDetailDate = d),
+                              child: Stack(
+                                children: [
+                                  _buildDailyList(
+                                    masterDetailMode: true,
+                                    selectedDate: selected,
+                                    onSelectDate: (d) => setState(() => _masterDetailDate = d),
+                                  ),
+                                  if (_groupedLogs.isNotEmpty)
+                                    Positioned(
+                                      top: 0,
+                                      left: 0,
+                                      right: 0,
+                                      height: 70, // 대략적인 리스트 아이템 높이
+                                      child: IgnorePointer(
+                                        child: Container(key: _keyDailyList),
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                             _buildMasterDetailMonthlySummary(compact: true),
@@ -544,6 +710,7 @@ class _LogListPageState extends State<LogListPage> {
     final iconSize = isTablet ? 28.0 : 24.0;
 
     return Container(
+      key: _keyMonthHeader,
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color!,
         border: Border(
@@ -646,7 +813,6 @@ class _LogListPageState extends State<LogListPage> {
             final isSelected = selectedDate == dateStr;
 
             return Container(
-              key: isToday ? _todayKey : null,
               decoration: BoxDecoration(
                 color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
                 border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
@@ -685,7 +851,6 @@ class _LogListPageState extends State<LogListPage> {
           final innerSpacing = isTablet ? 6.0 : 4.0;
           final isSelected = selectedDate == dateStr;
                  return Container(
-            key: isToday ? _todayKey : null,
             decoration: BoxDecoration(
               color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
               border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
@@ -871,6 +1036,7 @@ class _LogListPageState extends State<LogListPage> {
     final itemSpacing = isTablet ? 20.0 : 16.0;
 
     return Container(
+      key: _keyMonthlySummary,
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
       color: Theme.of(context).cardTheme.color!,
       child: SafeArea(
@@ -1369,6 +1535,11 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   bool _poppingForExpandedLayout = false;
   final ScreenshotController _shareScreenshotController = ScreenshotController();
 
+  final GlobalKey _keyDailyDateNav = GlobalKey();
+  final GlobalKey _keyDailyMapBtn = GlobalKey();
+  final GlobalKey _keyDailyItem = GlobalKey();
+  final GlobalKey _keyDailyShareBtn = GlobalKey();
+
   int _totalCount = 0;
   int _totalIncomeSum = 0;
   int _totalNetProfitSum = 0;
@@ -1397,6 +1568,139 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         showDbrosSnackBar(context, msg);
       });
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+      guideProvider.addListener(_onGuideRequested);
+      if (guideProvider.pendingGuideTarget == 'detail') {
+        _startGuideWhenReady();
+      }
+    });
+  }
+
+  void _startGuideWhenReady() async {
+    while (_isLoading) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    _showDetailGuide();
+  }
+
+  void _onGuideRequested() {
+    if (!mounted) return;
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    if (guideProvider.pendingGuideTarget == 'detail') {
+      _startGuideWhenReady();
+    }
+  }
+
+  void _showDetailGuide() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.clearGuide();
+
+    final targets = <TargetFocus>[
+      TargetFocus(
+        identify: "dailyDateNav",
+        keyTarget: _keyDailyDateNav,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "다른 날짜 보기",
+                description: "상단의 화살표를 눌러 이전 날짜나 다음 날짜의 운행 일지로 바로 이동할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    final showMapBtn = kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null);
+    if (kMapFeaturesEnabled) {
+      targets.add(
+        TargetFocus(
+          identify: "dailyMapBtn",
+          keyTarget: _keyDailyMapBtn,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "일일 동선 맵",
+                  description: "지도 아이콘을 누르면 그날 하루 동안 이동한 전체 경로를 지도에서 한눈에 볼 수 있어요! (GPS 데이터가 없으면 비활성화됩니다)",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    targets.add(
+      TargetFocus(
+        identify: "dailyItem",
+        keyTarget: _keyDailyItem,
+        shape: ShapeLightFocus.RRect,
+        radius: 8.0,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "일지 수정 및 삭제",
+                description: "개별 항목을 터치해 수정하거나, 왼쪽으로 스와이프해서 불필요한 일지를 개별 삭제할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    targets.add(
+      TargetFocus(
+        identify: "dailyShareBtn",
+        keyTarget: _keyDailyShareBtn,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "하루 기록 공유",
+                description: "하루 동안의 운행 내역과 수입/지출 합계를 캡처하여 다른 사람에게 공유할 수 있어요.",
+                controller: controller,
+                isLast: true,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "건너뛰기",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+    ).show(context: context);
+  }
+
+  @override
+  void dispose() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.removeListener(_onGuideRequested);
+    super.dispose();
   }
 
   @override
@@ -1452,6 +1756,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          // Removed duplicate guide trigger
+        });
       }
     }
   }
@@ -1569,22 +1877,27 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final compact = widget.embedded; // true=펼친화면(embedded), false=접힌화면(단독)
     final padding = compact ? 6.0 : (isTablet ? 12.0 : 8.0);
     final hPad = compact ? 8.0 : (isTablet ? 12.0 : 8.0);
+    final hasCoordinates = _dailyLogs.any((log) => log['start_lat'] != null);
     
-    final showMapBtn = kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null);
-    
-    // 펼친화면(embedded): 좌측에 지도버튼 슬롯 / 우측에 [+입력] 슬롯
-    // 접힌화면(단독):     좌측 슬롯 없음 / 우측에 지도버튼(맨 끝)
-    final leftSlot  = compact ? (showMapBtn ? 36.0 : 0.0) : 0.0;
-    final rightSlot = compact ? 96.0 : (showMapBtn ? 36.0 : 0.0);
+    // 가이드 타겟을 위해 지도 버튼 영역은 항상 확보 (좌표가 없으면 비활성화 상태로 표시)
+    final leftSlot  = compact ? (kMapFeaturesEnabled ? 36.0 : 0.0) : 0.0;
+    final rightSlot = compact ? 96.0 : (kMapFeaturesEnabled ? 36.0 : 0.0);
     
     final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
         ?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white));
         
     final mapBtn = InkWell(
-      onTap: _openDailyRouteMap,
+      key: _keyDailyMapBtn,
+      onTap: hasCoordinates ? _openDailyRouteMap : () {
+        showDbrosSnackBar(context, '저장된 GPS 좌표가 없어 지도를 표시할 수 없습니다.');
+      },
       child: Padding(
         padding: EdgeInsets.all(4.0),
-        child: Icon(Icons.map, color: Color(0xFF4FC3F7), size: 18),
+        child: Icon(
+          Icons.map, 
+          color: hasCoordinates ? Color(0xFF4FC3F7) : Colors.grey.withOpacity(0.5), 
+          size: 18
+        ),
       ),
     );
 
@@ -1597,11 +1910,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           // 좌측 슬롯: 펼친화면에서만 지도버튼 노출
           SizedBox(
             width: leftSlot,
-            child: compact && showMapBtn
+            child: compact && kMapFeaturesEnabled
                 ? Align(alignment: Alignment.centerLeft, child: mapBtn)
                 : const SizedBox.shrink(),
           ),
           Expanded(
+            key: _keyDailyDateNav,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
@@ -1649,7 +1963,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                         style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     )
-                  : (showMapBtn ? mapBtn : const SizedBox.shrink()),
+                  : (kMapFeaturesEnabled ? mapBtn : const SizedBox.shrink()),
             ),
           ),
         ],
@@ -1685,13 +1999,26 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
               : ColoredBox(
                   color: Theme.of(context).scaffoldBackgroundColor,
-                  child: Column(
+                  child: Stack(
                     children: [
-                      Expanded(child: _buildLogsBody()),
-                      if (widget.embedded)
-                        _buildEmbeddedDailySummaryFooter()
-                      else
-                        _buildDailySummaryFooter(),
+                      Column(
+                        children: [
+                          Expanded(child: _buildLogsBody()),
+                          if (widget.embedded)
+                            _buildEmbeddedDailySummaryFooter()
+                          else
+                            _buildDailySummaryFooter(),
+                        ],
+                      ),
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 80, // 대략적인 리스트 상세 아이템 높이
+                        child: IgnorePointer(
+                          child: Container(key: _keyDailyItem),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1761,6 +2088,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         actions: [
           if (!_isLoading)
             TextButton(
+              key: _keyDailyShareBtn,
               onPressed: _shareDetailAsImage,
               child: Text(
                 '공유',
@@ -2006,56 +2334,58 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         final String time = log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
         final lay = _DailyDetailShareLayout.fromWidth(MediaQuery.sizeOf(context).width);
 
-        return Dismissible(
-          key: Key(log['id'].toString()),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: EdgeInsets.only(right: lay.rowHorizontalPadding),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: lay.isTablet ? 26 : 24),
-                SizedBox(height: 4),
-                Text("삭제", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: lay.isTablet ? 13 : 12)),
-              ],
-            ),
-          ),
-          confirmDismiss: (direction) async {
-            return await AppGlassDialog.show<bool>(
-              context: context,
-              dialog: AppGlassDialog(
-                icon: Icons.delete_outline,
-                title: '운행일지 삭제',
-                content: '이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}',
-                actions: [
-                  Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
-                  Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
+        return Container(
+          child: Dismissible(
+            key: Key(log['id'].toString()),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              color: Colors.red,
+              alignment: Alignment.centerRight,
+              padding: EdgeInsets.only(right: lay.rowHorizontalPadding),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: lay.isTablet ? 26 : 24),
+                  SizedBox(height: 4),
+                  Text("삭제", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: lay.isTablet ? 13 : 12)),
                 ],
               ),
-            );
-          },
-          onDismissed: (direction) async {
-            await DriveLogDatabase.instance.deleteLog(log['id']);
-            _loadData();
-            widget.onLogsChanged?.call();
-
-            if (!mounted) return;
-            showDbrosSnackBar(
-              context,
-              "운행일지가 삭제되었습니다.",
-              backgroundColor: Colors.red,
-            );
-          },
-          child: InkWell(
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) {
-                _loadData();
-                widget.onLogsChanged?.call();
-              });
+            ),
+            confirmDismiss: (direction) async {
+              return await AppGlassDialog.show<bool>(
+                context: context,
+                dialog: AppGlassDialog(
+                  icon: Icons.delete_outline,
+                  title: '운행일지 삭제',
+                  content: '이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}',
+                  actions: [
+                    Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+                    Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
+                  ],
+                ),
+              );
             },
-            child: _buildLogTileContent(log, lay),
+            onDismissed: (direction) async {
+              await DriveLogDatabase.instance.deleteLog(log['id']);
+              _loadData();
+              widget.onLogsChanged?.call();
+
+              if (!mounted) return;
+              showDbrosSnackBar(
+                context,
+                "운행일지가 삭제되었습니다.",
+                backgroundColor: Colors.red,
+              );
+            },
+            child: InkWell(
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) {
+                  _loadData();
+                  widget.onLogsChanged?.call();
+                });
+              },
+              child: _buildLogTileContent(log, lay),
+            ),
           ),
         );
       }

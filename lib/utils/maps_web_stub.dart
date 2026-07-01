@@ -64,6 +64,7 @@ class Marker {
     this.draggable = false,
     this.onDragEnd,
     this.onTap,
+    this.zIndex = 0.0,
   });
   final MarkerId markerId;
   final LatLng position;
@@ -73,6 +74,7 @@ class Marker {
   final bool draggable;
   final void Function(LatLng)? onDragEnd;
   final VoidCallback? onTap;
+  final double zIndex;
 }
 
 class PolylineId {

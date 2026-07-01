@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
@@ -22,6 +23,7 @@ import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../main_navigation.dart';
+import '../providers/guide_provider.dart';
 import '../providers/work_timer_provider.dart'; // [자동출근] 일지 등록 시 미출근이면 자동 출근 처리
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
@@ -29,6 +31,7 @@ import '../utils/responsive_layout.dart';
 import '../utils/work_date_utils.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../widgets/bordered_section.dart';
+import '../widgets/guide_content_widget.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
@@ -144,6 +147,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   double? _endLat;
   double? _endLng;
 
+  // Guide Keys
+  final GlobalKey _keyOcrBtn = GlobalKey();
+  final GlobalKey _keyTimeSection = GlobalKey();
+  final GlobalKey _keyFinanceSection = GlobalKey();
+  final GlobalKey _keyLocationSection = GlobalKey();
+  final GlobalKey _keyMemoSection = GlobalKey();
+  final GlobalKey _keySaveBtn = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -215,6 +226,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         _runOverlayAutoCaptureFlow();
       });
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+      guideProvider.addListener(_onGuideRequested);
+      if (guideProvider.pendingGuideTarget == 'write') {
+        _startGuideWhenReady();
+      }
+    });
   }
 
   Future<void> _runOverlayAutoCaptureFlow() async {
@@ -294,6 +314,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     _workDateCon.dispose();
     _dateCon.dispose(); _timeCon.dispose(); _incomeCon.dispose(); _transportCon.dispose(); _waypointTipCon.dispose();
     _startLocCon.dispose(); _waypointCon.dispose(); _endLocCon.dispose(); _memoCon.dispose();
+    
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.removeListener(_onGuideRequested);
+    
     super.dispose();
   }
 
@@ -1161,6 +1185,184 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
+  void _onGuideRequested() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    if (guideProvider.pendingGuideTarget == 'write') {
+      _startGuideWhenReady();
+    }
+  }
+
+  void _startGuideWhenReady() async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+    _showWriteGuide();
+  }
+
+  void _showWriteGuide() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.clearGuide();
+
+    List<TargetFocus> targets = [];
+    
+    if (_keyOcrBtn.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_ocr_btn",
+          keyTarget: _keyOcrBtn,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "콜카드 이미지 자동 인식",
+                  description: "콜카드 캡처본을 첨부하면 내용이 자동으로 입력됩니다!\n\n(단, 화질이나 화면 잘림 등에 의해 간혹 잘못된 값으로 인식될 수 있으니 저장 전에 값이 정확한지 꼭 한 번 더 확인해 주세요.)",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (_keyTimeSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_time",
+          keyTarget: _keyTimeSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "일자 및 시각 변경",
+                  description: "운행 일자와 시간을 터치하여 언제든지 변경할 수 있습니다. (콜카드를 첨부하면 캡처된 시간으로 자동 셋팅됩니다.)",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyFinanceSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_finance",
+          keyTarget: _keyFinanceSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "상세 수입 및 지출",
+                  description: "총 운행 요금을 입력하면 수수료가 자동 계산됩니다. 경유 팁이나 복귀 시 사용한 이동 수단 비용도 추가할 수 있어요.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyLocationSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_location",
+          keyTarget: _keyLocationSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "운행 구간 입력",
+                  description: "출발지와 도착지를 입력하세요. 우측의 '+경유지' 버튼을 누르면 경유지도 추가로 입력할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyMemoSection.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_memo",
+          keyTarget: _keyMemoSection,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "메모 및 특이사항",
+                  description: "대리기사님이 기록하고 싶은 특이사항이나 메모를 자유롭게 남길 수 있는 공간입니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keySaveBtn.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "write_save",
+          keyTarget: _keySaveBtn,
+          color: Colors.black,
+          contents: [
+            TargetContent(
+              align: ContentAlign.bottom,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "일지 저장",
+                  description: "모든 내용을 확인한 뒤 버튼을 누르면 일지 작성이 완료됩니다!",
+                  controller: controller,
+                  isLast: true,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (targets.isEmpty) return;
+
+    TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "건너뛰기",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      beforeFocus: (target) async {
+        if (target.keyTarget?.currentContext != null) {
+          try {
+            await Scrollable.ensureVisible(
+              target.keyTarget!.currentContext!,
+              duration: const Duration(milliseconds: 300),
+              alignment: 0.5,
+            );
+            // wait a little bit for the scroll animation to finish
+            await Future.delayed(const Duration(milliseconds: 100));
+          } catch (e) {
+            // ignore if not scrollable
+          }
+        }
+      },
+    ).show(context: context);
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -1297,6 +1499,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           Padding(
             padding: EdgeInsets.only(right: isTablet ? 12.0 : 8.0),
             child: TextButton(
+              key: _keySaveBtn,
               onPressed: _saveDriveLog, 
               style: TextButton.styleFrom(
                 backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
@@ -1438,8 +1641,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Widget _buildDateTimeSection() {
-    return _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
-      if (_logId != null) ...[
+    return Container(
+      key: _keyTimeSection,
+      child: _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
+        if (_logId != null) ...[
         _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
       ],
       Row(
@@ -1449,11 +1654,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           Expanded(child: _buildInputField(_timeCon, label: "운행 시간", readOnly: true, onTap: _showTimeQuickPicker, bottomMargin: 0)),
         ],
       ),
-    ]);
+    ]));
   }
 
   Widget _buildProgramMoneySection() {
-    return _buildInputGroup(
+    return Container(
+      key: _keyFinanceSection,
+      child: _buildInputGroup(
             "프로그램 및 금액", Icons.account_balance_wallet, 
             [
               Row(
@@ -1520,6 +1727,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     ),
                   ),
                 IconButton(
+                  key: _keyOcrBtn,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints.tightFor(width: 36, height: 36),
                   icon: Icon(Icons.style, color: Color(0xFFFFC700)),
@@ -1527,11 +1735,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 ),
               ],
             ),
-          );
+          ));
   }
 
   Widget _buildRouteSection() {
-    return _buildInputGroup("운행 경로", Icons.directions, [
+    return Container(
+      key: _keyLocationSection,
+      child: _buildInputGroup("운행 경로", Icons.directions, [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1595,11 +1805,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     onPressed: _openNaverMapRoute,
                   )
                 : null,
-          );
+          ));
   }
 
   Widget _buildMemoSection() {
-    return _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3, focusNode: _memoFocusNode)]);
+    return Container(
+      key: _keyMemoSection,
+      child: _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3, focusNode: _memoFocusNode)]),
+    );
   }
 
   Widget _buildFormLayout() {
@@ -1870,8 +2083,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildOcrHelpItem("1", "상단 시간 포함 필수",
-                "캡처 이미지 상단의 상태바 시간까지 함께 캡처되어야 운행 시간이 자동으로 셋팅됩니다. (기기 시간은 24시 설정 기준)",
+            _buildOcrHelpItem("1", "운행 시간 자동 설정",
+                "캡처 이미지 파일이 생성된(캡처된) 시간을 기준으로 운행 시간이 자동으로 셋팅됩니다. (별도로 상단 상태바 시간이 찍히지 않아도 무방합니다.)",
                 Icons.access_time),
             SizedBox(height: 12),
             _buildOcrHelpItem("2", "로지 앱 캡처 범위",
@@ -1883,6 +2096,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             _buildOcrHelpItem("4", "미니 팝업/스티커 주의",
                 "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
                 Icons.warning_amber_rounded),
+            SizedBox(height: 12),
+            _buildOcrHelpItem("5", "인식 결과 확인",
+                "자동 인식은 콜카드 이미지의 문구를 읽어내어 자동 셋팅하는 방식이므로, 화면의 화질이나 폰트에 따라 간혹 잘못된 인식값이 나올 수 있습니다. 등록 전 반드시 금액과 주소가 정확한지 확인해 주세요.",
+                Icons.rule),
           ],
         ),
         actions: [

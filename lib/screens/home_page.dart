@@ -23,6 +23,7 @@ import '../widgets/bordered_section.dart';
 import '../widgets/home_daily_charts_panel.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/drive_log_source_chip.dart';
+import '../widgets/guide_content_widget.dart';
 import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
@@ -36,6 +37,8 @@ import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 import '../services/auth_service.dart';
 import '../services/apk_update_service.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import '../providers/guide_provider.dart';
 
 /// 앱 프로세스 생존 동안 공지 닫힘 상태를 유지하는 최상위 전역 변수.
 /// static 필드를 State 안에 두면 핫리스타트 등으로 초기화될 수 있으므로 파일 레벨로 분리.
@@ -61,6 +64,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   String _latestYoutubePublishedDot = '';
   bool _youtubeLoading = true;
   final GlobalKey<HomeDailyChartsPanelState> _chartsKey = GlobalKey();
+
+  final GlobalKey _keyMyInfo = GlobalKey();
+  final GlobalKey _keyWorkTimer = GlobalKey();
+  final GlobalKey _keySingleRegister = GlobalKey();
+  final GlobalKey _keyMultiRegister = GlobalKey();
+  final GlobalKey _keyWaitingFee = GlobalKey();
+  final GlobalKey _keyMap = GlobalKey();
+
+  TutorialCoachMark? _tutorialCoachMark;
 
   WeatherInfo? _weatherInfo;
 
@@ -89,8 +101,141 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         PermissionDisclosureDialog.showIfNeeded(context);
+        
+        final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+        guideProvider.addListener(_onGuideRequested);
+        if (guideProvider.pendingGuideTarget == 'home') {
+          _showHomeGuide();
+        }
       }
     });
+  }
+
+  void _onGuideRequested() {
+    if (!mounted) return;
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    if (guideProvider.pendingGuideTarget == 'home') {
+      _showHomeGuide();
+    }
+  }
+
+  void _showHomeGuide() {
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.clearGuide();
+
+    final targets = <TargetFocus>[
+      TargetFocus(
+        identify: "myInfo",
+        keyTarget: _keyMyInfo,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "내 정보",
+                description: "내 정보 확인과 앱 환경설정은 여기서 관리할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "workTimer",
+        keyTarget: _keyWorkTimer,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "출근/퇴근",
+                description: "운행 시작 전 '출근'을 누르고, 일이 끝나면 '퇴근'을 눌러 나의 근무시간을 정확하게 기록해 보세요!",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "singleRegister",
+        keyTarget: _keySingleRegister,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "콜카드 단건등록",
+                description: "콜카드를 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "multiRegister",
+        keyTarget: _keyMultiRegister,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "콜카드 다중등록",
+                description: "콜카드를 여러 개 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "waitingFee",
+        keyTarget: _keyWaitingFee,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "대기비용 계산",
+                description: "법인고객 대기시간이 발생했나요? 대기 시간에 따른 예상요금을 확인할 수 있어요.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "map",
+        keyTarget: _keyMap,
+        alignSkip: Alignment.bottomRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "주변 콜맵",
+                description: "현재 내 위치 주변에 대리 콜 포인트가 얼마나 있는지 지도로 한눈에 파악하세요!",
+                controller: controller,
+                isLast: true,
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+
+    _tutorialCoachMark = TutorialCoachMark(
+      targets: targets,
+      colorShadow: Colors.black,
+      textSkip: "건너뛰기",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+    )..show(context: context);
   }
 
   void _loadNotices() async {
@@ -114,6 +259,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+    guideProvider.removeListener(_onGuideRequested);
     _workDateTick?.cancel();
     _recentLogTicker?.cancel();
     super.dispose();
@@ -280,6 +427,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   },
                   borderRadius: BorderRadius.circular(20),
                   child: Consumer<AuthService>(
+                    key: _keyMyInfo,
                     builder: (context, auth, _) {
                       final photoUrl = auth.user?.photoURL;
                       if (photoUrl != null && photoUrl.isNotEmpty) {
@@ -663,6 +811,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              key: _keyWorkTimer,
               mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
@@ -925,6 +1074,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Row(
       children: [
         Expanded(
+          key: _keyWaitingFee,
           child: InkWell(
             onTap: () => WaitingFeeBottomSheet.show(context),
             borderRadius: BorderRadius.circular(14),
@@ -948,6 +1098,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         SizedBox(width: 12),
         Expanded(
+          key: _keyMap,
           child: InkWell(
             onTap: () {
               if (!kMapFeaturesEnabled) return;
@@ -988,6 +1139,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return Row(
       children: [
         Expanded(
+          key: _keySingleRegister,
           child: InkWell(
             onTap: () async {
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
@@ -1014,6 +1166,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
         SizedBox(width: 12),
         Expanded(
+          key: _keyMultiRegister,
           child: InkWell(
             onTap: () async {
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
