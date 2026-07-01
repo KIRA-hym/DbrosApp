@@ -73,10 +73,12 @@ class _SettingsPageState extends State<SettingsPage> {
   );
   bool _hasGasChanges = false;
 
+  final GlobalKey _keyMyInfo = GlobalKey();
   final GlobalKey _keyFeeInsurance = GlobalKey();
   final GlobalKey _keyCategoryManager = GlobalKey();
   final GlobalKey _keyThemeSettings = GlobalKey();
   final GlobalKey _keyScreenshotAuto = GlobalKey();
+  final GlobalKey _keyBackupRestore = GlobalKey();
   final GlobalKey _keyStorage = GlobalKey();
 
   TutorialCoachMark? _tutorialCoachMark;
@@ -199,15 +201,18 @@ class _SettingsPageState extends State<SettingsPage> {
 
   List<Widget> _settingsSections(TextStyle versionStyle) {
     return [
-      _buildListManageButton(
-        title: '내 정보',
-        icon: Icons.person,
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const MyInfoPage()),
-          );
-        },
+      Container(
+        key: _keyMyInfo,
+        child: _buildListManageButton(
+          title: '내 정보',
+          icon: Icons.person,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MyInfoPage()),
+            );
+          },
+        ),
       ),
       _buildListManageButton(
         title: '앱 이용 가이드',
@@ -218,7 +223,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
       _buildNoticeSection(),
       Container(key: _keyThemeSettings, child: const ThemeSettingsSection()),
-      _buildBackupRestoreSettings(),
+      Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
       Container(
         key: _keyFeeInsurance,
         child: _buildSettingsGroup(
@@ -321,6 +326,41 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final targets = <TargetFocus>[
       TargetFocus(
+        identify: "myInfo",
+        keyTarget: _keyMyInfo,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "내 정보 관리",
+                description: "회원가입 시 등록된 내 정보를 확인하고, 프로필 등을 관리할 수 있는 메뉴입니다.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "themeSettings",
+        keyTarget: _keyThemeSettings,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "화면 테마 및 글자 크기 조절 기능",
+                description:
+                    "눈이 편안한 어두운 테마(다크모드)나 절전 블랙 테마로 변경할 수 있습니다. 또한, '글자 크기 조절 버튼 활성화' 옵션을 켜면 목록 화면에서 쉽게 글자 크기를 키우거나 줄이는 버튼이 나타납니다.",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
         identify: "feeInsurance",
         keyTarget: _keyFeeInsurance,
         alignSkip: Alignment.topRight,
@@ -356,24 +396,6 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ],
       ),
-      TargetFocus(
-        identify: "themeSettings",
-        keyTarget: _keyThemeSettings,
-        alignSkip: Alignment.topRight,
-        contents: [
-          TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
-              return GuideContentWidget(
-                title: "화면 테마 및 폰트 크기 설정",
-                description:
-                    "눈이 편안한 어두운 테마(다크모드)나 절전 블랙 테마로 변경하고, 화면의 글자 크기를 내게 맞게 조절할 수 있습니다.",
-                controller: controller,
-              );
-            },
-          ),
-        ],
-      ),
     ];
 
     if (!kIsWeb &&
@@ -400,6 +422,27 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
+
+    targets.add(
+      TargetFocus(
+        identify: "backupRestore",
+        keyTarget: _keyBackupRestore,
+        alignSkip: Alignment.topRight,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return GuideContentWidget(
+                title: "데이터 백업 및 복원",
+                description:
+                    "그동안 작성한 소중한 일지 데이터를 클라우드에 백업하거나, 휴대폰을 변경할 때 안전하게 복원할 수 있습니다. 주기적으로 백업하는 것을 권장합니다!",
+                controller: controller,
+              );
+            },
+          ),
+        ],
+      ),
+    );
 
     targets.add(
       TargetFocus(
