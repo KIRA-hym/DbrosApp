@@ -108,7 +108,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.addListener(_onGuideRequested);
-    _startGuideWhenReady();
   }
 
   Future<void> _loadApkUpdateStatus() async {
@@ -387,7 +386,7 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.topRight,
           contents: [
             TargetContent(
-              align: ContentAlign.bottom,
+              align: ContentAlign.top,
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜카드 자동인식 (안드로이드 전용)",
@@ -430,6 +429,20 @@ class _SettingsPageState extends State<SettingsPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      beforeFocus: (target) async {
+        if (target.keyTarget?.currentContext != null) {
+          try {
+            await Scrollable.ensureVisible(
+              target.keyTarget!.currentContext!,
+              duration: const Duration(milliseconds: 300),
+              alignment: 0.5,
+            );
+            await Future.delayed(const Duration(milliseconds: 100));
+          } catch (e) {
+            // ignore
+          }
+        }
+      },
     )..show(context: context);
   }
 
@@ -1026,6 +1039,21 @@ class _SettingsPageState extends State<SettingsPage> {
                     context,
                     MaterialPageRoute(builder: (context) => const StatsPage()),
                   );
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.settings, color: Colors.grey),
+                title: Text(
+                  '설정 화면 가이드',
+                  style: TextStyle(
+                    color:
+                        Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  GuideProvider.instance.startGuide('settings');
                 },
               ),
               const SizedBox(height: 16),
