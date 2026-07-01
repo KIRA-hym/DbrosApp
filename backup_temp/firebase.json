@@ -1,0 +1,11 @@
+{
+  "hosting": {
+    "site": "dbros-install",
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}
