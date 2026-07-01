@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가이드 화면 체험 데모</title>
+    <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --dark: #2b2d42;
+            --light: #f8f9fa;
+            --gray: #8d99ae;
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', sans-serif;
+        }
+        body {
+            background-color: #e0e5ec;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Mock Mobile Device */
+        .device {
+            width: 375px;
+            height: 812px;
+            background: white;
+            border-radius: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15), inset 0 0 0 10px #1a1a1a;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Mode Selector (Outside Device) */
+        .controls {
+            position: absolute;
+            left: 20px;
+            top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .controls h2 {
+            font-size: 18px;
+            margin-bottom: 12px;
+            color: var(--dark);
+        }
+        .btn-control {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 8px;
+            border: none;
+            border-radius: 8px;
+            background: var(--light);
+            color: var(--dark);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-control:hover {
+            background: #e2e8f0;
+        }
+        .btn-control.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* App UI */
+        .app-header {
+            padding: 50px 20px 20px;
+            background: var(--primary);
+            color: white;
+            border-bottom-left-radius: 24px;
+            border-bottom-right-radius: 24px;
+        }
+        .app-header h1 {
+            font-size: 24px;
+            font-weight: 800;
+        }
+        .app-content {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #f1f3f5;
+            position: relative;
+        }
+        .card h3 {
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: var(--dark);
+        }
+        .card p {
+            font-size: 14px;
+            color: var(--gray);
+        }
+        .fab {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            width: 56px;
+            height: 56px;
+            border-radius: 28px;
+            background: var(--primary);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            box-shadow: 0 8px 16px rgba(67, 97, 238, 0.4);
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        /* 1. Onboarding Screen Overlay */
+        .onboarding-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.5s cubic-bezier(0.87, 0, 0.13, 1);
+        }
+        .onboarding-overlay.hidden {
+            transform: translateX(-100%);
+        }
+        .slides {
+            flex-grow: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.4s ease;
+        }
+        .slide.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        .slide.prev {
+            transform: translateX(-100%);
+        }
+        .slide-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            border-radius: 30px;
+            margin-bottom: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 48px;
+            box-shadow: 0 16px 32px rgba(67, 97, 238, 0.3);
+        }
+        .slide h2 {
+            font-size: 24px;
+            color: var(--dark);
+            margin-bottom: 16px;
+        }
+        .slide p {
+            font-size: 15px;
+            color: var(--gray);
+            line-height: 1.5;
+        }
+        .onboarding-footer {
+            padding: 30px 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .dots {
+            display: flex;
+            gap: 8px;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 4px;
+            background: #e2e8f0;
+            transition: 0.3s;
+        }
+        .dot.active {
+            width: 24px;
+            background: var(--primary);
+        }
+        .btn-next {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 20px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .btn-skip {
+            background: transparent;
+            color: var(--gray);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* 2. Coach Mark Overlay */
+        .coach-mark-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 50;
+            display: none;
+            backdrop-filter: blur(2px);
+        }
+        .coach-mark-overlay.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* The highlighted cutout */
+        .highlight-cutout {
+            position: absolute;
+            border-radius: 32px;
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.6);
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        /* The Speech Bubble */
+        .tooltip {
+            position: absolute;
+            background: white;
+            padding: 16px;
+            border-radius: 12px;
+            width: 240px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            pointer-events: none;
+        }
+        .tooltip.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .tooltip h4 {
+            font-size: 16px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .tooltip p {
+            font-size: 14px;
+            color: var(--dark);
+            margin-bottom: 12px;
+        }
+        .tooltip button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        /* Tooltip tail (arrow) */
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            border: 8px solid transparent;
+        }
+        .tooltip.tail-top::before {
+            bottom: 100%;
+            left: 20px;
+            border-bottom-color: white;
+        }
+        .tooltip.tail-bottom::before {
+            top: 100%;
+            right: 20px;
+            border-top-color: white;
+        }
+
+        /* Highlighting elements relative z-index */
+        .relative-highlight {
+            z-index: 51;
+            position: relative;
+            background: white !important; /* Force background to stand out */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2>어떤 기능을 체험하시겠어요?</h2>
+        <button class="btn-control active" onclick="startOnboarding()">1. 온보딩 스크린 (앱 최초 실행)</button>
+        <button class="btn-control" onclick="startCoachMark()">2. 코치마크 (화면별 하이라이트)</button>
+    </div>
+
+    <div class="device">
+        <!-- APP UI (Behind guides) -->
+        <div class="app-header">
+            <h1>DbrosApp</h1>
+            <p style="opacity: 0.8; margin-top: 5px;">환영합니다, 기사님!</p>
+        </div>
+        <div class="app-content">
+            <div class="card" id="target-1">
+                <h3>🔍 실시간 오더 검색</h3>
+                <p>현재 위치 주변의 최적 화물을 빠르게 찾아줍니다.</p>
+            </div>
+            <div class="card">
+                <h3>💰 정산 내역</h3>
+                <p>이번 달 누적 수익을 한눈에 확인하세요.</p>
+            </div>
+            <div class="card" id="target-2">
+                <h3>⭐ 프리미엄 혜택</h3>
+                <p>구독하고 수수료 할인 혜택을 받아보세요.</p>
+            </div>
+        </div>
+        <div class="fab" id="target-3">+</div>
+
+        <!-- 1. Onboarding Screen -->
+        <div class="onboarding-overlay" id="onboarding">
+            <div class="slides">
+                <div class="slide active" id="slide-0">
+                    <div class="slide-icon">🚚</div>
+                    <h2>환영합니다!</h2>
+                    <p>DbrosApp과 함께<br>쉽고 빠른 화물 운송을 시작하세요.</p>
+                </div>
+                <div class="slide" id="slide-1">
+                    <div class="slide-icon">📱</div>
+                    <h2>직관적인 화면</h2>
+                    <p>복잡한 절차 없이<br>터치 몇 번으로 오더를 잡으세요.</p>
+                </div>
+                <div class="slide" id="slide-2">
+                    <div class="slide-icon">💸</div>
+                    <h2>빠른 정산</h2>
+                    <p>운행이 끝나면<br>번거로운 서류 없이 빠르게 정산받으세요.</p>
+                </div>
+            </div>
+            <div class="onboarding-footer">
+                <button class="btn-skip" onclick="finishOnboarding()">건너뛰기</button>
+                <div class="dots">
+                    <div class="dot active" id="dot-0"></div>
+                    <div class="dot" id="dot-1"></div>
+                    <div class="dot" id="dot-2"></div>
+                </div>
+                <button class="btn-next" onclick="nextSlide()">다음</button>
+            </div>
+        </div>
+
+        <!-- 2. Coach Mark Overlay -->
+        <div class="coach-mark-overlay" id="coachMarkOverlay">
+            <div class="highlight-cutout" id="cutout"></div>
+            <div class="tooltip" id="tooltip">
+                <h4 id="tt-title">타이틀</h4>
+                <p id="tt-desc">설명 텍스트입니다.</p>
+                <button onclick="nextCoachMark()" id="tt-btn">다음</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Onboarding Logic ---
+        let currentSlide = 0;
+        const totalSlides = 3;
+        
+        function updateSlides() {
+            for(let i = 0; i < totalSlides; i++) {
+                const slide = document.getElementById(`slide-${i}`);
+                const dot = document.getElementById(`dot-${i}`);
+                
+                slide.className = 'slide';
+                dot.className = 'dot';
+                
+                if (i === currentSlide) {
+                    slide.classList.add('active');
+                    dot.classList.add('active');
+                } else if (i < currentSlide) {
+                    slide.classList.add('prev');
+                }
+            }
+            
+            const nextBtn = document.querySelector('.btn-next');
+            if (currentSlide === totalSlides - 1) {
+                nextBtn.innerText = '시작하기';
+            } else {
+                nextBtn.innerText = '다음';
+            }
+        }
+
+        function nextSlide() {
+            if (currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlides();
+            } else {
+                finishOnboarding();
+            }
+        }
+
+        function finishOnboarding() {
+            document.getElementById('onboarding').classList.add('hidden');
+        }
+
+        function startOnboarding() {
+            document.querySelectorAll('.btn-control').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.btn-control')[0].classList.add('active');
+            
+            document.getElementById('coachMarkOverlay').classList.remove('active');
+            document.querySelectorAll('.relative-highlight').forEach(el => el.classList.remove('relative-highlight'));
+            
+            currentSlide = 0;
+            updateSlides();
+            document.getElementById('onboarding').classList.remove('hidden');
+        }
+
+        // --- 2. Coach Mark Logic ---
+        const steps = [
+            { target: 'target-1', title: '실시간 검색', desc: '이곳을 눌러 원하는 화물 오더를 빠르게 찾아볼 수 있습니다.', align: 'top' },
+            { target: 'target-2', title: '구독 혜택', desc: '프리미엄 혜택 메뉴에서 구독 설정을 관리하세요.', align: 'top' },
+            { target: 'target-3', title: '새 오더 등록', desc: '직접 오더를 올려야 할 때는 이 + 버튼을 누르세요!', align: 'bottom' }
+        ];
+        let currentStep = 0;
+
+        function startCoachMark() {
+            document.querySelectorAll('.btn-control').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.btn-control')[1].classList.add('active');
+            
+            document.getElementById('onboarding').classList.add('hidden');
+            document.getElementById('coachMarkOverlay').classList.add('active');
+            
+            currentStep = 0;
+            showCoachMark();
+        }
+
+        function showCoachMark() {
+            // Remove previous highlights
+            document.querySelectorAll('.relative-highlight').forEach(el => el.classList.remove('relative-highlight'));
+            
+            if (currentStep >= steps.length) {
+                // Finish
+                document.getElementById('coachMarkOverlay').classList.remove('active');
+                return;
+            }
+
+            const step = steps[currentStep];
+            const targetEl = document.getElementById(step.target);
+            const cutout = document.getElementById('cutout');
+            const tooltip = document.getElementById('tooltip');
+            
+            // Add relative z-index to target
+            targetEl.classList.add('relative-highlight');
+            
+            // Get position
+            const rect = targetEl.getBoundingClientRect();
+            const deviceRect = document.querySelector('.device').getBoundingClientRect();
+            
+            // Calculate relative position within the device mock
+            const top = rect.top - deviceRect.top;
+            const left = rect.left - deviceRect.left;
+            
+            // Move cutout (Not strictly needed since we use z-index on element, but good for visual effect)
+            cutout.style.top = (top - 8) + 'px';
+            cutout.style.left = (left - 8) + 'px';
+            cutout.style.width = (rect.width + 16) + 'px';
+            cutout.style.height = (rect.height + 16) + 'px';
+            
+            // Set Tooltip content
+            document.getElementById('tt-title').innerText = step.title;
+            document.getElementById('tt-desc').innerText = step.desc;
+            
+            // Position Tooltip
+            tooltip.className = 'tooltip active';
+            if (step.align === 'top') {
+                tooltip.classList.add('tail-top');
+                tooltip.style.top = (top + rect.height + 20) + 'px';
+                tooltip.style.left = '20px'; // fixed left for this demo
+                tooltip.style.bottom = 'auto';
+            } else {
+                tooltip.classList.add('tail-bottom');
+                tooltip.style.bottom = (deviceRect.height - top + 10) + 'px';
+                tooltip.style.left = (left - 180) + 'px';
+                tooltip.style.top = 'auto';
+            }
+            
+            if (currentStep === steps.length - 1) {
+                document.getElementById('tt-btn').innerText = '완료';
+            } else {
+                document.getElementById('tt-btn').innerText = '다음';
+            }
+        }
+
+        function nextCoachMark() {
+            currentStep++;
+            showCoachMark();
+        }
+    </script>
+</body>
+</html>
