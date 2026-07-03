@@ -1154,8 +1154,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     // 저장 성공 후 처리
     if (!mounted) return;
 
-
     final String workStr = _workDateCon.text.trim();
+    
+    // [자동출근] 미출근 상태 && 입력한 근무일자가 오늘(현재 유효 근무일자)인 경우, 이 일지의 운행시간으로 소급 출근
+    final timerProvider = Provider.of<WorkTimerProvider>(context, listen: false);
+    if (!timerProvider.isClockedIn && workStr == WorkDateUtils.effectiveWorkDateYmd()) {
+      final String driveDate = _dateCon.text.trim();
+      final String driveTime = _timeCon.text.trim();
+      if (driveDate.isNotEmpty && driveTime.isNotEmpty) {
+        DateTime? parsedTime = DateTime.tryParse('$driveDate $driveTime:00');
+        if (parsedTime != null) {
+          if (parsedTime.isAfter(DateTime.now())) {
+            parsedTime = DateTime.now(); // 미래 시간 방어 로직
+          }
+          timerProvider.clockInWithStartTime(parsedTime);
+        }
+      }
+    }
+
     final String savedMsg =
         _logId != null ? "운행일지가 수정되었습니다." : "운행일지가 등록되었습니다.";
 

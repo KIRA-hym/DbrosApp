@@ -123,7 +123,7 @@ class MyInfoPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'PRO 모드 (프리미엄)',
+              '프리미엄 기능',
               style: TextStyle(
                 color: const Color(0xFF9FA3AE),
                 fontSize: FontSizeService.getScaledFontSize(14),

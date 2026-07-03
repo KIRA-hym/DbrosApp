@@ -1932,7 +1932,7 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: BorderedSection.decoration(context, borderRadius: 12),
           child: ListTile(
             title: Text(
-              '👑 [TEST] PRO 모드 (무료/유료 전환)',
+              '👑 [TEST] 프리미엄 기능 (무료/유료 전환)',
               style: TextStyle(
                 color:
                     (Theme.of(context).textTheme.bodyLarge?.color ??

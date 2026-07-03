@@ -113,6 +113,32 @@ class WorkTimerProvider extends ChangeNotifier {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
   }
 
+  Future<void> clockInWithStartTime(DateTime startTime) async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd(startTime);
+
+    // Get previous sessions if any (usually 0)
+    final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
+    final previousElapsed = (session != null) ? ((session['total_seconds'] as int?) ?? 0) : 0;
+
+    _isClockedIn = true;
+    _clockInTime = startTime;
+    _currentWorkDate = currentWorkDate;
+    
+    // UI에 보여질 현재 경과 시간 = 이전 세션 시간 + (현재 시간 - 소급 출근 시간)
+    int diff = DateTime.now().difference(startTime).inSeconds;
+    if (diff < 0) diff = 0;
+    _elapsedSeconds = previousElapsed + diff;
+
+    await prefs.setString(_prefClockInKey, _clockInTime!.toIso8601String());
+    await prefs.setInt(_prefElapsedKey, previousElapsed); // 중요: loadState 시 중복 합산 방지를 위해 시작 시점의 이전 누적시간 저장
+    await prefs.setString(_prefWorkDateKey, currentWorkDate);
+
+    _startTimer();
+    notifyListeners();
+    TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+  }
+
   Future<void> autoClockInIfNeeded() async {
     if (_isClockedIn) return;
     final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
