@@ -114,6 +114,15 @@ void main() async {
     unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
   }
 
+  SettingsService.isFeatureUnlockedNotifier.addListener(() {
+    if (!SettingsService.isFeatureUnlockedNotifier.value) {
+      if (!kIsWeb && Platform.isAndroid) {
+        ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+        TodayStatsNotificationService.instance.cancel();
+      }
+    }
+  });
+
   runApp(
     MultiProvider(
       providers: [

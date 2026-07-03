@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
@@ -10,6 +11,9 @@ class SettingsService {
   static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
   static final ValueNotifier<ThemeMode> _themeModeNotifier = ValueNotifier(ThemeMode.dark);
   static final ValueNotifier<bool> _isAmoledBlackNotifier = ValueNotifier(false);
+  
+  static final ValueNotifier<bool> isFeatureUnlockedNotifier = ValueNotifier(false);
+  static Timer? _adRewardTimer;
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
@@ -66,6 +70,8 @@ class SettingsService {
     _isPremiumUserNotifier.value = isPremiumUser;
     _themeModeNotifier.value = themeMode;
     _isAmoledBlackNotifier.value = isAmoledBlack;
+
+    _startAdRewardTimer();
   }
 
   /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
@@ -279,8 +285,36 @@ class SettingsService {
   }
 
   static Future<void> unlockFeaturesByAd() async {
-    final expireMs = DateTime.now().millisecondsSinceEpoch + (3 * 60 * 60 * 1000); // 3 hours
+    final expireMs = DateTime.now().millisecondsSinceEpoch + (2 * 60 * 60 * 1000); 
     await _prefs.setInt('adRewardExpireMs', expireMs);
+    _startAdRewardTimer();
+  }
+
+  static void _startAdRewardTimer() {
+    _adRewardTimer?.cancel();
+    if (!kMonetizationEnabled || isPremiumUser) {
+      isFeatureUnlockedNotifier.value = true;
+      return;
+    }
+    
+    final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
+    if (expireMs == 0) {
+      isFeatureUnlockedNotifier.value = false;
+      return;
+    }
+
+    final diffMs = expireMs - DateTime.now().millisecondsSinceEpoch;
+    if (diffMs <= 0) {
+      _onAdRewardExpired();
+    } else {
+      isFeatureUnlockedNotifier.value = true;
+      _adRewardTimer = Timer(Duration(milliseconds: diffMs), _onAdRewardExpired);
+    }
+  }
+
+  static void _onAdRewardExpired() {
+    _prefs.setInt('adRewardExpireMs', 0);
+    isFeatureUnlockedNotifier.value = false;
   }
   
   static int get adRewardExpireMs => _prefs.getInt('adRewardExpireMs') ?? 0;
