@@ -80,7 +80,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey _keyScreenshotAuto = GlobalKey();
   final GlobalKey _keyBackupRestore = GlobalKey();
   final GlobalKey _keyStorage = GlobalKey();
-
+  final GlobalKey _keyStatusBarQuick = GlobalKey();
+  final GlobalKey _keyCallPointShare = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
   final double _initialBaseFeeRate = SettingsService.baseFeeRate;
@@ -278,14 +279,22 @@ class _SettingsPageState extends State<SettingsPage> {
       Container(key: _keyCategoryManager, child: _buildProgramListSettings()),
       _buildExpenseListSettings(),
       _buildIncomeListSettings(),
-      if (!kIsWeb && Platform.isAndroid) _buildStatusBarQuickSettings(),
+      if (!kIsWeb && Platform.isAndroid)
+        Container(
+          key: _keyStatusBarQuick,
+          child: _buildStatusBarQuickSettings(),
+        ),
       _buildFloatingButtonSettings(),
       if (!kIsWeb && Platform.isAndroid)
         Container(
           key: _keyScreenshotAuto,
           child: _buildScreenshotAutoRegisterSettings(),
         ),
-      if (SettingsService.isOwnerMode) _buildCallPointShareSettings(),
+      if (SettingsService.isOwnerMode)
+        Container(
+          key: _keyCallPointShare,
+          child: _buildCallPointShareSettings(),
+        ),
       if (SettingsService.isOwnerMode && !kIsWeb && Platform.isAndroid)
         _buildOcrParseLogSettings(),
       Container(key: _keyStorage, child: _buildStorageSettings()),
@@ -390,6 +399,54 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     ];
+
+    if (!kIsWeb &&
+        Platform.isAndroid &&
+        _keyStatusBarQuick.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "statusBarQuick",
+          keyTarget: _keyStatusBarQuick,
+          alignSkip: Alignment.topRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "상태바 퀵기능",
+                  description:
+                      "앱을 직접 열지 않고도 스마트폰 상단 알림창(상태바)에서 간편하게 콜 일지를 작성할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (SettingsService.isOwnerMode && _keyCallPointShare.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "callPointShare",
+          keyTarget: _keyCallPointShare,
+          alignSkip: Alignment.topRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.top,
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "콜포인트 공유",
+                  description:
+                      "동료 기사님들과 가상계좌(콜포인트) 내역을 공유하고 간편하게 관리할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
 
     if (!kIsWeb &&
         Platform.isAndroid &&
@@ -530,14 +587,17 @@ class _SettingsPageState extends State<SettingsPage> {
       );
     }
 
-    return ListView(
+    return SingleChildScrollView(
       padding: EdgeInsets.all(horizontalPadding),
-      children: [
-        for (var i = 0; i < sections.length; i++) ...[
-          if (i > 0) SizedBox(height: groupSpacing),
-          sections[i],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < sections.length; i++) ...[
+            if (i > 0) SizedBox(height: groupSpacing),
+            sections[i],
+          ],
         ],
-      ],
+      ),
     );
   }
 
