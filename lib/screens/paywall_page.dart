@@ -240,39 +240,46 @@ class _PaywallPageState extends State<PaywallPage> {
     required String subtitle,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: const Color(0xFFFFC700).withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
             child: icon is IconData 
-                ? Icon(icon, color: const Color(0xFFFFC700), size: 24)
-                : FaIcon(icon, color: const Color(0xFFFFC700), size: 24),
+                ? Icon(icon, color: const Color(0xFFFFC700), size: 20)
+                : FaIcon(icon, color: const Color(0xFFFFC700), size: 20),
           ),
-          const SizedBox(height: 16),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.white60,
-              height: 1.4,
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 2),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.white60,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
