@@ -4,6 +4,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'settings_service.dart';
+import 'subscription_service.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -116,10 +117,16 @@ class AuthService extends ChangeNotifier {
         final premiumUntil = _userDoc?['premiumUntil'];
         if (premiumUntil != null && premiumUntil is Timestamp) {
           if (premiumUntil.toDate().isAfter(DateTime.now())) {
-            SettingsService.setIsPremiumUser(true);
+            SettingsService.setPromoPremium(true);
           } else {
-            SettingsService.setIsPremiumUser(false);
+            SettingsService.setPromoPremium(false);
           }
+        } else {
+          SettingsService.setPromoPremium(false);
+        }
+
+        if (user != null) {
+          SubscriptionService.logIn(user.uid);
         }
 
         notifyListeners();
@@ -170,6 +177,8 @@ class AuthService extends ChangeNotifier {
     _cancelSubscription();
     await _googleSignIn.signOut();
     await _auth.signOut();
+    await SubscriptionService.logOut();
+    _userDoc = null;
   }
 
   Future<void> deleteAccount() async {

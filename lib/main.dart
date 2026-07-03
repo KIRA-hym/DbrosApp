@@ -31,6 +31,7 @@ import 'services/rewarded_ad_service.dart';
 import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
 import 'services/font_size_service.dart';
+import 'services/subscription_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'widgets/ad_banner_widget.dart';
 import 'widgets/shorebird_update_host.dart';
@@ -91,6 +92,7 @@ void main() async {
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
   await initializeDateFormatting('ko_KR', null);
+  await SubscriptionService.init();
 
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();

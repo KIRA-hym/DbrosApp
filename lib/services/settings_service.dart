@@ -145,10 +145,19 @@ class SettingsService {
     _isOwnerModeNotifier.value = value;
   }
 
-  static bool get isPremiumUser => _prefs.getBool('isPremiumUser') ?? false;
-  static Future<void> setIsPremiumUser(bool value) async {
-    await _prefs.setBool('isPremiumUser', value);
-    _isPremiumUserNotifier.value = value;
+  static bool get isPremiumUser => isPromoPremium || isRevenueCatPremium;
+
+  static bool get isPromoPremium => _prefs.getBool('isPromoPremium') ?? false;
+  static Future<void> setPromoPremium(bool value) async {
+    await _prefs.setBool('isPromoPremium', value);
+    _isPremiumUserNotifier.value = isPremiumUser;
+    isFeatureUnlockedNotifier.value = isFeatureUnlocked();
+  }
+
+  static bool get isRevenueCatPremium => _prefs.getBool('isRevenueCatPremium') ?? false;
+  static Future<void> setRevenueCatPremium(bool value) async {
+    await _prefs.setBool('isRevenueCatPremium', value);
+    _isPremiumUserNotifier.value = isPremiumUser;
     isFeatureUnlockedNotifier.value = isFeatureUnlocked();
   }
 

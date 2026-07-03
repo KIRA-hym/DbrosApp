@@ -4,6 +4,7 @@ import '../services/feature_usage_service.dart';
 import '../services/rewarded_ad_service.dart';
 import '../config/feature_flags.dart';
 import '../widgets/app_glass_dialog.dart';
+import '../screens/paywall_page.dart';
 
 class ProFeatureGuard {
   static Future<void> checkAndRun({
@@ -124,8 +125,9 @@ class ProFeatureGuard {
               ),
               onPressed: () {
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('정식 출시 때 제공될 예정입니다!')),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const PaywallPage()),
                 );
               },
               child: const Text('프리미엄 구독 알아보기'),
