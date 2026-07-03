@@ -149,6 +149,7 @@ class SettingsService {
   static Future<void> setIsPremiumUser(bool value) async {
     await _prefs.setBool('isPremiumUser', value);
     _isPremiumUserNotifier.value = value;
+    isFeatureUnlockedNotifier.value = isFeatureUnlocked();
   }
 
   static double get baseFeeRate => _prefs.getDouble('baseFeeRate') ?? 20.0;
