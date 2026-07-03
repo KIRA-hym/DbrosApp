@@ -70,12 +70,18 @@ class ProFeatureGuard {
   }
 
   static Future<bool?> _showAdPromptDialog(BuildContext context, String featureKey) {
+    final bool hasFreeUses = (featureKey != 'multi_ocr' && featureKey != 'stats');
+    final String title = hasFreeUses ? '무료 이용 횟수 소진' : '프리미엄 기능 안내';
+    final String content = hasFreeUses 
+        ? '기본 제공 무료 횟수를 모두 사용했습니다.\n동영상 광고를 시청하시면 추가로 1회 이용하실 수 있습니다.\n광고를 시청하시겠습니까?'
+        : '해당 기능은 동영상 광고 시청 시 1회 이용하실 수 있습니다.\n광고를 시청하시겠습니까?';
+
     return AppGlassDialog.show<bool>(
       context: context,
       dialog: AppGlassDialog(
         icon: Icons.play_circle_outline,
-        title: '무료 이용 횟수 소진',
-        content: '기본 제공 무료 횟수를 모두 사용했습니다.\n동영상 광고를 시청하시면 추가로 1회 이용하실 수 있습니다.\n광고를 시청하시겠습니까?',
+        title: title,
+        content: content,
         actions: [
           Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
           Builder(

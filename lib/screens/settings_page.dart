@@ -2235,7 +2235,7 @@ class _SettingsPageState extends State<SettingsPage> {
         icon: Icons.ondemand_video,
         title: '기능 일시 잠금 해제',
         content:
-            '30초 광고를 시청하시면 3시간 동안 해당 기능을 무료로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?',
+            '30초 광고를 시청하시면 2시간 동안 해당 기능을 무료로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?',
         actions: [
           Builder(
             builder: (ctx) => GlassDialogCancelButton(
