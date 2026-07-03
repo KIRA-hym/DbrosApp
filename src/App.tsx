@@ -7,6 +7,7 @@ import Notices from './pages/Notices';
 import Push from './pages/Push';
 import OcrLogs from './pages/OcrLogs';
 import UserManagement from './pages/UserManagement';
+import PromotionCodes from './pages/PromotionCodes';
 import './index.css';
 
 // Protected Route Component
@@ -39,6 +40,7 @@ function App() {
             <Route index element={<UserManagement />} />
             <Route path="notices" element={<Notices />} />
             <Route path="push" element={<Push />} />
+            <Route path="promotion" element={<PromotionCodes />} />
             <Route path="ocr" element={<OcrLogs />} />
             <Route path="ocr-simulator" element={<OcrSimulatorPage />} />
           </Route>
