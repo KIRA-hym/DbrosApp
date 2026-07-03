@@ -2007,7 +2007,7 @@ class _SettingsPageState extends State<SettingsPage> {
               value: isPremium,
               activeColor: Theme.of(context).primaryColor,
               onChanged: (value) async {
-                await SettingsService.setIsPremiumUser(value);
+                await SettingsService.setPromoPremium(value);
               },
             ),
           ),

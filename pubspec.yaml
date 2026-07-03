@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # ?붾㈃ ?쒖떆: v{version}.{build 2?먮━} ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
 # +9 ?ㅼ쓬: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle?먯꽌 ?대쫫+鍮뚮뱶濡??⑥“ 利앷?)
 # APK 由대━??鍮뚮뱶 ??踰꾩쟾 ?먮룞 利앷?: tools/build_release_apk.ps1 ?먮뒗 `dart run tool/bump_pubspec_version.dart` ??flutter build apk
-version: 1.0.13+101305
+version: 1.0.13+101306
 environment:
   sdk: ^3.11.5
 

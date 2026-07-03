@@ -81,11 +81,11 @@ class SubscriptionService {
   static Future<bool> purchasePackage(Package package) async {
     if (!_isInitialized) return false;
     try {
-      final customerInfo = await Purchases.purchasePackage(package);
-      _updatePremiumStatus(customerInfo);
+      final result = await Purchases.purchasePackage(package);
+      _updatePremiumStatus(result.customerInfo);
       
       // 결제 성공 시 하나라도 활성화된 entitlement가 있다면 true
-      return customerInfo.entitlements.active.isNotEmpty;
+      return result.customerInfo.entitlements.active.isNotEmpty;
     } catch (e) {
       debugPrint('SubscriptionService purchase error: $e');
       return false;
@@ -109,8 +109,8 @@ class SubscriptionService {
   static void _updatePremiumStatus(CustomerInfo customerInfo) {
     // 어떤 권한이든 활성화되어 있다면 프리미엄으로 간주
     final isPremium = customerInfo.entitlements.active.isNotEmpty;
-    if (SettingsService.isPremiumUser != isPremium) {
-      SettingsService.setIsPremiumUser(isPremium);
+    if (isPremium != SettingsService.isRevenueCatPremium) {
+      SettingsService.setRevenueCatPremium(isPremium);
     }
   }
 }

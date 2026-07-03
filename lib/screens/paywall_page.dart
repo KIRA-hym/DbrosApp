@@ -235,7 +235,7 @@ class _PaywallPageState extends State<PaywallPage> {
   }
 
   Widget _buildFeatureItem({
-    required IconData icon,
+    required dynamic icon,
     required String title,
     required String subtitle,
   }) {
@@ -251,7 +251,9 @@ class _PaywallPageState extends State<PaywallPage> {
               color: const Color(0xFFFFC700).withOpacity(0.15),
               borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, color: const Color(0xFFFFC700), size: 20),
+            child: icon is IconData 
+                ? Icon(icon, color: const Color(0xFFFFC700), size: 20)
+                : FaIcon(icon, color: const Color(0xFFFFC700), size: 20),
           ),
           const SizedBox(width: 16),
           Expanded(

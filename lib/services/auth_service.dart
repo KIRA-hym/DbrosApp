@@ -126,7 +126,7 @@ class AuthService extends ChangeNotifier {
         }
 
         if (user != null) {
-          SubscriptionService.logIn(user.uid);
+          SubscriptionService.logIn(user!.uid);
         }
 
         notifyListeners();
