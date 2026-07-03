@@ -17,10 +17,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 #
-# ?붾㈃ ?쒖떆: v{version}.{build 2?먮━} ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
-# +9 ?ㅼ쓬: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle?먯꽌 ?대쫫+鍮뚮뱶濡??⑥“ 利앷?)
-# APK 由대━??鍮뚮뱶 ??踰꾩쟾 ?먮룞 利앷?: tools/build_release_apk.ps1 ?먮뒗 `dart run tool/bump_pubspec_version.dart` ??flutter build apk
-version: 1.0.13+101306
+# ?遺얇늺 ??뽯뻻: v{version}.{build 2?癒?봺} ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
+# +9 ??쇱벉: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle?癒?퐣 ??已???슢諭뜻에???β?筌앹빓?)
+# APK ?깅??????슢諭???甕곌쑴???癒?짗 筌앹빓?: tools/build_release_apk.ps1 ?癒?뮉 `dart run tool/bump_pubspec_version.dart` ??flutter build apk
+version: 1.0.13+101307
 environment:
   sdk: ^3.11.5
 
