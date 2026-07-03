@@ -117,11 +117,11 @@ class MyInfoPage extends StatelessWidget {
       }
     }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               '프리미엄 기능',
@@ -131,7 +131,6 @@ class MyInfoPage extends StatelessWidget {
                 fontWeight: FontWeight.w400,
               ),
             ),
-            const SizedBox(height: 4),
             Text(
               premiumText,
               style: TextStyle(
@@ -142,58 +141,50 @@ class MyInfoPage extends StatelessWidget {
             ),
           ],
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const PaywallPage()),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700).withOpacity(0.15),
-                foregroundColor: const Color(0xFFFFC700),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                elevation: 0,
-              ),
-              child: Text(
-                isActive ? '프리미엄 구독 관리' : '운행일지관리 프리미엄 시작',
-                style: TextStyle(
-                  fontSize: FontSizeService.getScaledFontSize(13),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+        const SizedBox(height: 16),
+        ElevatedButton(
+          onPressed: () => _handlePromotionCode(context),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2C2F36),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () => _handlePromotionCode(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C2F36),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                elevation: 0,
-              ),
-              child: Text(
-                '프로모션 코드 입력',
-                style: TextStyle(
-                  fontSize: FontSizeService.getScaledFontSize(12),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            elevation: 0,
+          ),
+          child: Text(
+            '프로모션 코드 입력',
+            style: TextStyle(
+              fontSize: FontSizeService.getScaledFontSize(13),
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const PaywallPage()),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFFFC700).withOpacity(0.15),
+            foregroundColor: const Color(0xFFFFC700),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            elevation: 0,
+          ),
+          child: Text(
+            isActive ? '프리미엄 구독 관리' : '운행일지관리 프리미엄 시작',
+            style: TextStyle(
+              fontSize: FontSizeService.getScaledFontSize(13),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ),
       ],
     );
