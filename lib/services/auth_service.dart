@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'settings_service.dart';
 
 enum AuthStatus {
   uninitialized,
@@ -110,6 +111,17 @@ class AuthService extends ChangeNotifier {
         } else {
           _status = AuthStatus.authenticated;
         }
+
+        // 프리미엄 권한 동기화
+        final premiumUntil = _userDoc?['premiumUntil'];
+        if (premiumUntil != null && premiumUntil is Timestamp) {
+          if (premiumUntil.toDate().isAfter(DateTime.now())) {
+            SettingsService.setIsPremiumUser(true);
+          } else {
+            SettingsService.setIsPremiumUser(false);
+          }
+        }
+
         notifyListeners();
       }
     });
@@ -177,5 +189,53 @@ class AuthService extends ChangeNotifier {
       debugPrint("회원 탈퇴 실패: $e");
       rethrow;
     }
+  }
+
+  Future<bool> applyPromotionCode(String code) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) throw Exception("로그인이 필요합니다.");
+
+    final codeRef = _firestore.collection('promotion_codes').doc(code);
+    final userRef = _firestore.collection('users').doc(currentUser.uid);
+
+    return await _firestore.runTransaction((transaction) async {
+      final codeSnapshot = await transaction.get(codeRef);
+      if (!codeSnapshot.exists) {
+        throw Exception("존재하지 않는 코드입니다.");
+      }
+
+      final data = codeSnapshot.data()!;
+      if (data['isUsed'] == true) {
+        throw Exception("이미 사용된 코드입니다.");
+      }
+
+      final durationMonths = (data['durationMonths'] as num?)?.toInt() ?? 1;
+
+      final userSnapshot = await transaction.get(userRef);
+      DateTime newPremiumUntil;
+      
+      if (userSnapshot.exists && userSnapshot.data()!.containsKey('premiumUntil')) {
+        final currentPremiumUntil = (userSnapshot.data()!['premiumUntil'] as Timestamp?)?.toDate();
+        if (currentPremiumUntil != null && currentPremiumUntil.isAfter(DateTime.now())) {
+          newPremiumUntil = DateTime(currentPremiumUntil.year, currentPremiumUntil.month + durationMonths, currentPremiumUntil.day);
+        } else {
+          newPremiumUntil = DateTime(DateTime.now().year, DateTime.now().month + durationMonths, DateTime.now().day);
+        }
+      } else {
+        newPremiumUntil = DateTime(DateTime.now().year, DateTime.now().month + durationMonths, DateTime.now().day);
+      }
+
+      transaction.update(codeRef, {
+        'isUsed': true,
+        'usedBy': currentUser.uid,
+        'usedAt': FieldValue.serverTimestamp(),
+      });
+
+      transaction.update(userRef, {
+        'premiumUntil': Timestamp.fromDate(newPremiumUntil),
+      });
+
+      return true;
+    });
   }
 }

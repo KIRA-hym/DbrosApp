@@ -60,6 +60,8 @@ class MyInfoPage extends StatelessWidget {
               _buildInfoRow('이메일', email),
               const Divider(color: Colors.white10, height: 32),
               _buildInfoRow('가입일자', createdAtStr),
+              const Divider(color: Colors.white10, height: 32),
+              _buildPromotionCodeRow(context, userDoc),
               const SizedBox(height: 64),
               ElevatedButton.icon(
                 onPressed: () => _handleLogout(context),
@@ -97,6 +99,154 @@ class MyInfoPage extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildPromotionCodeRow(BuildContext context, Map<String, dynamic>? userDoc) {
+    final premiumUntil = userDoc?['premiumUntil'];
+    String premiumText = '미적용';
+    bool isActive = false;
+    if (premiumUntil != null) {
+      final date = (premiumUntil as dynamic).toDate();
+      if (date.isAfter(DateTime.now())) {
+        isActive = true;
+        premiumText = '${DateFormat('yyyy.MM.dd').format(date)} 까지';
+      } else {
+        premiumText = '만료됨';
+      }
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'PRO 모드 (프리미엄)',
+              style: TextStyle(
+                color: const Color(0xFF9FA3AE),
+                fontSize: FontSizeService.getScaledFontSize(14),
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              premiumText,
+              style: TextStyle(
+                color: isActive ? const Color(0xFFFFC700) : Colors.white,
+                fontSize: FontSizeService.getScaledFontSize(14),
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        ElevatedButton(
+          onPressed: () => _handlePromotionCode(context),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF2C2F36),
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            '프로모션 코드 입력',
+            style: TextStyle(
+              fontSize: FontSizeService.getScaledFontSize(13),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _handlePromotionCode(BuildContext context) {
+    final controller = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: Theme.of(context).cardTheme.color!,
+              title: const Text('프로모션 코드 입력', style: TextStyle(color: Colors.white)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('발급받으신 프로모션 코드를 입력해주세요.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    style: const TextStyle(color: Colors.white),
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: InputDecoration(
+                      hintText: '코드를 입력하세요 (예: DBROS2026XXXXXX)',
+                      hintStyle: const TextStyle(color: Colors.white30),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.white24),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Color(0xFFFFC700)),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      filled: true,
+                      fillColor: Colors.black26,
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                  child: const Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
+                ),
+                TextButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final code = controller.text.trim();
+                          if (code.isEmpty) return;
+
+                          setState(() => isLoading = true);
+                          try {
+                            await AuthService.instance.applyPromotionCode(code);
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('프로모션 코드가 성공적으로 적용되었습니다!'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } catch (e) {
+                            setState(() => isLoading = false);
+                            String errorMsg = e.toString().replaceAll('Exception:', '').trim();
+                            if (!ctx.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(errorMsg),
+                                backgroundColor: const Color(0xFFFF5252),
+                              ),
+                            );
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFFC700)))
+                      : const Text('적용하기', style: TextStyle(color: Color(0xFFFFC700))),
+                ),
+              ],
+            );
+          }
+        );
+      },
     );
   }
 
