@@ -1,14 +1,9 @@
-import 'dart:io';
-import 'package:flutter/widgets.dart';
-import 'lib/utils/logi_colmanner_ocr.dart';
-import 'lib/services/remote_config_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:dbros_app/utils/logi_colmanner_ocr.dart';
 
 void main() {
-  WidgetsFlutterBinding.ensureInitialized();
-  
-  // RemoteConfigService uses standard regions.
-  
-  final logText = '''
+  test('OCR Parse Test', () {
+    final logText = '''
 14:57 6월 29일
 17분 54초 남음
 운행시작연기
@@ -55,13 +50,11 @@ void main() {
 <
 ''';
 
-  try {
     final parsed = LogiColmannerOcr.parseLogi(logText);
-    print('요금: \${parsed.grossFare}');
-    print('출발지: \${parsed.startLocation}');
-    print('도착지: \${parsed.endLocation}');
-  } catch (e, st) {
-    print('Error: $e');
-    print(st);
-  }
+    print('=================');
+    print('요금: ${parsed.grossFare}');
+    print('출발지: ${parsed.startLocation}');
+    print('도착지: ${parsed.endLocation}');
+    print('=================');
+  });
 }

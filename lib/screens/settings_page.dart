@@ -214,13 +214,6 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ),
-      _buildListManageButton(
-        title: '앱 이용 가이드',
-        icon: Icons.help_outline,
-        onTap: () {
-          _showGuideSelectionSheet(context);
-        },
-      ),
       _buildNoticeSection(),
       Container(key: _keyThemeSettings, child: const ThemeSettingsSection()),
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
@@ -2087,193 +2080,25 @@ class _SettingsPageState extends State<SettingsPage> {
           Expanded(
             child: OutlinedButton(
               style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    (Theme.of(context).textTheme.bodyLarge?.color ??
-                    Colors.white),
-                side: BorderSide(color: Theme.of(context).dividerColor),
-                backgroundColor: Theme.of(context).cardTheme.color!,
+                foregroundColor: Theme.of(context).primaryColor,
+                side: BorderSide(color: Color(0xFFFFC700)),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
-              onPressed: () async {
-                if (ApkUpdateService.instance.hasApkUpdate) {
-                  ApkUpdateDialog.show(
-                    context,
-                    ApkUpdateService.instance.downloadUrl ??
-                        'https://dbros-install.web.app/',
-                  );
-                } else if (_hasPostponedUpdate) {
-                  // Show the custom popup with Apply Patch and APK Download
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => Dialog(
-                      backgroundColor: Theme.of(context).cardTheme.color!,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '업데이트 선택',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color:
-                                    (Theme.of(
-                                      context,
-                                    ).textTheme.bodyLarge?.color ??
-                                    Colors.white),
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: FilledButton(
-                                    style: FilledButton.styleFrom(
-                                      backgroundColor: Theme.of(
-                                        context,
-                                      ).primaryColor,
-                                      foregroundColor: Colors.black,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      Navigator.of(ctx).pop();
-                                      final result =
-                                          await ShorebirdUpdateService.instance
-                                              .checkAndUpdate();
-                                      if (!result && mounted) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text('현재 최신 버전을 사용 중입니다.'),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      alignment: Alignment.center,
-                                      children: [
-                                        Text(
-                                          '패치적용',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Positioned(
-                                          top: -8,
-                                          right: -12,
-                                          child: Container(
-                                            width: 8,
-                                            height: 8,
-                                            decoration: BoxDecoration(
-                                              color: Colors.redAccent,
-                                              shape: BoxShape.circle,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: OutlinedButton(
-                                    style: OutlinedButton.styleFrom(
-                                      foregroundColor:
-                                          (Theme.of(
-                                            context,
-                                          ).textTheme.bodyLarge?.color ??
-                                          Colors.white),
-                                      side: BorderSide(
-                                        color: Theme.of(context).dividerColor,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 14,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      Navigator.of(ctx).pop();
-                                      final url = Uri.parse(
-                                        'https://dbros-install.web.app/',
-                                      );
-                                      if (await canLaunchUrl(url)) {
-                                        await launchUrl(
-                                          url,
-                                          mode: LaunchMode.externalApplication,
-                                        );
-                                      }
-                                    },
-                                    child: Text(
-                                      'APK다운',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                } else {
-                  // Direct patch check if no badge
-                  final result = await ShorebirdUpdateService.instance
-                      .checkAndUpdate();
-                  if (!result && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('현재 최신 버전을 사용 중입니다.')),
-                    );
-                  }
-                }
+              onPressed: () {
+                _showGuideSelectionSheet(context);
               },
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.download, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        '업데이트',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  Icon(Icons.help_outline, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    '앱이용가이드',
+                    style: TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  if (_hasPostponedUpdate ||
-                      ApkUpdateService.instance.hasApkUpdate)
-                    Positioned(
-                      top: 2,
-                      right: 4,
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),

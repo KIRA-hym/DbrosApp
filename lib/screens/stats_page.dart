@@ -1931,14 +1931,14 @@ class _StatsPageState extends State<StatsPage> {
   /// 펼침 전체통계 카드: 제목·표시값 동일 폰트(크기·패밀리·굵기).
   TextStyle _statMetricUnifiedTextStyle({
     required double fontSize,
-    Color color = const Color(0xFFFFFFFF),
+    Color? color,
   }) {
     return TextStyle(
       fontFamily: 'GmarketSans',
       fontWeight: FontWeight.w700,
       fontSize: fontSize,
       height: 1.25,
-      color: color,
+      color: color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
     );
   }
 

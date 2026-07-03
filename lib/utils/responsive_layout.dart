@@ -33,12 +33,12 @@ class ResponsiveLayout {
 
   static TextStyle sectionTitleTextStyle(
     BuildContext context, {
-    Color color = Colors.white,
+    Color? color,
     FontWeight fontWeight = FontWeight.w700,
   }) {
     return TextStyle(
       fontFamily: 'GmarketSans',
-      color: color,
+      color: color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
       fontWeight: fontWeight,
       fontSize: sectionTitleFontSize(context),
       height: 1.12,

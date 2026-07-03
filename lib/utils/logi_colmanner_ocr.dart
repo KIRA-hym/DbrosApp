@@ -224,11 +224,16 @@ class LogiColmannerOcr {
   }
 
   static List<String> _lines(String fullText) {
-    final cleaned = fullText
+    final metroPattern = r'(서울|경기|인천|강원|충남|충북|대전|경북|경남|대구|부산|울산|전남|전북|광주|제주|세종)';
+    var cleaned = fullText
       .replaceAll('추바지', '출발지')
       .replaceAll('도차지', '도착지')
       .replaceAll('도착시 ', '도착지 ')
       .replaceAll('도착시\n', '도착지\n');
+
+    cleaned = cleaned.replaceAllMapped(RegExp('(/)($metroPattern)'), (m) => '${m.group(1)} ${m.group(2)}');
+    cleaned = cleaned.replaceAllMapped(RegExp('(상세)($metroPattern)'), (m) => '${m.group(1)}: ${m.group(2)}');
+
     return cleaned
         .replaceAll('\r', '\n')
         .split('\n')
