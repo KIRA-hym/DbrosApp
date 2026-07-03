@@ -5,14 +5,15 @@ import 'settings_service.dart';
 
 class SubscriptionService {
   static const String _googleApiKey = 'goog_dummyKeyForNowSoItDoesNotCrash';
-  static const String _appleApiKey = ''; // iOS 誘몄??먯떆 鍮꾩썙??  
+  static const String _appleApiKey = ''; // iOS 미지원시 비워둠
   static bool _isInitialized = false;
 
-  /// RevenueCat 珥덇린??  static Future<void> init() async {
+  /// RevenueCat 초기화
+  static Future<void> init() async {
     if (_isInitialized) return;
 
     try {
-      if (kIsWeb) return; // ?뱀뿉?쒕뒗 吏??????
+      if (kIsWeb) return; // 웹에서는 지원안함
       await Purchases.setLogLevel(LogLevel.debug);
 
       late PurchasesConfiguration configuration;
@@ -28,12 +29,12 @@ class SubscriptionService {
       await Purchases.configure(configuration);
       _isInitialized = true;
 
-      // 援щℓ ?곹깭(CustomerInfo)媛 蹂寃쎈맆 ?뚮쭏???먮룞 媛먯??섏뿬 ?꾨━誘몄뾼 ?щ? ?낅뜲?댄듃
+      // 구매 상태(CustomerInfo)가 변경될 때마다 자동 감지하여 프리미엄 여부 업데이트
       Purchases.addCustomerInfoUpdateListener((customerInfo) {
         _updatePremiumStatus(customerInfo);
       });
 
-      // 珥덇린 ?곹깭 ?뺤씤
+      // 초기 상태 확인
       final customerInfo = await Purchases.getCustomerInfo();
       _updatePremiumStatus(customerInfo);
     } catch (e) {
@@ -41,7 +42,7 @@ class SubscriptionService {
     }
   }
 
-  /// 濡쒓렇???쒖젏??RevenueCat ?쒕쾭???좎? 怨좎쑀 ID ?곌껐
+  /// 로그인 시점에 RevenueCat 서버와 유저 고유 ID 연결
   static Future<void> logIn(String uid) async {
     if (!_isInitialized) return;
     try {
@@ -52,7 +53,7 @@ class SubscriptionService {
     }
   }
 
-  /// 濡쒓렇?꾩썐 ?쒖젏??RevenueCat 濡쒓렇?꾩썐
+  /// 로그아웃 시점에 RevenueCat 로그아웃
   static Future<void> logOut() async {
     if (!_isInitialized) return;
     try {
@@ -63,7 +64,7 @@ class SubscriptionService {
     }
   }
 
-  /// ?꾩옱 ?먮ℓ 以묒씤 ?곹뭹 紐⑸줉(Offerings) 遺덈윭?ㅺ린
+  /// 현재 판매 중인 상품 목록(Offerings) 불러오기
   static Future<Offerings?> getOfferings() async {
     if (!_isInitialized) return null;
     try {
@@ -74,14 +75,14 @@ class SubscriptionService {
     }
   }
 
-  /// ?곹뭹 寃곗젣
+  /// 상품 결제
   static Future<bool> purchasePackage(Package package) async {
     if (!_isInitialized) return false;
     try {
       final result = await Purchases.purchasePackage(package);
       _updatePremiumStatus(result.customerInfo);
       
-      // 寃곗젣 ?깃났 ???섎굹?쇰룄 ?쒖꽦?붾맂 entitlement媛 ?덈떎硫?true
+      // 결제 성공 시 하나라도 활성화된 entitlement가 있다면 true
       return result.customerInfo.entitlements.active.isNotEmpty;
     } catch (e) {
       debugPrint('SubscriptionService purchase error: $e');
@@ -89,7 +90,7 @@ class SubscriptionService {
     }
   }
 
-  /// 援щℓ ?댁뿭 蹂듭썝
+  /// 구매 내역 복원
   static Future<bool> restorePurchases() async {
     if (!_isInitialized) return false;
     try {
@@ -102,8 +103,9 @@ class SubscriptionService {
     }
   }
 
-  /// CustomerInfo瑜?湲곕컲?쇰줈 ?????꾨━誘몄뾼 沅뚰븳 ?숆린??  static void _updatePremiumStatus(CustomerInfo customerInfo) {
-    // ?대뼡 沅뚰븳?대뱺 ?쒖꽦?붾릺???덈떎硫??꾨━誘몄뾼?쇰줈 媛꾩＜
+  /// CustomerInfo를 기반으로 로컬 프리미엄 권한 동기화
+  static void _updatePremiumStatus(CustomerInfo customerInfo) {
+    // 어떤 권한이든 활성화되어 있다면 프리미엄으로 간주
     final isPremium = customerInfo.entitlements.active.isNotEmpty;
     if (isPremium != SettingsService.isRevenueCatPremium) {
       SettingsService.setRevenueCatPremium(isPremium);
