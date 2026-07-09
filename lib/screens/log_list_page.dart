@@ -2213,7 +2213,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                       )
                     ),
                     TextSpan(
-                      text: revenue == 0 ? '[미입력]' : '₩${NumberFormat('#,###').format(revenue)}',
+                      text: revenue == 0 ? '⚠️ 미입력' : '₩${NumberFormat('#,###').format(revenue)}',
                       style: TextStyle(
                         color: revenue == 0 ? const Color(0xFFFF5252) : Colors.lightBlueAccent, 
                         fontSize: lay.incomeFontSize, 
