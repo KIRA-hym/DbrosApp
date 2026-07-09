@@ -2205,10 +2205,20 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               Text.rich(
                 TextSpan(
                   children: [
-                    const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                     TextSpan(
-                      text: '₩${NumberFormat('#,###').format(revenue)}',
-                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.incomeFontSize, fontWeight: FontWeight.bold),
+                      text: '수입 : ', 
+                      style: TextStyle(
+                        color: revenue == 0 ? const Color(0xFFFF5252) : Colors.lightBlueAccent, 
+                        fontSize: 13
+                      )
+                    ),
+                    TextSpan(
+                      text: revenue == 0 ? '[미입력]' : '₩${NumberFormat('#,###').format(revenue)}',
+                      style: TextStyle(
+                        color: revenue == 0 ? const Color(0xFFFF5252) : Colors.lightBlueAccent, 
+                        fontSize: lay.incomeFontSize, 
+                        fontWeight: FontWeight.bold
+                      ),
                     ),
                   ],
                 ),

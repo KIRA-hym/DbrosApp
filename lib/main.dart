@@ -97,8 +97,7 @@ void main() async {
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     TodayStatsProvider.instance.refresh();
-    // 퇴근 상태 유지 요청에 의해 일지 변경 시 자동 출근 로직 비활성화
-    // WorkTimerProvider.instance?.autoClockInIfNeeded();
+    WorkTimerProvider.instance?.autoClockInIfNeeded();
   };
   ExpenseRepository.afterExpensesChanged = () {
     ExpenseHomePage.requestRefresh();

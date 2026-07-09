@@ -142,6 +142,11 @@ class WorkTimerProvider extends ChangeNotifier {
   Future<void> autoClockInIfNeeded() async {
     if (_isClockedIn) return;
     final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
+    
+    // 오늘의 퇴근 기록이 이미 있으면 소급 자동출근 하지 않음 (사용자 요구사항 반영)
+    final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
+    if (session != null) return;
+
     final logs = await DriveLogDatabase.instance.getRecentLogs(limit: 1);
     if (logs.isNotEmpty) {
       final lastLogDate = logs.first['work_date']?.toString();
