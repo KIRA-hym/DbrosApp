@@ -109,7 +109,8 @@ class CallCardOcrParseService {
   static bool isValidForAutoSave(Map<String, dynamic> logData) {
     if (logData.isEmpty) return false;
     if (!_nonEmptyTrimmed(logData['program'])) return false;
-    if (_parsedGrossFare(logData) <= 0) return false;
+    // 금액 인식 못해도 나머지 정상 인식 시 자동저장 되도록 요금조건 제외 처리
+    // if (_parsedGrossFare(logData) <= 0) return false;
     if (!_nonEmptyTrimmed(logData['start_location'])) return false;
     if (!_nonEmptyTrimmed(logData['end_location'])) return false;
     return true;

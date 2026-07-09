@@ -97,7 +97,8 @@ void main() async {
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     TodayStatsProvider.instance.refresh();
-    WorkTimerProvider.instance?.autoClockInIfNeeded();
+    // 퇴근 상태 유지 요청에 의해 일지 변경 시 자동 출근 로직 비활성화
+    // WorkTimerProvider.instance?.autoClockInIfNeeded();
   };
   ExpenseRepository.afterExpensesChanged = () {
     ExpenseHomePage.requestRefresh();
@@ -489,13 +490,33 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       child: ShorebirdUpdateHost(
         child: PopScope(
         canPop: false,
-        onPopInvokedWithResult: (didPop, result) {
+        onPopInvokedWithResult: (didPop, result) async {
           if (didPop) return;
           if (_selectedIndex != 0) {
             setState(() => _selectedIndex = 0);
             TodayStatsProvider.instance.refresh();
           } else {
-            SystemNavigator.pop();
+            final shouldExit = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: Theme.of(context).cardTheme.color,
+                title: const Text('앱 종료', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                content: const Text('앱을 종료하시겠습니까?', style: TextStyle(color: Colors.white)),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                    child: const Text('아니오', style: TextStyle(color: Colors.grey)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    child: Text('예', style: TextStyle(color: Theme.of(context).primaryColor)),
+                  ),
+                ],
+              ),
+            );
+            if (shouldExit == true) {
+              SystemNavigator.pop();
+            }
           }
         },
         child: Scaffold(
