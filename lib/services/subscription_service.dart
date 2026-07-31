@@ -4,7 +4,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'settings_service.dart';
 
 class SubscriptionService {
-  static const String _googleApiKey = 'goog_dummyKeyForNowSoItDoesNotCrash';
+  static const String _googleApiKey = 'goog_JkYyqYmtMaKRIFmgZfaoxSrXEEB';
   static const String _appleApiKey = ''; // iOS 미지원시 비워둠
   static bool _isInitialized = false;
 
