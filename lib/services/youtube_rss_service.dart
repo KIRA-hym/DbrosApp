@@ -45,7 +45,7 @@ class YoutubeRssService {
     caseSensitive: false,
   );
 
-  static const _cacheKeyPrefix = 'home_yt_rss_vid_';
+  static const _cacheKeyPrefix = 'home_yt_rss_v2_';
   static const _cacheTsSuffix = '_at';
   static const _cacheTitleSuffix = '_title';
   static const _cacheAuthorSuffix = '_author';

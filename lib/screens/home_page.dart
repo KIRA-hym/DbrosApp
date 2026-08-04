@@ -1260,7 +1260,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 ),
                               )
                             : Image.network(
-                                'https://i.ytimg.com/vi/$_latestYoutubeVideoId/mqdefault.jpg',
+                                'https://i.ytimg.com/vi/$_latestYoutubeVideoId/0.jpg',
                                 fit: BoxFit.cover,
                                 width: double.infinity,
                                 height: double.infinity,
@@ -1278,7 +1278,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       ),
                                       SizedBox(height: 6),
                                       Text(
-                                        '채널 방문하기',
+                                        YoutubeRssService.lastErrorMsg ?? '썸네일 오류',
+                                        textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: Color(0xFF9FA3AE),
                                           fontSize: 11,
