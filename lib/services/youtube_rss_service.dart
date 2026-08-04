@@ -17,7 +17,7 @@ class YoutubeRssService {
 
   static const Map<String, String> _rssHeaders = {
     'Accept': 'application/xml, text/xml, */*',
-    'User-Agent': 'Mozilla/5.0 (compatible; DbrosApp RSS/1.0; +https://www.youtube.com/)',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36',
   };
 
   static final Map<String, String> _oembedHeaders = {
