@@ -1248,7 +1248,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                     SizedBox(height: 6),
                                     Text(
-                                      '채널 방문하기',
+                                      YoutubeRssService.lastErrorMsg ?? '채널 방문하기',
+                                      textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Color(0xFF9FA3AE),
                                         fontSize: 11,

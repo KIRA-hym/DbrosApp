@@ -14,6 +14,8 @@ typedef YoutubeLatestVideoMeta = ({
 /// YouTube 채널 RSS(`feeds/videos.xml`)에서 최신 영상 ID 추출 — API 키 불필요.
 class YoutubeRssService {
   YoutubeRssService._();
+  
+  static String? lastErrorMsg;
 
   static const Map<String, String> _rssHeaders = {
     'Accept': 'application/xml, text/xml, */*',
@@ -210,13 +212,25 @@ class YoutubeRssService {
       <String, String>{'channel_id': id},
     );
     try {
+      lastErrorMsg = null;
       final res = await http
           .get(uri, headers: _rssHeaders)
           .timeout(const Duration(seconds: 15));
-      if (res.statusCode != 200) return null;
-      if (!_looksLikeAtomFeed(res.body)) return null;
-      return _parseFirstVideoId(res.body);
-    } catch (_) {
+      if (res.statusCode != 200) {
+        lastErrorMsg = 'HTTP ${res.statusCode}';
+        return null;
+      }
+      if (!_looksLikeAtomFeed(res.body)) {
+        lastErrorMsg = 'Not Atom';
+        return null;
+      }
+      final parsedId = _parseFirstVideoId(res.body);
+      if (parsedId == null) {
+        lastErrorMsg = 'Parse Error';
+      }
+      return parsedId;
+    } catch (e) {
+      lastErrorMsg = 'Err: $e';
       return null;
     }
   }
@@ -289,6 +303,7 @@ class YoutubeRssService {
       <String, String>{'channel_id': id},
     );
     try {
+      lastErrorMsg = null;
       final res = await http
           .get(uri, headers: _rssHeaders)
           .timeout(const Duration(seconds: 18));
