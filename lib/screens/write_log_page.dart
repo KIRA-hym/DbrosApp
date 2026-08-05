@@ -107,6 +107,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final _endLocCon = TextEditingController();
   final _memoCon = TextEditingController();
 
+  bool get _isStartLocMissing => _startLocCon.text.trim().isEmpty;
+  bool get _isEndLocMissing => _endLocCon.text.trim().isEmpty;
+  bool get _isIncomeMissing => _parseMoney(_incomeCon.text) <= 0;
+
   int? _logId;
   /// DB에 이미 들어있는 등록 출처(스크린샷 자동 등). 수정 시 유지한다.
   String? _persistedRegistrationSource;
@@ -321,7 +325,38 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     super.dispose();
   }
 
+  Future<bool> _ensureOcrDisclaimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeen = prefs.getBool('has_seen_ocr_disclaimer') ?? false;
+    if (hasSeen) return true;
+
+    if (!mounted) return false;
+
+    bool? accepted = await AppGlassDialog.show<bool>(
+      context: context,
+      title: "OCR(자동 인식) 이용 안내",
+      icon: Icons.info_outline,
+      contentWidget: const Text(
+        "OCR 기능은 콜카드 이미지를 읽어 문구를 자동 입력하는 기능입니다.\n\n"
+        "100% 완벽하지 않을 수 있으며, 화면 화질이나 폰트 설정 등에 따라 간혹 잘못된 값이 입력될 수 있습니다.\n\n"
+        "자동 입력된 금액과 출발/도착지 등이 올바른지 저장 전 반드시 한 번 더 확인해 주세요.",
+        style: TextStyle(fontSize: 14, height: 1.4, color: Colors.white70),
+      ),
+      confirmText: "동의 및 계속",
+      cancelText: "취소",
+    );
+
+    if (accepted == true) {
+      await prefs.setBool('has_seen_ocr_disclaimer', true);
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _openGallery() async {
+    final canProceed = await _ensureOcrDisclaimer();
+    if (!canProceed) return;
+
     ProFeatureGuard.checkAndRun(
       context: context,
       featureKey: 'single_ocr',
@@ -346,6 +381,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
   Future<void> _runOcrOnSharedPath(String path) async {
+    final canProceed = await _ensureOcrDisclaimer();
+    if (!canProceed) return;
+
     try {
       final file = File(path);
       if (!file.existsSync()) {
@@ -1686,7 +1724,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 children: [
                   Expanded(child: _buildDropdown(bottomMargin: 0)),
                   SizedBox(width: 12),
-                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, focusNode: _incomeFocusNode, onChanged: (_) => _captureGrossAndApplyDeductions())),
+                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, focusNode: _incomeFocusNode, isError: _isIncomeMissing, onChanged: (_) => _captureGrossAndApplyDeductions())),
                 ],
               ),
               SizedBox(height: 16),
@@ -1798,11 +1836,27 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Theme.of(context).scaffoldBackgroundColor,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _isStartLocMissing ? Colors.red : Theme.of(context).dividerColor)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _isStartLocMissing ? Colors.red : Theme.of(context).dividerColor)),
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
+                          Tooltip(
+                            message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
+                            triggerMode: TooltipTriggerMode.tap,
+                            child: const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 4.0),
+                              child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+                            ),
+                          )
+                        else if (!_isStartLocMissing && _startLat == null)
+                          const Icon(Icons.location_off, color: Colors.orange, size: 20),
+                        if (kMapFeaturesEnabled) _pinPickButton(forStart: true),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 16),
@@ -1813,7 +1867,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               _endLocCon,
               label: "도착지",
               focusNode: _endLocFocusNode,
-              suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null,
+              isError: _isEndLocMissing,
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!_isEndLocMissing && _endLat == null && _endLocCon.text.trim().isNotEmpty)
+                    Tooltip(
+                      message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
+                      triggerMode: TooltipTriggerMode.tap,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 4.0),
+                        child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+                      ),
+                    )
+                  else if (!_isEndLocMissing && _endLat == null)
+                    const Icon(Icons.location_off, color: Colors.orange, size: 20),
+                  if (kMapFeaturesEnabled) _pinPickButton(forStart: false),
+                ],
+              ),
             ),
           ],
             trailing: kMapFeaturesEnabled
@@ -1834,6 +1905,31 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
+  Widget _buildOcrWarningBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, color: Colors.red, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              "OCR(자동 인식)은 100% 완벽하지 않을 수 있습니다. 잘못 인식된 부분이 없는지 반드시 확인해 주세요.",
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFormLayout() {
     const gap = 20.0;
     final bottomPad = MediaQuery.of(context).padding.bottom;
@@ -1846,6 +1942,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               padding: EdgeInsets.only(bottom: bottomPad),
               child: Column(
                 children: [
+                  _buildOcrWarningBanner(),
                   _buildDateTimeSection(),
                   SizedBox(height: gap),
                   _buildProgramMoneySection(),
@@ -1874,6 +1971,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       padding: EdgeInsets.only(bottom: bottomPad),
       child: Column(
         children: [
+          _buildOcrWarningBanner(),
           _buildDateTimeSection(),
           SizedBox(height: gap),
           _buildProgramMoneySection(),
@@ -1937,7 +2035,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, {required String label, bool isNumber = false, VoidCallback? onTap, bool readOnly = false, double bottomMargin = 16, int maxLines = 1, FocusNode? focusNode, Widget? suffixWidget, Widget? suffixIcon, Function(String)? onChanged}) {
+  Widget _buildInputField(TextEditingController controller, {required String label, bool isNumber = false, VoidCallback? onTap, bool readOnly = false, double bottomMargin = 16, int maxLines = 1, FocusNode? focusNode, Widget? suffixWidget, Widget? suffixIcon, Function(String)? onChanged, bool isError = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1959,8 +2057,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: Theme.of(context).scaffoldBackgroundColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           ),

@@ -1988,8 +1988,10 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final hPad = 12.0;
-        final vPad = 10.0;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final isSmallScreen = screenWidth < 360;
+        final hPad = isSmallScreen ? 6.0 : 12.0;
+        final vPad = isSmallScreen ? 6.0 : 10.0;
         final innerGap = math.max(4.0, titleFontSize * 0.3);
         const titleTopInset = 4.0;
         final h = constraints.maxHeight;

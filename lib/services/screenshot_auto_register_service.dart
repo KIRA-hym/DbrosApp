@@ -286,9 +286,20 @@ class ScreenshotAutoRegisterService {
       }
 
       try {
+        final missing = CallCardOcrParseService.getMissingFieldsList(logData);
+        final bool hasMissing = missing.isNotEmpty;
+        final toastMsg = hasMissing
+            ? '[자동인식 정보 누락] ${missing.join(', ')} 정보를 수동으로 채워주세요.'
+            : '운행일지 자동등록이 완료되었습니다.';
+
         await _nativeGalleryObserver.invokeMethod<void>('showToast', {
-          'message': '운행일지 자동등록이 완료되었습니다.'
+          'message': toastMsg
         });
+        
+        AutoRegisterNotificationService.instance.showAutoRegisterComplete(
+          logId: insertedId,
+          missingFields: missing,
+        );
       } catch (_) {}
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
       debugPrint('ScreenshotAutoRegister: saved successfully');

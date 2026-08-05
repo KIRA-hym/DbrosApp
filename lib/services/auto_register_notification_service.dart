@@ -85,7 +85,7 @@ class AutoRegisterNotificationService {
     return req.isGranted;
   }
 
-  Future<void> showAutoRegisterComplete({int? logId}) async {
+  Future<void> showAutoRegisterComplete({int? logId, List<String>? missingFields}) async {
     if (!_isAndroid) return;
     await initialize();
     if (!await ensureNotificationPermission()) return;
@@ -105,10 +105,16 @@ class AutoRegisterNotificationService {
       ),
     );
 
+    final bool hasMissing = missingFields != null && missingFields.isNotEmpty;
+    final String title = hasMissing ? '⚠️ 자동인식 정보 누락' : '운행일지';
+    final String body = hasMissing
+        ? '${missingFields.join(', ')} 정보가 비어있습니다. 터치하여 수정해 주세요.'
+        : '운행일지 자동등록이 완료되었습니다.';
+
     await _plugin.show(
       id: _notificationId,
-      title: '운행일지',
-      body: '운행일지 자동등록이 완료되었습니다.',
+      title: title,
+      body: body,
       notificationDetails: details,
       payload: logId?.toString(),
     );

@@ -565,26 +565,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 );
                               }
 
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildTodaySummaryCard(),
-                                  SizedBox(height: sectionGap),
-                                  SizedBox(
-                                    height: 60,
-                                    child: _buildUtilsRow(),
-                                  ),
-                                  SizedBox(height: sectionGap),
-                                  SizedBox(
-                                    height: 85,
-                                    child: _buildRegisterRow(),
-                                  ),
-                                  SizedBox(height: sectionGap),
+                              return SingleChildScrollView(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    _buildTodaySummaryCard(),
+                                    SizedBox(height: sectionGap),
+                                    SizedBox(
+                                      height: 60,
+                                      child: _buildUtilsRow(),
+                                    ),
+                                    SizedBox(height: sectionGap),
+                                    SizedBox(
+                                      height: 85,
+                                      child: _buildRegisterRow(),
+                                    ),
+                                    SizedBox(height: sectionGap),
 
-                                  Expanded(
-                                    child: _buildYoutubeSection(),
-                                  ),
-                                ],
+                                    SizedBox(
+                                      height: 220,
+                                      child: _buildYoutubeSection(),
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           ),

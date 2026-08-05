@@ -2156,16 +2156,37 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       child: Icon(Icons.arrow_forward, color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), size: lay.isTablet ? 14 : 12),
     );
 
-    Widget segment(String? full, String placeholder, {TextAlign align = TextAlign.start}) {
+    final hasStartLoc = fullStart != null && fullStart.isNotEmpty;
+    final hasStartCoord = log['start_lat'] != null && log['start_lng'] != null;
+    
+    final hasEndLoc = fullEnd != null && fullEnd.isNotEmpty;
+    final hasEndCoord = log['end_lat'] != null && log['end_lng'] != null;
+
+    Widget segment(String? full, String placeholder, {TextAlign align = TextAlign.start, bool hasCoordinate = true, bool isMissing = false}) {
       final t = (full != null && full.isNotEmpty) ? full : placeholder;
-      return Text(
-        t,
-        style: locStyle,
+      final displayWidget = Text(
+        isMissing ? '⚠️ 누락' : t,
+        style: locStyle.copyWith(color: isMissing ? const Color(0xFFFF5252) : null),
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.ellipsis,
         textAlign: align,
       );
+
+      if (!hasCoordinate && !isMissing && full != null && full.isNotEmpty) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: align == TextAlign.end ? MainAxisAlignment.end : (align == TextAlign.center ? MainAxisAlignment.center : MainAxisAlignment.start),
+          children: [
+            if (align != TextAlign.end) const Icon(Icons.location_off, color: Colors.orange, size: 14),
+            if (align != TextAlign.end) const SizedBox(width: 4),
+            Flexible(child: displayWidget),
+            if (align == TextAlign.end) const SizedBox(width: 4),
+            if (align == TextAlign.end) const Icon(Icons.location_off, color: Colors.orange, size: 14),
+          ],
+        );
+      }
+      return displayWidget;
     }
 
     final hasWp = fullWp != null && fullWp.isNotEmpty;
@@ -2230,13 +2251,13 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(flex: 1, child: segment(fullStart, '출발지')),
+              Expanded(flex: 1, child: segment(fullStart, '출발지', isMissing: !hasStartLoc, hasCoordinate: hasStartCoord)),
               arrowIcon,
               if (hasWp) ...[
                 Expanded(flex: 1, child: segment(fullWp, '경유', align: TextAlign.center)),
                 arrowIcon,
               ],
-              Expanded(flex: 1, child: segment(fullEnd, '도착지', align: TextAlign.end)),
+              Expanded(flex: 1, child: segment(fullEnd, '도착지', align: TextAlign.end, isMissing: !hasEndLoc, hasCoordinate: hasEndCoord)),
             ],
           ),
           SizedBox(height: lay.rowSpacing / 2),

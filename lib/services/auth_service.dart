@@ -214,19 +214,33 @@ class AuthService extends ChangeNotifier {
       }
 
       final data = codeSnapshot.data()!;
-      if (data['isUsed'] == true) {
+      if (data['isUsed'] == true && data['isMultiUse'] != true) {
         throw Exception("이미 사용된 코드입니다.");
       }
+
+      final String type = data['type'] ?? '미지정';
+      final bool isMultiUse = data['isMultiUse'] == true;
 
       final durationMonths = (data['durationMonths'] as num?)?.toInt() ?? 1;
 
       final userSnapshot = await transaction.get(userRef);
       DateTime newPremiumUntil;
       
-      if (userSnapshot.exists && userSnapshot.data()!.containsKey('premiumUntil')) {
-        final currentPremiumUntil = (userSnapshot.data()!['premiumUntil'] as Timestamp?)?.toDate();
-        if (currentPremiumUntil != null && currentPremiumUntil.isAfter(DateTime.now())) {
-          newPremiumUntil = DateTime(currentPremiumUntil.year, currentPremiumUntil.month + durationMonths, currentPremiumUntil.day);
+      if (userSnapshot.exists) {
+        final userData = userSnapshot.data()!;
+        final usedPromotionTypes = List<String>.from(userData['usedPromotionTypes'] ?? []);
+        
+        if (usedPromotionTypes.contains(type)) {
+          throw Exception("이미 참여하신 프로모션(이벤트)입니다.");
+        }
+
+        if (userData.containsKey('premiumUntil')) {
+          final currentPremiumUntil = (userData['premiumUntil'] as Timestamp?)?.toDate();
+          if (currentPremiumUntil != null && currentPremiumUntil.isAfter(DateTime.now())) {
+            newPremiumUntil = DateTime(currentPremiumUntil.year, currentPremiumUntil.month + durationMonths, currentPremiumUntil.day);
+          } else {
+            newPremiumUntil = DateTime(DateTime.now().year, DateTime.now().month + durationMonths, DateTime.now().day);
+          }
         } else {
           newPremiumUntil = DateTime(DateTime.now().year, DateTime.now().month + durationMonths, DateTime.now().day);
         }
@@ -234,14 +248,22 @@ class AuthService extends ChangeNotifier {
         newPremiumUntil = DateTime(DateTime.now().year, DateTime.now().month + durationMonths, DateTime.now().day);
       }
 
-      transaction.update(codeRef, {
-        'isUsed': true,
-        'usedBy': currentUser.uid,
-        'usedAt': FieldValue.serverTimestamp(),
-      });
+      if (!isMultiUse) {
+        transaction.update(codeRef, {
+          'isUsed': true,
+          'usedBy': currentUser.uid,
+          'usedAt': FieldValue.serverTimestamp(),
+        });
+      } else {
+        // 다회용 코드의 경우 상태만 업데이트 (옵션)
+        transaction.update(codeRef, {
+          'usedAt': FieldValue.serverTimestamp(),
+        });
+      }
 
       transaction.update(userRef, {
         'premiumUntil': Timestamp.fromDate(newPremiumUntil),
+        'usedPromotionTypes': FieldValue.arrayUnion([type]),
       });
 
       return true;

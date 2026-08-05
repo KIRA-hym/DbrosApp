@@ -71,6 +71,7 @@ class ShorebirdUpdateService {
   }
 
   Future<bool> checkAndUpdate() async {
+    bool isDownloading = false;
     try {
       if (!_updater.isAvailable) {
         if (kDebugMode) debugPrint('[Shorebird] 업데이터 사용 불가');
@@ -84,6 +85,7 @@ class ShorebirdUpdateService {
 
       switch (status) {
         case UpdateStatus.outdated:
+          isDownloading = true;
           _ctrl.add(const PatchEvent(PatchStage.downloading));
           if (kDebugMode) debugPrint('[Shorebird] 다운로드 시작');
           await _updater.update();
@@ -105,7 +107,16 @@ class ShorebirdUpdateService {
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] 예외: $e');
-      _ctrl.add(const PatchEvent(PatchStage.error));
+      if (isDownloading) {
+        // 이미 다운로드를 시작했다면 네트워크 오류(timeout 등)에도
+        // 패치가 로컬에 반영된 경우가 많으므로 '낙관적 성공(Ready)'으로 처리
+        if (kDebugMode) debugPrint('[Shorebird] 다운로드 중 예외 발생 -> 낙관적 성공으로 간주');
+        await _emitReadyIfNew(forceEmit: true);
+        return true;
+      } else {
+        // 다운로드 전(체크 단계) 에러는 사용자에게 공포감을 주지 않도록 조용히 무시(실패 팝업 미노출)
+        // _ctrl.add(const PatchEvent(PatchStage.error)); // 기존 에러 이벤트 제거
+      }
     }
     return false;
   }

@@ -37,7 +37,11 @@ class GuideContentWidget extends StatelessWidget {
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18.0)),
           const SizedBox(height: 10),
-          Text(description, style: const TextStyle(color: Color(0xFFD4D4D4), fontSize: 15.0, height: 1.4)),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Text(description, style: const TextStyle(color: Color(0xFFD4D4D4), fontSize: 15.0, height: 1.4)),
+            ),
+          ),
           const SizedBox(height: 16),
           Align(
             alignment: Alignment.centerRight,

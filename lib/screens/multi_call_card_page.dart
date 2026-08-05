@@ -240,7 +240,17 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
 
       if (_parsedLogs.isNotEmpty) {
         final String workStr = _driveDateStr();
-        final snack = "$successCount건의 운행일지가 등록되었습니다.";
+        bool hasAnyMissing = false;
+        for (var log in _parsedLogs) {
+          if (CallCardOcrParseService.getMissingFieldsList(log).isNotEmpty) {
+            hasAnyMissing = true;
+            break;
+          }
+        }
+        
+        final snack = hasAnyMissing 
+            ? "$successCount건의 운행일지가 등록되었습니다. (자동인식 정보 누락 포함, 내역 확인 요망)"
+            : "$successCount건의 운행일지가 등록되었습니다.";
 
         ScaffoldMessenger.of(context).clearSnackBars();
         MainTabScope.maybeOf(context)?.selectTab(1);

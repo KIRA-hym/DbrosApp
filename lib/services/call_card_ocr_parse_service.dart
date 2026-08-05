@@ -109,11 +109,23 @@ class CallCardOcrParseService {
   static bool isValidForAutoSave(Map<String, dynamic> logData) {
     if (logData.isEmpty) return false;
     if (!_nonEmptyTrimmed(logData['program'])) return false;
-    // 금액 인식 못해도 나머지 정상 인식 시 자동저장 되도록 요금조건 제외 처리
-    // if (_parsedGrossFare(logData) <= 0) return false;
-    if (!_nonEmptyTrimmed(logData['start_location'])) return false;
-    if (!_nonEmptyTrimmed(logData['end_location'])) return false;
+
+    final hasStart = _nonEmptyTrimmed(logData['start_location']);
+    final hasEnd = _nonEmptyTrimmed(logData['end_location']);
+    final hasFare = _parsedGrossFare(logData) > 0;
+
+    // 출발지, 도착지, 요금 중 하나라도 있으면 자동저장 허용
+    if (!hasStart && !hasEnd && !hasFare) return false;
+
     return true;
+  }
+
+  static List<String> getMissingFieldsList(Map<String, dynamic> logData) {
+    final missing = <String>[];
+    if (_parsedGrossFare(logData) <= 0) missing.add('요금');
+    if (!_nonEmptyTrimmed(logData['start_location'])) missing.add('출발지');
+    if (!_nonEmptyTrimmed(logData['end_location'])) missing.add('도착지');
+    return missing;
   }
 
   static bool _nonEmptyTrimmed(dynamic value) => value?.toString().trim().isNotEmpty == true;

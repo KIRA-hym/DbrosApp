@@ -156,6 +156,12 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
 
       final String workStr = _driveDateStr();
 
+      final missing = CallCardOcrParseService.getMissingFieldsList(logData);
+      final bool hasMissing = missing.isNotEmpty;
+      final snackMsg = hasMissing
+          ? '콜카드가 등록되었으나, 자동인식 정보 누락(${missing.join(', ')})이 있습니다. 내역을 확인해 주세요.'
+          : '운행일지가 등록되었습니다.';
+
       ScaffoldMessenger.of(context).clearSnackBars();
       MainTabScope.maybeOf(context)?.selectTab(1);
       Navigator.of(context).pushAndRemoveUntil(
@@ -163,7 +169,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
           builder: (_) => DailyLogListPage(
             dateStr: workStr,
             dateTitle: workStr,
-            snackMessage: "운행일지가 등록되었습니다.",
+            snackMessage: snackMsg,
           ),
         ),
         (route) => route.isFirst,
