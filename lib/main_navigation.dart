@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
+
+final StreamController<int> mainTabEventController = StreamController<int>.broadcast();
 
 /// 하단 탭(MainWrapper) 전환용. 작성 탭 등 임베드 화면에서 목록 등으로 안전하게 이동할 때 사용합니다.
 class MainTabScope extends InheritedWidget {

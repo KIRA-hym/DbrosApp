@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../main_navigation.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:screenshot/screenshot.dart';
@@ -1155,10 +1156,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_period",
           keyTarget: _keyPeriodSection,
           color: Colors.black,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.bottom,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "기간별 통계 확인",
                   description: "원하는 기간을 선택하여 나의 운행 통계를 간편하게 확인할 수 있습니다.",
@@ -1177,10 +1180,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_summary",
           keyTarget: _keySummarySection,
           color: Colors.black,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.bottom,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "핵심 통계 요약",
                   description: "선택한 기간 동안의 총 순이익과 수입, 지출 내역 및 전체 운행 건수를 한눈에 파악하세요.",
@@ -1199,10 +1204,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_expense_income",
           keyTarget: _keyExpenseIncomeCard,
           color: Colors.black,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.bottom,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "상세 내역 팝업",
                   description: "이 카드를 터치하면 어떤 항목으로 지출이 발생했는지, 경유비 등 추가 수익은 얼마인지 상세 내역을 팝업으로 볼 수 있습니다.",
@@ -1221,10 +1228,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_work_count",
           keyTarget: _keyWorkCountCard,
           color: Colors.black,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.top,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "운행 요약 리포트",
                   description: "건수 카드를 터치해 보세요! 해당 기간 동안의 일자별 운행 요약 리포트를 간략하게 확인할 수 있습니다.",
@@ -1243,10 +1252,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_chart",
           keyTarget: _keyChartSection,
           color: Colors.black,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.top,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "시각적인 수익 분석",
                   description: "프로그램별, 요일별 수익 분포를 차트로 파악하여 나의 수입 패턴을 분석해 보세요!",
@@ -1266,6 +1277,21 @@ class _StatsPageState extends State<StatsPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+            onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+
       beforeFocus: (target) async {
         if (target.keyTarget?.currentContext != null) {
           try {

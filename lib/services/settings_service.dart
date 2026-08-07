@@ -147,9 +147,26 @@ class SettingsService {
 
   static bool get isPremiumUser => isPromoPremium || isRevenueCatPremium;
 
-  static bool get isPromoPremium => _prefs.getBool('isPromoPremium') ?? false;
-  static Future<void> setPromoPremium(bool value) async {
+  static bool get isPromoPremium {
+    final isPromo = _prefs.getBool('isPromoPremium') ?? false;
+    if (!isPromo) return false;
+    final expireMs = _prefs.getInt('promoExpireMs') ?? 0;
+    if (expireMs == 0) return true; // 무제한
+    if (DateTime.now().millisecondsSinceEpoch > expireMs) {
+      _prefs.setBool('isPromoPremium', false);
+      return false; // 만료됨
+    }
+    return true;
+  }
+
+  static Future<void> setPromoPremium(bool value, {int? durationDays}) async {
     await _prefs.setBool('isPromoPremium', value);
+    if (value && durationDays != null) {
+      final expireMs = DateTime.now().add(Duration(days: durationDays)).millisecondsSinceEpoch;
+      await _prefs.setInt('promoExpireMs', expireMs);
+    } else if (!value) {
+      await _prefs.remove('promoExpireMs');
+    }
     _isPremiumUserNotifier.value = isPremiumUser;
     isFeatureUnlockedNotifier.value = isFeatureUnlocked();
   }
@@ -357,6 +374,9 @@ class SettingsService {
 
   static bool get hasAgreedPermissionsDisclosure => _prefs.getBool('hasAgreedPermissionsDisclosure') ?? false;
   static Future<void> setHasAgreedPermissionsDisclosure(bool value) async => await _prefs.setBool('hasAgreedPermissionsDisclosure', value);
+
+  static bool get hasSeenOnboarding => _prefs.getBool('hasSeenOnboarding') ?? false;
+  static Future<void> setHasSeenOnboarding(bool value) async => await _prefs.setBool('hasSeenOnboarding', value);
 
   // [원복] quickRegisterOpacity getter/setter 제거
   // 퀵등록 배경 투명도를 사용자가 직접 조절하는 기능을 추가했으나,

@@ -59,6 +59,11 @@ class _LogListPageState extends State<LogListPage> {
   bool _isLoading = true;
   bool _isScrolled = false;
 
+  bool _isSearchActive = false;
+  String _searchQuery = '';
+  final TextEditingController _searchCon = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+
   int _totalCount = 0;
   int _totalGross = 0;
   int _totalNet = 0;
@@ -87,6 +92,51 @@ class _LogListPageState extends State<LogListPage> {
       return workYmd;
     }
     return null;
+  }
+
+  Map<String, List<Map<String, dynamic>>> get _filteredGroupedLogs {
+    if (!_isSearchActive || _searchQuery.isEmpty) return _groupedLogs;
+    final query = _searchQuery.toLowerCase();
+    
+    final filtered = <String, List<Map<String, dynamic>>>{};
+    for (final entry in _groupedLogs.entries) {
+      final matchingLogs = entry.value.where((log) {
+        final startLoc = (log['start_location']?.toString() ?? '').toLowerCase();
+        final endLoc = (log['end_location']?.toString() ?? '').toLowerCase();
+        final waypoint = (log['waypoint']?.toString() ?? '').toLowerCase();
+        final program = (log['program']?.toString() ?? '').toLowerCase();
+        final memo = (log['memo']?.toString() ?? '').toLowerCase();
+        return startLoc.contains(query) ||
+               endLoc.contains(query) ||
+               waypoint.contains(query) ||
+               program.contains(query) ||
+               memo.contains(query);
+      }).toList();
+      if (matchingLogs.isNotEmpty) {
+        filtered[entry.key] = matchingLogs;
+      }
+    }
+    return filtered;
+  }
+
+  int get _filteredTotalCount {
+    if (!_isSearchActive || _searchQuery.isEmpty) return _totalCount;
+    return _filteredGroupedLogs.values.fold(0, (sum, logs) => sum + logs.length);
+  }
+
+  int get _filteredTotalGross {
+    if (!_isSearchActive || _searchQuery.isEmpty) return _totalGross;
+    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowIncomePlusTip(log));
+  }
+
+  int get _filteredTotalNet {
+    if (!_isSearchActive || _searchQuery.isEmpty) return _totalNet;
+    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowNetProfit(log));
+  }
+
+  int get _filteredTotalExpenses {
+    if (!_isSearchActive || _searchQuery.isEmpty) return _totalExpenses;
+    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowExpenseFeePlusTransport(log));
   }
 
   Widget _buildMasterDetailAmountRow({
@@ -252,12 +302,18 @@ class _LogListPageState extends State<LogListPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
-                      SizedBox(width: 10),
-                      Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                      Text(
-                        '₩${NumberFormat('#,###').format(_totalGross)}',
-                        style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                      Text('$_filteredTotalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                      SizedBox(width: 8),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(text: '총 수입: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                            TextSpan(
+                              text: '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
+                              style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -276,8 +332,8 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        TextSpan(text: '순수익: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        TextSpan(text: '₩${NumberFormat('#,###').format(_filteredTotalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
                       ],
                     ),
                   ),
@@ -290,8 +346,8 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        TextSpan(text: '지출: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                        TextSpan(text: '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
                       ],
                     ),
                   ),
@@ -448,6 +504,8 @@ class _LogListPageState extends State<LogListPage> {
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.removeListener(_onGuideRequested);
     _scrollController.dispose();
+    _searchCon.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -718,28 +776,82 @@ class _LogListPageState extends State<LogListPage> {
           bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
         ),
       ),
-      padding: EdgeInsets.symmetric(vertical: padding),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          IconButton(
-            icon: Icon(Icons.arrow_left, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
-            onPressed: () => _changeMonth(-1),
-            constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
-          ),
-          SizedBox(width: isTablet ? 20 : 16),
-          Text(
-            DateFormat('yyyy년 MM월').format(_focusedMonth), 
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))
-          ),
-          SizedBox(width: isTablet ? 20 : 16),
-          IconButton(
-            icon: Icon(Icons.arrow_right, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
-            onPressed: () => _changeMonth(1),
-            constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
-          ),
-        ],
-      ),
+      padding: EdgeInsets.symmetric(vertical: padding, horizontal: 16),
+      child: _isSearchActive
+          ? Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchCon,
+                    focusNode: _searchFocus,
+                    decoration: InputDecoration(
+                      hintText: '검색어 입력 (출발, 도착, 프로그램 등)',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                      isDense: true,
+                    ),
+                    style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val.trim();
+                      });
+                    },
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: Colors.grey, size: 24),
+                  padding: EdgeInsets.zero,
+                  constraints: BoxConstraints(),
+                  onPressed: () {
+                    setState(() {
+                      _isSearchActive = false;
+                      _searchQuery = '';
+                      _searchCon.clear();
+                    });
+                  },
+                ),
+              ],
+            )
+          : Stack(
+              alignment: Alignment.center,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: Icon(Icons.search, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                    onPressed: () {
+                      setState(() {
+                        _isSearchActive = true;
+                      });
+                      _searchFocus.requestFocus();
+                    },
+                  ),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: Icon(Icons.arrow_left, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
+                      onPressed: () => _changeMonth(-1),
+                      constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
+                    ),
+                    SizedBox(width: isTablet ? 20 : 16),
+                    Text(
+                      DateFormat('yyyy년 MM월').format(_focusedMonth), 
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))
+                    ),
+                    SizedBox(width: isTablet ? 20 : 16),
+                    IconButton(
+                      icon: Icon(Icons.arrow_right, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
+                      onPressed: () => _changeMonth(1),
+                      constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
+                    ),
+                  ],
+                ),
+              ],
+            ),
     );
   }
 
@@ -804,7 +916,12 @@ class _LogListPageState extends State<LogListPage> {
           String dateStr = DateFormat('yyyy-MM-dd').format(currentDate);
           String dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate); 
           bool isToday = currentDate.year == now.year && currentDate.month == now.month && currentDate.day == now.day;
-          List<Map<String, dynamic>> dailyLogs = _groupedLogs[dateStr] ?? [];
+          List<Map<String, dynamic>> dailyLogs = _filteredGroupedLogs[dateStr] ?? [];
+
+          final bool isFiltering = _isSearchActive && _searchQuery.isNotEmpty;
+          if (isFiltering && dailyLogs.isEmpty) {
+            return const SizedBox.shrink();
+          }
 
           if (dailyLogs.isEmpty) {
             final isTablet = ResponsiveLayout.isFoldOrTablet(context);
@@ -1032,8 +1149,6 @@ class _LogListPageState extends State<LogListPage> {
     final horizontalPadding = isTablet ? 24.0 : 20.0;
     final verticalPadding = isTablet ? 20.0 : 16.0;
     final infoFontSize = isTablet ? 14.0 : 13.0;
-    final spacing = isTablet ? 8.0 : 6.0;
-    final itemSpacing = isTablet ? 20.0 : 16.0;
 
     return Container(
       key: _keyMonthlySummary,
@@ -1047,64 +1162,38 @@ class _LogListPageState extends State<LogListPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  child: Text(
-                    '[ 월간 합계 ]',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
-                        SizedBox(width: 12),
-                        Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                        Text(
-                          '₩${NumberFormat('#,###').format(_totalGross)}',
-                          style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+                Text('$_filteredTotalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '총 수입 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
+                      TextSpan(
+                        text: '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
+                        style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            SizedBox(height: spacing),
+            SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                          TextSpan(text: '₩${NumberFormat('#,###').format(_totalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: infoFontSize)),
-                        ],
-                      ),
-                    ),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '순수익 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
+                      TextSpan(text: '₩${NumberFormat('#,###').format(_filteredTotalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: infoFontSize)),
+                    ],
                   ),
                 ),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text.rich(
-                      TextSpan(
-                        children: [
-                          const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                          TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
-                        ],
-                      ),
-                    ),
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(text: '지출 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
+                      TextSpan(text: '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
+                    ],
                   ),
                 ),
               ],
@@ -1369,7 +1458,6 @@ class _LogListPageState extends State<LogListPage> {
     final valueFontSize = isTablet ? 15.0 : 14.0;
     final infoFontSize = isTablet ? 14.0 : 13.0;
     final spacing = isTablet ? 8.0 : 6.0;
-    final itemSpacing = isTablet ? 20.0 : 16.0;
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
@@ -1380,30 +1468,16 @@ class _LogListPageState extends State<LogListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: Text(
-                  '[ 월간 합계 ]',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
-                ),
-              ),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerRight,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
-                      SizedBox(width: 12),
-                      Text('순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 14)),
-                      Text(
-                        '₩${NumberFormat('#,###').format(_totalNet)}',
-                        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: valueFontSize, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+              Text('$_filteredTotalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: '총 수입 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
+                    TextSpan(
+                      text: '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
+                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1412,14 +1486,6 @@ class _LogListPageState extends State<LogListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
                         TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)),
                       ],
                     ),

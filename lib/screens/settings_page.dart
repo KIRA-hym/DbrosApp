@@ -54,6 +54,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
+  final ScrollController _scrollController = ScrollController();
   final _baseFeeCon = TextEditingController(
     text: SettingsService.baseFeeRate.toString(),
   );
@@ -190,6 +191,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     Provider.of<GuideProvider>(
       context,
       listen: false,
@@ -330,11 +332,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "myInfo",
         keyTarget: _keyMyInfo,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "내 정보 관리",
                 description: "회원가입 시 등록된 내 정보를 확인하고, 프로필 등을 관리할 수 있는 메뉴입니다.",
@@ -347,11 +350,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "themeSettings",
         keyTarget: _keyThemeSettings,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "화면 테마 및 글자 크기 조절 기능",
                 description:
@@ -365,11 +369,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "feeInsurance",
         keyTarget: _keyFeeInsurance,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "수수료 및 보험료 설정",
                 description:
@@ -383,11 +388,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "categoryManager",
         keyTarget: _keyCategoryManager,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "항목 관리",
                 description:
@@ -407,11 +413,12 @@ class _SettingsPageState extends State<SettingsPage> {
         TargetFocus(
           identify: "statusBarQuick",
           keyTarget: _keyStatusBarQuick,
-          alignSkip: Alignment.topRight,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.top,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "상태바 퀵기능",
                   description:
@@ -430,11 +437,12 @@ class _SettingsPageState extends State<SettingsPage> {
         TargetFocus(
           identify: "callPointShare",
           keyTarget: _keyCallPointShare,
-          alignSkip: Alignment.topRight,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.top,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜포인트 공유",
                   description:
@@ -455,11 +463,12 @@ class _SettingsPageState extends State<SettingsPage> {
         TargetFocus(
           identify: "screenshotAuto",
           keyTarget: _keyScreenshotAuto,
-          alignSkip: Alignment.topRight,
-          contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
             TargetContent(
-              align: ContentAlign.top,
-              builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜카드 자동인식 (안드로이드 전용)",
                   description:
@@ -477,11 +486,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "backupRestore",
         keyTarget: _keyBackupRestore,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "데이터 백업 및 복원",
                 description:
@@ -498,11 +508,12 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "storage",
         keyTarget: _keyStorage,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.top,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "데이터 정리",
                 description:
@@ -522,6 +533,22 @@ class _SettingsPageState extends State<SettingsPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        });
+        return true;
+      },
       beforeFocus: (target) async {
         if (target.keyTarget?.currentContext != null) {
           try {
@@ -554,6 +581,7 @@ class _SettingsPageState extends State<SettingsPage> {
           : sections;
       final versionSection = sections.isNotEmpty ? sections.last : null;
       return SingleChildScrollView(
+        controller: _scrollController,
         padding: EdgeInsets.all(horizontalPadding),
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -588,7 +616,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(horizontalPadding),
+        controller: _scrollController,
+        padding: EdgeInsets.all(horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

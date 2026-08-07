@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import '../main_navigation.dart';
 import '../widgets/ad_banner_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +34,7 @@ import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
 import '../widgets/permission_disclosure_dialog.dart';
+import '../widgets/onboarding_dialog.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 import '../services/auth_service.dart';
@@ -101,6 +103,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         PermissionDisclosureDialog.showIfNeeded(context);
+          OnboardingDialog.showIfNeeded(context);
         
         final guideProvider = Provider.of<GuideProvider>(context, listen: false);
         guideProvider.addListener(_onGuideRequested);
@@ -127,11 +130,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "myInfo",
         keyTarget: _keyMyInfo,
-        alignSkip: Alignment.bottomRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "내 정보",
                 description: "내 정보 확인과 앱 환경설정은 여기서 관리할 수 있어요.",
@@ -144,11 +148,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "workTimer",
         keyTarget: _keyWorkTimer,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "출근/퇴근",
                 description: "운행 시작 전 '출근'을 누르고, 일이 끝나면 '퇴근'을 눌러 나의 근무시간을 정확하게 기록해 보세요!",
@@ -161,11 +166,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "singleRegister",
         keyTarget: _keySingleRegister,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "콜카드 단건등록",
                 description: "콜카드를 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
@@ -178,11 +184,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "multiRegister",
         keyTarget: _keyMultiRegister,
-        alignSkip: Alignment.topRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "콜카드 다중등록",
                 description: "콜카드를 여러 개 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
@@ -195,11 +202,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "waitingFee",
         keyTarget: _keyWaitingFee,
-        alignSkip: Alignment.bottomRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "대기비용 계산",
                 description: "법인고객 대기시간이 발생했나요? 대기 시간에 따른 예상요금을 확인할 수 있어요.",
@@ -212,11 +220,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "map",
         keyTarget: _keyMap,
-        alignSkip: Alignment.bottomRight,
-        contents: [
+    alignSkip: Alignment.bottomRight,
+  contents: [
           TargetContent(
-            align: ContentAlign.bottom,
-            builder: (context, controller) {
+    align: ContentAlign.custom,
+  customPosition: CustomTargetContentPosition(top: 0),
+  builder: (context, controller) {
               return GuideContentWidget(
                 title: "주변 콜맵",
                 description: "현재 내 위치 주변에 대리 콜 포인트가 얼마나 있는지 지도로 한눈에 파악하세요!",
@@ -235,6 +244,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
     )..show(context: context);
   }
 

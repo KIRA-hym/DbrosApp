@@ -118,7 +118,7 @@ class TodayStatsNotificationService {
       if (nav == null) return;
       nav.pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => const MainWrapper(initialIndex: 0),
+          builder: (_) => MainWrapper(initialIndex: 0),
         ),
         (route) => false,
       );
@@ -131,7 +131,7 @@ class TodayStatsNotificationService {
       if (nav == null) return;
       nav.pushAndRemoveUntil(
         MaterialPageRoute<void>(
-          builder: (_) => const MainWrapper(initialIndex: 2),
+          builder: (_) => MainWrapper(initialIndex: 2),
         ),
         (route) => false,
       );

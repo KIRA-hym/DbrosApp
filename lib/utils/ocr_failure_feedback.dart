@@ -16,7 +16,7 @@ class OcrFailureFeedback {
     BuildContext context, {
     String message = '인식불가한 이미지입니다.',
     required String fullText,
-    String actionLabel = 'OCR 복사',
+    String actionLabel = '인식 텍스트 복사',
   }) {
     if (!context.mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -36,7 +36,7 @@ class OcrFailureFeedback {
                     messenger.showSnackBar(
                       SnackBar(
                         content: Text(
-                          ok ? 'OCR 텍스트를 복사했습니다.' : '복사할 OCR 텍스트가 없습니다.',
+                          ok ? '인식 텍스트를 복사했습니다.' : '복사할 인식 텍스트가 없습니다.',
                         ),
                         duration: const Duration(seconds: 2),
                       ),

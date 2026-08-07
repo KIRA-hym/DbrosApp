@@ -24,6 +24,7 @@ import '../services/today_stats_notification_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../main_navigation.dart';
 import '../providers/guide_provider.dart';
+import '../providers/form_state_provider.dart';
 import '../providers/work_timer_provider.dart'; // [자동출근] 일지 등록 시 미출근이면 자동 출근 처리
 import '../utils/drive_time_format.dart';
 import '../utils/logi_colmanner_ocr.dart';
@@ -107,10 +108,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final _endLocCon = TextEditingController();
   final _memoCon = TextEditingController();
 
-  bool get _isStartLocMissing => _startLocCon.text.trim().isEmpty;
-  bool get _isEndLocMissing => _endLocCon.text.trim().isEmpty;
-  bool get _isIncomeMissing => _parseMoney(_incomeCon.text) <= 0;
 
+
+  bool _hasOcrWarning = false;
   int? _logId;
   /// DB에 이미 들어있는 등록 출처(스크린샷 자동 등). 수정 시 유지한다.
   String? _persistedRegistrationSource;
@@ -159,9 +159,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final GlobalKey _keyMemoSection = GlobalKey();
   final GlobalKey _keySaveBtn = GlobalKey();
 
+  List<String> _distinctLocations = [];
+
+  bool get _isStartLocMissing => (_logId != null || _hasOcrWarning) && _startLocCon.text.trim().isEmpty;
+  bool get _isEndLocMissing => (_logId != null || _hasOcrWarning) && _endLocCon.text.trim().isEmpty;
+  bool get _isIncomeMissing => (_logId != null || _hasOcrWarning) && _parseMoney(_incomeCon.text) <= 0;
+
   @override
   void initState() {
     super.initState();
+    DriveLogDatabase.instance.getDistinctLocations().then((list) {
+      if (mounted) setState(() => _distinctLocations = list);
+    });
     _transportFocusNode.addListener(_onTransportFocusChanged);
     _waypointTipFocusNode.addListener(_onWaypointTipFocusChanged);
     _selectedProgram = _coerceProgramForSelection(_selectedProgram);
@@ -239,6 +248,50 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         _startGuideWhenReady();
       }
     });
+
+    _initDirtyListeners();
+  }
+
+  void _markDirty() {
+    FormStateProvider.isWriteFormDirtyNotifier.value = true;
+  }
+
+  void _initDirtyListeners() {
+    _startLocCon.addListener(_markDirty);
+    _waypointCon.addListener(_markDirty);
+    _endLocCon.addListener(_markDirty);
+    _incomeCon.addListener(_markDirty);
+    _transportCon.addListener(_markDirty);
+    _waypointTipCon.addListener(_markDirty);
+    _memoCon.addListener(_markDirty);
+  }
+
+  Future<bool> _handleBack() async {
+    if (!FormStateProvider.isWriteFormDirtyNotifier.value) {
+      return true;
+    }
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppGlassDialog(
+        title: '작성을 취소하시겠습니까?',
+        content: '입력 중인 내용은 저장되지 않습니다.',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('계속 작성', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('작성 취소', style: TextStyle(color: Color(0xFFFF6B6B))),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      FormStateProvider.isWriteFormDirtyNotifier.value = false;
+      return true;
+    }
+    return false;
   }
 
   Future<void> _runOverlayAutoCaptureFlow() async {
@@ -334,16 +387,34 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     bool? accepted = await AppGlassDialog.show<bool>(
       context: context,
-      title: "OCR(자동 인식) 이용 안내",
-      icon: Icons.info_outline,
-      contentWidget: const Text(
-        "OCR 기능은 콜카드 이미지를 읽어 문구를 자동 입력하는 기능입니다.\n\n"
-        "100% 완벽하지 않을 수 있으며, 화면 화질이나 폰트 설정 등에 따라 간혹 잘못된 값이 입력될 수 있습니다.\n\n"
-        "자동 입력된 금액과 출발/도착지 등이 올바른지 저장 전 반드시 한 번 더 확인해 주세요.",
-        style: TextStyle(fontSize: 14, height: 1.4, color: Colors.white70),
-      ),
-      confirmText: "동의 및 계속",
-      cancelText: "취소",
+      dialog: AppGlassDialog(
+        title: "OCR(자동 인식) 이용 안내",
+        icon: Icons.info_outline,
+        contentWidget: const Text(
+          "OCR 기능은 콜카드 이미지를 읽어 문구를 자동 입력하는 기능입니다.\n\n"
+          "100% 완벽하지 않을 수 있으며, 화면 화질이나 폰트 설정 등에 따라 간혹 잘못된 값이 입력될 수 있습니다.\n\n"
+          "자동 입력된 금액과 출발/도착지 등이 올바른지 저장 전 반드시 한 번 더 확인해 주세요.",
+          style: TextStyle(fontSize: 14, height: 1.4, color: Colors.white70),
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              label: '취소',
+              onPressed: () => Navigator.of(ctx).pop(false),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => TextButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: TextButton.styleFrom(
+                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text('동의 및 계속', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      )
     );
 
     if (accepted == true) {
@@ -524,6 +595,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         driveTime: _timeCon.text.trim(),
       ),
     );
+
+    setState(() {
+      _hasOcrWarning = _startLocCon.text.trim().isEmpty || _endLocCon.text.trim().isEmpty || _parseMoney(_incomeCon.text) <= 0;
+    });
+
     return true;
   }
 
@@ -1191,6 +1267,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     // 저장 성공 후 처리
     if (!mounted) return;
+    FormStateProvider.isWriteFormDirtyNotifier.value = false;
 
     final String workStr = _workDateCon.text.trim();
     
@@ -1534,14 +1611,29 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         );
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).cardTheme.color!,
-        centerTitle: true,
-        leading: _logId != null || widget.initialDate != null
-          ? IconButton(icon: Icon(Icons.arrow_back, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize.toDouble()), onPressed: () => Navigator.pop(context)) 
-          : null,
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _handleBack();
+        if (shouldPop) {
+          if (!context.mounted) return;
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).cardTheme.color!,
+          centerTitle: true,
+          leading: _logId != null || widget.initialDate != null
+            ? IconButton(icon: Icon(Icons.arrow_back, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize.toDouble()), onPressed: () async {
+                final shouldPop = await _handleBack();
+                if (shouldPop && context.mounted) {
+                  Navigator.pop(context);
+                }
+              }) 
+            : null,
         title: Text(
           _logId != null ? '운행 일지 수정' : '운행 일지 작성',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
@@ -1573,7 +1665,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         maxWidth: isExpanded ? size.width : formMaxW,
         child: form,
       ),
-    );
+    ));
   }
 
   /// 퀵 패널: 요금 · 출발 · 도착 (+경유). 일자·시간·프로그램은 초기값·설정값으로 저장 시 사용.
@@ -1672,25 +1764,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   ],
                 ),
                 SizedBox(height: 8),
-                TextField(
+                _buildLocationAutocompleteTextField(
                   controller: _startLocCon,
                   focusNode: _startLocFocusNode,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Theme.of(context).scaffoldBackgroundColor,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
-                  ),
+                  suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
                 ),
                 SizedBox(height: 16),
               ],
             ),
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
-            _buildInputField(_endLocCon, label: "도착지", focusNode: _endLocFocusNode, suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null),
+            _buildLocationInputField(_endLocCon, label: "도착지", focusNode: _endLocFocusNode, suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null),
           ]),
         ],
       ),
@@ -1829,41 +1912,33 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   ],
                 ),
                 SizedBox(height: 8),
-                TextField(
+                _buildLocationAutocompleteTextField(
                   controller: _startLocCon,
                   focusNode: _startLocFocusNode,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: Theme.of(context).scaffoldBackgroundColor,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _isStartLocMissing ? Colors.red : Theme.of(context).dividerColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _isStartLocMissing ? Colors.red : Theme.of(context).dividerColor)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    suffixIcon: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (!_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
-                          Tooltip(
-                            message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
-                            triggerMode: TooltipTriggerMode.tap,
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 4.0),
-                              child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
-                            ),
-                          )
-                        else if (!_isStartLocMissing && _startLat == null)
-                          const Icon(Icons.location_off, color: Colors.orange, size: 20),
-                        if (kMapFeaturesEnabled) _pinPickButton(forStart: true),
-                      ],
-                    ),
+                  isError: _isStartLocMissing,
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
+                        Tooltip(
+                          message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
+                          triggerMode: TooltipTriggerMode.tap,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4.0),
+                            child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+                          ),
+                        )
+                      else if (!_isStartLocMissing && _startLat == null)
+                        const Icon(Icons.location_off, color: Colors.orange, size: 20),
+                      if (kMapFeaturesEnabled) _pinPickButton(forStart: true),
+                    ],
                   ),
                 ),
                 SizedBox(height: 16),
               ],
             ),
             if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
-            _buildInputField(
+            _buildLocationInputField(
               _endLocCon,
               label: "도착지",
               focusNode: _endLocFocusNode,
@@ -1906,6 +1981,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Widget _buildOcrWarningBanner() {
+    if (!_hasOcrWarning) return const SizedBox.shrink();
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -1921,7 +1997,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              "OCR(자동 인식)은 100% 완벽하지 않을 수 있습니다. 잘못 인식된 부분이 없는지 반드시 확인해 주세요.",
+              "콜카드 인식 결과, 일부 정보를 자동으로 가져오지 못했습니다. 빨간색으로 표시된 항목을 확인 후 직접 입력해 주세요.",
               style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, height: 1.4),
             ),
           ),
@@ -2032,6 +2108,94 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLocationAutocompleteTextField({
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    Widget? suffixIcon,
+    bool isError = false,
+  }) {
+    return RawAutocomplete<String>(
+      textEditingController: controller,
+      focusNode: focusNode,
+      optionsBuilder: (TextEditingValue v) {
+        if (v.text.isEmpty) return const Iterable<String>.empty();
+        return _distinctLocations.where((s) => s.toLowerCase().contains(v.text.toLowerCase()));
+      },
+      fieldViewBuilder: (context, con, fn, onFieldSubmitted) {
+        return TextField(
+          controller: con,
+          focusNode: fn,
+          onSubmitted: (_) => onFieldSubmitted(),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Theme.of(context).scaffoldBackgroundColor,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            suffixIcon: suffixIcon,
+          ),
+        );
+      },
+      optionsViewBuilder: (context, onSelected, options) {
+        final formMaxW = ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context));
+        final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
+        return Align(
+          alignment: Alignment.topLeft,
+          child: Material(
+            color: Theme.of(context).cardTheme.color,
+            elevation: 4,
+            borderRadius: BorderRadius.circular(8),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: 200, 
+                maxWidth: ResponsiveLayout.isExpanded(context) 
+                    ? MediaQuery.sizeOf(context).width - (horizontalPadding * 2) 
+                    : formMaxW,
+              ),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options.elementAt(index);
+                  return InkWell(
+                    onTap: () {
+                      onSelected(option);
+                      FormStateProvider.isWriteFormDirtyNotifier.value = true;
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                      child: Text(option, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLocationInputField(TextEditingController controller, {required String label, double bottomMargin = 16, FocusNode? focusNode, Widget? suffixIcon, bool isError = false}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        SizedBox(height: 8),
+        _buildLocationAutocompleteTextField(
+          controller: controller,
+          focusNode: focusNode ?? FocusNode(),
+          suffixIcon: suffixIcon,
+          isError: isError,
+        ),
+        SizedBox(height: bottomMargin),
+      ],
     );
   }
 
@@ -2176,6 +2340,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               }).toList(),
               onChanged: (value) {
                 if (value != null) {
+                  _markDirty();
                   setState(() {
                     _selectedProgram = value;
                     _captureGrossAndApplyDeductions();

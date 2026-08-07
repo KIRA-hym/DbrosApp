@@ -1032,6 +1032,26 @@ class DriveLogDatabase {
   }
 
   // ── Work Sessions (근무 시간) ──────────────────────────────────
+  Future<List<String>> getDistinctPrograms() async {
+    if (kIsWeb) return ['카카오(일반)', '로지', '콜마너', '카카오(제휴)', '티맵'];
+    final db = await database;
+    final result = await db.rawQuery('SELECT DISTINCT program FROM drive_logs WHERE program IS NOT NULL AND TRIM(program) != \'\' ORDER BY program ASC');
+    return result.map((e) => e['program'] as String).toList();
+  }
+
+  Future<List<String>> getDistinctLocations() async {
+    if (kIsWeb) return ['서울 강남구 역삼동', '서울 서초구 서초동', '경기 성남시 분당구'];
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT DISTINCT location FROM (
+        SELECT start_location as location FROM drive_logs WHERE start_location IS NOT NULL AND TRIM(start_location) != ''
+        UNION
+        SELECT end_location as location FROM drive_logs WHERE end_location IS NOT NULL AND TRIM(end_location) != ''
+      ) ORDER BY location ASC
+    ''');
+    return result.map((e) => e['location'] as String).toList();
+  }
+
   Future<Map<String, dynamic>?> getWorkSessionForWorkDate(String ymd) async {
     if (kIsWeb) return null;
     final db = await database;

@@ -7,6 +7,8 @@ import 'services/remote_config_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
 import 'providers/today_stats_provider.dart';
 import 'providers/work_timer_provider.dart';
+import 'providers/form_state_provider.dart';
+import 'widgets/app_glass_dialog.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -558,7 +560,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
                 fontSize: FontSizeService.getScaledFontSize(12),
               ),
               currentIndex: _selectedIndex,
-              onTap: (index) {
+              onTap: (index) async {
                 if (index == 3) { // Stats tab
                   ProFeatureGuard.checkAndRun(
                     context: context,
@@ -570,6 +572,28 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
                     },
                   );
                   return;
+                }
+
+                if (_selectedIndex == 2 && index != 2 && FormStateProvider.isWriteFormDirtyNotifier.value) {
+                  final bool? confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AppGlassDialog(
+                      title: '작성을 취소하시겠습니까?',
+                      content: '입력 중인 내용은 저장되지 않습니다.',
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                          child: const Text('계속 작성', style: TextStyle(color: Colors.white70)),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('작성 취소', style: TextStyle(color: Color(0xFFFF6B6B))),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm != true) return;
+                  FormStateProvider.isWriteFormDirtyNotifier.value = false;
                 }
 
                 if (index == 0) {

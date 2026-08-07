@@ -30,8 +30,11 @@ class AppBottomSheet {
       backgroundColor: backgroundColor,
       shape: shape,
       builder: (sheetContext) {
+        final viewInsets = MediaQuery.viewInsetsOf(sheetContext).bottom;
         return Padding(
-          padding: EdgeInsets.only(bottom: chromePadding(sheetContext)),
+          padding: EdgeInsets.only(
+            bottom: chromePadding(sheetContext) + viewInsets,
+          ),
           child: builder(sheetContext),
         );
       },

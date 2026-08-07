@@ -40,7 +40,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:maxLines="1"
-                    android:text="⏰ 근무시간 : "
+                    android:text="⏰ "
                     android:textStyle="bold"
                     style="@style/TextAppearance.Compat.Notification.Line2" />
 
@@ -62,7 +62,7 @@
             android:paddingEnd="8dp"
             android:maxLines="1"
             android:textStyle="bold"
-            android:textSize="18sp"
+            android:textSize="16sp"
             style="@style/TextAppearance.Compat.Notification.Title" />
 
         <TextView

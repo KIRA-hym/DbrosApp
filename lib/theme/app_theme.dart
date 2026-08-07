@@ -98,19 +98,28 @@ class AppTheme {
     );
   }
 
-  // 라이트 테마
+  // 라이트 테마 (대안 A: 블랙 & 골드)
   static ThemeData get lightTheme {
     return ThemeData(
       brightness: Brightness.light,
       fontFamily: fontFamily,
-      scaffoldBackgroundColor: const Color(0xFFF3F4F6),
-      primaryColor: const Color(0xFFF59E0B), // 약간 더 진한 노란/주황 계열
+      scaffoldBackgroundColor: const Color(0xFFF0F2F5), // 더 또렷한 연그레이
+      primaryColor: const Color(0xFFF59E0B), // 골드 톤 유지
       colorScheme: const ColorScheme.light(
         primary: Color(0xFFF59E0B),
+        onPrimary: Color(0xFF000000), // 골드 위에는 검정 글씨
         surface: Color(0xFFFFFFFF),
-        surfaceContainerHighest: Color(0xFFE5E7EB),
-        onSurface: Color(0xFF1F2937),
+        surfaceContainerHighest: Color(0xFFD1D5DB),
+        onSurface: Color(0xFF111827), // 기본 텍스트를 거의 검정으로 대비 강화
         error: Color(0xFFEF4444),
+      ),
+      textTheme: const TextTheme(
+        bodyLarge: TextStyle(color: Color(0xFF111827)),
+        bodyMedium: TextStyle(color: Color(0xFF111827)),
+        bodySmall: TextStyle(color: Color(0xFF4B5563)),
+        titleLarge: TextStyle(color: Color(0xFF111827)),
+        titleMedium: TextStyle(color: Color(0xFF111827)),
+        titleSmall: TextStyle(color: Color(0xFF111827)),
       ),
       appBarTheme: const AppBarTheme(
         backgroundColor: Color(0xFFFFFFFF),
@@ -120,28 +129,28 @@ class AppTheme {
         centerTitle: true,
         titleTextStyle: TextStyle(
           fontFamily: fontFamily,
-          color: Color(0xFF1F2937),
-          fontWeight: FontWeight.w700,
+          color: Color(0xFF000000), // 블랙 타이틀
+          fontWeight: FontWeight.w900,
         ),
-        iconTheme: IconThemeData(color: Color(0xFF1F2937)),
+        iconTheme: IconThemeData(color: Color(0xFF000000)), // 블랙 아이콘
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: Color(0xFFFFFFFF),
-        selectedItemColor: Color(0xFFF59E0B),
+        selectedItemColor: Color(0xFF111827), // 활성화 아이콘 완전 블랙
         unselectedItemColor: Color(0xFF9CA3AF),
       ),
-      dividerColor: const Color(0xFFE5E7EB),
+      dividerColor: const Color(0xFFD1D5DB), // 선명한 경계선
       dividerTheme: const DividerThemeData(
-        color: Color(0xFFE5E7EB),
+        color: Color(0xFFD1D5DB),
         thickness: 1,
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFFFFFFFF),
         elevation: 2,
-        shadowColor: const Color(0x11000000),
+        shadowColor: const Color(0x0C000000),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Color(0xFFE5E7EB)),
+          side: BorderSide(color: Color(0xFFD1D5DB)), // 명확한 보더
         ),
       ),
     );

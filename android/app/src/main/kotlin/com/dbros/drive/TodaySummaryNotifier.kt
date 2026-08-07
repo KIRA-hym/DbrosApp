@@ -176,12 +176,12 @@ object TodaySummaryNotifier {
     }
 
     private fun formatLine1(workDate: String): String {
-        return "📅 근무일자 : $workDate"
+        return "📅 $workDate"
     }
 
     private fun formatNetProfit(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
-        return "💰순익 ${df.format(net)}원"
+        return "💰 ${df.format(net)}원"
     }
 }

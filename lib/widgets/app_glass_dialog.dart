@@ -129,9 +129,14 @@ class AppGlassDialog extends StatelessWidget {
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: Colors.white10),
           ),
-          child: Padding(
-            padding: pad,
-            child: bodyContent,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.8,
+            ),
+            child: Padding(
+              padding: pad,
+              child: bodyContent,
+            ),
           ),
         ),
       ),
