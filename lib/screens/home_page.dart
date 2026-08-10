@@ -9,6 +9,8 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
+import '../utils/ad_helper.dart';
+import '../utils/call_card_recognition_disclaimer.dart';
 import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
 import '../services/font_size_service.dart';
@@ -1167,6 +1169,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keySingleRegister,
           child: InkWell(
             onTap: () async {
+              final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+              if (!canProceed) return;
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
               TodayStatsProvider.instance.refresh();
             },
@@ -1194,6 +1198,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keyMultiRegister,
           child: InkWell(
             onTap: () async {
+              final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+              if (!canProceed) return;
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
               TodayStatsProvider.instance.refresh();
             },
