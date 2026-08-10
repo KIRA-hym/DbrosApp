@@ -1168,7 +1168,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keySingleRegister,
           child: InkWell(
             onTap: () async {
-              final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+              final canProceed = await ensureCallCardRecognitionDisclaimer(context, 'single');
               if (!canProceed) return;
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
               TodayStatsProvider.instance.refresh();
@@ -1197,7 +1197,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keyMultiRegister,
           child: InkWell(
             onTap: () async {
-              final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+              final canProceed = await ensureCallCardRecognitionDisclaimer(context, 'multi');
               if (!canProceed) return;
               await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
               TodayStatsProvider.instance.refresh();

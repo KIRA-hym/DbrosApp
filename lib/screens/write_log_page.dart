@@ -380,7 +380,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<bool> _ensureOcrDisclaimer() async {
-    return ensureCallCardRecognitionDisclaimer(context);
+    return ensureCallCardRecognitionDisclaimer(context, 'write_log');
   }
 
   Future<void> _openGallery() async {

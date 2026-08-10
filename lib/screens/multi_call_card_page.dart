@@ -70,7 +70,7 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Future<void> _pickMultipleImages() async {
-    final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+    final canProceed = await ensureCallCardRecognitionDisclaimer(context, 'multi');
     if (!canProceed) return;
 
     ProFeatureGuard.checkAndRun(

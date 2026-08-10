@@ -8,9 +8,9 @@ import '../widgets/app_glass_dialog.dart';
 /// Returns:
 ///   true: 동의함 (또는 이미 동의한 상태)
 ///   false: 거절함 (또는 모달 바깥 터치로 취소됨)
-Future<bool> ensureCallCardRecognitionDisclaimer(BuildContext context) async {
+Future<bool> ensureCallCardRecognitionDisclaimer(BuildContext context, String sourceKey) async {
   final prefs = await SharedPreferences.getInstance();
-  final hasSeen = prefs.getBool('has_seen_callcard_disclaimer') ?? false;
+  final hasSeen = prefs.getBool('has_seen_callcard_disclaimer_$sourceKey') ?? false;
   if (hasSeen) return true;
 
   if (!context.mounted) return false;
@@ -49,7 +49,7 @@ Future<bool> ensureCallCardRecognitionDisclaimer(BuildContext context) async {
   );
 
   if (accepted == true) {
-    await prefs.setBool('has_seen_callcard_disclaimer', true);
+    await prefs.setBool('has_seen_callcard_disclaimer_$sourceKey', true);
     return true;
   }
   return false;
