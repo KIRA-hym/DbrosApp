@@ -70,15 +70,15 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
   }
 
   Future<void> _pickMultipleImages() async {
+    final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+    if (!canProceed) return;
+
     ProFeatureGuard.checkAndRun(
       context: context,
       featureKey: 'multi_ocr',
       canUseFree: () async => false, // 1회차부터 광고
       canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
       onGranted: () async {
-        final canProceed = await ensureCallCardRecognitionDisclaimer(context);
-        if (!canProceed) return;
-
         try {
           final results = await AppImagePicker.pickMultipleGalleryImages(
             context,

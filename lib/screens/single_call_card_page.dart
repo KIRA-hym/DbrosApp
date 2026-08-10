@@ -57,15 +57,15 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
   String _driveDateStr() => DateFormat('yyyy-MM-dd').format(_driveDay);
 
   Future<void> _pickImage() async {
+    final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+    if (!canProceed) return;
+
     ProFeatureGuard.checkAndRun(
       context: context,
       featureKey: 'single_ocr',
       canUseFree: FeatureUsageService.canUseSingleOcrFree,
       canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
       onGranted: () async {
-        final canProceed = await ensureCallCardRecognitionDisclaimer(context);
-        if (!canProceed) return;
-
         try {
           final result = await AppImagePicker.pickSingleGalleryImage(context);
           if (result == null) return;
