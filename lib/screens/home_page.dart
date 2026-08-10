@@ -9,7 +9,6 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
-import '../utils/ad_helper.dart';
 import '../utils/call_card_recognition_disclaimer.dart';
 import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
