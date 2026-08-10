@@ -10,7 +10,7 @@ import '../widgets/app_glass_dialog.dart';
 ///   false: 거절함 (또는 모달 바깥 터치로 취소됨)
 Future<bool> ensureCallCardRecognitionDisclaimer(BuildContext context) async {
   final prefs = await SharedPreferences.getInstance();
-  final hasSeen = prefs.getBool('has_seen_ocr_disclaimer') ?? false;
+  final hasSeen = prefs.getBool('has_seen_callcard_disclaimer') ?? false;
   if (hasSeen) return true;
 
   if (!context.mounted) return false;
@@ -49,7 +49,7 @@ Future<bool> ensureCallCardRecognitionDisclaimer(BuildContext context) async {
   );
 
   if (accepted == true) {
-    await prefs.setBool('has_seen_ocr_disclaimer', true);
+    await prefs.setBool('has_seen_callcard_disclaimer', true);
     return true;
   }
   return false;
