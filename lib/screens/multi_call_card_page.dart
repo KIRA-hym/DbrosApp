@@ -78,7 +78,8 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       featureKey: 'multi_ocr',
       canUseFree: () async => false, // 1회차부터 광고
       canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
-      onGranted: () async {
+      autoConsumeFree: false,
+      onGranted: (isFreeTicket) async {
         try {
           final results = await AppImagePicker.pickMultipleGalleryImages(
             context,

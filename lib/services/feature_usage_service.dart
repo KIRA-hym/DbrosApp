@@ -42,12 +42,12 @@ class FeatureUsageService {
   
   static Future<bool> canUseSingleOcrFree() async {
     final stats = await getUsageStats('single_ocr');
-    return stats['free']! < 1; // 1회 무료
+    return stats['free']! < 2; // 2회 무료
   }
 
   static Future<bool> canUseSingleOcrWithAd() async {
     final stats = await getUsageStats('single_ocr');
-    return stats['ad']! < 2; // 무료 초과시 광고보고 2회 (총 3회)
+    return stats['ad']! < 1; // 무료 2회 초과 시 광고보고 1회 (총 3회)
   }
 
   static Future<bool> canUseMultiOcrWithAd() async {

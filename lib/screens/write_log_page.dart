@@ -392,9 +392,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       featureKey: 'single_ocr',
       canUseFree: FeatureUsageService.canUseSingleOcrFree,
       canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
-      onGranted: () async {
+      autoConsumeFree: false,
+      onGranted: (isFreeTicket) async {
         final result = await AppImagePicker.pickSingleGalleryImage(context);
         if (result == null) return;
+
+        if (isFreeTicket) {
+          await FeatureUsageService.incrementFreeUsage('single_ocr');
+        }
         
         final file = result.file;
         setState(() => _capturedImage = file);

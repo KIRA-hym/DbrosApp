@@ -12,21 +12,24 @@ class ProFeatureGuard {
     required String featureKey,
     required Future<bool> Function() canUseFree,
     required Future<bool> Function() canUseWithAd,
-    required VoidCallback onGranted,
+    required void Function(bool isFreeTicket) onGranted,
+    bool autoConsumeFree = true,
   }) async {
     if (!kMonetizationEnabled) {
-      onGranted();
+      onGranted(true);
       return;
     }
 
     if (SettingsService.isPremiumUser) {
-      onGranted();
+      onGranted(true);
       return;
     }
 
     if (await canUseFree()) {
-      await FeatureUsageService.incrementFreeUsage(featureKey);
-      onGranted();
+      if (autoConsumeFree) {
+        await FeatureUsageService.incrementFreeUsage(featureKey);
+      }
+      onGranted(true);
       return;
     }
 
@@ -50,7 +53,7 @@ class ProFeatureGuard {
             if (context.mounted) Navigator.pop(context); // Close loading dialog
             if (rewardEarned) {
               await FeatureUsageService.incrementAdUsage(featureKey);
-              onGranted();
+              onGranted(false);
             }
           },
           onAdFailed: () {

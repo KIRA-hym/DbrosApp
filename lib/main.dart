@@ -572,9 +572,9 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
                   ProFeatureGuard.checkAndRun(
                     context: context,
                     featureKey: 'stats',
-                    canUseFree: () async => false, // Stats has 0 free uses according to logic
+                    canUseFree: () async => false, // 통계는 무료 횟수 없음
                     canUseWithAd: FeatureUsageService.canUseStatsWithAd,
-                    onGranted: () {
+                    onGranted: (isFreeTicket) {
                       setState(() => _selectedIndex = index);
                     },
                   );

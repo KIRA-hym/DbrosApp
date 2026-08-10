@@ -1133,7 +1133,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 featureKey: 'call_map',
                 canUseFree: FeatureUsageService.canUseCallMapFree,
                 canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
-                onGranted: () {
+                onGranted: (isFreeTicket) {
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPointMapPage()));
                 },
               );
@@ -1671,7 +1671,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           featureKey: 'call_map',
                           canUseFree: FeatureUsageService.canUseCallMapFree,
                           canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
-                          onGranted: () {
+                          onGranted: (isFreeTicket) {
                             Navigator.push(
                               context,
                               MaterialPageRoute(

@@ -147,9 +147,9 @@ class _ExpenseMainWrapperState extends State<ExpenseMainWrapper> {
                       ProFeatureGuard.checkAndRun(
                         context: context,
                         featureKey: 'stats',
-                        canUseFree: () async => false, // Stats has 0 free uses according to logic
+                        canUseFree: () async => false, // No free tries
                         canUseWithAd: FeatureUsageService.canUseStatsWithAd,
-                        onGranted: () {
+                        onGranted: (isFreeTicket) {
                           setState(() => _selectedIndex = index);
                         },
                       );

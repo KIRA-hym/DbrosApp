@@ -65,10 +65,15 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       featureKey: 'single_ocr',
       canUseFree: FeatureUsageService.canUseSingleOcrFree,
       canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
-      onGranted: () async {
+      autoConsumeFree: false,
+      onGranted: (isFreeTicket) async {
         try {
           final result = await AppImagePicker.pickSingleGalleryImage(context);
           if (result == null) return;
+
+          if (isFreeTicket) {
+            await FeatureUsageService.incrementFreeUsage('single_ocr');
+          }
 
           setState(() {
             _selectedImage = result.file;
