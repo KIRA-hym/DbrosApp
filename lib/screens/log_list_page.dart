@@ -689,21 +689,23 @@ class _LogListPageState extends State<LogListPage> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(_isSearchActive ? Icons.arrow_back : Icons.search, color: Theme.of(context).primaryColor),
-          onPressed: () {
-            setState(() {
-              _isSearchActive = !_isSearchActive;
-              if (!_isSearchActive) {
-                _searchQuery = '';
-                _searchCon.clear();
-              }
-            });
-            if (_isSearchActive) {
-              _searchFocus.requestFocus();
-            }
-          },
-        ),
+        leading: (_groupedLogs.isEmpty && !_isSearchActive)
+            ? const SizedBox.shrink()
+            : IconButton(
+                icon: Icon(_isSearchActive ? Icons.arrow_back : Icons.search, color: Theme.of(context).primaryColor),
+                onPressed: () {
+                  setState(() {
+                    _isSearchActive = !_isSearchActive;
+                    if (!_isSearchActive) {
+                      _searchQuery = '';
+                      _searchCon.clear();
+                    }
+                  });
+                  if (_isSearchActive) {
+                    _searchFocus.requestFocus();
+                  }
+                },
+              ),
         title: _isSearchActive
             ? TextField(
                 controller: _searchCon,
@@ -730,7 +732,7 @@ class _LogListPageState extends State<LogListPage> {
         centerTitle: !_isSearchActive,
         backgroundColor: Theme.of(context).cardTheme.color!,
         actions: [
-          if (!_isLoading)
+          if (!_isLoading && !_isSearchActive && _groupedLogs.isNotEmpty)
             TextButton(
               key: _keyShareButton,
               onPressed: _shareMonthListAsImage,
@@ -1312,6 +1314,10 @@ class _LogListPageState extends State<LogListPage> {
 
   Future<void> _shareMonthListAsImage() async {
     if (!mounted || _isLoading) return;
+    if (_groupedLogs.isEmpty) {
+      showDbrosSnackBar(context, '공유할 운행 일지가 없습니다.');
+      return;
+    }
     if (ResponsiveLayout.isExpanded(context)) {
       showDbrosSnackBar(context, '폰을 접은 상태에서만 공유 기능이 가능합니다.');
       return;
@@ -1991,6 +1997,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
 
   Future<void> _shareDetailAsImage() async {
     if (!mounted || _isLoading) return;
+    if (_dailyLogs.isEmpty) {
+      showDbrosSnackBar(context, '공유할 운행 일지가 없습니다.');
+      return;
+    }
     if (kIsWeb) {
       showDbrosSnackBar(context, '웹에서는 공유를 지원하지 않습니다.');
       return;
@@ -2300,7 +2310,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         ),
         centerTitle: true,
         actions: [
-          if (!_isLoading)
+          if (!_isLoading && _dailyLogs.isNotEmpty)
             TextButton(
               key: _keyDailyShareBtn,
               onPressed: _shareDetailAsImage,

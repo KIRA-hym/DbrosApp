@@ -791,6 +791,12 @@ class _StatsPageState extends State<StatsPage> {
   }
 
   Future<void> _shareSummaryPopupAsImage(BuildContext context) async {
+    final int totalRuns = _stats['totalCount'] ?? 0;
+    if (totalRuns == 0) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('공유할 운행 통계가 없습니다.')));
+      return;
+    }
+
     try {
       final bytes = await _summaryScreenshotController.capture();
       if (bytes == null) {
@@ -894,13 +900,14 @@ class _StatsPageState extends State<StatsPage> {
             const SizedBox(width: 8),
             Text('$_selectedPeriod 운행 종합 요약', style: const TextStyle(fontFamily: 'GmarketSans', color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.share, size: 20),
-              color: Colors.white,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              onPressed: () => _shareSummaryPopupAsImage(context),
-            ),
+            if (totalRuns > 0)
+              IconButton(
+                icon: const Icon(Icons.share, size: 20),
+                color: Colors.white,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                onPressed: () => _shareSummaryPopupAsImage(context),
+              ),
           ],
         ),
         actions: [
