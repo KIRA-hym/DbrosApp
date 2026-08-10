@@ -1343,10 +1343,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_ocr_btn",
           keyTarget: _keyOcrBtn,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.bottom,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜카드 이미지 자동 인식",
@@ -1365,10 +1367,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_time",
           keyTarget: _keyTimeSection,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.bottom,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "일자 및 시각 변경",
@@ -1387,10 +1391,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_finance",
           keyTarget: _keyFinanceSection,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.top,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "상세 수입 및 지출",
@@ -1409,10 +1415,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_location",
           keyTarget: _keyLocationSection,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.top,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "운행 구간 입력",
@@ -1431,10 +1439,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_memo",
           keyTarget: _keyMemoSection,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.top,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "메모 및 특이사항",
@@ -1453,10 +1463,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         TargetFocus(
           identify: "write_save",
           keyTarget: _keySaveBtn,
+          alignSkip: Alignment.bottomRight,
           color: Colors.black,
           contents: [
             TargetContent(
-              align: ContentAlign.bottom,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "일지 저장",
@@ -1478,7 +1490,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       colorShadow: Colors.black,
       textSkip: "건너뛰기",
       paddingFocus: 10,
-      opacityShadow: 0.8,
+            opacityShadow: 0.8,
+      onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
       beforeFocus: (target) async {
         if (target.keyTarget?.currentContext != null) {
           try {

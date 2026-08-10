@@ -356,6 +356,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   Timer? _workDateNotificationTick;
   String _lastNotifiedWorkDateYmd = WorkDateUtils.effectiveWorkDateYmd();
   StreamSubscription<List<SharedMediaFile>>? _shareIntentSub;
+  StreamSubscription<int>? _tabEventSub;
   DateTime? _lastShorebirdCheckTime;
 
   @override
@@ -367,6 +368,11 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
     _setupShareIntentListener();
     _lastShorebirdCheckTime = DateTime.now();
+    _tabEventSub = mainTabEventController.stream.listen((index) {
+      if (mounted) {
+        setState(() => _selectedIndex = index);
+      }
+    });
   }
 
   /// 스크린샷·갤러리 등에서 이미지 공유 시 일지 작성 화면으로 연결 (**Android 전용**).
@@ -468,6 +474,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     _shareIntentSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _workDateNotificationTick?.cancel();
+    _tabEventSub?.cancel();
     super.dispose();
   }
 

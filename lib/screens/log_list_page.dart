@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import '../providers/guide_provider.dart';
 import '../widgets/guide_content_widget.dart';
+import '../main_navigation.dart';
 
 int _intField(Map<String, dynamic> log, String key) {
   final v = log[key];
@@ -141,7 +142,16 @@ class _LogListPageState extends State<LogListPage> {
   }
 
   Widget _buildSearchFilters() {
-    final List<String> programs = ['투어', '골프', '일반', '웨딩', 'VIP'];
+    final Set<String> uniquePrograms = {};
+    for (var list in _groupedLogs.values) {
+      for (var log in list) {
+        if (log['program'] != null && log['program'].toString().trim().isNotEmpty) {
+          uniquePrograms.add(log['program'].toString().trim());
+        }
+      }
+    }
+    final List<String> programs = ['전체', ...uniquePrograms.toList()..sort()];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -152,7 +162,7 @@ class _LogListPageState extends State<LogListPage> {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: programs.map((p) {
-            final isSelected = _searchQuery == p;
+            final isSelected = (p == '전체') ? _searchQuery.isEmpty : _searchQuery == p;
             return Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: FilterChip(
@@ -160,7 +170,10 @@ class _LogListPageState extends State<LogListPage> {
                 selected: isSelected,
                 onSelected: (selected) {
                   setState(() {
-                    if (selected) {
+                    if (p == '전체') {
+                      _searchQuery = '';
+                      _searchCon.clear();
+                    } else if (selected) {
                       _searchQuery = p;
                       _searchCon.text = p;
                     } else {
@@ -457,7 +470,8 @@ class _LogListPageState extends State<LogListPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 일지 이동",
@@ -474,7 +488,8 @@ class _LogListPageState extends State<LogListPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 기록 공유",
@@ -496,7 +511,8 @@ class _LogListPageState extends State<LogListPage> {
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "상세 진입 및 스와이프 삭제",
@@ -516,7 +532,8 @@ class _LogListPageState extends State<LogListPage> {
         alignSkip: Alignment.topRight,
         contents: [
           TargetContent(
-            align: ContentAlign.top,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 수입/지출 요약",
@@ -536,6 +553,20 @@ class _LogListPageState extends State<LogListPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
     ).show(context: context);
   }
 
@@ -903,20 +934,7 @@ class _LogListPageState extends State<LogListPage> {
           : Stack(
               alignment: Alignment.center,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: Icon(Icons.search, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
-                    padding: EdgeInsets.zero,
-                    constraints: BoxConstraints(),
-                    onPressed: () {
-                      setState(() {
-                        _isSearchActive = true;
-                      });
-                      _searchFocus.requestFocus();
-                    },
-                  ),
-                ),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -1780,7 +1798,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "다른 날짜 보기",
@@ -1802,7 +1821,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.bottom,
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "일일 동선 맵",
@@ -1825,7 +1845,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "일지 수정 및 삭제",
@@ -1845,7 +1866,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.bottom,
+            align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "하루 기록 공유",
@@ -1865,6 +1887,20 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      onFinish: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
+      onSkip: () {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          mainTabEventController.add(4);
+        });
+        return true;
+      },
     ).show(context: context);
   }
 
@@ -2324,7 +2360,14 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     _DailyDetailShareLayout lay, {
     int memoMaxLines = 4,
   }) {
-    final String time = log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
+    String timePrefix = '';
+    if (widget.isSearchMode && log['work_date'] != null) {
+      final dateStr = log['work_date'].toString();
+      if (dateStr.length >= 10) {
+        timePrefix = '${dateStr.substring(5, 7)}.${dateStr.substring(8, 10)} ';
+      }
+    }
+    final String time = timePrefix + log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
     final fullStart = log['start_location']?.toString().trim();
     final fullEnd = log['end_location']?.toString().trim();
     final fullWp = log['waypoint']?.toString().trim();

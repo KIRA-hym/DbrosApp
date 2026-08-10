@@ -102,8 +102,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadWeather();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        PermissionDisclosureDialog.showIfNeeded(context);
-          OnboardingDialog.showIfNeeded(context);
+        OnboardingDialog.showIfNeeded(context);
         
         final guideProvider = Provider.of<GuideProvider>(context, listen: false);
         guideProvider.addListener(_onGuideRequested);
