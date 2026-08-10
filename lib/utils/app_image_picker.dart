@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wechat_assets_picker/wechat_assets_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +18,15 @@ class AppImagePicker {
 
   /// 갤러리에서 단건 이미지를 선택합니다.
   static Future<AppImagePickerResult?> pickSingleGalleryImage(BuildContext context) async {
+    if (kIsWeb) {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+      if (file == null) return null;
+      return AppImagePickerResult(
+        file: File(file.path),
+        creationDate: DateTime.now(), // Web fallback
+      );
+    }
+
     final List<AssetEntity>? assets = await AssetPicker.pickAssets(
       context,
       pickerConfig: const AssetPickerConfig(
@@ -43,6 +53,15 @@ class AppImagePicker {
     BuildContext context, {
     int maxAssets = 30,
   }) async {
+    if (kIsWeb) {
+      final List<XFile> files = await _picker.pickMultiImage();
+      if (files.isEmpty) return [];
+      return files.take(maxAssets).map((f) => AppImagePickerResult(
+        file: File(f.path),
+        creationDate: DateTime.now(), // Web fallback
+      )).toList();
+    }
+
     final List<AssetEntity>? assets = await AssetPicker.pickAssets(
       context,
       pickerConfig: AssetPickerConfig(
