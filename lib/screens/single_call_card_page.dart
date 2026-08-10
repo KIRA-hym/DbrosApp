@@ -16,6 +16,7 @@ import '../widgets/ad_banner_widget.dart';
 import '../widgets/app_empty_state.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
+import '../utils/call_card_recognition_disclaimer.dart';
 
 class SingleCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -62,6 +63,9 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
       canUseFree: FeatureUsageService.canUseSingleOcrFree,
       canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
       onGranted: () async {
+        final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+        if (!canProceed) return;
+
         try {
           final result = await AppImagePicker.pickSingleGalleryImage(context);
           if (result == null) return;

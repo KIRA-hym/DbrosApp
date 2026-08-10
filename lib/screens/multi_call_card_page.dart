@@ -15,6 +15,7 @@ import '../widgets/ad_banner_widget.dart';
 import '../widgets/app_empty_state.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
+import '../utils/call_card_recognition_disclaimer.dart';
 
 class MultiCallCardForm extends StatefulWidget {
   /// 운행일 `yyyy-MM-dd`. 미지정 시 당일.
@@ -75,6 +76,9 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
       canUseFree: () async => false, // 1회차부터 광고
       canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
       onGranted: () async {
+        final canProceed = await ensureCallCardRecognitionDisclaimer(context);
+        if (!canProceed) return;
+
         try {
           final results = await AppImagePicker.pickMultipleGalleryImages(
             context,

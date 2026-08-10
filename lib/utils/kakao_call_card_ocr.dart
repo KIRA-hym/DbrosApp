@@ -863,7 +863,7 @@ class KakaoCallCardOcr {
         if (finalStart.isEmpty) '출발지 누락',
         if (finalEnd.isEmpty) '도착지 누락',
         if ((parsedIncome ?? 0) == 0) '요금 누락'
-        else if (fareOcrFailed) '⚠️ 요금 OCR 오인식 (5,000원 미만 인식. 사용자 확인 필요)',
+        else if (fareOcrFailed) '⚠️ 요금 자동 인식 오동작 (5,000원 미만. 확인 필요)',
       ].join(' | ');
       OcrErrorLoggerService.instance.logError(
         platform: 'kakao',
