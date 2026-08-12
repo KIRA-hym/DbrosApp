@@ -99,6 +99,14 @@ int? parseGrossFareRegexFromFullText(String fullText, {bool colmanner = false}) 
   final flat = validLines.replaceAll(RegExp(r'\s+'), ' ').trim();
 
   if (colmanner) {
+    // [이슈A 보완] '합계 : N원' 또는 '예상 후불요금 : N원' 형태 → 실제 운행 요금
+    // '요금 N원'보다 더 아래에 적히는 콜마너의 후불 합산 명세를 우선 추출
+    final hapgyeMatch = RegExp(r'(?:후불요금|합계)\s*[:：]\s*([\d,]+)원').firstMatch(flat);
+    if (hapgyeMatch != null) {
+      final v = int.tryParse(hapgyeMatch.group(1)!.replaceAll(',', ''));
+      if (v != null && v >= 10000 && v <= 999999) return v;
+    }
+
     final m = RegExp(r'(?:요\s*금|요금)\s*[:：]?\s*([\d\s,oOlLIi\.그기sSzZ]+)(?:원|\s)*(?=\()').firstMatch(flat);
     if (m != null) return parseLogiFareFromOcrText(m.group(1)!);
 

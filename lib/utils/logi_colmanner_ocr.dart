@@ -1270,6 +1270,14 @@ class LogiColmannerOcr {
     if (res.contains('상세:')) {
       if (isLogi) {
         res = _joinHeadAndTailAfterFirstSangse(res);
+        // [이슈B 보완] 상세: 처리 후에도 메모 문장이 붙어 있는 경우 절삭
+        res = res.replaceAll(RegExp(r'\s*(?:최종목적지|확인하시고|안전하고|친절히|운행해주세요|감사합니다).*$'), '');
+        // '카드후불!' 및 임시 '후불!원천징수' 잔재 패턴 절삭
+        // (예: '카드'가 다른 패턴에 제거됐 후 '후불!(원천징수)...' 잔류)
+        res = res.replaceAll(RegExp(r'\s*카드후불!?.*$'), '');
+        res = res.replaceAll(RegExp(r'\s*후불!\s*\(\s*원천징수\)?.*$'), '');
+        res = res.replaceAll(RegExp(r'\s*\(\s*원천징수\)?.*$'), '');
+        res = res.replaceAll(RegExp(r'\s*후불!.*$'), '');
       } else {
         res = res.split(RegExp(r'상세\s*:', caseSensitive: false)).last.trim();
       }
@@ -1336,6 +1344,8 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'(?<=^|\s)광명KTX역(?=\s|$)'), ' ');
     res = res.replaceAll(RegExp(r'(?<=^|\s)O\s*88(?=\s|$)'), ' ');
     res = res.replaceAll(RegExp(r'예상\s*후물요금\s*[:：]?\s*[0-9,]+원?.*$'), ' ');
+    // [이슈C 보완] 콜마너 도착지 꼬리 — '예상 후불요금', '주차까지 마무리' 등 운행 안내 노이즈 절삭
+    res = res.replaceAll(RegExp(r'\s*(?:주차까지\s*마무리|예상\s*후불|예상\s*후물).*$'), '');
     res = res.replaceAll(RegExp(r'그:19.*$'), ' ');
     res = res.replaceAll(RegExp(r'(?<=^|\s)전2(?=\s|$)'), ' ');
     res = res.replaceAll(RegExp(r'클레임금지(?:.대리고기사입니다.멘트필수정장|.*기사입니다|)?'), ' ');
