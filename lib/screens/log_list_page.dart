@@ -1038,6 +1038,7 @@ class _LogListPageState extends State<LogListPage> {
             final isSelected = selectedDate == dateStr;
 
             return Container(
+              key: isToday ? _todayKey : null,
               decoration: BoxDecoration(
                 color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
                 border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
@@ -1075,9 +1076,10 @@ class _LogListPageState extends State<LogListPage> {
           final spacing = isTablet ? 16.0 : 12.0;
           final innerSpacing = isTablet ? 6.0 : 4.0;
           final isSelected = selectedDate == dateStr;
-                 return Container(
-            decoration: BoxDecoration(
-              color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
+                  return Container(
+             key: isToday ? _todayKey : null,
+             decoration: BoxDecoration(
+               color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
               border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
             ),
             child: Dismissible(

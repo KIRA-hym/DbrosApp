@@ -164,7 +164,7 @@ class SettingsService {
     if (value && durationDays != null) {
       final expireMs = DateTime.now().add(Duration(days: durationDays)).millisecondsSinceEpoch;
       await _prefs.setInt('promoExpireMs', expireMs);
-    } else if (!value) {
+    } else {
       await _prefs.remove('promoExpireMs');
     }
     _isPremiumUserNotifier.value = isPremiumUser;

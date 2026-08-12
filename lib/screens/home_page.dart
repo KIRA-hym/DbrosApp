@@ -6,6 +6,8 @@ import '../main_navigation.dart';
 import '../widgets/ad_banner_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:dbros_app/providers/notice_badge_provider.dart';
+import 'package:dbros_app/screens/notice_list_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/today_stats_provider.dart';
 import '../config/feature_flags.dart';
@@ -472,39 +474,38 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: InkWell(
-                    onTap: () async {
-                      if (ApkUpdateService.instance.hasApkUpdate) {
-                        final url = ApkUpdateService.instance.downloadUrl ?? 'https://dbros-install.web.app/';
-                        final uri = Uri.parse(url);
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri, mode: LaunchMode.externalApplication);
-                        }
-                      } else {
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingsPage()));
-                      }
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const NoticeListPage()),
+                      );
                     },
                     borderRadius: BorderRadius.circular(20),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
-                        if (ApkUpdateService.instance.hasApkUpdate)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(3),
-                              decoration: BoxDecoration(
-                                color: Color(0xFFFF5252),
-                                shape: BoxShape.circle,
+                    child: Consumer<NoticeBadgeProvider>(
+                      builder: (context, noticeBadge, child) {
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
+                            if (noticeBadge.hasUnread)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFFF5252),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 12,
+                                    minHeight: 12,
+                                  ),
+                                ),
                               ),
-                              constraints: const BoxConstraints(
-                                minWidth: 12,
-                                minHeight: 12,
-                              ),
-                            ),
-                          ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),

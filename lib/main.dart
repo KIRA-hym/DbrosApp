@@ -46,6 +46,7 @@ import 'utils/pro_feature_guard.dart';
 import 'services/shorebird_update_service.dart';
 import 'theme/app_theme.dart';
 import 'providers/guide_provider.dart';
+import 'providers/notice_badge_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -134,6 +135,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => AuthService.instance),
         ChangeNotifierProvider(create: (_) => WorkTimerProvider()),
         ChangeNotifierProvider(create: (_) => GuideProvider.instance),
+        ChangeNotifierProvider(create: (_) => NoticeBadgeProvider()),
       ],
       child: const DbrosApp(),
     ),

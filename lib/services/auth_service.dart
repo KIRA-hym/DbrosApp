@@ -106,6 +106,10 @@ class AuthService extends ChangeNotifier {
       if (snapshot.exists) {
         _userDoc = snapshot.data();
         final isBanned = _userDoc?['isBanned'] ?? false;
+        final isAdmin = _userDoc?['isAdmin'] ?? false;
+        
+        // Firestore의 isAdmin 값을 오너 모드와 실시간 동기화
+        SettingsService.setIsOwnerMode(isAdmin);
         
         if (isBanned) {
           _status = AuthStatus.banned;

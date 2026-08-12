@@ -1773,7 +1773,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   Widget _buildDateTimeSection() {
     return Container(
       key: _keyTimeSection,
-      child: _buildInputGroup("근무·운행 일자 및 시간", Icons.access_time_filled, [
+      child: _buildInputGroup("운행 일자 및 시간", Icons.access_time_filled, [
         if (_logId != null) ...[
         _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
       ],

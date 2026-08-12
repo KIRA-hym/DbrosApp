@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../services/db_helper.dart';
 import '../widgets/app_glass_dialog.dart';
+import '../providers/notice_badge_provider.dart';
 
 class NoticeListPage extends StatefulWidget {
   const NoticeListPage({super.key});
@@ -19,6 +21,9 @@ class _NoticeListPageState extends State<NoticeListPage> {
   void initState() {
     super.initState();
     _loadNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NoticeBadgeProvider>(context, listen: false).markAsRead();
+    });
   }
 
   Future<void> _loadNotifications() async {

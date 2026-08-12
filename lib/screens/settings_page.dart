@@ -717,92 +717,15 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (_versionTapCount >= 7) {
       _versionTapCount = 0;
-      _showAdminCodeDialog();
+      final currentState = SettingsService.isOwnerMode;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            currentState ? '오너 모드가 활성화되어 있습니다.' : '관리자 권한이 없습니다.',
+          ),
+        ),
+      );
     }
-  }
-
-  void _showAdminCodeDialog() {
-    final TextEditingController codeController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).cardTheme.color!,
-          title: Text(
-            '관리자 인증',
-            style: TextStyle(
-              color:
-                  (Theme.of(context).textTheme.bodyLarge?.color ??
-                  Colors.white),
-            ),
-          ),
-          content: TextField(
-            controller: codeController,
-            obscureText: true,
-            style: TextStyle(
-              color:
-                  (Theme.of(context).textTheme.bodyLarge?.color ??
-                  Colors.white),
-            ),
-            decoration: InputDecoration(
-              hintText: '인증 코드를 입력하세요',
-              hintStyle: TextStyle(
-                color:
-                    (Theme.of(context).textTheme.bodySmall?.color ??
-                    Colors.grey),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Theme.of(context).dividerColor),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderSide: BorderSide(color: Color(0xFFFFC700)),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                '취소',
-                style: TextStyle(
-                  color:
-                      (Theme.of(context).textTheme.bodySmall?.color ??
-                      Colors.grey),
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final code = codeController.text.trim();
-                Navigator.pop(context);
-                if (code == 'HYM') {
-                  final currentState = SettingsService.isOwnerMode;
-                  await SettingsService.setIsOwnerMode(!currentState);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          currentState ? '오너 모드가 해제되었습니다.' : '오너 모드가 활성화되었습니다.',
-                        ),
-                      ),
-                    );
-                  }
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('코드가 일치하지 않습니다.')),
-                  );
-                }
-              },
-              child: Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Widget _buildSettingsGroup(
