@@ -83,6 +83,75 @@ class LogiColmannerOcr {
 
   static PartnerCallParsed parseColmanner(String fullText, {List<TextBlock>? blocks}) {
     final lines = _lines(fullText);
+
+    // --- [Pre-hook] 라벨-본문 상하 완전 분리형 콜마너 기형 구조 방어 ---
+    // (예: 도착지 \n 출도 \n 출발지 \n 장항제2공영주차장입구 \n ... \n 경기 고양시... \n 경기 안양시...)
+    if (lines.length > 5) {
+      final joined = lines.join(' ');
+      final startLabelMatch = RegExp(r'(?:^|\s)출\s*발\s*지').firstMatch(joined);
+      final endLabelMatch = RegExp(r'(?:^|\s)(도\s*착\s*[지시]?|착\s*지)').firstMatch(joined);
+      
+      // 기형 조건: 도착지 라벨이 출발지 라벨보다 먼저 발견됨
+      if (startLabelMatch != null && endLabelMatch != null && endLabelMatch.start < startLabelMatch.start) {
+        final betweenText = joined.substring(endLabelMatch.end, startLabelMatch.start);
+        final hasRegionBetween = RegExp(RemoteConfigService().regionPattern).hasMatch(betweenText);
+        final maxLabelEnd = startLabelMatch.end;
+        final afterLabelsText = joined.substring(maxLabelEnd).trim();
+        final regionMatches = RegExp(RemoteConfigService().regionPattern).allMatches(afterLabelsText).toList();
+        
+        // 라벨 사이에 광역지명이 없고, 라벨 뒤에 광역지명(경기, 서울 등)이 2번 이상 나타나는 극단적 상하 분리 레이아웃
+        if (!hasRegionBetween && regionMatches.length >= 2) {
+          String detailText = afterLabelsText.substring(0, regionMatches[0].start).trim();
+          detailText = detailText.replaceAll(RegExp(r'(?:천사|적요|입금합계|차감합계|고객정보).*$'), '').trim();
+          
+          final firstRegion = regionMatches[0].group(0)!;
+          int cut = -1;
+          for (var i = 1; i < regionMatches.length; i++) {
+            if (regionMatches[i].group(0) != firstRegion) {
+              cut = regionMatches[i].start;
+              break;
+            }
+          }
+          if (cut == -1) {
+             final cityRx = RegExp(r'[가-힣]+(?:시|군)');
+             final cityMatches = cityRx.allMatches(afterLabelsText).toList();
+             if (cityMatches.length >= 2) {
+                final firstCity = cityMatches[0].group(0)!;
+                for (var ci = 1; ci < cityMatches.length; ci++) {
+                  if (cityMatches[ci].group(0) != firstCity && cityMatches[ci].start > cityMatches[0].end + 5) {
+                    for (var mi = 1; mi < regionMatches.length; mi++) {
+                      if (regionMatches[mi].start > cityMatches[0].end) {
+                        cut = regionMatches[mi].start;
+                        break;
+                      }
+                    }
+                    break;
+                  }
+                }
+             }
+          }
+          
+          if (cut != -1) {
+            String regionStart = afterLabelsText.substring(regionMatches[0].start, cut).trim();
+            String regionEnd = afterLabelsText.substring(cut).trim();
+            regionEnd = regionEnd.split(RegExp(r'\s*(?:요라|정장\)|요금|경로거리|현금|입금)')).first.trim();
+            String finalStart = detailText.isNotEmpty ? '$regionStart $detailText'.trim() : regionStart;
+            
+            final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: true);
+            var waypoint = _parseColmannerWaypoint(lines);
+            
+            return PartnerCallParsed(
+              grossFare: fare,
+              startLocation: _cleanAddr(finalStart, isLogi: false, isStart: true),
+              endLocation: _cleanAddr(regionEnd, isLogi: false, isStart: false),
+              waypoint: waypoint,
+            );
+          }
+        }
+      }
+    }
+    // --- [Pre-hook 끝] ---
+
     final fare = _parseFare(lines, blocks: blocks, fullText: fullText, colmanner: true);
 
     final loc = _parseColmannerLocationsMerged(lines);
@@ -397,6 +466,31 @@ class LogiColmannerOcr {
   }) {
     if (!colmanner) {
       if (fullText != null) {
+        // --- [보완 로직 A] 안내 하단 단독 요금 ---
+        final guideFareMatch = RegExp(r'안내\s*[\r\n]+\s*([\d,oOlLIi\.그기!sSzZ]{4,7})\s*[\r\n]+').firstMatch(fullText);
+        if (guideFareMatch != null) {
+          final guideFare = parseLogiFareFromOcrText(guideFareMatch.group(1)!);
+          if (guideFare != null && guideFare >= 10000 && guideFare <= 999999) {
+            return guideFare;
+          }
+        }
+
+        // --- [보완 로직 B] 흩어진 법인콜(후불/업체지원) 합산 ---
+        final hubulMultiMatch = RegExp(r'(?:후불|후물)\s*[:：]?\s*([\d,oOlLIi\.그기!sSzZ]{4,7})').firstMatch(fullText);
+        final upcheMultiMatch = RegExp(r'업체(?:지원|수동입금)?\s*[:：]?\s*([\d,oOlLIi\.그기!sSzZ]{4,7})').firstMatch(fullText);
+        
+        if (hubulMultiMatch != null && upcheMultiMatch != null) {
+          final hFare = parseLogiFareFromOcrText(hubulMultiMatch.group(1)!);
+          final uFare = parseLogiFareFromOcrText(upcheMultiMatch.group(1)!);
+          if (hFare != null && uFare != null && hFare > 0 && uFare > 0) {
+            final totalSum = hFare + uFare;
+            if (totalSum >= 10000 && totalSum <= 999999) {
+              // 원래 패턴 1/2로 넘어가기 전, 여기서 합산값을 바로 반환
+              return totalSum;
+            }
+          }
+        }
+
         // 법인콜 메모에 명시된 실제 요금 최우선 추출
         // 패턴 1: "업체지원N/후불M" → 합산이 총요금 (예: 업체지원5,000/후불45,000 → 50,000)
         final corpMatch = RegExp(
@@ -799,10 +893,76 @@ class LogiColmannerOcr {
 
     // [로지/콜마너 파싱 로직 개선: 짬짜면(출발지/도착지 섞임) 방지 정밀 추출]
     if (!isLogi) {
-      // [Fix]: 콜마너에서 도착지 라벨이 출발지 라벨보다 먼저 나오는 기형적 구조 대응
       final startLabelMatch = RegExp(r'(?:^|\s)출\s*발\s*지').firstMatch(joined);
       final endLabelMatch = RegExp(r'(?:^|\s)(도\s*착\s*[지시]?|착\s*지)').firstMatch(joined);
 
+      if (startLabelMatch != null && endLabelMatch != null && endLabelMatch.start < startLabelMatch.start) {
+        // --- [보완 로직 C] 라벨-본문 상하 완전 분리형 콜마너 기형 구조 방어 ---
+        // '도착지' 와 '출발지' 가 상단에 몰려있고 그 사이에 광역지명이 없으며,
+        // 출발지 라벨 뒤에 광역지명 2개가 연달아 나오는 경우를 잡아낸다.
+        final betweenText = joined.substring(endLabelMatch.end, startLabelMatch.start);
+            
+        final hasRegionBetween = RegExp(RemoteConfigService().regionPattern).hasMatch(betweenText);
+        final maxLabelEnd = startLabelMatch.end;
+        final afterLabelsText = joined.substring(maxLabelEnd).trim();
+        
+        final regionMatches = RegExp(RemoteConfigService().regionPattern).allMatches(afterLabelsText).toList();
+        
+        // 라벨 사이에 광역지명이 없고, 라벨 뒤에 광역지명이 2번 이상 나타난다면 (상하 분리 레이아웃)
+        if (!hasRegionBetween && regionMatches.length >= 2) {
+          // 1. 첫 번째 광역지명 시작점 전까지의 텍스트는 상호명 (예: 장항제2공영주차장입구)
+          String detailText = afterLabelsText.substring(0, regionMatches[0].start).trim();
+          detailText = detailText.replaceAll(RegExp(r'(?:천사|적요|입금합계|차감합계|고객정보).*$'), '').trim();
+          
+          // 2. 광역지명을 기준으로 출발지 본문과 도착지 본문을 분리
+          final firstRegion = regionMatches[0].group(0)!;
+          int cut = -1;
+          for (var i = 1; i < regionMatches.length; i++) {
+            if (regionMatches[i].group(0) != firstRegion) {
+              cut = regionMatches[i].start;
+              break;
+            }
+          }
+          if (cut == -1) {
+             // 같은 광역인 경우 시(市) 단위로 분리
+             final cityRx = RegExp(r'[가-힣]+(?:시|군)');
+             final cityMatches = cityRx.allMatches(afterLabelsText).toList();
+             if (cityMatches.length >= 2) {
+                final firstCity = cityMatches[0].group(0)!;
+                for (var ci = 1; ci < cityMatches.length; ci++) {
+                  if (cityMatches[ci].group(0) != firstCity && cityMatches[ci].start > cityMatches[0].end + 5) {
+                    for (var mi = 1; mi < regionMatches.length; mi++) {
+                      if (regionMatches[mi].start > cityMatches[0].end) {
+                        cut = regionMatches[mi].start;
+                        break;
+                      }
+                    }
+                    break;
+                  }
+                }
+             }
+          }
+          
+          if (cut != -1) {
+            String regionStart = afterLabelsText.substring(regionMatches[0].start, cut).trim();
+            String regionEnd = afterLabelsText.substring(cut).trim();
+            
+            // 도착지(regionEnd) 뒷부분에 딸려온 콜마너 메타 노이즈 및 다른 주소 파편 제거
+            regionEnd = regionEnd.split(RegExp(r'\s*(?:요라|정장\)|요금|경로거리|현금|입금)')).first.trim();
+            
+            // 사용자 피드백 반영: [광역 주소 본문] + [상세 상호명] 순서로 합침
+            // 예: "경기 고양시 일산동구 장항동" + "장항제2공영주차장입구 천사 ..."
+            String finalStart = detailText.isNotEmpty ? '$regionStart $detailText'.trim() : regionStart;
+            
+            return (
+              start: _cleanAddr(finalStart, isLogi: false, isStart: true),
+              end: _cleanAddr(regionEnd, isLogi: false, isStart: false),
+            );
+          }
+        }
+      }
+
+      // [Fix]: 콜마너에서 도착지 라벨이 출발지 라벨보다 먼저 나오는 기형적 구조 대응
       if (startLabelMatch != null && endLabelMatch != null && endLabelMatch.start < startLabelMatch.start) {
         var s = joined.substring(startLabelMatch.end).trim();
         var e = joined.substring(endLabelMatch.end, startLabelMatch.start).trim();
@@ -1344,7 +1504,7 @@ class LogiColmannerOcr {
       }
 
       if (!inBlock) {
-        if (n.startsWith('출발지')) {
+        if (n.startsWith('출발지') || n.startsWith('도착지')) {
           inBlock = true;
         } else if ((n.startsWith('지사명') || n.startsWith('고객명') || n.startsWith('위치')) && i + 1 < lines.length) {
           inBlock = true;
@@ -1383,7 +1543,8 @@ class LogiColmannerOcr {
       buffer.add(line);
     }
     final joined = buffer.join(' ');
-    final cleanedJoined = joined.replaceAll(RegExp(r'^(?:출발지|도착지|출도|적요|지도|고객정보|고객전화|연락처|상황실|TALK|입금합계|차감합계|고객명|지사명|위치|\s)+', caseSensitive: false), '').trim();
+    // 기형 레이아웃 방어(보완 로직 C)를 위해 '출발지', '도착지' 라벨은 지우지 않고 남겨둔다.
+    final cleanedJoined = joined.replaceAll(RegExp(r'^(?:출도|적요|지도|고객정보|고객전화|연락처|상황실|TALK|입금합계|차감합계|고객명|지사명|위치|\s)+', caseSensitive: false), '').trim();
     final split = _splitAddressText(cleanedJoined.isEmpty ? joined : cleanedJoined, isLogi: false);
     return (start: split.start, end: split.end, waypoint: waypoint, joined: joined);
   }
