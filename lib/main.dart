@@ -18,6 +18,8 @@ import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'app_navigator.dart' show rootNavigatorKey;
 import 'main_navigation.dart';
+import 'ui/overlay/quick_entry_ui.dart';
+import 'services/overlay_manager.dart';
 import 'screens/write_log_page.dart';
 import 'screens/home_page.dart';
 import 'screens/log_list_page.dart';
@@ -78,11 +80,13 @@ void main() async {
 
   // MobileAds.initialize()는 Google 서버 통신 포함 → 블로킹 방지, 백그라운드 처리
   unawaited(Future(() async {
-    try {
-      await MobileAds.instance.initialize();
-      RewardedAdService.loadAd();
-    } catch (e) {
-      debugPrint('AdMob init error: $e');
+    if (!kIsWeb) {
+      try {
+        await MobileAds.instance.initialize();
+        RewardedAdService.loadAd();
+      } catch (e) {
+        debugPrint('AdMob init error: $e');
+      }
     }
   }));
   
@@ -149,6 +153,17 @@ void main() async {
     try {
       await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     } catch (_) {}
+    
+    // 웹 새로고침 또는 앱 재시작 시 오버레이 복원
+    Future.delayed(const Duration(milliseconds: 500), () {
+      try {
+        if (SettingsService.overlayQuickRegisterEnabled) {
+          if (rootNavigatorKey.currentContext != null) {
+            OverlayManager.showOverlay(rootNavigatorKey.currentContext!);
+          }
+        }
+      } catch (_) {}
+    });
   });
 }
 
@@ -172,12 +187,33 @@ class _QuickRegisterOverlayApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.amoledTheme.copyWith(
-        scaffoldBackgroundColor: Colors.transparent,
-      ),
-      home: const _QuickRegisterOverlayRoot(),
+    return ValueListenableBuilder<double>(
+      valueListenable: FontSizeService.fontNotifier,
+      builder: (context, fontSize, child) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: SettingsService.isAmoledBlackNotifier,
+          builder: (context, isAmoledBlack, child) {
+            return GestureDetector(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).copyWith(
+                  scaffoldBackgroundColor: Colors.transparent,
+                ),
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: FontSizeService.combinedTextScaler(MediaQuery.of(context))
+                    ),
+                    child: child!,
+                  );
+                },
+                home: const _QuickRegisterOverlayRoot(),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -217,17 +253,104 @@ class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
 
   @override
   Widget build(BuildContext context) {
-    return DriveLogForm(
-      key: ValueKey<String>('quick_overlay_$_quickFormSession'),
-      initialDate: _initialDate,
-      quickPanel: true,
-      fromOverlay: true,
+    return const Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Align(
+        alignment: Alignment.bottomCenter,
+        child: QuickEntryUI(),
+      ),
     );
   }
 }
 
-class DbrosApp extends StatelessWidget {
+@pragma('vm:entry-point')
+void popupMain() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  DartPluginRegistrant.ensureInitialized();
+  await SettingsService.init();
+  await FeatureUsageService.init();
+  await FontSizeService.loadFontSize();
+  await initializeDateFormatting('ko_KR', null);
+  runApp(const _PopupApp());
+}
+
+class _PopupApp extends StatelessWidget {
+  const _PopupApp();
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: FontSizeService.fontNotifier,
+      builder: (context, fontSize, child) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: SettingsService.isAmoledBlackNotifier,
+          builder: (context, isAmoledBlack, child) {
+            return GestureDetector(
+              onTap: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                SystemNavigator.pop(); // 배경 터치 시 팝업 닫기
+              },
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: (isAmoledBlack ? AppTheme.amoledTheme : AppTheme.darkTheme).copyWith(
+                  scaffoldBackgroundColor: Colors.transparent,
+                ),
+                builder: (context, child) {
+                  return MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: FontSizeService.combinedTextScaler(MediaQuery.of(context))
+                    ),
+                    child: child!,
+                  );
+                },
+                home: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  body: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: QuickEntryPopupForm(), // 새로 만들 순수 팝업 위젯
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class DbrosApp extends StatefulWidget {
   const DbrosApp({super.key});
+
+  @override
+  State<DbrosApp> createState() => _DbrosAppState();
+}
+
+class _DbrosAppState extends State<DbrosApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      if (SettingsService.overlayQuickRegisterEnabled && !kIsWeb && Platform.isAndroid) {
+        FlutterOverlayWindow.isActive().then((isActive) {
+          if (!isActive && mounted && rootNavigatorKey.currentContext != null) {
+            OverlayManager.showOverlay(rootNavigatorKey.currentContext!);
+          }
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<double>(
