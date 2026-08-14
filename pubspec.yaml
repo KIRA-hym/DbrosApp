@@ -17,10 +17,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
 #
-# ?遺얇늺 ??뽯뻻: v{version}.{build 2?癒?봺} ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
-# +9 ??쇱벉: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle?癒?퐣 ??已???슢諭뜻에???β?筌앹빓?)
-# APK ?깅??????슢諭???甕곌쑴???癒?짗 筌앹빓?: tools/build_release_apk.ps1 ?癒?뮉 `dart run tool/bump_pubspec_version.dart` ??flutter build apk
-version: 1.0.13+101307
+# ??븐뻼????戮?뻣: v{version}.{build 2???遊? ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
+# +9 ???깅쾳: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle????????藥?????キ?살뿉???棺??嶺뚯빘鍮?)
+# APK ?源????????キ????뺢퀗??????吏?嶺뚯빘鍮?: tools/build_release_apk.ps1 ???裕?`dart run tool/bump_pubspec_version.dart` ??flutter build apk
+version: 1.0.14+101402
 environment:
   sdk: ^3.11.5
 
@@ -82,7 +82,7 @@ dependencies:
   provider: ^6.1.5+1
   cloud_firestore: ^6.4.1
   firebase_messaging: ^16.2.2
-  google_mobile_ads: ^8.0.0
+  google_mobile_ads: ^9.1.0
   shorebird_code_push: ^2.0.6
   restart_app: ^1.8.3
   firebase_auth: ^6.5.1
@@ -118,6 +118,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  sqlite3: ^3.5.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -135,6 +136,7 @@ flutter:
     - assets/title.png
     - assets/title_light.png
     - assets/splash.png
+    - assets/address.db
     - shorebird.yaml
 
   fonts:
@@ -175,3 +177,7 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+dependency_overrides:
+  flutter_overlay_window:
+    path: ./plugins/flutter_overlay_window
