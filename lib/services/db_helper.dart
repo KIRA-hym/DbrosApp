@@ -111,7 +111,7 @@ class DriveLogDatabase {
     final String path = p.join(dbPath, "drive_logs.db");
     return openDatabase(
       path,
-      version: 12,
+      version: 13,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE drive_logs (
@@ -139,7 +139,9 @@ class DriveLogDatabase {
             updated_at TEXT,
             expense_category TEXT,
             income_category TEXT,
-            insurance_fee INTEGER DEFAULT 0
+            insurance_fee INTEGER DEFAULT 0,
+            raw_text TEXT,
+            has_parsing_error INTEGER DEFAULT 0
           )
         ''');
         await _ensureDriveLogsSchema(db);
@@ -157,6 +159,9 @@ class DriveLogDatabase {
         }
         if (oldVersion < 4) {
           await db.execute("UPDATE drive_logs SET program = '카카오(일반)' WHERE program = '카카오'");
+        }
+        if (oldVersion < 13) {
+          await db.execute('ALTER TABLE drive_logs ADD COLUMN raw_text TEXT');
         }
         if (oldVersion < 5) {
           await _ensureDriveLogsSchema(db);
@@ -403,6 +408,8 @@ class DriveLogDatabase {
     await addIfMissing('expense_category', 'TEXT');
     await addIfMissing('income_category', 'TEXT');
     await addIfMissing('insurance_fee', 'INTEGER DEFAULT 0');
+    await addIfMissing('raw_text', 'TEXT');
+    await addIfMissing('has_parsing_error', 'INTEGER DEFAULT 0');
 
     if (!columns.contains('drive_date') && columns.contains('date')) {
       await db.execute("ALTER TABLE drive_logs ADD COLUMN drive_date TEXT");
@@ -495,6 +502,7 @@ class DriveLogDatabase {
   }
 
   Future<int> insertOrUpdateDriveLog(Map<String, dynamic> row) async {
+    if (kIsWeb) return 1;
     final db = await database;
     final out = Map<String, dynamic>.from(row);
     ensureNonEmptyWorkDriveDatesInPlace(out);
@@ -730,7 +738,7 @@ class DriveLogDatabase {
       final logs = _mockLogsForWeb(driveDateYmd: driveDateYmd);
       return {
         'income': logs.fold(0, (s, e) => s + (e['gross_fare'] as int)),
-        'expense': logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int)),
+        'expense': logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int) + ((e['insurance_fee'] as int?) ?? 0)),
       };
     }
     final db = await database;
@@ -738,7 +746,7 @@ class DriveLogDatabase {
       '''
       SELECT
         COALESCE(SUM(gross_fare + COALESCE(waypoint_tip, 0)), 0) AS income,
-        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) AS expense
+        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0) + COALESCE(insurance_fee, 0)), 0) AS expense
       FROM drive_logs WHERE drive_date = ?
       ''',
       [driveDateYmd],
@@ -784,6 +792,7 @@ class DriveLogDatabase {
 
   /// 운행일(`drive_date`) 기준. 총 매출(gross 키) = 요금+경유팁 합.
   Future<int> getTotalLogCount() async {
+    if (kIsWeb) return _mockLogsAllForWeb().length;
     final db = await database;
     try {
       final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM drive_logs'));
@@ -802,7 +811,7 @@ class DriveLogDatabase {
       int count = logs.length;
       int gross = logs.fold(0, (s, e) => s + (e['gross_fare'] as int));
       int net = logs.fold(0, (s, e) => s + (e['net_income'] as int));
-      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int));
+      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int) + ((e['insurance_fee'] as int?) ?? 0));
       int extra_income = logs.fold(0, (s, e) => s + ((e['waypoint_tip'] as int?) ?? 0));
       return {'count': count, 'gross': gross, 'net': net, 'expenses': expenses, 'extra_income': extra_income};
     }
@@ -833,7 +842,7 @@ class DriveLogDatabase {
       int count = logs.length;
       int gross = logs.fold(0, (s, e) => s + (e['gross_fare'] as int));
       int net = logs.fold(0, (s, e) => s + (e['net_income'] as int));
-      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int));
+      int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int) + ((e['insurance_fee'] as int?) ?? 0));
       int extra_income = logs.fold(0, (s, e) => s + ((e['waypoint_tip'] as int?) ?? 0));
       return {'count': count, 'gross': gross, 'net': net, 'expenses': expenses, 'extra_income': extra_income};
     }
@@ -848,7 +857,7 @@ class DriveLogDatabase {
               - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)
           )
         ), 0) as net,
-        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0)), 0) as expenses,
+        COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0) + COALESCE(insurance_fee, 0)), 0) as expenses,
         COALESCE(SUM(COALESCE(waypoint_tip, 0)), 0) as extra_income
       FROM drive_logs WHERE work_date = ?
       ''',
