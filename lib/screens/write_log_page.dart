@@ -22,6 +22,8 @@ import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
 import '../services/ocr_parse_log_service.dart';
+import '../services/ocr_error_logger.dart';
+import '../data/repositories/address_repository.dart';
 import '../main_navigation.dart';
 import '../providers/guide_provider.dart';
 import '../providers/form_state_provider.dart';
@@ -53,10 +55,13 @@ import 'log_list_page.dart';
 class DriveLogForm extends StatefulWidget {
   final Map<String, dynamic>? existingLog;
   final String? initialDate;
+
   /// 알림 퀵등록 등: 반투명 배경 위 카드 형태 간소 표시
   final bool quickPanel;
+
   /// 시스템 오버레이로 띄운 경우(다른 앱 위 레이어). 저장 후 리스트 네비 대신 오버레이 종료.
   final bool fromOverlay;
+
   /// 다른 앱에서 이미지 공유(SEND)로 전달된 로컬 경로 — 열자마자 OCR 시도
   final String? sharedImagePath;
   const DriveLogForm({
@@ -72,7 +77,11 @@ class DriveLogForm extends StatefulWidget {
   State<DriveLogForm> createState() => _DriveLogFormState();
 
   @visibleForTesting
-  static void testAppendMemoFromField(BuildContext context, {required String category, required String amountStr}) {
+  static void testAppendMemoFromField(
+    BuildContext context, {
+    required String category,
+    required String amountStr,
+  }) {
     if (context is StatefulElement) {
       final state = context.state as _DriveLogFormState;
       state._appendMemoFromField(category: category, amountStr: amountStr);
@@ -97,7 +106,8 @@ class DriveLogForm extends StatefulWidget {
   }
 }
 
-class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver {
+class _DriveLogFormState extends State<DriveLogForm>
+    with WidgetsBindingObserver {
   final _workDateCon = TextEditingController();
   final _dateCon = TextEditingController();
   final _timeCon = TextEditingController();
@@ -109,17 +119,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final _endLocCon = TextEditingController();
   final _memoCon = TextEditingController();
 
-
-
   bool _hasOcrWarning = false;
   int? _logId;
+  String? _currentRawText;
+
   /// DB에 이미 들어있는 등록 출처(스크린샷 자동 등). 수정 시 유지한다.
   String? _persistedRegistrationSource;
 
   int _grossIncome = 0;
   String _deductionHint = "";
-  String _selectedProgram =
-      SettingsService.programList.isNotEmpty ? SettingsService.programList.first : "카카오(일반)";
+  String _selectedProgram = SettingsService.programList.isNotEmpty
+      ? SettingsService.programList.first
+      : "카카오(일반)";
   File? _capturedImage;
   bool _showWaypointField = false;
 
@@ -140,8 +151,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   final FocusNode _memoFocusNode = FocusNode();
 
   // Category selections
-  String _selectedExpenseCategory = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList.first : '기타';
-  String _selectedExtraIncomeCategory = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList.first : '기타';
+  String _selectedExpenseCategory = SettingsService.expenseList.isNotEmpty
+      ? SettingsService.expenseList.first
+      : '기타';
+  String _selectedExtraIncomeCategory = SettingsService.incomeList.isNotEmpty
+      ? SettingsService.incomeList.first
+      : '기타';
 
   /// 신규 작성: false면 저장 시 운행시각을 **등록 시점**으로 쓴다. OCR 비어 있음·갤러리 폴백 시각은 여기 해당.
   /// true: OCR이 운행시각을 채웠거나 사용자가 시간 피커로 고른 경우 → [_timeCon] 사용.
@@ -162,9 +177,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   List<String> _distinctLocations = [];
 
-  bool get _isStartLocMissing => (_logId != null || _hasOcrWarning) && _startLocCon.text.trim().isEmpty;
-  bool get _isEndLocMissing => (_logId != null || _hasOcrWarning) && _endLocCon.text.trim().isEmpty;
-  bool get _isIncomeMissing => (_logId != null || _hasOcrWarning) && _parseMoney(_incomeCon.text) <= 0;
+  bool get _isStartLocMissing =>
+      (_logId != null || _hasOcrWarning) && _startLocCon.text.trim().isEmpty;
+  bool get _isEndLocMissing =>
+      (_logId != null || _hasOcrWarning) && _endLocCon.text.trim().isEmpty;
+  bool get _isIncomeMissing =>
+      (_logId != null || _hasOcrWarning) && _parseMoney(_incomeCon.text) <= 0;
 
   @override
   void initState() {
@@ -180,20 +198,37 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _logId = log['id'];
       final rs = log['registration_source']?.toString().trim();
       _persistedRegistrationSource = rs != null && rs.isNotEmpty ? rs : null;
-      _workDateCon.text = (log['work_date'] ?? log['drive_date'])?.toString() ?? '';
+      _currentRawText = log['raw_text']?.toString();
+      _hasOcrWarning = log['has_parsing_error'] == 1;
+      _workDateCon.text =
+          (log['work_date'] ?? log['drive_date'])?.toString() ?? '';
       _dateCon.text = log['drive_date']?.toString() ?? '';
-      _timeCon.text = normalizeDriveTimeHm(log['drive_time']?.toString()) ?? log['drive_time']?.toString() ?? '';
+      _timeCon.text =
+          normalizeDriveTimeHm(log['drive_time']?.toString()) ??
+          log['drive_time']?.toString() ??
+          '';
       _selectedProgram = _coerceProgramForSelection(log['program']?.toString());
       _incomeCon.text = NumberFormat('#,###').format(log['gross_fare']);
-      _transportCon.text = log['transport_cost'] > 0 ? NumberFormat('#,###').format(log['transport_cost']) : '';
-      _waypointTipCon.text = log['waypoint_tip'] != null && log['waypoint_tip'] > 0 ? NumberFormat('#,###').format(log['waypoint_tip']) : '';
+      _transportCon.text = log['transport_cost'] > 0
+          ? NumberFormat('#,###').format(log['transport_cost'])
+          : '';
+      _waypointTipCon.text =
+          log['waypoint_tip'] != null && log['waypoint_tip'] > 0
+          ? NumberFormat('#,###').format(log['waypoint_tip'])
+          : '';
       final savedExpenseCat = log['expense_category']?.toString();
       if (savedExpenseCat != null && savedExpenseCat.isNotEmpty) {
-        _selectedExpenseCategory = SettingsService.expenseList.contains(savedExpenseCat) ? savedExpenseCat : _selectedExpenseCategory;
+        _selectedExpenseCategory =
+            SettingsService.expenseList.contains(savedExpenseCat)
+            ? savedExpenseCat
+            : _selectedExpenseCategory;
       }
       final savedIncomeCat = log['income_category']?.toString();
       if (savedIncomeCat != null && savedIncomeCat.isNotEmpty) {
-        _selectedExtraIncomeCategory = SettingsService.incomeList.contains(savedIncomeCat) ? savedIncomeCat : _selectedExtraIncomeCategory;
+        _selectedExtraIncomeCategory =
+            SettingsService.incomeList.contains(savedIncomeCat)
+            ? savedIncomeCat
+            : _selectedExtraIncomeCategory;
       }
       _startLocCon.text = log['start_location'] ?? '';
       _waypointCon.text = log['waypoint'] ?? '';
@@ -210,7 +245,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           _capturedImage = file;
         }
       }
-      _showWaypointField = (log['waypoint'] != null && log['waypoint'].toString().isNotEmpty);
+      _showWaypointField =
+          (log['waypoint'] != null && log['waypoint'].toString().isNotEmpty);
       _captureGrossAndApplyDeductions();
       _useFormDriveTimeOnSave = true;
     } else {
@@ -218,13 +254,19 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       final def = widget.initialDate ?? WorkDateUtils.effectiveWorkDateYmd();
       _workDateCon.text = def;
       _timeCon.text = DateFormat('HH:mm').format(DateTime.now());
-      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(def, _timeCon.text);
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(
+        def,
+        _timeCon.text,
+      );
       _showWaypointField = false;
       _syncedEffectiveYmd = widget.initialDate == null ? def : null;
       if (widget.initialDate == null) {
         _autoWorkDateRollActive = true;
         WidgetsBinding.instance.addObserver(this);
-        _workDateRollTimer = Timer.periodic(const Duration(minutes: 1), (_) => _maybeRollEffectiveWorkDates());
+        _workDateRollTimer = Timer.periodic(
+          const Duration(minutes: 1),
+          (_) => _maybeRollEffectiveWorkDates(),
+        );
       }
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await _applyDefaultDriveTimeForNewLog();
@@ -283,7 +325,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('작성 취소', style: TextStyle(color: Color(0xFFFF6B6B))),
+            child: const Text(
+              '작성 취소',
+              style: TextStyle(color: Color(0xFFFF6B6B)),
+            ),
           ),
         ],
       ),
@@ -309,15 +354,23 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       setState(() => _capturedImage = file);
 
       final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
+      final textRecognizer = TextRecognizer(
+        script: TextRecognitionScript.korean,
+      );
       final recognizedText = await textRecognizer.processImage(inputImage);
       await textRecognizer.close();
 
-      final originalDate = file.existsSync() ? file.lastModifiedSync() : DateTime.now();
-      final parsed = _detectProgramAndParse(recognizedText, originalDate: originalDate);
+      final originalDate = file.existsSync()
+          ? file.lastModifiedSync()
+          : DateTime.now();
+      final parsed = _detectProgramAndParse(
+        recognizedText,
+        originalDate: originalDate,
+      );
       if (!parsed) return;
 
-      final canAutoSave = _parseMoney(_incomeCon.text) > 0 &&
+      final canAutoSave =
+          _parseMoney(_incomeCon.text) > 0 &&
           _startLocCon.text.trim().isNotEmpty &&
           _endLocCon.text.trim().isNotEmpty;
       if (!canAutoSave || !mounted) return;
@@ -328,7 +381,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   void _maybeRollEffectiveWorkDates() {
     if (!_autoWorkDateRollActive || !mounted) return;
-    if (_logId != null || widget.existingLog != null || widget.initialDate != null) return;
+    if (_logId != null ||
+        widget.existingLog != null ||
+        widget.initialDate != null)
+      return;
     if (_manualWorkDateRoll) return;
 
     final cur = WorkDateUtils.effectiveWorkDateYmd();
@@ -336,7 +392,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     setState(() {
       _workDateCon.text = cur;
-      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(cur, _timeCon.text);
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(
+        cur,
+        _timeCon.text,
+      );
       _syncedEffectiveYmd = cur;
     });
     _applyDefaultDriveTimeForNewLog();
@@ -347,11 +406,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (state == AppLifecycleState.resumed) {
       if (_autoWorkDateRollActive) {
         if (_workDateRollTimer == null || !_workDateRollTimer!.isActive) {
-          _workDateRollTimer = Timer.periodic(const Duration(minutes: 1), (_) => _maybeRollEffectiveWorkDates());
+          _workDateRollTimer = Timer.periodic(
+            const Duration(minutes: 1),
+            (_) => _maybeRollEffectiveWorkDates(),
+          );
         }
       }
       _maybeRollEffectiveWorkDates();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
       _workDateRollTimer?.cancel();
     }
   }
@@ -370,12 +434,19 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     _incomeFocusNode.dispose();
     _memoFocusNode.dispose();
     _workDateCon.dispose();
-    _dateCon.dispose(); _timeCon.dispose(); _incomeCon.dispose(); _transportCon.dispose(); _waypointTipCon.dispose();
-    _startLocCon.dispose(); _waypointCon.dispose(); _endLocCon.dispose(); _memoCon.dispose();
-    
+    _dateCon.dispose();
+    _timeCon.dispose();
+    _incomeCon.dispose();
+    _transportCon.dispose();
+    _waypointTipCon.dispose();
+    _startLocCon.dispose();
+    _waypointCon.dispose();
+    _endLocCon.dispose();
+    _memoCon.dispose();
+
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.removeListener(_onGuideRequested);
-    
+
     super.dispose();
   }
 
@@ -400,16 +471,23 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         if (isFreeTicket) {
           await FeatureUsageService.incrementFreeUsage('single_ocr');
         }
-        
+
         final file = result.file;
         setState(() => _capturedImage = file);
-        
+
         final inputImage = InputImage.fromFilePath(file.path);
-        final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+        final textRecognizer = TextRecognizer(
+          script: TextRecognitionScript.korean,
+        );
+        final RecognizedText recognizedText = await textRecognizer.processImage(
+          inputImage,
+        );
         await textRecognizer.close();
-        
-        _detectProgramAndParse(recognizedText, originalDate: result.creationDate);
+
+        _detectProgramAndParse(
+          recognizedText,
+          originalDate: result.creationDate,
+        );
       },
     );
   }
@@ -424,7 +502,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       if (!file.existsSync()) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('공유한 이미지를 열 수 없습니다. 저장소 권한을 확인해 주세요.')),
+            const SnackBar(
+              content: Text('공유한 이미지를 열 수 없습니다. 저장소 권한을 확인해 주세요.'),
+            ),
           );
         }
         return;
@@ -432,20 +512,26 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       if (!mounted) return;
       setState(() => _capturedImage = file);
 
-      final originalDate = file.existsSync() ? file.lastModifiedSync() : DateTime.now();
+      final originalDate = file.existsSync()
+          ? file.lastModifiedSync()
+          : DateTime.now();
 
       final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+      final textRecognizer = TextRecognizer(
+        script: TextRecognitionScript.korean,
+      );
+      final RecognizedText recognizedText = await textRecognizer.processImage(
+        inputImage,
+      );
       await textRecognizer.close();
-      
+
       if (!mounted) return;
       _detectProgramAndParse(recognizedText, originalDate: originalDate);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('공유 이미지 처리 중 오류: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('공유 이미지 처리 중 오류: $e')));
       }
     }
   }
@@ -469,10 +555,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return "콜마너";
     }
     if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
+    if (KakaoCustomCallOcr.isCustomCallScreen(fullText))
+      return KakaoCustomCallOcr.programCustom;
     final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
     if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
+      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
+        fullText,
+        blocks,
+        kakao,
+      );
     }
     for (final b in blocks) {
       if (b.text.contains("고객과 통화")) {
@@ -486,7 +577,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return null;
   }
 
-  bool _detectProgramAndParse(RecognizedText recognizedText, {DateTime? originalDate}) {
+  bool _detectProgramAndParse(
+    RecognizedText recognizedText, {
+    DateTime? originalDate,
+  }) {
     List<TextBlock> blocks = List.from(recognizedText.blocks);
     blocks.sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
     _useFormDriveTimeOnSave = false;
@@ -512,8 +606,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _selectedProgram = _coerceProgramForSelection(detected);
     });
 
-    _timeCon.clear(); _incomeCon.clear(); _transportCon.clear();
-    _startLocCon.clear(); _waypointCon.clear(); _endLocCon.clear(); _memoCon.clear();
+    _timeCon.clear();
+    _incomeCon.clear();
+    _transportCon.clear();
+    _startLocCon.clear();
+    _waypointCon.clear();
+    _endLocCon.clear();
+    _memoCon.clear();
 
     if (detected == KakaoCustomCallOcr.programCustom) {
       _parseKakaoCustom(blocks, fullText: recognizedText.text);
@@ -536,7 +635,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       _useFormDriveTimeOnSave = true;
       final workYmd = WorkDateUtils.effectiveWorkDateYmd(originalDate);
       _workDateCon.text = workYmd;
-      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(workYmd, _timeCon.text);
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(
+        workYmd,
+        _timeCon.text,
+      );
       _syncedEffectiveYmd = workYmd;
     } else {
       _syncWorkDateFromDriveDateTime();
@@ -561,7 +663,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
 
     setState(() {
-      _hasOcrWarning = _startLocCon.text.trim().isEmpty || _endLocCon.text.trim().isEmpty || _parseMoney(_incomeCon.text) <= 0;
+      _hasOcrWarning =
+          _startLocCon.text.trim().isEmpty ||
+          _endLocCon.text.trim().isEmpty ||
+          _parseMoney(_incomeCon.text) <= 0;
     });
 
     return true;
@@ -612,12 +717,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   void _parseLogi(List<TextBlock> blocks) {
     final sortedBlocks = List<TextBlock>.from(blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sortedBlocks.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
+    final full = sortedBlocks
+        .map((b) => b.text.trim())
+        .where((e) => e.isNotEmpty)
+        .join('\n');
     final p = LogiColmannerOcr.parseLogi(full, blocks: sortedBlocks);
 
     setState(() {
       // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
-      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
+      if (p.grossFare > 0)
+        _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
       if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
       if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
       if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
@@ -627,12 +736,16 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   void _parseColmanner(List<TextBlock> blocks) {
     final sorted = List<TextBlock>.from(blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
-    final full = sorted.map((b) => b.text.trim()).where((e) => e.isNotEmpty).join('\n');
+    final full = sorted
+        .map((b) => b.text.trim())
+        .where((e) => e.isNotEmpty)
+        .join('\n');
     final p = LogiColmannerOcr.parseColmanner(full, blocks: sorted);
 
     setState(() {
       // driveTimeHm은 항상 빈 문자열 (Exif 메타데이터로 대체됨)
-      if (p.grossFare > 0) _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
+      if (p.grossFare > 0)
+        _incomeCon.text = NumberFormat('#,###').format(p.grossFare);
       if (p.startLocation.isNotEmpty) _startLocCon.text = p.startLocation;
       if (p.endLocation.isNotEmpty) _endLocCon.text = p.endLocation;
       if (p.waypoint.isNotEmpty) _waypointCon.text = p.waypoint;
@@ -660,10 +773,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _showWorkDateQuickPicker() async {
-    final DateTime initial = DateTime.tryParse(_workDateCon.text.trim()) ??
+    final DateTime initial =
+        DateTime.tryParse(_workDateCon.text.trim()) ??
         WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateTime? picked =
-        await _pickDateFromMonthlyScroller(initialDate: initial, title: '근무일자 선택');
+    final DateTime? picked = await _pickDateFromMonthlyScroller(
+      initialDate: initial,
+      title: '근무일자 선택',
+    );
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
@@ -681,7 +797,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final gen = ++_driveTimeDefaultGen;
     final wd = _normalizeYmdForStorage(_workDateCon.text);
     if (wd == null) return;
-    final lastHm = await DriveLogDatabase.instance.getLatestDriveTimeHmOnWorkDate(wd);
+    final lastHm = await DriveLogDatabase.instance
+        .getLatestDriveTimeHmOnWorkDate(wd);
     if (!mounted || gen != _driveTimeDefaultGen) return;
     final String nextHm;
     if (lastHm == null) {
@@ -696,15 +813,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (!mounted || gen != _driveTimeDefaultGen) return;
     setState(() {
       _timeCon.text = nextHm;
-      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(_workDateCon.text, nextHm);
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(
+        _workDateCon.text,
+        nextHm,
+      );
     });
   }
 
   Future<void> _showDateQuickPicker() async {
-    final DateTime initial = DateTime.tryParse(_dateCon.text.trim()) ??
+    final DateTime initial =
+        DateTime.tryParse(_dateCon.text.trim()) ??
         WorkDateUtils.effectiveWorkDateStartOfDay();
-    final DateTime? picked =
-        await _pickDateFromMonthlyScroller(initialDate: initial, title: '운행일자 선택');
+    final DateTime? picked = await _pickDateFromMonthlyScroller(
+      initialDate: initial,
+      title: '운행일자 선택',
+    );
     if (picked == null) return;
     setState(() {
       _manualWorkDateRoll = true;
@@ -715,10 +838,14 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _showTimeQuickPicker() async {
-    final TimeOfDay initialTime = _parseTimeText(_timeCon.text) ?? TimeOfDay.now();
-    int selectedHour = initialTime.hour; int selectedMinute = initialTime.minute;
-    final FixedExtentScrollController hourController = FixedExtentScrollController(initialItem: selectedHour);
-    final FixedExtentScrollController minuteController = FixedExtentScrollController(initialItem: selectedMinute);
+    final TimeOfDay initialTime =
+        _parseTimeText(_timeCon.text) ?? TimeOfDay.now();
+    int selectedHour = initialTime.hour;
+    int selectedMinute = initialTime.minute;
+    final FixedExtentScrollController hourController =
+        FixedExtentScrollController(initialItem: selectedHour);
+    final FixedExtentScrollController minuteController =
+        FixedExtentScrollController(initialItem: selectedMinute);
 
     final TimeOfDay? picked = await showDialog<TimeOfDay>(
       context: context,
@@ -730,25 +857,96 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           height: 180,
           child: Row(
             children: [
-              Expanded(child: CupertinoPicker(scrollController: hourController, itemExtent: 36, onSelectedItemChanged: (value) => selectedHour = value, children: List.generate(24, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))))))),
-              Center(child: Text(":", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 20, fontWeight: FontWeight.bold))),
-              Expanded(child: CupertinoPicker(scrollController: minuteController, itemExtent: 36, onSelectedItemChanged: (value) => selectedMinute = value, children: List.generate(60, (i) => Center(child: Text(i.toString().padLeft(2, '0'), style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))))))),
+              Expanded(
+                child: CupertinoPicker(
+                  scrollController: hourController,
+                  itemExtent: 36,
+                  onSelectedItemChanged: (value) => selectedHour = value,
+                  children: List.generate(
+                    24,
+                    (i) => Center(
+                      child: Text(
+                        i.toString().padLeft(2, '0'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: Text(
+                  ":",
+                  style: TextStyle(
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: CupertinoPicker(
+                  scrollController: minuteController,
+                  itemExtent: 36,
+                  onSelectedItemChanged: (value) => selectedMinute = value,
+                  children: List.generate(
+                    60,
+                    (i) => Center(
+                      child: Text(
+                        i.toString().padLeft(2, '0'),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text("취소", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey))),
-          TextButton(onPressed: () => Navigator.of(context).pop(TimeOfDay(hour: selectedHour, minute: selectedMinute)), child: Text("확인", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).primaryColor))),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(
+              "취소",
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(
+              context,
+            ).pop(TimeOfDay(hour: selectedHour, minute: selectedMinute)),
+            child: Text(
+              "확인",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ),
         ],
       ),
     );
 
-    hourController.dispose(); minuteController.dispose();
+    hourController.dispose();
+    minuteController.dispose();
     if (picked == null) return;
     setState(() {
       _timeCon.text = _formatTime24(picked);
       _useFormDriveTimeOnSave = true;
-      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(_workDateCon.text, _timeCon.text);
+      _dateCon.text = WorkDateUtils.resolveDriveDateForNightShift(
+        _workDateCon.text,
+        _timeCon.text,
+      );
       _syncWorkDateFromDriveDateTime();
     });
   }
@@ -762,16 +960,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (hour == null || minute == null) return null;
     return TimeOfDay(hour: hour, minute: minute);
   }
-  String _formatTime24(TimeOfDay time) => "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+  String _formatTime24(TimeOfDay time) =>
+      "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
 
   void _syncWorkDateFromDriveDateTime() {
     final driveDateStr = _dateCon.text.trim();
     final driveTimeStr = _timeCon.text.trim();
     if (driveDateStr.isEmpty || driveTimeStr.isEmpty) return;
-    
+
     final dDate = DateTime.tryParse(driveDateStr);
     if (dDate == null) return;
-    
+
     final hour = WorkDateUtils.hourFromHm(driveTimeStr);
     final String workDateStr;
     if (hour < WorkDateUtils.workDayRolloverHour) {
@@ -780,7 +980,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     } else {
       workDateStr = driveDateStr;
     }
-    
+
     setState(() {
       _workDateCon.text = workDateStr;
     });
@@ -825,22 +1025,43 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
                     child: Row(
                       children: [
-                        Text(title, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                color:
+                                    (Theme.of(
+                                      context,
+                                    ).textTheme.bodyLarge?.color ??
+                                    Colors.white),
+                              ),
+                        ),
                         const Spacer(),
                         IconButton(
-                          icon: Icon(Icons.chevron_left, color: Color(0xFFFFC700)),
+                          icon: Icon(
+                            Icons.chevron_left,
+                            color: Color(0xFFFFC700),
+                          ),
                           onPressed: () {
-                            final prev = selected.subtract(const Duration(days: 1));
+                            final prev = selected.subtract(
+                              const Duration(days: 1),
+                            );
                             if (prev.isBefore(firstOfMonth)) return;
                             setModalState(() => selected = prev);
                           },
                         ),
                         Text(
                           DateFormat('yyyy-MM-dd').format(selected),
-                          style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.chevron_right, color: Color(0xFFFFC700)),
+                          icon: Icon(
+                            Icons.chevron_right,
+                            color: Color(0xFFFFC700),
+                          ),
                           onPressed: () {
                             final next = selected.add(const Duration(days: 1));
                             if (next.isAfter(maxDate)) return;
@@ -850,7 +1071,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       ],
                     ),
                   ),
-                  Divider(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.12), height: 1),
+                  Divider(
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                                Colors.white)
+                            .withOpacity(0.12),
+                    height: 1,
+                  ),
                   Expanded(
                     child: ListView.builder(
                       itemCount: dates.length,
@@ -861,8 +1088,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                           title: Text(
                             DateFormat('yyyy-MM-dd (E)', 'ko_KR').format(d),
                             style: TextStyle(
-                              color: isSelected ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w400,
+                              color: isSelected
+                                  ? Theme.of(context).primaryColor
+                                  : (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
+                              fontWeight: isSelected
+                                  ? FontWeight.bold
+                                  : FontWeight.w400,
                             ),
                           ),
                           onTap: () => setModalState(() => selected = d),
@@ -877,7 +1111,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         Expanded(
                           child: TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: Text('취소', style: TextStyle(color: Color(0xFF9FA3AE))),
+                            child: Text(
+                              '취소',
+                              style: TextStyle(color: Color(0xFF9FA3AE)),
+                            ),
                           ),
                         ),
                         SizedBox(width: 8),
@@ -905,30 +1142,73 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
   }
 
   Future<void> _openNaverMapRoute() async {
-    final String start = _startLocCon.text.trim(); final String end = _endLocCon.text.trim();
+    final String start = _startLocCon.text.trim();
+    final String end = _endLocCon.text.trim();
     if (start.isEmpty || end.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("출발지와 도착지를 먼저 입력해 주세요."))); return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("출발지와 도착지를 먼저 입력해 주세요.")));
+      return;
     }
     final String startN = normalizeAddressForGeocode(start);
     final String endN = normalizeAddressForGeocode(end);
     try {
-      final List<Location> startLocations = await locationFromAddress(startN.isNotEmpty ? startN : start);
-      final List<Location> endLocations = await locationFromAddress(endN.isNotEmpty ? endN : end);
+      final List<Location> startLocations = await locationFromAddress(
+        startN.isNotEmpty ? startN : start,
+      );
+      final List<Location> endLocations = await locationFromAddress(
+        endN.isNotEmpty ? endN : end,
+      );
       if (startLocations.isNotEmpty && endLocations.isNotEmpty) {
-        final Location startLoc = startLocations.first; final Location endLoc = endLocations.first;
-        final Uri naverRouteUri = Uri(scheme: "nmap", host: "route", path: "car", queryParameters: {"slat": startLoc.latitude.toStringAsFixed(7), "slng": startLoc.longitude.toStringAsFixed(7), "sname": startN.isNotEmpty ? startN : start, "dlat": endLoc.latitude.toStringAsFixed(7), "dlng": endLoc.longitude.toStringAsFixed(7), "dname": endN.isNotEmpty ? endN : end});
+        final Location startLoc = startLocations.first;
+        final Location endLoc = endLocations.first;
+        final Uri naverRouteUri = Uri(
+          scheme: "nmap",
+          host: "route",
+          path: "car",
+          queryParameters: {
+            "slat": startLoc.latitude.toStringAsFixed(7),
+            "slng": startLoc.longitude.toStringAsFixed(7),
+            "sname": startN.isNotEmpty ? startN : start,
+            "dlat": endLoc.latitude.toStringAsFixed(7),
+            "dlng": endLoc.longitude.toStringAsFixed(7),
+            "dname": endN.isNotEmpty ? endN : end,
+          },
+        );
         if (Platform.isAndroid) {
-          final AndroidIntent naverIntent = AndroidIntent(action: "action_view", data: naverRouteUri.toString(), package: "com.nhn.android.nmap");
-          try { await naverIntent.launch(); return; } catch (_) {
-            await AndroidIntent(action: "action_view", data: "market://details?id=com.nhn.android.nmap").launch(); return;
+          final AndroidIntent naverIntent = AndroidIntent(
+            action: "action_view",
+            data: naverRouteUri.toString(),
+            package: "com.nhn.android.nmap",
+          );
+          try {
+            await naverIntent.launch();
+            return;
+          } catch (_) {
+            await AndroidIntent(
+              action: "action_view",
+              data: "market://details?id=com.nhn.android.nmap",
+            ).launch();
+            return;
           }
         } else {
-          if (await canLaunchUrl(naverRouteUri)) { await launchUrl(naverRouteUri, mode: LaunchMode.externalApplication); return; }
+          if (await canLaunchUrl(naverRouteUri)) {
+            await launchUrl(
+              naverRouteUri,
+              mode: LaunchMode.externalApplication,
+            );
+            return;
+          }
         }
       }
     } catch (_) {}
-    await launchUrl(Uri.parse("https://map.naver.com/v5/search/${Uri.encodeComponent("${startN.isNotEmpty ? startN : start} ${endN.isNotEmpty ? endN : end} 길찾기")}"), mode: LaunchMode.externalApplication);
+    await launchUrl(
+      Uri.parse(
+        "https://map.naver.com/v5/search/${Uri.encodeComponent("${startN.isNotEmpty ? startN : start} ${endN.isNotEmpty ? endN : end} 길찾기")}",
+      ),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   Future<void> _openStartMapPicker() async {
@@ -938,7 +1218,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       MaterialPageRoute<LatLng?>(
         builder: (_) => LocationPickMapPage(
           addressQuery: _startLocCon.text,
-          initialLatLng: _startLat != null && _startLng != null ? LatLng(_startLat!, _startLng!) : null,
+          initialLatLng: _startLat != null && _startLng != null
+              ? LatLng(_startLat!, _startLng!)
+              : null,
           title: '출발 위치',
         ),
       ),
@@ -957,7 +1239,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       MaterialPageRoute<LatLng?>(
         builder: (_) => LocationPickMapPage(
           addressQuery: _endLocCon.text,
-          initialLatLng: _endLat != null && _endLng != null ? LatLng(_endLat!, _endLng!) : null,
+          initialLatLng: _endLat != null && _endLng != null
+              ? LatLng(_endLat!, _endLng!)
+              : null,
           title: '도착 위치',
         ),
       ),
@@ -971,7 +1255,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   Widget _pinPickButton({required bool forStart}) {
     if (!kMapFeaturesEnabled) return const SizedBox.shrink();
-    
+
     // 신규 작성(사진/수동 등) 시에는 숨기고, 수정 모드일 때만 노출
     final bool isEditMode = widget.existingLog != null;
     if (!isEditMode) return const SizedBox.shrink();
@@ -989,7 +1273,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       onPressed: forStart ? _openStartMapPicker : _openEndMapPicker,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints.tightFor(width: 40, height: 40),
-      tooltip: forStart ? (has ? '출발 좌표 수정' : '출발 좌표 등록') : (has ? '도착 좌표 수정' : '도착 좌표 등록'),
+      tooltip: forStart
+          ? (has ? '출발 좌표 수정' : '출발 좌표 등록')
+          : (has ? '도착 좌표 수정' : '도착 좌표 등록'),
     );
   }
 
@@ -1021,7 +1307,10 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     }
   }
 
-  void _appendMemoFromField({required String category, required String amountStr}) {
+  void _appendMemoFromField({
+    required String category,
+    required String amountStr,
+  }) {
     final int amount = _parseMoney(amountStr);
     if (amount <= 0) return;
 
@@ -1032,7 +1321,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
     // Prevent duplicate entries of the same category + amount in the memo
     final escaped = RegExp.escape(appendText);
-    final hasPattern = RegExp('(?:^|\\s|,)$escaped(?:\$|\\s|,)').hasMatch(currentMemo);
+    final hasPattern = RegExp(
+      '(?:^|\\s|,)$escaped(?:\$|\\s|,)',
+    ).hasMatch(currentMemo);
     if (hasPattern) return;
 
     setState(() {
@@ -1050,16 +1341,25 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   /// 저장된 선택값이 현재 설정 목록에 없으면 첫 번째 항목으로 보정
   String _safeExpenseCategory() {
-    final list = SettingsService.expenseList.isNotEmpty ? SettingsService.expenseList : ['기타'];
-    return list.contains(_selectedExpenseCategory) ? _selectedExpenseCategory : list.first;
+    final list = SettingsService.expenseList.isNotEmpty
+        ? SettingsService.expenseList
+        : ['기타'];
+    return list.contains(_selectedExpenseCategory)
+        ? _selectedExpenseCategory
+        : list.first;
   }
 
   String _safeIncomeCategory() {
-    final list = SettingsService.incomeList.isNotEmpty ? SettingsService.incomeList : ['기타'];
-    return list.contains(_selectedExtraIncomeCategory) ? _selectedExtraIncomeCategory : list.first;
+    final list = SettingsService.incomeList.isNotEmpty
+        ? SettingsService.incomeList
+        : ['기타'];
+    return list.contains(_selectedExtraIncomeCategory)
+        ? _selectedExtraIncomeCategory
+        : list.first;
   }
 
-  int _parseMoney(String value) => int.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+  int _parseMoney(String value) =>
+      int.tryParse(value.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
   String _formatMoney(int value) => NumberFormat('#,###').format(value);
   String? _normalizeYmdForStorage(String raw) {
     final t = raw.trim();
@@ -1072,21 +1372,34 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return null;
     }
   }
-  
-  int _currentFeeFromGross() => SettingsService.deductionFeeFromGross(_grossIncome, _selectedProgram);
-  int _currentInsuranceFee() => SettingsService.calculatePerTripInsurance(_selectedProgram);
-  
-  /// 경유비(팁)는 수수료·교통비처럼 차감이 아니라 순익에 **가산**됩니다.
-  int _currentNetIncomeFromGross() => (_grossIncome - _currentFeeFromGross() - _currentInsuranceFee() - _parseMoney(_transportCon.text) + _parseMoney(_waypointTipCon.text)).clamp(0, 999999999);
 
-  void _captureGrossAndApplyDeductions() { _grossIncome = _parseMoney(_incomeCon.text); _applyDeductions(); }
+  int _currentFeeFromGross() =>
+      SettingsService.deductionFeeFromGross(_grossIncome, _selectedProgram);
+  int _currentInsuranceFee() =>
+      SettingsService.calculatePerTripInsurance(_selectedProgram);
+
+  /// 경유비(팁)는 수수료·교통비처럼 차감이 아니라 순익에 **가산**됩니다.
+  int _currentNetIncomeFromGross() =>
+      (_grossIncome -
+              _currentFeeFromGross() -
+              _currentInsuranceFee() -
+              _parseMoney(_transportCon.text) +
+              _parseMoney(_waypointTipCon.text))
+          .clamp(0, 999999999);
+
+  void _captureGrossAndApplyDeductions() {
+    _grossIncome = _parseMoney(_incomeCon.text);
+    _applyDeductions();
+  }
+
   void _applyDeductions() {
     _grossIncome = _parseMoney(_incomeCon.text);
     final int transport = _parseMoney(_transportCon.text);
     final int waypointTip = _parseMoney(_waypointTipCon.text);
     final int fee = _currentFeeFromGross();
     final int insurance = _currentInsuranceFee();
-    final int net = (_grossIncome - fee - insurance - transport + waypointTip).clamp(0, 999999999);
+    final int net = (_grossIncome - fee - insurance - transport + waypointTip)
+        .clamp(0, 999999999);
     final int deductOnly = fee + insurance + transport;
     setState(() {
       _deductionHint = _grossIncome > 0
@@ -1103,16 +1416,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     if (missing.isEmpty) return true;
 
     if (!mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${missing.join('·')}를 입력해 주세요.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${missing.join('·')}를 입력해 주세요.')));
     return false;
   }
 
   Future<void> _saveDriveLog() async {
     if (_workDateCon.text.trim().isEmpty || _dateCon.text.trim().isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("근무일자·운행 날짜를 확인해 주세요.")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("근무일자·운행 날짜를 확인해 주세요.")));
       return;
     }
     if (!_validateRequiredManualEntryFields()) return;
@@ -1120,33 +1435,45 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     final fare = _parseMoney(_incomeCon.text);
     if (_selectedProgram.contains('카카오') && fare < 12000) {
       if (!mounted) return;
-      final bool proceed = await AppGlassDialog.show<bool>(
-        context: context,
-        barrierDismissible: false,
-        dialog: AppGlassDialog(
-          icon: Icons.warning_amber_rounded,
-          title: '알림',
-          content: '입력된 요금이 너무 낮습니다. 계속 진행하시겠습니까?',
-          actions: [
-            Builder(
-              builder: (ctx) => GlassDialogCancelButton(
-                label: '아니오',
-                onPressed: () => Navigator.of(ctx).pop(false),
-              ),
-            ),
-            Builder(
-              builder: (ctx) => TextButton(
-                onPressed: () => Navigator.of(ctx).pop(true),
-                style: TextButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      final bool proceed =
+          await AppGlassDialog.show<bool>(
+            context: context,
+            barrierDismissible: false,
+            dialog: AppGlassDialog(
+              icon: Icons.warning_amber_rounded,
+              title: '알림',
+              content: '입력된 요금이 너무 낮습니다. 계속 진행하시겠습니까?',
+              actions: [
+                Builder(
+                  builder: (ctx) => GlassDialogCancelButton(
+                    label: '아니오',
+                    onPressed: () => Navigator.of(ctx).pop(false),
+                  ),
                 ),
-                child: Text('예', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold)),
-              ),
+                Builder(
+                  builder: (ctx) => TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(true),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).primaryColor.withValues(alpha: 0.15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      '예',
+                      style: TextStyle(
+                        color: Color(0xFFFFC700),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-      ) ?? false;
+          ) ??
+          false;
       if (!proceed) return;
     }
 
@@ -1170,11 +1497,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         return;
       }
 
-      final String driveTimeForRow = (_logId != null || widget.existingLog != null || _useFormDriveTimeOnSave)
+      final String driveTimeForRow =
+          (_logId != null ||
+              widget.existingLog != null ||
+              _useFormDriveTimeOnSave)
           ? resolveDriveTimeForStorage(_timeCon.text)
           : formatDriveTimeHm(DateTime.now());
 
-      final String driveDateForRow = WorkDateUtils.isDriveHourBeforeWorkDayRollover(driveTimeForRow)
+      final String driveDateForRow =
+          WorkDateUtils.isDriveHourBeforeWorkDayRollover(driveTimeForRow)
           ? WorkDateUtils.addDays(workDate, 1)
           : formDriveDate;
 
@@ -1187,10 +1518,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
       _grossIncome = _parseMoney(_incomeCon.text);
       final String nowIso = DateTime.now().toIso8601String();
-      final compactImagePath = await ImageStorageService.compressAndPersistForDisplay(
-        _capturedImage?.path,
-        prefix: 'manual',
-      );
+      final compactImagePath =
+          await ImageStorageService.compressAndPersistForDisplay(
+            _capturedImage?.path,
+            prefix: 'manual',
+          );
 
       final Map<String, dynamic> row = {
         if (_logId != null) "id": _logId,
@@ -1198,34 +1530,69 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         "drive_date": driveDateForRow,
         "drive_time": resolveDriveTimeForStorage(driveTimeForRow),
         "program": _selectedProgram,
-        "gross_fare": _grossIncome, "fee": _currentFeeFromGross(), "insurance_fee": _currentInsuranceFee(), "transport_cost": _parseMoney(_transportCon.text),
-        "expense_category": _parseMoney(_transportCon.text) > 0 ? _safeExpenseCategory() : null,
+        "gross_fare": _grossIncome,
+        "fee": _currentFeeFromGross(),
+        "insurance_fee": _currentInsuranceFee(),
+        "transport_cost": _parseMoney(_transportCon.text),
+        "expense_category": _parseMoney(_transportCon.text) > 0
+            ? _safeExpenseCategory()
+            : null,
         "waypoint_tip": _parseMoney(_waypointTipCon.text),
-        "income_category": _parseMoney(_waypointTipCon.text) > 0 ? _safeIncomeCategory() : null,
-        "net_income": _currentNetIncomeFromGross(), "start_location": _startLocCon.text.trim(),
-        "waypoint": _waypointCon.text.trim(), "end_location": _endLocCon.text.trim(), "memo": _memoCon.text.trim(),
+        "income_category": _parseMoney(_waypointTipCon.text) > 0
+            ? _safeIncomeCategory()
+            : null,
+        "net_income": _currentNetIncomeFromGross(),
+        "start_location": _startLocCon.text.trim(),
+        "waypoint": _waypointCon.text.trim(),
+        "end_location": _endLocCon.text.trim(),
+        "memo": _memoCon.text.trim(),
         "start_lat": _startLat,
         "start_lng": _startLng,
         "end_lat": _endLat,
         "end_lng": _endLng,
         "image_path": compactImagePath,
         "updated_at": nowIso,
-        if (_persistedRegistrationSource != null && _persistedRegistrationSource!.trim().isNotEmpty)
+        "has_parsing_error": 0,
+        if (_persistedRegistrationSource != null &&
+            _persistedRegistrationSource!.trim().isNotEmpty)
           "registration_source": _persistedRegistrationSource!.trim(),
         if (_logId == null)
           "created_at": nowIso
-        else if (widget.existingLog != null && widget.existingLog!['created_at'] != null)
+        else if (widget.existingLog != null &&
+            widget.existingLog!['created_at'] != null)
           "created_at": widget.existingLog!['created_at'].toString(),
       };
 
       await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+
+      if (_currentRawText != null && _currentRawText!.trim().isNotEmpty) {
+        final wasParsingError = (widget.existingLog?['has_parsing_error'] == 1) || _hasOcrWarning;
+        if (wasParsingError) {
+          final correctedData = {
+            'program': _selectedProgram,
+            'start_location': _startLocCon.text.trim(),
+            'waypoint': _waypointCon.text.trim(),
+            'end_location': _endLocCon.text.trim(),
+            'gross_fare': _grossIncome,
+            'fee': _currentFeeFromGross(),
+            'transport_cost': _parseMoney(_transportCon.text),
+            'waypoint_tip': _parseMoney(_waypointTipCon.text),
+            'net_income': _currentNetIncomeFromGross(),
+          };
+          OcrErrorLoggerService.instance.logCorrection(
+            platform: _selectedProgram,
+            rawText: _currentRawText!,
+            correctedData: correctedData,
+          );
+        }
+      }
     } catch (e, st) {
       debugPrint('write_log save error: $e');
       debugPrintStack(stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("저장 중 오류가 발생했습니다: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("저장 중 오류가 발생했습니다: $e")));
       return;
     }
 
@@ -1234,11 +1601,17 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     FormStateProvider.isWriteFormDirtyNotifier.value = false;
 
     final String workStr = _workDateCon.text.trim();
-    
+
     // [자동출근] 미출근 상태 && 오늘 퇴근 기록이 없는 경우 && 근무일자가 오늘인 경우, 소급 출근
-    final timerProvider = Provider.of<WorkTimerProvider>(context, listen: false);
-    if (!timerProvider.isClockedIn && workStr == WorkDateUtils.effectiveWorkDateYmd()) {
-      final session = await DriveLogDatabase.instance.getDailyWorkSession(workStr);
+    final timerProvider = Provider.of<WorkTimerProvider>(
+      context,
+      listen: false,
+    );
+    if (!timerProvider.isClockedIn &&
+        workStr == WorkDateUtils.effectiveWorkDateYmd()) {
+      final session = await DriveLogDatabase.instance.getDailyWorkSession(
+        workStr,
+      );
       if (session == null) {
         final String driveDate = _dateCon.text.trim();
         final String driveTime = _timeCon.text.trim();
@@ -1254,8 +1627,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       }
     }
 
-    final String savedMsg =
-        _logId != null ? "운행일지가 수정되었습니다." : "운행일지가 등록되었습니다.";
+    final String savedMsg = _logId != null
+        ? "운행일지가 수정되었습니다."
+        : "운행일지가 등록되었습니다.";
 
     if (widget.fromOverlay) {
       final messenger = ScaffoldMessenger.of(context);
@@ -1301,7 +1675,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     guideProvider.clearGuide();
 
     List<TargetFocus> targets = [];
-    
+
     if (_keyOcrBtn.currentContext != null) {
       targets.add(
         TargetFocus(
@@ -1316,7 +1690,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜카드 이미지 자동 인식",
-                  description: "콜카드 캡처본을 첨부하면 내용이 자동으로 입력됩니다!\n\n(단, 화질이나 화면 잘림 등에 의해 간혹 잘못된 값으로 인식될 수 있으니 저장 전에 값이 정확한지 꼭 한 번 더 확인해 주세요.)",
+                  description:
+                      "콜카드 캡처본을 첨부하면 내용이 자동으로 입력됩니다!\n\n(단, 화질이나 화면 잘림 등에 의해 간혹 잘못된 값으로 인식될 수 있으니 저장 전에 값이 정확한지 꼭 한 번 더 확인해 주세요.)",
                   controller: controller,
                 );
               },
@@ -1325,7 +1700,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         ),
       );
     }
-    
+
     if (_keyTimeSection.currentContext != null) {
       targets.add(
         TargetFocus(
@@ -1340,7 +1715,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "일자 및 시각 변경",
-                  description: "운행 일자와 시간을 터치하여 언제든지 변경할 수 있습니다. (콜카드를 첨부하면 캡처된 시간으로 자동 셋팅됩니다.)",
+                  description:
+                      "운행 일자와 시간을 터치하여 언제든지 변경할 수 있습니다. (콜카드를 첨부하면 캡처된 시간으로 자동 셋팅됩니다.)",
                   controller: controller,
                 );
               },
@@ -1364,7 +1740,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "상세 수입 및 지출",
-                  description: "총 운행 요금을 입력하면 수수료가 자동 계산됩니다. 경유 팁이나 복귀 시 사용한 이동 수단 비용도 추가할 수 있어요.",
+                  description:
+                      "총 운행 요금을 입력하면 수수료가 자동 계산됩니다. 경유 팁이나 복귀 시 사용한 이동 수단 비용도 추가할 수 있어요.",
                   controller: controller,
                 );
               },
@@ -1388,7 +1765,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "운행 구간 입력",
-                  description: "출발지와 도착지를 입력하세요. 우측의 '+경유지' 버튼을 누르면 경유지도 추가로 입력할 수 있습니다.",
+                  description:
+                      "출발지와 도착지를 입력하세요. 우측의 '+경유지' 버튼을 누르면 경유지도 추가로 입력할 수 있습니다.",
                   controller: controller,
                 );
               },
@@ -1454,17 +1832,27 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       colorShadow: Colors.black,
       textSkip: "건너뛰기",
       paddingFocus: 10,
-            opacityShadow: 0.8,
+      opacityShadow: 0.8,
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
       },
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
@@ -1504,7 +1892,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
         top: widget.quickPanel ? (isTablet ? 24.0 : 20.0) : verticalPadding,
         bottom: verticalPadding,
       ),
-      child: widget.quickPanel ? _buildQuickPanelFormLayout() : _buildFormLayout(),
+      child: widget.quickPanel
+          ? _buildQuickPanelFormLayout()
+          : _buildFormLayout(),
     );
 
     if (widget.quickPanel) {
@@ -1534,7 +1924,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           ),
           decoration: BoxDecoration(
             color: Theme.of(context).cardTheme.color ?? const Color(0xFF1F222A),
-            border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).dividerColor,
+                width: 0.5,
+              ),
+            ),
           ),
           child: Row(
             children: [
@@ -1543,10 +1938,21 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   onPressed: closeQuickPanel,
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Color(0xFF6E717C)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: EdgeInsets.symmetric(vertical: isTablet ? 12 : 10),
                   ),
-                  child: Text('닫기', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontWeight: FontWeight.w700)),
+                  child: Text(
+                    '닫기',
+                    style: TextStyle(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                                  Colors.white)
+                              .withOpacity(0.7),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               SizedBox(width: 10),
@@ -1556,10 +1962,15 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     padding: EdgeInsets.symmetric(vertical: isTablet ? 12 : 10),
                   ),
-                  child: Text('등록', style: TextStyle(fontWeight: FontWeight.w700)),
+                  child: Text(
+                    '등록',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
                 ),
               ),
             ],
@@ -1572,33 +1983,35 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       return Scaffold(
         backgroundColor: const Color(0xCC000000), // 80% 불투명 검정 — 기존 반투명 UI 유지
         body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 36.0),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: math.min(formMaxW, size.width * 0.94),
-                    maxHeight: size.height * 0.88,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: Material(
-                      // 오버레이 컨텍스트는 ThemeData가 단순하여 scaffoldBackgroundColor가
-                      // Colors.transparent일 수 있으므로, cardTheme.color 우선 사용
-                      color: Theme.of(context).cardTheme.color ?? const Color(0xFF1F222A),
-                      child: Column(
-                        children: [
-                          Expanded(child: form),
-                          footer,
-                        ],
-                      ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 36.0),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: math.min(formMaxW, size.width * 0.94),
+                  maxHeight: size.height * 0.88,
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Material(
+                    // 오버레이 컨텍스트는 ThemeData가 단순하여 scaffoldBackgroundColor가
+                    // Colors.transparent일 수 있으므로, cardTheme.color 우선 사용
+                    color:
+                        Theme.of(context).cardTheme.color ??
+                        const Color(0xFF1F222A),
+                    child: Column(
+                      children: [
+                        Expanded(child: form),
+                        footer,
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        );
+        ),
+      );
     }
 
     return PopScope(
@@ -1617,45 +2030,76 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           backgroundColor: Theme.of(context).cardTheme.color!,
           centerTitle: true,
           leading: _logId != null || widget.initialDate != null
-            ? IconButton(icon: Icon(Icons.arrow_back, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize.toDouble()), onPressed: () async {
-                final shouldPop = await _handleBack();
-                if (shouldPop && context.mounted) {
-                  Navigator.pop(context);
-                }
-              }) 
-            : null,
-        title: Text(
-          _logId != null ? '운행 일지 수정' : '운행 일지 작성',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          if (_persistedRegistrationSource != null && _persistedRegistrationSource!.trim().isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(right: isTablet ? 4.0 : 2.0),
-              child: Center(child: DriveLogSourceChip(registrationSource: _persistedRegistrationSource)),
+              ? IconButton(
+                  icon: Icon(
+                    Icons.arrow_back,
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    size: iconSize.toDouble(),
+                  ),
+                  onPressed: () async {
+                    final shouldPop = await _handleBack();
+                    if (shouldPop && context.mounted) {
+                      Navigator.pop(context);
+                    }
+                  },
+                )
+              : null,
+          title: Text(
+            _logId != null ? '운행 일지 수정' : '운행 일지 작성',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).primaryColor,
             ),
-          Padding(
-            padding: EdgeInsets.only(right: isTablet ? 12.0 : 8.0),
-            child: TextButton(
-              key: _keySaveBtn,
-              onPressed: _saveDriveLog, 
-              style: TextButton.styleFrom(
-                backgroundColor: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: EdgeInsets.symmetric(horizontal: isTablet ? 20 : 16, vertical: isTablet ? 12 : 8),
+            overflow: TextOverflow.ellipsis,
+          ),
+          actions: [
+            if (_persistedRegistrationSource != null &&
+                _persistedRegistrationSource!.trim().isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(right: isTablet ? 4.0 : 2.0),
+                child: Center(
+                  child: DriveLogSourceChip(
+                    registrationSource: _persistedRegistrationSource,
+                  ),
+                ),
               ),
-              child: Text(_logId != null ? "수정" : "등록", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold))
+            Padding(
+              padding: EdgeInsets.only(right: isTablet ? 12.0 : 8.0),
+              child: TextButton(
+                key: _keySaveBtn,
+                onPressed: _saveDriveLog,
+                style: TextButton.styleFrom(
+                  backgroundColor: Theme.of(
+                    context,
+                  ).primaryColor.withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? 20 : 16,
+                    vertical: isTablet ? 12 : 8,
+                  ),
+                ),
+                child: Text(
+                  _logId != null ? "수정" : "등록",
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
             ),
-          )
-        ],
+          ],
+        ),
+        body: ResponsiveBody(
+          fullWidthWhenExpanded: true,
+          maxWidth: isExpanded ? size.width : formMaxW,
+          child: form,
+        ),
       ),
-      body: ResponsiveBody(
-        fullWidthWhenExpanded: true,
-        maxWidth: isExpanded ? size.width : formMaxW,
-        child: form,
-      ),
-    ));
+    );
   }
 
   /// 퀵 패널: 요금 · 출발 · 도착 (+경유). 일자·시간·프로그램은 초기값·설정값으로 저장 시 사용.
@@ -1664,174 +2108,37 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildInputGroup("요금", Icons.payments_outlined, [
-            Row(
-              children: [
-                Expanded(child: _buildDropdown(bottomMargin: 0)),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _buildInputField(
-                    _incomeCon,
-                    label: "요금",
-                    isNumber: true,
-                    bottomMargin: 0,
-                    onChanged: (_) {
-                      _captureGrossAndApplyDeductions();
-                      _applyDeductions();
-                    },
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '일자·시간은 기본값으로 반영 (${_workDateCon.text} ${_timeCon.text})',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF8A8D96), fontSize: 11),
-              ),
-            ),
-          ], trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_capturedImage != null)
-                IconButton(
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                  icon: Icon(Icons.image, color: Color(0xFFFFC700)),
-                  onPressed: () => showDialog(
-                    context: context,
-                    builder: (_) => Dialog(
-                      backgroundColor: Colors.transparent,
-                      child: GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Theme.of(context).primaryColor, width: 2.0),
-                          ),
-                          child: Image.file(_capturedImage!),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                icon: Icon(Icons.style, color: Color(0xFFFFC700)),
-                onPressed: _openGallery,
-              ),
-            ],
-          )),
-          SizedBox(height: 14),
-          _buildInputGroup("운행 경로", Icons.directions, [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
-                    ),
-                    SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (_showWaypointField && _waypointCon.text.trim().isEmpty) {
-                            _showWaypointField = false;
-                          } else {
-                            _showWaypointField = true;
-                          }
-                        });
-                      },
-                      child: Text(
-                        "+경유",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                _buildLocationAutocompleteTextField(
-                  controller: _startLocCon,
-                  focusNode: _startLocFocusNode,
-                  suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: true) : null,
-                ),
-                SizedBox(height: 16),
-              ],
-            ),
-            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
-            _buildLocationInputField(_endLocCon, label: "도착지", focusNode: _endLocFocusNode, suffixIcon: kMapFeaturesEnabled ? _pinPickButton(forStart: false) : null),
-          ]),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateTimeSection() {
-    return Container(
-      key: _keyTimeSection,
-      child: _buildInputGroup("운행 일자 및 시간", Icons.access_time_filled, [
-        if (_logId != null) ...[
-        _buildInputField(_workDateCon, label: "근무 일자", readOnly: true, onTap: _showWorkDateQuickPicker),
-      ],
-      Row(
-        children: [
-          Expanded(child: _buildInputField(_dateCon, label: "운행 일자", readOnly: true, onTap: _showDateQuickPicker, bottomMargin: 0)),
-          SizedBox(width: 12),
-          Expanded(child: _buildInputField(_timeCon, label: "운행 시간", readOnly: true, onTap: _showTimeQuickPicker, bottomMargin: 0)),
-        ],
-      ),
-    ]));
-  }
-
-  Widget _buildProgramMoneySection() {
-    return Container(
-      key: _keyFinanceSection,
-      child: _buildInputGroup(
-            "프로그램 및 금액", Icons.account_balance_wallet, 
+          _buildInputGroup(
+            "요금",
+            Icons.payments_outlined,
             [
               Row(
                 children: [
                   Expanded(child: _buildDropdown(bottomMargin: 0)),
                   SizedBox(width: 12),
-                  Expanded(child: _buildInputField(_incomeCon, label: "운행 요금", isNumber: true, bottomMargin: 0, focusNode: _incomeFocusNode, isError: _isIncomeMissing, onChanged: (_) => _captureGrossAndApplyDeductions())),
+                  Expanded(
+                    child: _buildInputField(
+                      _incomeCon,
+                      label: "요금",
+                      isNumber: true,
+                      bottomMargin: 0,
+                      onChanged: (_) {
+                        _captureGrossAndApplyDeductions();
+                        _applyDeductions();
+                      },
+                    ),
+                  ),
                 ],
               ),
-              SizedBox(height: 16),
-              _buildComboInputField(
-                _transportCon,
-                label: "지출",
-                selectedValue: _safeExpenseCategory(),
-                dropdownItems: SettingsService.expenseList.isNotEmpty
-                    ? SettingsService.expenseList
-                    : ['기타'],
-                focusNode: _transportFocusNode,
-                isNumber: true,
-                onDropdownChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedExpenseCategory = value);
-                  }
-                },
-                onChanged: (_) => _applyDeductions(),
-              ),
-              _buildComboInputField(
-                _waypointTipCon,
-                label: "수익",
-                selectedValue: _safeIncomeCategory(),
-                dropdownItems: SettingsService.incomeList.isNotEmpty
-                    ? SettingsService.incomeList
-                    : ['기타'],
-                focusNode: _waypointTipFocusNode,
-                isNumber: true,
-                onDropdownChanged: (value) {
-                  if (value != null) {
-                    setState(() => _selectedExtraIncomeCategory = value);
-                  }
-                },
-                onChanged: (_) => _applyDeductions(),
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '일자·시간은 기본값으로 반영 (${_workDateCon.text} ${_timeCon.text})',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: const Color(0xFF8A8D96),
+                    fontSize: 11,
+                  ),
+                ),
               ),
             ],
             trailing: Row(
@@ -1840,51 +2147,65 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 if (_capturedImage != null)
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
                     icon: Icon(Icons.image, color: Color(0xFFFFC700)),
                     onPressed: () => showDialog(
-                      context: context, 
+                      context: context,
                       builder: (_) => Dialog(
                         backgroundColor: Colors.transparent,
                         child: GestureDetector(
-                          onTap: () => Navigator.pop(context), 
+                          onTap: () => Navigator.pop(context),
                           child: Container(
-                            decoration: BoxDecoration(border: Border.all(color: Theme.of(context).primaryColor, width: 2.0)),
-                            child: Image.file(_capturedImage!)
-                          )
-                        )
-                      )
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: Theme.of(context).primaryColor,
+                                width: 2.0,
+                              ),
+                            ),
+                            child: Image.file(_capturedImage!),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 IconButton(
-                  key: _keyOcrBtn,
                   padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
+                  ),
                   icon: Icon(Icons.style, color: Color(0xFFFFC700)),
                   onPressed: _openGallery,
                 ),
               ],
             ),
-          ));
-  }
-
-  Widget _buildRouteSection() {
-    return Container(
-      key: _keyLocationSection,
-      child: _buildInputGroup("운행 경로", Icons.directions, [
+          ),
+          SizedBox(height: 14),
+          _buildInputGroup("운행 경로", Icons.directions, [
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Expanded(
-                      child: Text("출발지", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+                      child: Text(
+                        "출발지",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color:
+                              (Theme.of(context).textTheme.bodySmall?.color ??
+                              Colors.grey),
+                        ),
+                      ),
                     ),
                     SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
                         setState(() {
-                          if (_showWaypointField && _waypointCon.text.trim().isEmpty) {
+                          if (_showWaypointField &&
+                              _waypointCon.text.trim().isEmpty) {
                             _showWaypointField = false;
                           } else {
                             _showWaypointField = true;
@@ -1892,7 +2213,7 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                         });
                       },
                       child: Text(
-                        "+경유추가",
+                        "+경유",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
@@ -1905,68 +2226,319 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 _buildLocationAutocompleteTextField(
                   controller: _startLocCon,
                   focusNode: _startLocFocusNode,
-                  isError: _isStartLocMissing,
-                  suffixIcon: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
-                        Tooltip(
-                          message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
-                          triggerMode: TooltipTriggerMode.tap,
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 4.0),
-                            child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
-                          ),
-                        )
-                      else if (!_isStartLocMissing && _startLat == null)
-                        const Icon(Icons.location_off, color: Colors.orange, size: 20),
-                      if (kMapFeaturesEnabled) _pinPickButton(forStart: true),
-                    ],
-                  ),
+                  suffixIcon: kMapFeaturesEnabled
+                      ? _pinPickButton(forStart: true)
+                      : null,
                 ),
                 SizedBox(height: 16),
               ],
             ),
-            if (_showWaypointField) _buildInputField(_waypointCon, label: "경유지", focusNode: _waypointFocusNode),
+            if (_showWaypointField)
+              _buildInputField(
+                _waypointCon,
+                label: "경유지",
+                focusNode: _waypointFocusNode,
+              ),
             _buildLocationInputField(
               _endLocCon,
               label: "도착지",
               focusNode: _endLocFocusNode,
-              isError: _isEndLocMissing,
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (!_isEndLocMissing && _endLat == null && _endLocCon.text.trim().isNotEmpty)
-                    Tooltip(
-                      message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
-                      triggerMode: TooltipTriggerMode.tap,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 4.0),
-                        child: Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
-                      ),
-                    )
-                  else if (!_isEndLocMissing && _endLat == null)
-                    const Icon(Icons.location_off, color: Colors.orange, size: 20),
-                  if (kMapFeaturesEnabled) _pinPickButton(forStart: false),
-                ],
+              suffixIcon: kMapFeaturesEnabled
+                  ? _pinPickButton(forStart: false)
+                  : null,
+            ),
+          ]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateTimeSection() {
+    return Container(
+      key: _keyTimeSection,
+      child: _buildInputGroup("운행 일자 및 시간", Icons.access_time_filled, [
+        if (_logId != null) ...[
+          _buildInputField(
+            _workDateCon,
+            label: "근무 일자",
+            readOnly: true,
+            onTap: _showWorkDateQuickPicker,
+          ),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: _buildInputField(
+                _dateCon,
+                label: "운행 일자",
+                readOnly: true,
+                onTap: _showDateQuickPicker,
+                bottomMargin: 0,
+              ),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: _buildInputField(
+                _timeCon,
+                label: "운행 시간",
+                readOnly: true,
+                onTap: _showTimeQuickPicker,
+                bottomMargin: 0,
               ),
             ),
           ],
-            trailing: kMapFeaturesEnabled
-                ? IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
-                    icon: Icon(Icons.map, color: Color(0xFFFFC700)),
-                    onPressed: _openNaverMapRoute,
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildProgramMoneySection() {
+    return Container(
+      key: _keyFinanceSection,
+      child: _buildInputGroup(
+        "프로그램 및 금액",
+        Icons.account_balance_wallet,
+        [
+          Row(
+            children: [
+              Expanded(child: _buildDropdown(bottomMargin: 0)),
+              SizedBox(width: 12),
+              Expanded(
+                child: _buildInputField(
+                  _incomeCon,
+                  label: "운행 요금",
+                  isNumber: true,
+                  bottomMargin: 0,
+                  focusNode: _incomeFocusNode,
+                  isError: _isIncomeMissing,
+                  onChanged: (_) => _captureGrossAndApplyDeductions(),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 16),
+          _buildComboInputField(
+            _transportCon,
+            label: "지출",
+            selectedValue: _safeExpenseCategory(),
+            dropdownItems: SettingsService.expenseList.isNotEmpty
+                ? SettingsService.expenseList
+                : ['기타'],
+            focusNode: _transportFocusNode,
+            isNumber: true,
+            onDropdownChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedExpenseCategory = value);
+              }
+            },
+            onChanged: (_) => _applyDeductions(),
+          ),
+          _buildComboInputField(
+            _waypointTipCon,
+            label: "수익",
+            selectedValue: _safeIncomeCategory(),
+            dropdownItems: SettingsService.incomeList.isNotEmpty
+                ? SettingsService.incomeList
+                : ['기타'],
+            focusNode: _waypointTipFocusNode,
+            isNumber: true,
+            onDropdownChanged: (value) {
+              if (value != null) {
+                setState(() => _selectedExtraIncomeCategory = value);
+              }
+            },
+            onChanged: (_) => _applyDeductions(),
+          ),
+        ],
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_capturedImage != null)
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                icon: Icon(Icons.image, color: Color(0xFFFFC700)),
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    backgroundColor: Colors.transparent,
+                    child: GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Theme.of(context).primaryColor,
+                            width: 2.0,
+                          ),
+                        ),
+                        child: Image.file(_capturedImage!),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            IconButton(
+              key: _keyOcrBtn,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+              icon: Icon(Icons.style, color: Color(0xFFFFC700)),
+              onPressed: _openGallery,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRouteSection() {
+    return Container(
+      key: _keyLocationSection,
+      child: _buildInputGroup(
+        "운행 경로",
+        Icons.directions,
+        [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "출발지",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color:
+                            (Theme.of(context).textTheme.bodySmall?.color ??
+                            Colors.grey),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        if (_showWaypointField &&
+                            _waypointCon.text.trim().isEmpty) {
+                          _showWaypointField = false;
+                        } else {
+                          _showWaypointField = true;
+                        }
+                      });
+                    },
+                    child: Text(
+                      "+경유추가",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).primaryColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              _buildLocationAutocompleteTextField(
+                controller: _startLocCon,
+                focusNode: _startLocFocusNode,
+                isError: _isStartLocMissing,
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!_isStartLocMissing &&
+                        _startLat == null &&
+                        _startLocCon.text.trim().isNotEmpty)
+                      Tooltip(
+                        message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
+                        triggerMode: TooltipTriggerMode.tap,
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 4.0),
+                          child: Icon(
+                            Icons.warning_amber_rounded,
+                            color: Colors.red,
+                            size: 22,
+                          ),
+                        ),
+                      )
+                    else if (!_isStartLocMissing && _startLat == null)
+                      const Icon(
+                        Icons.location_off,
+                        color: Colors.orange,
+                        size: 20,
+                      ),
+                    if (kMapFeaturesEnabled) _pinPickButton(forStart: true),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+            ],
+          ),
+          if (_showWaypointField)
+            _buildInputField(
+              _waypointCon,
+              label: "경유지",
+              focusNode: _waypointFocusNode,
+            ),
+          _buildLocationInputField(
+            _endLocCon,
+            label: "도착지",
+            focusNode: _endLocFocusNode,
+            isError: _isEndLocMissing,
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!_isEndLocMissing &&
+                    _endLat == null &&
+                    _endLocCon.text.trim().isNotEmpty)
+                  Tooltip(
+                    message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
+                    triggerMode: TooltipTriggerMode.tap,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.0),
+                      child: Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.red,
+                        size: 22,
+                      ),
+                    ),
                   )
-                : null,
-          ));
+                else if (!_isEndLocMissing && _endLat == null)
+                  const Icon(
+                    Icons.location_off,
+                    color: Colors.orange,
+                    size: 20,
+                  ),
+                if (kMapFeaturesEnabled) _pinPickButton(forStart: false),
+              ],
+            ),
+          ),
+        ],
+        trailing: kMapFeaturesEnabled
+            ? IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 36,
+                  height: 36,
+                ),
+                icon: Icon(Icons.map, color: Color(0xFFFFC700)),
+                onPressed: _openNaverMapRoute,
+              )
+            : null,
+      ),
+    );
   }
 
   Widget _buildMemoSection() {
     return Container(
       key: _keyMemoSection,
-      child: _buildInputGroup("메모", Icons.note, [_buildInputField(_memoCon, label: "특이사항", maxLines: 3, focusNode: _memoFocusNode)]),
+      child: _buildInputGroup("메모", Icons.note, [
+        _buildInputField(
+          _memoCon,
+          label: "특이사항",
+          maxLines: 3,
+          focusNode: _memoFocusNode,
+        ),
+      ]),
     );
   }
 
@@ -1988,7 +2560,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           Expanded(
             child: Text(
               "콜카드 인식 결과, 일부 정보를 자동으로 가져오지 못했습니다. 빨간색으로 표시된 항목을 확인 후 직접 입력해 주세요.",
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.red, height: 1.4),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.red, height: 1.4),
             ),
           ),
         ],
@@ -2050,7 +2624,12 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildInputGroup(String title, IconData icon, List<Widget> children, {Widget? trailing}) {
+  Widget _buildInputGroup(
+    String title,
+    IconData icon,
+    List<Widget> children, {
+    Widget? trailing,
+  }) {
     return Container(
       decoration: BorderedSection.decoration(context),
       child: Column(
@@ -2066,7 +2645,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   title,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     fontFamily: 'GmarketSans',
-                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2110,29 +2691,77 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return RawAutocomplete<String>(
       textEditingController: controller,
       focusNode: focusNode,
-      optionsBuilder: (TextEditingValue v) {
-        if (v.text.isEmpty) return const Iterable<String>.empty();
-        return _distinctLocations.where((s) => s.toLowerCase().contains(v.text.toLowerCase()));
+      displayStringForOption: (String option) {
+        if (option.startsWith('[최근] ')) {
+          return option.substring(5);
+        }
+        return option;
       },
-      fieldViewBuilder: (context, con, fn, onFieldSubmitted) {
+      optionsBuilder: (TextEditingValue v) async {
+          if (v.text.isEmpty) return const Iterable<String>.empty();
+          
+          final query = v.text.trim();
+          final queryLower = query.toLowerCase();
+          final mode = SettingsService.addressSearchMode;
+          
+          List<String> historyMatches = [];
+          Set<String> historySet = {};
+          if (mode == 'both' || mode == 'history') {
+            final historyRaw = _distinctLocations
+                .where((s) => s.toLowerCase().contains(queryLower))
+                .toList();
+            historyMatches = historyRaw.map((s) => '[최근] $s').toList();
+            historySet = historyRaw.toSet();
+          }
+          
+          List<String> filteredDbMatches = [];
+          if (mode == 'both' || mode == 'address') {
+            final dbMatches = await AddressRepository().search(query);
+            filteredDbMatches = dbMatches.where((s) => !historySet.contains(s)).toList();
+          }
+          
+          return [...historyMatches, ...filteredDbMatches];
+        },
+        fieldViewBuilder: (context, con, fn, onFieldSubmitted) {
         return TextField(
           controller: con,
           focusNode: fn,
           onSubmitted: (_) => onFieldSubmitted(),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color:
+                (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: Theme.of(context).scaffoldBackgroundColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isError ? Colors.red : Theme.of(context).dividerColor,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isError ? Colors.red : Theme.of(context).dividerColor,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Color(0xFFFFC700)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
             suffixIcon: suffixIcon,
           ),
         );
       },
       optionsViewBuilder: (context, onSelected, options) {
-        final formMaxW = ResponsiveLayout.formMaxWidth(MediaQuery.sizeOf(context));
+        final formMaxW = ResponsiveLayout.formMaxWidth(
+          MediaQuery.sizeOf(context),
+        );
         final horizontalPadding = ResponsiveLayout.horizontalPadding(context);
         return Align(
           alignment: Alignment.topLeft,
@@ -2142,9 +2771,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
             borderRadius: BorderRadius.circular(8),
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: 200, 
-                maxWidth: ResponsiveLayout.isExpanded(context) 
-                    ? MediaQuery.sizeOf(context).width - (horizontalPadding * 2) 
+                maxHeight: 200,
+                maxWidth: ResponsiveLayout.isExpanded(context)
+                    ? MediaQuery.sizeOf(context).width - (horizontalPadding * 2)
                     : formMaxW,
               ),
               child: ListView.builder(
@@ -2159,8 +2788,18 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                       FormStateProvider.isWriteFormDirtyNotifier.value = true;
                     },
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-                      child: Text(option, style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16.0,
+                        vertical: 14.0,
+                      ),
+                      child: Text(
+                        option,
+                        style: TextStyle(
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -2172,11 +2811,24 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildLocationInputField(TextEditingController controller, {required String label, double bottomMargin = 16, FocusNode? focusNode, Widget? suffixIcon, bool isError = false}) {
+  Widget _buildLocationInputField(
+    TextEditingController controller, {
+    required String label,
+    double bottomMargin = 16,
+    FocusNode? focusNode,
+    Widget? suffixIcon,
+    bool isError = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color:
+                (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+          ),
+        ),
         SizedBox(height: 8),
         _buildLocationAutocompleteTextField(
           controller: controller,
@@ -2189,11 +2841,30 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, {required String label, bool isNumber = false, VoidCallback? onTap, bool readOnly = false, double bottomMargin = 16, int maxLines = 1, FocusNode? focusNode, Widget? suffixWidget, Widget? suffixIcon, Function(String)? onChanged, bool isError = false}) {
+  Widget _buildInputField(
+    TextEditingController controller, {
+    required String label,
+    bool isNumber = false,
+    VoidCallback? onTap,
+    bool readOnly = false,
+    double bottomMargin = 16,
+    int maxLines = 1,
+    FocusNode? focusNode,
+    Widget? suffixWidget,
+    Widget? suffixIcon,
+    Function(String)? onChanged,
+    bool isError = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color:
+                (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+          ),
+        ),
         SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -2205,16 +2876,35 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
           inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color:
+                (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+          ),
           decoration: InputDecoration(
             suffix: suffixWidget,
             suffixIcon: suffixIcon,
             filled: true,
             fillColor: Theme.of(context).scaffoldBackgroundColor,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: isError ? Colors.red : Theme.of(context).dividerColor)),
-            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isError ? Colors.red : Theme.of(context).dividerColor,
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(
+                color: isError ? Colors.red : Theme.of(context).dividerColor,
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: Color(0xFFFFC700)),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
         ),
         SizedBox(height: bottomMargin),
@@ -2235,7 +2925,13 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color:
+                (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+          ),
+        ),
         SizedBox(height: 8),
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -2252,10 +2948,22 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    value: dropdownItems.contains(selectedValue) ? selectedValue : dropdownItems.first,
+                    value: dropdownItems.contains(selectedValue)
+                        ? selectedValue
+                        : dropdownItems.first,
                     dropdownColor: Theme.of(context).cardTheme.color!,
-                    icon: Icon(Icons.arrow_drop_down, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7)),
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                    icon: Icon(
+                      Icons.arrow_drop_down,
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                                  Colors.white)
+                              .withOpacity(0.7),
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                    ),
                     onChanged: onDropdownChanged,
                     items: dropdownItems.map((String item) {
                       return DropdownMenuItem<String>(
@@ -2276,16 +2984,40 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                   focusNode: focusNode,
                   onChanged: onChanged,
                   textAlign: isNumber ? TextAlign.right : TextAlign.left,
-                  keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-                  inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  keyboardType: isNumber
+                      ? TextInputType.number
+                      : TextInputType.text,
+                  inputFormatters: isNumber
+                      ? [thousandSeparatorFormatter]
+                      : null,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                  ),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Theme.of(context).scaffoldBackgroundColor,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerColor)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Color(0xFFFFC700))),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Theme.of(context).dividerColor,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: Color(0xFFFFC700)),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                   ),
                 ),
               ),
@@ -2321,7 +3053,11 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
               isExpanded: true,
               value: selected,
               dropdownColor: Theme.of(context).cardTheme.color!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color:
+                    (Theme.of(context).textTheme.bodyLarge?.color ??
+                    Colors.white),
+              ),
               items: options.map((program) {
                 return DropdownMenuItem<String>(
                   value: program,
@@ -2355,39 +3091,70 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildOcrHelpItem("1", "운행 시간 자동 설정",
-                "캡처 이미지 파일이 생성된(캡처된) 시간을 기준으로 운행 시간이 자동으로 셋팅됩니다. (별도로 상단 상태바 시간이 찍히지 않아도 무방합니다.)",
-                Icons.access_time),
+            _buildOcrHelpItem(
+              "1",
+              "운행 시간 자동 설정",
+              "캡처 이미지 파일이 생성된(캡처된) 시간을 기준으로 운행 시간이 자동으로 셋팅됩니다. (별도로 상단 상태바 시간이 찍히지 않아도 무방합니다.)",
+              Icons.access_time,
+            ),
             SizedBox(height: 12),
-            _buildOcrHelpItem("2", "로지 앱 캡처 범위",
-                "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.", Icons.crop_free),
+            _buildOcrHelpItem(
+              "2",
+              "로지 앱 캡처 범위",
+              "\"요금\" 부분부터 \"도착지\"까지 한 화면에 온전히 캡처되어야 합니다.",
+              Icons.crop_free,
+            ),
             SizedBox(height: 12),
-            _buildOcrHelpItem("3", "콜마너 앱 캡처 범위",
-                "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.", Icons.location_on_outlined),
+            _buildOcrHelpItem(
+              "3",
+              "콜마너 앱 캡처 범위",
+              "\"출발지\" 부분부터 하단 내용까지 누락 없이 캡처되어야 합니다.",
+              Icons.location_on_outlined,
+            ),
             SizedBox(height: 12),
-            _buildOcrHelpItem("4", "미니 팝업/스티커 주의",
-                "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
-                Icons.warning_amber_rounded),
+            _buildOcrHelpItem(
+              "4",
+              "미니 팝업/스티커 주의",
+              "화면에 최소화된 플로팅 팝업이나 어플 스티커가 켜져 있으면 인식이 차단되거나 방해받을 수 있습니다.",
+              Icons.warning_amber_rounded,
+            ),
             SizedBox(height: 12),
-            _buildOcrHelpItem("5", "인식 결과 확인",
-                "자동 인식은 콜카드 이미지의 문구를 읽어내어 자동 셋팅하는 방식이므로, 화면의 화질이나 폰트에 따라 간혹 잘못된 인식값이 나올 수 있습니다. 등록 전 반드시 금액과 주소가 정확한지 확인해 주세요.",
-                Icons.rule),
+            _buildOcrHelpItem(
+              "5",
+              "인식 결과 확인",
+              "자동 인식은 콜카드 이미지의 문구를 읽어내어 자동 셋팅하는 방식이므로, 화면의 화질이나 폰트에 따라 간혹 잘못된 인식값이 나올 수 있습니다. 등록 전 반드시 금액과 주소가 정확한지 확인해 주세요.",
+              Icons.rule,
+            ),
           ],
         ),
         actions: [
-          Builder(builder: (ctx) => GlassDialogConfirmButton(filled: true, onPressed: () => Navigator.pop(ctx))),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              filled: true,
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildOcrHelpItem(String step, String title, String desc, IconData icon) {
+  Widget _buildOcrHelpItem(
+    String step,
+    String title,
+    String desc,
+    IconData icon,
+  ) {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.04),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+            .withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05)),
+        border: Border.all(
+          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+              .withValues(alpha: 0.05),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2408,7 +3175,9 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
                 Text(
                   "$step. $title",
                   style: TextStyle(
-                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),
@@ -2432,7 +3201,8 @@ class _DriveLogFormState extends State<DriveLogForm> with WidgetsBindingObserver
 
   String _coerceProgramForSelection(String? raw) {
     final options = SettingsService.programList;
-    if (options.isEmpty) return raw?.trim().isNotEmpty == true ? raw!.trim() : '기타';
+    if (options.isEmpty)
+      return raw?.trim().isNotEmpty == true ? raw!.trim() : '기타';
     final input = (raw ?? '').trim();
     if (input.isEmpty) return options.first;
     if (options.contains(input)) return input;

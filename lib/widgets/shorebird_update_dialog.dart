@@ -1,7 +1,9 @@
 import 'dart:io';
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import '../services/shorebird_update_service.dart';
 
@@ -82,8 +84,18 @@ class _ShorebirdUpdateDialogBodyState
     }
   }
 
-  void _onConfirm() {
+  Future<void> _onConfirm() async {
     Navigator.of(context).pop();
+    // exit(0) 전에 오버레이(Foreground Service)를 먼저 정리한다.
+    // 정리 없이 강제 종료하면 Android가 서비스 비정상 종료로 인식해
+    // "앱이 중단됨" ANR 팝업 + 앱 아이콘 배지(숫자 1)가 잔존하는 문제가 발생한다.
+    if (!kIsWeb && Platform.isAndroid) {
+      try {
+        if (await FlutterOverlayWindow.isActive()) {
+          await FlutterOverlayWindow.closeOverlay();
+        }
+      } catch (_) {}
+    }
     exit(0);
   }
 

@@ -7,10 +7,13 @@ import '../config/feature_flags.dart';
 class SettingsService {
   static late SharedPreferences _prefs;
   static final ValueNotifier<bool> _showFloatingButtonsNotifier = ValueNotifier(true);
+  static final ValueNotifier<bool> _overlayQuickRegisterNotifier = ValueNotifier(false);
+  static final ValueNotifier<double> _overlayButtonSizeNotifier = ValueNotifier(60.0);
   static final ValueNotifier<bool> _isOwnerModeNotifier = ValueNotifier(false);
   static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
   static final ValueNotifier<ThemeMode> _themeModeNotifier = ValueNotifier(ThemeMode.dark);
   static final ValueNotifier<bool> _isAmoledBlackNotifier = ValueNotifier(false);
+  static final ValueNotifier<String> _addressSearchModeNotifier = ValueNotifier('both');
   
   static final ValueNotifier<bool> isFeatureUnlockedNotifier = ValueNotifier(false);
   static Timer? _adRewardTimer;
@@ -66,10 +69,13 @@ class SettingsService {
     await _ensureAllianceProgramInList();
     await _ensureExpenseItemInList('교통', before: '기타');
     _showFloatingButtonsNotifier.value = showFloatingButtons;
+    _overlayQuickRegisterNotifier.value = overlayQuickRegisterEnabled;
+    _overlayButtonSizeNotifier.value = overlayButtonSize;
     _isOwnerModeNotifier.value = isOwnerMode;
     _isPremiumUserNotifier.value = isPremiumUser;
     _themeModeNotifier.value = themeMode;
     _isAmoledBlackNotifier.value = isAmoledBlack;
+    _addressSearchModeNotifier.value = addressSearchMode;
 
     _startAdRewardTimer();
   }
@@ -116,10 +122,13 @@ class SettingsService {
   }
 
   static ValueNotifier<bool> get showFloatingButtonsNotifier => _showFloatingButtonsNotifier;
+  static ValueNotifier<bool> get overlayQuickRegisterNotifier => _overlayQuickRegisterNotifier;
+  static ValueNotifier<double> get overlayButtonSizeNotifier => _overlayButtonSizeNotifier;
   static ValueNotifier<bool> get isOwnerModeNotifier => _isOwnerModeNotifier;
   static ValueNotifier<bool> get isPremiumUserNotifier => _isPremiumUserNotifier;
   static ValueNotifier<ThemeMode> get themeModeNotifier => _themeModeNotifier;
   static ValueNotifier<bool> get isAmoledBlackNotifier => _isAmoledBlackNotifier;
+  static ValueNotifier<String> get addressSearchModeNotifier => _addressSearchModeNotifier;
 
   static ThemeMode get themeMode {
     final modeString = _prefs.getString('themeMode') ?? 'dark';
@@ -137,6 +146,12 @@ class SettingsService {
   static Future<void> setIsAmoledBlack(bool value) async {
     await _prefs.setBool('isAmoledBlack', value);
     _isAmoledBlackNotifier.value = value;
+  }
+
+  static String get addressSearchMode => _prefs.getString('addressSearchMode') ?? 'both';
+  static Future<void> setAddressSearchMode(String value) async {
+    await _prefs.setString('addressSearchMode', value);
+    _addressSearchModeNotifier.value = value;
   }
 
   static bool get isOwnerMode => _prefs.getBool('isOwnerMode') ?? false;
@@ -266,8 +281,7 @@ class SettingsService {
 
   static List<String> get incomeList =>
       _prefs.getStringList('incomeList') ?? defaultIncomeList;
-  static Future<void> setIncomeList(List<String> value) async =>
-      await _prefs.setStringList('incomeList', value);
+  static Future<void> setIncomeList(List<String> value) async => await _prefs.setStringList('incomeList', value);
 
   static Future<void> addIncomeItem(String item) async {
     final list = incomeList;
@@ -287,6 +301,18 @@ class SettingsService {
   static Future<void> setShowFloatingButtons(bool value) async {
     await _prefs.setBool('showFloatingButtons', value);
     _showFloatingButtonsNotifier.value = value;
+  }
+
+  static bool get overlayQuickRegisterEnabled => _prefs.getBool('overlayQuickRegisterEnabled') ?? false;
+  static Future<void> setOverlayQuickRegisterEnabled(bool value) async {
+    await _prefs.setBool('overlayQuickRegisterEnabled', value);
+    _overlayQuickRegisterNotifier.value = value;
+  }
+
+  static double get overlayButtonSize => _prefs.getDouble('overlayButtonSize') ?? 60.0;
+  static Future<void> setOverlayButtonSize(double size) async {
+    await _prefs.setDouble('overlayButtonSize', size);
+    _overlayButtonSizeNotifier.value = size;
   }
 
   static bool get statusBarQuickEnabled {

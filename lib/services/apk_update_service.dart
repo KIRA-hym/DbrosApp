@@ -15,6 +15,7 @@ class ApkUpdateService {
   String? get downloadUrl => _downloadUrl;
 
   Future<bool> checkForUpdate() async {
+    if (kIsWeb) return false;
     try {
       final response = await http.get(
         Uri.parse('https://dbros-install.web.app/version.json'),

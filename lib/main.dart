@@ -19,6 +19,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'app_navigator.dart' show rootNavigatorKey;
 import 'main_navigation.dart';
 import 'ui/overlay/quick_entry_ui.dart';
+import 'ui/overlay/quick_entry_popup_form.dart';
 import 'services/overlay_manager.dart';
 import 'screens/write_log_page.dart';
 import 'screens/home_page.dart';
@@ -132,6 +133,14 @@ void main() async {
     }
   });
 
+  if (!kIsWeb && Platform.isAndroid) {
+    FlutterOverlayWindow.overlayListener.listen((event) {
+      if (event is Map && event['type'] == 'refresh_logs') {
+        DriveLogDatabase.afterLogsChanged?.call();
+      }
+    });
+  }
+
   runApp(
     MultiProvider(
       providers: [
@@ -226,21 +235,34 @@ class _QuickRegisterOverlayRoot extends StatefulWidget {
 }
 
 class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
+  // ignore: unused_field
   String _initialDate = WorkDateUtils.effectiveWorkDateYmd();
   /// 오버레이 엔진이 캐시되면 [DriveLogForm] State가 유지되므로, 퀵등록을 열 때마다 증가시켜 신규 폼을 만든다.
+  // ignore: unused_field
   int _quickFormSession = 0;
   StreamSubscription<dynamic>? _sub;
 
   @override
   void initState() {
     super.initState();
+    // overlayListener는 non-broadcast StreamController이므로,
+    // 이 한 곳에서만 listen() 해야 함 (두 번째 listen()은 에러 발생)
     _sub = FlutterOverlayWindow.overlayListener.listen((event) {
-      final text = event?.toString().trim() ?? '';
-      if (text.isNotEmpty && mounted) {
-        setState(() {
-          _initialDate = text;
-          _quickFormSession++;
-        });
+      if (event is Map) {
+        // 오버레이 버튼 크기 조절 이벤트 처리 (설정 화면 → 오버레이)
+        if (event['type'] == 'overlay_size') {
+          final double size = (event['value'] as num).toDouble();
+          SettingsService.overlayButtonSizeNotifier.value = size;
+        }
+      } else {
+        // 날짜 문자열 이벤트 (퀵등록 버튼 탭 → 폼 열기)
+        final text = event?.toString().trim() ?? '';
+        if (text.isNotEmpty && mounted) {
+          setState(() {
+            _initialDate = text;
+            _quickFormSession++;
+          });
+        }
       }
     });
   }
@@ -341,6 +363,10 @@ class _DbrosAppState extends State<DbrosApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // 앱이 백그라운드에서 포그라운드로 올라올 때 DB 동기화 강제 실행
+      // (OS가 백그라운드 앱을 잠시 멈춤 상태로 두어 오버레이의 통신 신호가 유실된 경우를 복구)
+      DriveLogDatabase.afterLogsChanged?.call();
+
       if (SettingsService.overlayQuickRegisterEnabled && !kIsWeb && Platform.isAndroid) {
         FlutterOverlayWindow.isActive().then((isActive) {
           if (!isActive && mounted && rootNavigatorKey.currentContext != null) {

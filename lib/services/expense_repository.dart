@@ -386,6 +386,7 @@ class ExpenseRepository {
     required int amount,
     String memo = '',
   }) async {
+    if (kIsWeb) return 1;
     final db = await _db;
     final now = DateTime.now().toIso8601String();
     final id = await db.insert('expense_entries', {
@@ -403,6 +404,7 @@ class ExpenseRepository {
   }
 
   static Future<void> updateEntry(int id, Map<String, dynamic> row) async {
+    if (kIsWeb) return;
     final db = await _db;
     final copy = Map<String, dynamic>.from(row);
     copy['updated_at'] = DateTime.now().toIso8601String();
@@ -411,6 +413,7 @@ class ExpenseRepository {
   }
 
   static Future<void> deleteEntry(int id) async {
+    if (kIsWeb) return;
     final db = await _db;
     await db.delete('expense_entries', where: 'id = ?', whereArgs: [id]);
     _notify();
@@ -430,6 +433,7 @@ class ExpenseRepository {
     required List<Map<String, dynamic>> categories,
     required List<Map<String, dynamic>> entries,
   }) async {
+    if (kIsWeb) return;
     final db = await _db;
     await db.transaction((txn) async {
       await txn.delete('expense_entries');

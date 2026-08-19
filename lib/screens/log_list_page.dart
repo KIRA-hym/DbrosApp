@@ -48,6 +48,10 @@ int _rowNetProfit(Map<String, dynamic> log) =>
     _intField(log, 'transport_cost') +
     _intField(log, 'waypoint_tip');
 
+bool _hasLogError(Map<String, dynamic> log) {
+  return log['has_parsing_error'] == 1;
+}
+
 class LogListPage extends StatefulWidget {
   const LogListPage({super.key});
   @override
@@ -268,7 +272,16 @@ class _LogListPageState extends State<LogListPage> {
                           ),
                         ),
                         SizedBox(width: spacing),
-                        Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                            if (dailyLogs.any(_hasLogError)) ...[
+                              const SizedBox(width: 4),
+                              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                            ],
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -1013,7 +1026,9 @@ class _LogListPageState extends State<LogListPage> {
     void Function(String dateStr)? onSelectDate,
   }) {
     int daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
-    final now = DateTime.now();
+    
+    // 새벽 근무자를 위해 '자정 기준 오늘'이 아닌 '근무일 기준 오늘(어제일 수 있음)'을 포커스 타겟으로 지정
+    final String targetDateStr = WorkDateUtils.effectiveWorkDateYmd();
     
     return SingleChildScrollView(
       controller: _scrollController,
@@ -1023,7 +1038,10 @@ class _LogListPageState extends State<LogListPage> {
           DateTime currentDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
           String dateStr = DateFormat('yyyy-MM-dd').format(currentDate);
           String dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate); 
-          bool isToday = currentDate.year == now.year && currentDate.month == now.month && currentDate.day == now.day;
+          
+          // 포커스 기준(오늘 위치)을 targetDateStr(근무일 기준 오늘)과 일치하는지 확인
+          bool isTargetDay = dateStr == targetDateStr;
+          
           List<Map<String, dynamic>> dailyLogs = _filteredGroupedLogs[dateStr] ?? [];
 
           final bool isFiltering = _isSearchActive && _searchQuery.isNotEmpty;
@@ -1038,15 +1056,15 @@ class _LogListPageState extends State<LogListPage> {
             final isSelected = selectedDate == dateStr;
 
             return Container(
-              key: isToday ? _todayKey : null,
+              key: isTargetDay ? _todayKey : null,
               decoration: BoxDecoration(
                 color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
                 border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
               ),
               child: ListTile(
                 contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                leading: Icon(Icons.label, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), size: iconSize),
-                title: Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontWeight: FontWeight.bold)),
+                leading: Icon(Icons.label, color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), size: iconSize),
+                title: Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontWeight: FontWeight.bold)),
                 trailing: Text("<일지 입력>", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
                 onTap: () {
                   if (masterDetailMode && onSelectDate != null) {
@@ -1077,7 +1095,7 @@ class _LogListPageState extends State<LogListPage> {
           final innerSpacing = isTablet ? 6.0 : 4.0;
           final isSelected = selectedDate == dateStr;
                   return Container(
-             key: isToday ? _todayKey : null,
+             key: isTargetDay ? _todayKey : null,
              decoration: BoxDecoration(
                color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
               border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
@@ -1153,7 +1171,7 @@ class _LogListPageState extends State<LogListPage> {
                       ? _buildMasterDetailDayTile(
                           day: day,
                           dayOfWeek: dayOfWeek,
-                          isToday: isToday,
+                          isToday: isTargetDay,
                           logCount: logCount,
                           dailyIncome: dailyIncome,
                           dailyExpense: dailyExpense,
@@ -1167,7 +1185,7 @@ class _LogListPageState extends State<LogListPage> {
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.contact_mail, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
+                            Icon(Icons.contact_mail, color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
                             SizedBox(width: spacing),
                             Expanded(
                               child: Column(
@@ -1187,13 +1205,22 @@ class _LogListPageState extends State<LogListPage> {
                                                 overflow: TextOverflow.ellipsis,
                                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                                       fontWeight: FontWeight.bold,
-                                                      color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                                      color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
                                                       fontSize: 13,
                                                     ),
                                               ),
                                             ),
                                             SizedBox(width: spacing),
-                                            Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                                                if (dailyLogs.any(_hasLogError)) ...[
+                                                  const SizedBox(width: 4),
+                                                  const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                                                ],
+                                              ],
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -2442,11 +2469,22 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                     Text('[ $time ]', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: lay.timeFontSize)),
                     SizedBox(width: lay.innerSpacing),
                     Expanded(
-                      child: Text(
-                        log['program']?.toString() ?? '',
-                        style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: lay.programFontSize),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              log['program']?.toString() ?? '',
+                              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: lay.programFontSize),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (_hasLogError(log)) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                          ],
+                        ],
                       ),
                     ),
                     SizedBox(width: lay.innerSpacing),

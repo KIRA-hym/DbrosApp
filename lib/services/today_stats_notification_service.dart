@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 
 import '../app_navigator.dart';
-import '../screens/write_log_page.dart';
 import '../utils/work_date_utils.dart';
 import '../main.dart' show MainWrapper;
 import 'db_helper.dart';
@@ -94,7 +93,7 @@ class TodayStatsNotificationService {
           flag: OverlayFlag.focusPointer,
           enableDrag: false,
           overlayTitle: 'Dbros Quick Register',
-          overlayContent: 'quick_register',
+          overlayContent: '',
         );
         await FlutterOverlayWindow.shareData(today);
         final deadline = DateTime.now().add(const Duration(milliseconds: 900));
@@ -103,6 +102,9 @@ class TodayStatsNotificationService {
           await Future<void>.delayed(const Duration(milliseconds: 40));
         }
         await Future<void>.delayed(const Duration(milliseconds: 280));
+        // 오버레이 Foreground Service 알림이 상단에 오른 후 고정알림 재발행
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        await renotifyIfEnabled();
         try {
           await _androidChannel.invokeMethod<void>('moveTaskToBackAfterOverlay');
         } catch (_) {}
@@ -182,6 +184,19 @@ class TodayStatsNotificationService {
     try {
       await _androidChannel.invokeMethod<void>('cancel');
     } catch (_) {}
+  }
+
+  /// 오버레이(Foreground Service) 알림이 최상단에 올라간 뒤,
+  /// 고정알림을 cancel → 재발행하여 알림바 정렬 순서를 고정알림 상단으로 유지합니다.
+  Future<void> renotifyIfEnabled() async {
+    if (!_isAndroid || !_initialized) return;
+    if (!SettingsService.statusBarQuickEnabled) return;
+    try {
+      await _androidChannel.invokeMethod<void>('cancel');
+    } catch (_) {}
+    // 짧은 딜레이 후 재발행 (cancel과 notify 사이 시간 확보)
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await refreshFromDbIfEnabled();
   }
 
   Future<bool> isQuickRegisterOverlayActive() async {

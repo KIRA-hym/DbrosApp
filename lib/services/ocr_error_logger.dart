@@ -65,4 +65,50 @@ class OcrErrorLoggerService {
       }
     }
   }
+  Future<void> logCorrection({
+    required String platform,
+    required String rawText,
+    required Map<String, dynamic> correctedData,
+  }) async {
+    try {
+      final textHash = rawText.hashCode.toString();
+      
+      // 1. 이번 세션 중복 전송 방지
+      if (_sessionSentHashes.contains('corr_$textHash')) {
+        return;
+      }
+
+      // 2. 일일 전송 횟수 제한 (하루 최대 5회까지만 전송 - 비용 제로 완벽 방어)
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      final countKey = 'ocr_corr_count_$todayStr';
+      final currentCount = prefs.getInt(countKey) ?? 0;
+
+      if (currentCount >= 5) {
+        if (kDebugMode) print('OCR Correction Log skipped due to daily quota limit (5)');
+        return;
+      }
+
+      final packageInfo = await PackageInfo.fromPlatform();
+      
+      await FirebaseFirestore.instance.collection('ocr_corrections').add({
+        'platform': platform,
+        'raw_text': rawText,
+        'corrected_data': correctedData,
+        'timestamp': FieldValue.serverTimestamp(),
+        'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
+      });
+
+      _sessionSentHashes.add('corr_$textHash');
+      await prefs.setInt(countKey, currentCount + 1);
+      
+      if (kDebugMode) {
+        print('OCR Correction Logged to Firestore for platform: $platform');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to log OCR correction: $e');
+      }
+    }
+  }
 }

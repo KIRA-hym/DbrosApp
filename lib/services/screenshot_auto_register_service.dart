@@ -14,6 +14,7 @@ import 'call_card_ocr_parse_service.dart';
 import 'settings_service.dart';
 import 'screenshot_auto_debug_log.dart';
 import 'screenshot_gallery_finder.dart';
+import 'today_stats_notification_service.dart';
 
 /// MediaStore 변경 / 스크린샷 콜백 → 최근 이미지 OCR → DB 자동저장 (Android, 앱 생존 중).
 class ScreenshotAutoRegisterService {
@@ -121,6 +122,11 @@ class ScreenshotAutoRegisterService {
       ScreenshotAutoDebugLog.add('경고: 네이티브 observer start 실패 → $e');
       debugPrint('ScreenshotAutoRegister: native observer start failed: $e');
     }
+    
+    // 자동감지 Foreground Service가 뜬 직후 고정알림을 재발행하여 고정알림을 최상단으로 끌어올림
+    Future.delayed(const Duration(milliseconds: 300), () {
+      TodayStatsNotificationService.instance.renotifyIfEnabled();
+    });
   }
 
   Future<void> _stopNativeGalleryObserver() async {
@@ -287,19 +293,15 @@ class ScreenshotAutoRegisterService {
 
       try {
         final missing = CallCardOcrParseService.getMissingFieldsList(logData);
-        final bool hasMissing = missing.isNotEmpty;
-        final toastMsg = hasMissing
-            ? '[자동인식 정보 누락] ${missing.join(', ')} 정보를 수동으로 채워주세요.'
-            : '운행일지 자동등록이 완료되었습니다.';
 
-        await _nativeGalleryObserver.invokeMethod<void>('showToast', {
-          'message': toastMsg
-        });
-        
         AutoRegisterNotificationService.instance.showAutoRegisterComplete(
           logId: insertedId,
           missingFields: missing,
         );
+        // 운행일지 알림 발행 직후, 고정알림(오늘 요약)을 재발행하여 최상단 유지
+        Future.delayed(const Duration(milliseconds: 300), () {
+          TodayStatsNotificationService.instance.renotifyIfEnabled();
+        });
       } catch (_) {}
       ScreenshotAutoDebugLog.add('성공: DB 저장 후 완료 알림 표시');
       debugPrint('ScreenshotAutoRegister: saved successfully');

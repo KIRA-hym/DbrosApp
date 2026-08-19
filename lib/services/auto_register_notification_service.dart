@@ -102,11 +102,12 @@ class AutoRegisterNotificationService {
         icon: '@drawable/app_notification_icon',
         vibrationPattern: Int64List.fromList([0, 200, 100, 200]),
         enableVibration: true,
+        timeoutAfter: 3000, // 3초 후 자동 소멸 (알림창 누적 방지)
       ),
     );
 
     final bool hasMissing = missingFields != null && missingFields.isNotEmpty;
-    final String title = hasMissing ? '⚠️ 자동인식 정보 누락' : '운행일지';
+    final String title = hasMissing ? '콜카드 자동인식 정보 누락' : '운행일지';
     final String body = hasMissing
         ? '${missingFields.join(', ')} 정보가 비어있습니다. 터치하여 수정해 주세요.'
         : '운행일지 자동등록이 완료되었습니다.';
@@ -115,6 +116,34 @@ class AutoRegisterNotificationService {
       id: _notificationId,
       title: title,
       body: body,
+      notificationDetails: details,
+      payload: logId?.toString(),
+    );
+  }
+
+  Future<void> showQuickRegisterComplete({int? logId}) async {
+    if (!_isAndroid) return;
+    await initialize();
+    if (!await ensureNotificationPermission()) return;
+
+    final details = const NotificationDetails(
+      android: AndroidNotificationDetails(
+        _channelId,
+        _channelName,
+        channelDescription: '운행일지 퀵등록 완료 알림',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@drawable/app_notification_icon',
+        vibrationPattern: null,
+        enableVibration: false,
+        timeoutAfter: 3000, // 3초 후 자동 소멸
+      ),
+    );
+
+    await _plugin.show(
+      id: _notificationId + 1,
+      title: '운행일지',
+      body: '일지 퀵등록이 완료되었습니다.',
       notificationDetails: details,
       payload: logId?.toString(),
     );

@@ -65,6 +65,7 @@ class CallCardOcrParseService {
       'waypoint': '',
       'end_location': '',
       'memo': '',
+      'raw_text': recognizedText.text,
     };
 
     if (rawProgram == KakaoCustomCallOcr.programCustom) {
@@ -191,6 +192,11 @@ class CallCardOcrParseService {
       prefix: imagePrefix,
     );
 
+    final hasStart = _nonEmptyTrimmed(logData['start_location']);
+    final hasEnd = _nonEmptyTrimmed(logData['end_location']);
+    final hasFare = _parsedGrossFare(logData) > 0;
+    final int hasParsingError = (!hasStart || !hasEnd || !hasFare) ? 1 : 0;
+
     final row = <String, dynamic>{
       'work_date': work,
       'drive_date': drive,
@@ -206,8 +212,11 @@ class CallCardOcrParseService {
       'end_location': logData['end_location'],
       'memo': logData['memo'],
       'image_path': imagePath,
+      'registration_source': 'screenshot_auto',
+      'raw_text': logData['raw_text'],
       'created_at': nowIso,
       'updated_at': nowIso,
+      'has_parsing_error': hasParsingError,
     };
 
     final insertedId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);

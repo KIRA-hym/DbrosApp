@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../main_navigation.dart';
 import '../widgets/ad_banner_widget.dart';
@@ -338,6 +339,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // _loadHomeData() is now replaced by TodayStatsProvider.refresh()
 
   Future<void> _loadYoutubeBanner() async {
+    if (kIsWeb) {
+      if (!mounted) return;
+      setState(() {
+        _latestYoutubeVideoId = null;
+        _youtubeLoading = false;
+      });
+      return;
+    }
+    
     final raw = kHomeYoutubeVideoId.trim();
     if (raw.isEmpty) {
       if (!mounted) return;

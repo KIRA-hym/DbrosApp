@@ -15,8 +15,8 @@ import java.util.concurrent.atomic.AtomicReference
 /** 오늘 요약 알림 — 접힌: 근무일자/순익 2줄, 펼침: 동일 2줄 + 수입·지출 한 줄 + 퀵등록. */
 object TodaySummaryNotifier {
 
-    // v3: 오늘 요약을 자동감지 FGS보다 알림창 상단에 두기 위해 중요도·sortKey 상향
-    private const val CHANNEL_ID = "dbros_today_summary_v3"
+    // v4: 오늘 요약을 무조건 최상단에 고정하기 위해 채널 분리 및 Importance 상향 (v3 -> v4)
+    private const val CHANNEL_ID = "dbros_today_summary_v4"
     private const val CHANNEL_NAME = "오늘 요약"
     private const val SORT_KEY = "0_today_summary"
     private const val NOTIFICATION_ID = 94001
@@ -70,8 +70,8 @@ object TodaySummaryNotifier {
             compact.setViewVisibility(R.id.notification_chronometer, android.view.View.VISIBLE)
             expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.VISIBLE)
         } else {
-            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간 : -")
-            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간 : -")
+            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간: 출근 전")
+            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간: 출근 전")
             
             compact.setViewVisibility(R.id.notification_chronometer, android.view.View.GONE)
             expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.GONE)
@@ -122,16 +122,17 @@ object TodaySummaryNotifier {
             .setSmallIcon(R.drawable.app_notification_icon)
             .setContentTitle("")
             .setContentText("")
+            .setWhen(0)
             .setShowWhen(false)
-            .setWhen(0L)
             // ongoing + FLAG_NO_CLEAR 는 앱 강제 종료 후에도 알림이 남는 원인이 됨 (삭제 불가에 가깝게 유지)
-            .setOngoing(false)
+            .setOngoing(true)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
             .setSortKey(SORT_KEY)
             .setSilent(true)
-            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setColorized(true)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setContentIntent(piFull)
             .setDeleteIntent(piUndismiss)
@@ -159,19 +160,18 @@ object TodaySummaryNotifier {
 
     private fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(
+            val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH,
+                NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "오늘 수입·지출 합계 (일지 등록·수정 시 갱신). 알림창 상단에 표시됩니다."
-                setShowBadge(true)
-                enableVibration(false)
-                enableLights(false)
+                description = "dbros app today summary"
+                setShowBadge(false)
                 setSound(null, null)
+                enableVibration(false)
             }
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(ch)
+            nm.createNotificationChannel(channel)
         }
     }
 

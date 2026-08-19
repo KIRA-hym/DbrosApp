@@ -223,10 +223,19 @@ class _SettingsPageState extends State<SettingsPage> {
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
       Container(
         key: _keyFeeInsurance,
-        child: _buildListManageButton(
-          title: '수수료 및 보험료 설정',
-          icon: Icons.monetization_on_outlined,
-          onTap: _showFeeInsuranceDialog,
+        child: Column(
+          children: [
+            _buildListManageButton(
+              title: '수수료 설정',
+              icon: Icons.monetization_on_outlined,
+              onTap: _showFeeDialog,
+            ),
+            _buildListManageButton(
+              title: '보험료 설정',
+              icon: Icons.shield_outlined,
+              onTap: _showInsuranceDialog,
+            ),
+          ],
         ),
       ),
       Container(key: _keyCategoryManager, child: _buildProgramListSettings()),
@@ -510,98 +519,132 @@ class _SettingsPageState extends State<SettingsPage> {
     )..show(context: context);
   }
 
-  void _showFeeInsuranceDialog() {
-    showDialog(
+  void _showFeeDialog() {
+    AppGlassDialog.show<void>(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
+      dialog: AppGlassDialog(
+        icon: Icons.monetization_on_outlined,
+        title: "수수료 설정",
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("기본 수수료율 (%)", style: TextStyle(color: Colors.white, fontSize: 14)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _baseFeeCon,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFF2C2F3D),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              label: '취소',
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              label: '저장',
+              filled: true,
+              onPressed: () async {
+                await SettingsService.setBaseFeeRate(double.tryParse(_baseFeeCon.text) ?? 20.0);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료 설정이 저장되었습니다.")));
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showInsuranceDialog() {
+    AppGlassDialog.show<void>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.shield_outlined,
+        title: "보험료 설정",
+        contentWidget: StatefulBuilder(
           builder: (context, setDialogState) {
-            return AlertDialog(
-              backgroundColor: Theme.of(context).cardTheme.color,
-              title: const Text("수수료 및 보험료 설정", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("기본 수수료율 (%)", style: TextStyle(color: Colors.white, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _baseFeeCon,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                RadioListTile<String>(
+                  title: const Text("적용 안 함", style: TextStyle(color: Colors.white)),
+                  value: 'none',
+                  groupValue: _insuranceType,
+                  activeColor: Theme.of(context).primaryColor,
+                  onChanged: (val) {
+                    setDialogState(() => _insuranceType = val!);
+                    setState(() => _insuranceType = val!);
+                  },
+                ),
+                RadioListTile<String>(
+                  title: const Text("건당 보험료", style: TextStyle(color: Colors.white)),
+                  value: 'per_trip',
+                  groupValue: _insuranceType,
+                  activeColor: Theme.of(context).primaryColor,
+                  onChanged: (val) {
+                    setDialogState(() => _insuranceType = val!);
+                    setState(() => _insuranceType = val!);
+                  },
+                ),
+                if (_insuranceType == 'per_trip')
+                  Padding(
+                    padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
+                    child: TextField(
+                      controller: _perTripInsCon,
+                      keyboardType: TextInputType.number,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
+                        labelText: "1건당 차감 금액 (원)",
+                        labelStyle: const TextStyle(color: Colors.grey),
                         filled: true,
                         fillColor: const Color(0xFF2C2F3D),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    const Text("보험료 설정", style: TextStyle(color: Colors.white, fontSize: 14)),
-                    RadioListTile<String>(
-                      title: const Text("적용 안 함", style: TextStyle(color: Colors.white)),
-                      value: 'none',
-                      groupValue: _insuranceType,
-                      activeColor: Theme.of(context).primaryColor,
-                      onChanged: (val) {
-                        setDialogState(() => _insuranceType = val!);
-                        setState(() => _insuranceType = val!);
-                      },
-                    ),
-                    RadioListTile<String>(
-                      title: const Text("건당 보험료", style: TextStyle(color: Colors.white)),
-                      value: 'per_trip',
-                      groupValue: _insuranceType,
-                      activeColor: Theme.of(context).primaryColor,
-                      onChanged: (val) {
-                        setDialogState(() => _insuranceType = val!);
-                        setState(() => _insuranceType = val!);
-                      },
-                    ),
-                    if (_insuranceType == 'per_trip')
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
-                        child: TextField(
-                          controller: _perTripInsCon,
-                          keyboardType: TextInputType.number,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(
-                            labelText: "1건당 차감 금액 (원)",
-                            labelStyle: const TextStyle(color: Colors.grey),
-                            filled: true,
-                            fillColor: const Color(0xFF2C2F3D),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("취소", style: TextStyle(color: Colors.grey)),
-                ),
-                TextButton(
-                  onPressed: () async {
-                    await SettingsService.setBaseFeeRate(double.tryParse(_baseFeeCon.text) ?? 20.0);
-                    await SettingsService.setInsuranceType(_insuranceType);
-                    await SettingsService.setPerTripInsurance(int.tryParse(_perTripInsCon.text) ?? 0);
-                    if (context.mounted) {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료 및 보험료가 저장되었습니다.")));
-                    }
-                  },
-                  child: Text("저장", style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold)),
-                ),
+                  ),
               ],
             );
           }
-        );
-      }
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              label: '취소',
+              onPressed: () => Navigator.pop(ctx),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              label: '저장',
+              filled: true,
+              onPressed: () async {
+                await SettingsService.setInsuranceType(_insuranceType);
+                await SettingsService.setPerTripInsurance(int.tryParse(_perTripInsCon.text) ?? 0);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("보험료 설정이 저장되었습니다.")));
+                }
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
-
   Widget _buildAppConvenienceSettings() {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;

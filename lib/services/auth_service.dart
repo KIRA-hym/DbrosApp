@@ -123,10 +123,10 @@ class AuthService extends ChangeNotifier {
           if (premiumUntil.toDate().isAfter(DateTime.now())) {
             SettingsService.setPromoPremium(true);
           } else {
-            SettingsService.setPromoPremium(false);
+            if (!isAdmin) SettingsService.setPromoPremium(false);
           }
         } else {
-          SettingsService.setPromoPremium(false);
+          if (!isAdmin) SettingsService.setPromoPremium(false);
         }
 
         if (user != null) {

@@ -17,6 +17,7 @@ class ListManageDialog extends StatefulWidget {
     required this.hintText,
     required this.onAdd,
     required this.onDelete,
+    this.onReorder,
     this.accentColor = const Color(0xFFFFC700),
   });
 
@@ -26,6 +27,7 @@ class ListManageDialog extends StatefulWidget {
   final String hintText;
   final Future<bool> Function(String item) onAdd;
   final Future<void> Function(int index, String item) onDelete;
+  final Future<void> Function(List<String> items)? onReorder;
   final Color accentColor;
 
   static Future<void> show({
@@ -36,6 +38,7 @@ class ListManageDialog extends StatefulWidget {
     required String hintText,
     required Future<bool> Function(String item) onAdd,
     required Future<void> Function(int index, String item) onDelete,
+    Future<void> Function(List<String> items)? onReorder,
     Color accentColor = const Color(0xFFFFC700),
   }) {
     return showDialog<void>(
@@ -49,6 +52,7 @@ class ListManageDialog extends StatefulWidget {
         hintText: hintText,
         onAdd: onAdd,
         onDelete: onDelete,
+        onReorder: onReorder,
         accentColor: accentColor,
       ),
     );
@@ -110,6 +114,19 @@ class _ListManageDialogState extends State<ListManageDialog> {
 
   void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _handleReorder(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+    setState(() {
+      final String item = _items.removeAt(oldIndex);
+      _items.insert(newIndex, item);
+    });
+    if (widget.onReorder != null) {
+      await widget.onReorder!(_items);
+    }
   }
 
   @override
@@ -195,10 +212,14 @@ class _ListManageDialogState extends State<ListManageDialog> {
                             ),
                           ),
                         )
-                      : ListView.builder(
+                      : ReorderableListView.builder(
                           shrinkWrap: true,
+                          buildDefaultDragHandles: false,
                           itemCount: _items.length,
+                          onReorder: _handleReorder,
                           itemBuilder: (_, i) => _ItemRow(
+                            key: ValueKey('${_items[i]}_$i'),
+                            index: i,
                             item: _items[i],
                             onDelete: () => _delete(i),
                           ),
@@ -304,7 +325,8 @@ class _AddSaveButton extends StatelessWidget {
 // ─── 항목 행 ─────────────────────────────────────────────────────────
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({required this.item, required this.onDelete});
+  const _ItemRow({super.key, required this.index, required this.item, required this.onDelete});
+  final int index;
   final String item;
   final VoidCallback onDelete;
 
@@ -319,7 +341,13 @@ class _ItemRow extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(width: 14),
+          ReorderableDragStartListener(
+            index: index,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Icon(Icons.drag_handle, color: Theme.of(context).dividerColor, size: 20),
+            ),
+          ),
           Expanded(
             child: Text(
               item,

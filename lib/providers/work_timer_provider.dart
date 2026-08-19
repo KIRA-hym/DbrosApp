@@ -62,6 +62,13 @@ class WorkTimerProvider extends ChangeNotifier {
         _elapsedSeconds = 0;
       }
     }
+    
+    // 만약 여전히 미출근 상태라면, 앱이 꺼진 사이 백그라운드/오버레이에서
+    // 추가된 일지가 있는지 확인하여 자동 출근(시간 소급)을 시도합니다.
+    if (!_isClockedIn) {
+      await autoClockInIfNeeded();
+    }
+    
     notifyListeners();
   }
 
@@ -143,16 +150,29 @@ class WorkTimerProvider extends ChangeNotifier {
     if (_isClockedIn) return;
     final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
     
-    // 오늘의 퇴근 기록이 이미 있으면 소급 자동출근 하지 않음 (사용자 요구사항 반영)
+    // 오늘 이미 퇴근 기록이 있으면 다시 출근하지 않음 (방어 로직)
     final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
     if (session != null) return;
 
-    final logs = await DriveLogDatabase.instance.getRecentLogs(limit: 1);
+    // 오늘의 전체 일지를 가져와서 첫 일지(가장 빠른 시간) 확인
+    final logs = await DriveLogDatabase.instance.getLogsForWorkDate(currentWorkDate);
     if (logs.isNotEmpty) {
-      final lastLogDate = logs.first['work_date']?.toString();
-      if (lastLogDate == currentWorkDate) {
-        await clockIn(reset: false);
+      final firstLog = logs.first; // getLogsForWorkDate는 ASC 정렬이므로 첫 번째가 가장 옛날 로그임
+      final String driveDate = firstLog['drive_date']?.toString() ?? '';
+      final String driveTime = firstLog['drive_time']?.toString() ?? '';
+      
+      if (driveDate.isNotEmpty && driveTime.isNotEmpty) {
+        DateTime? parsedTime = DateTime.tryParse('$driveDate $driveTime:00');
+        if (parsedTime != null) {
+          if (parsedTime.isAfter(DateTime.now())) {
+            parsedTime = DateTime.now(); // 미래 시간 방어
+          }
+          await clockInWithStartTime(parsedTime);
+          return;
+        }
       }
+      // 시간 파싱에 실패한 예외 상황이면 현재 시간으로라도 자동 출근 처리
+      await clockIn(reset: false);
     }
   }
 
