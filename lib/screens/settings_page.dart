@@ -223,20 +223,16 @@ class _SettingsPageState extends State<SettingsPage> {
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
       Container(
         key: _keyFeeInsurance,
-        child: Column(
-          children: [
-            _buildListManageButton(
-              title: '수수료 설정',
-              icon: Icons.monetization_on_outlined,
-              onTap: _showFeeDialog,
-            ),
-            _buildListManageButton(
-              title: '보험료 설정',
-              icon: Icons.shield_outlined,
-              onTap: _showInsuranceDialog,
-            ),
-          ],
+        child: _buildListManageButton(
+          title: '수수료 설정',
+          icon: Icons.monetization_on_outlined,
+          onTap: _showFeeDialog,
         ),
+      ),
+      _buildListManageButton(
+        title: '보험료 설정',
+        icon: Icons.shield_outlined,
+        onTap: _showInsuranceDialog,
       ),
       Container(key: _keyCategoryManager, child: _buildProgramListSettings()),
       _buildExpenseListSettings(),
