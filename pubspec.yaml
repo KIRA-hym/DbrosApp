@@ -1,4 +1,4 @@
-name: dbros_app
+﻿name: dbros_app
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # ??븐뻼????戮?뻣: v{version}.{build 2???遊? ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
 # +9 ???깅쾳: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle????????藥?????キ?살뿉???棺??嶺뚯빘鍮?)
 # APK ?源????????キ????뺢퀗??????吏?嶺뚯빘鍮?: tools/build_release_apk.ps1 ???裕?`dart run tool/bump_pubspec_version.dart` ??flutter build apk
-version: 1.0.14+101402
+version: 1.1.0+110001
 environment:
   sdk: ^3.11.5
 
