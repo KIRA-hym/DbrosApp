@@ -17,6 +17,7 @@ export default function Notices() {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // Form State
   const [title, setTitle] = useState('');
@@ -36,6 +37,32 @@ export default function Notices() {
     });
     return unsubscribe;
   }, []);
+
+  
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(notices.map(n => n.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`선택한 ${selectedIds.length}개의 공지사항을 삭제하시겠습니까?`)) {
+      try {
+        await Promise.all(selectedIds.map(id => deleteDoc(doc(db, 'notices', id))));
+        setSelectedIds([]);
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert('일부 항목 삭제에 실패했습니다.');
+      }
+    }
+  };
 
   const resetForm = () => {
     setTitle('');
@@ -117,6 +144,15 @@ export default function Notices() {
           <h2 className="text-2xl font-bold text-white mb-1">공지사항 관리</h2>
           <p className="text-gray-400 text-sm">앱 실행 시 사용자에게 보여줄 공지사항과 게시 기간을 설정합니다.</p>
         </div>
+        {selectedIds.length > 0 && (
+          <button
+            onClick={handleDeleteSelected}
+            className="flex items-center gap-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 px-5 py-2.5 rounded-xl font-medium shadow-lg transition-colors"
+          >
+            <Trash2 size={18} />
+            선택 삭제 ({selectedIds.length})
+          </button>
+        )}
         <button
           onClick={handleOpenNew}
           className="flex items-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg transition-transform active:scale-95"
@@ -131,6 +167,7 @@ export default function Notices() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#222630] text-gray-400 text-sm border-b border-white/5">
+                <th className="p-4 w-12 text-center"><input type="checkbox" onChange={handleSelectAll} checked={notices.length > 0 && selectedIds.length === notices.length} className="w-4 h-4 rounded accent-yellow-500 cursor-pointer" /></th>
                 <th className="p-4 font-medium w-16 text-center">중요</th>
                 <th className="p-4 font-medium">제목</th>
                 <th className="p-4 font-medium w-64">게시 기간 (YYYY-MM-DD)</th>
@@ -140,13 +177,14 @@ export default function Notices() {
             <tbody className="divide-y divide-white/5 text-gray-200">
               {notices.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-gray-500">
+                  <td colSpan={5} className="p-8 text-center text-gray-500">
                     등록된 공지사항이 없습니다.
                   </td>
                 </tr>
               ) : (
                 notices.map((notice) => (
                   <tr key={notice.id} className="hover:bg-white/[0.02] transition-colors">
+                    <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.includes(notice.id)} onChange={() => handleSelectOne(notice.id)} className="w-4 h-4 rounded accent-yellow-500 cursor-pointer" /></td>
                     <td className="p-4 text-center">
                       {notice.isImportant && <AlertCircle size={18} className="text-red-400 mx-auto" />}
                     </td>

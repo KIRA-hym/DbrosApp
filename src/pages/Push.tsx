@@ -19,6 +19,7 @@ export default function Push() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     const q = query(collection(db, 'admin_push_requests'), orderBy('createdAt', 'desc'));
@@ -32,6 +33,32 @@ export default function Push() {
     return unsubscribe;
   }, []);
 
+
+  
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.checked) {
+      setSelectedIds(requests.map(req => req.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`선택한 ${selectedIds.length}개의 발송 내역을 삭제하시겠습니까?`)) {
+      try {
+        await Promise.all(selectedIds.map(id => deleteDoc(doc(db, 'admin_push_requests', id))));
+        setSelectedIds([]);
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert('일부 항목 삭제에 실패했습니다.');
+      }
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('정말 이 푸시 발송 내역을 삭제하시겠습니까?')) {
@@ -143,12 +170,22 @@ export default function Push() {
             <div className="p-6 border-b border-white/5 flex items-center gap-2">
               <History size={20} className="text-gray-400" />
               <h3 className="text-lg font-bold text-white">최근 발송 내역</h3>
+              {selectedIds.length > 0 && (
+                <button
+                  onClick={handleDeleteSelected}
+                  className="ml-auto flex items-center gap-2 bg-red-500/20 text-red-400 hover:bg-red-500/30 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                >
+                  <Trash2 size={16} />
+                  선택 삭제 ({selectedIds.length})
+                </button>
+              )}
             </div>
             
             <div className="flex-1 overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-[#222630] text-gray-400 text-sm border-b border-white/5">
+                    <th className="p-4 w-12 text-center"><input type="checkbox" onChange={handleSelectAll} checked={requests.length > 0 && selectedIds.length === requests.length} className="w-4 h-4 rounded accent-yellow-500 cursor-pointer" /></th>
                     <th className="p-4 font-medium">상태</th>
                     <th className="p-4 font-medium w-64">메시지</th>
                     <th className="p-4 font-medium text-center">성공/실패</th>
@@ -159,13 +196,14 @@ export default function Push() {
                 <tbody className="divide-y divide-white/5 text-gray-200">
                   {requests.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="p-8 text-center text-gray-500">
+                      <td colSpan={6} className="p-8 text-center text-gray-500">
                         발송 내역이 없습니다.
                       </td>
                     </tr>
                   ) : (
                     requests.map((req) => (
                       <tr key={req.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="p-4 text-center"><input type="checkbox" checked={selectedIds.includes(req.id)} onChange={() => handleSelectOne(req.id)} className="w-4 h-4 rounded accent-yellow-500 cursor-pointer" /></td>
                         <td className="p-4">
                           {req.status === 'completed' ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-green-500/10 text-green-400 text-xs font-medium border border-green-500/20">
