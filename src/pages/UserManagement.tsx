@@ -10,6 +10,7 @@ interface UserData {
   isBanned: boolean;
   isAdmin: boolean;
   createdAt: Timestamp | null;
+  premiumUntil: Timestamp | null;
 }
 
 export default function UserManagement() {
@@ -26,6 +27,7 @@ export default function UserManagement() {
         isBanned: doc.data().isBanned === true,
         isAdmin: doc.data().isAdmin === true,
         createdAt: doc.data().createdAt,
+        premiumUntil: doc.data().premiumUntil || null,
       }));
       setUsers(userList);
       setLoading(false);
@@ -47,6 +49,32 @@ export default function UserManagement() {
     } catch (error) {
       console.error("Error updating user status: ", error);
       alert('상태 변경에 실패했습니다.');
+    }
+  };
+
+  const expirePremium = async (userId: string) => {
+    if (!window.confirm('이 유저의 프리미엄 구독을 즉시 강제 종료하시겠습니까?')) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        premiumUntil: Timestamp.fromDate(new Date()) // 현재 시간으로 덮어씌워 즉시 만료 처리
+      });
+      alert('프리미엄 구독이 종료되었습니다.');
+    } catch (error) {
+      console.error("Error expiring premium: ", error);
+      alert('구독 종료에 실패했습니다.');
+    }
+  };
+
+  const toggleAdminStatus = async (userId: string, currentStatus: boolean) => {
+    if (!window.confirm(currentStatus ? '관리자 권한을 해제하시겠습니까?' : '이 유저에게 관리자 권한을 부여하시겠습니까?')) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        isAdmin: !currentStatus
+      });
+      alert('관리자 권한이 변경되었습니다.');
+    } catch (error) {
+      console.error("Error updating admin status: ", error);
+      alert('권한 변경에 실패했습니다.');
     }
   };
 
@@ -128,20 +156,38 @@ export default function UserManagement() {
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      {user.isAdmin ? (
-                        <span className="text-sm text-gray-500">관리자 제한 불가</span>
-                      ) : (
+                      <div className="flex justify-end gap-2">
+                        {user.premiumUntil && user.premiumUntil.toDate() > new Date() && (
+                          <button
+                            onClick={() => expirePremium(user.id)}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 border border-orange-500/20 hover:border-orange-500/30 transition-all"
+                          >
+                            구독 종료
+                          </button>
+                        )}
                         <button
-                          onClick={() => toggleBanStatus(user.id, user.isBanned)}
-                          className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                            user.isBanned
-                              ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                              : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 hover:border-red-500/30'
+                          onClick={() => toggleAdminStatus(user.id, user.isAdmin)}
+                          className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                            user.isAdmin
+                              ? 'bg-gray-700 hover:bg-gray-600 text-yellow-500'
+                              : 'bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-500 border border-yellow-500/20 hover:border-yellow-500/30'
                           }`}
                         >
-                          {user.isBanned ? '차단 해제' : '차단하기'}
+                          {user.isAdmin ? '관리자 해제' : '관리자 지정'}
                         </button>
-                      )}
+                        {!user.isAdmin && (
+                          <button
+                            onClick={() => toggleBanStatus(user.id, user.isBanned)}
+                            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                              user.isBanned
+                                ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                                : 'bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 hover:border-red-500/30'
+                            }`}
+                          >
+                            {user.isBanned ? '차단 해제' : '차단하기'}
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

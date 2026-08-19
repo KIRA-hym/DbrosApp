@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, doc, Timestamp, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, Timestamp, writeBatch, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Ticket, CheckCircle, Clock, Plus, Loader2, Trash2, Copy } from 'lucide-react';
 
@@ -11,6 +11,8 @@ interface PromotionCodeData {
   usedBy: string | null;
   usedAt: Timestamp | null;
   createdAt: Timestamp | null;
+  type?: string;
+  isMultiUse?: boolean;
 }
 
 export default function PromotionCodes() {
@@ -20,6 +22,10 @@ export default function PromotionCodes() {
   const [generateCount, setGenerateCount] = useState<number>(10);
   const [selectedCodes, setSelectedCodes] = useState<string[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isMultiUse, setIsMultiUse] = useState(false);
+  const [customCode, setCustomCode] = useState('');
+  const [promoType, setPromoType] = useState('기본 프로모션');
+  const [durationMonths, setDurationMonths] = useState<number>(1);
 
   useEffect(() => {
     const q = query(collection(db, 'promotion_codes'), orderBy('createdAt', 'desc'));
@@ -32,6 +38,8 @@ export default function PromotionCodes() {
         usedBy: doc.data().usedBy || null,
         usedAt: doc.data().usedAt || null,
         createdAt: doc.data().createdAt || null,
+        type: doc.data().type || '미지정',
+        isMultiUse: doc.data().isMultiUse === true,
       }));
       setCodes(codeList);
       setLoading(false);
@@ -53,12 +61,53 @@ export default function PromotionCodes() {
   };
 
   const handleGenerateCodes = async () => {
+    if (isMultiUse) {
+      if (!customCode.trim()) {
+        alert('다회용 공용 코드를 입력해주세요. (예: WELCOME2026)');
+        return;
+      }
+      if (!promoType.trim()) {
+        alert('프로모션/이벤트 이름을 입력해주세요.');
+        return;
+      }
+      if (!window.confirm(`[${promoType}] 다회용 코드 '${customCode}' 1개를 생성하시겠습니까?`)) return;
+
+      setIsGenerating(true);
+      try {
+        const codesRef = collection(db, 'promotion_codes');
+        const docRef = doc(codesRef, customCode);
+        await setDoc(docRef, {
+          code: customCode,
+          durationMonths: durationMonths,
+          isUsed: false,
+          usedBy: null,
+          usedAt: null,
+          createdAt: Timestamp.now(),
+          type: promoType,
+          isMultiUse: true
+        });
+        alert('다회용 공용 코드가 성공적으로 생성되었습니다.');
+        setCustomCode('');
+      } catch (error) {
+        console.error("Error generating multi-use code: ", error);
+        alert('발급 중 오류가 발생했습니다.');
+      } finally {
+        setIsGenerating(false);
+      }
+      return;
+    }
+
+    // 단회용 코드 생성 로직
     if (generateCount < 1 || generateCount > 100) {
       alert('1개에서 100개 사이로 생성해주세요.');
       return;
     }
+    if (!promoType.trim()) {
+      alert('프로모션/이벤트 이름을 입력해주세요.');
+      return;
+    }
 
-    if (!window.confirm(`프로모션 코드 ${generateCount}개를 생성하시겠습니까?`)) return;
+    if (!window.confirm(`[${promoType}] 프로모션 코드 ${generateCount}개를 생성하시겠습니까?`)) return;
 
     setIsGenerating(true);
     try {
@@ -70,11 +119,13 @@ export default function PromotionCodes() {
         const docRef = doc(codesRef, newCode);
         batch.set(docRef, {
           code: newCode,
-          durationMonths: 1,
+          durationMonths: durationMonths,
           isUsed: false,
           usedBy: null,
           usedAt: null,
           createdAt: Timestamp.now(),
+          type: promoType,
+          isMultiUse: false
         });
       }
 
@@ -179,29 +230,85 @@ export default function PromotionCodes() {
         </div>
       </div>
 
-      <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700 flex flex-col md:flex-row items-center gap-4">
-        <div className="flex-1">
-          <h2 className="text-white font-semibold flex items-center gap-2">
-            코드 일괄 발급기
-          </h2>
-          <p className="text-sm text-gray-400 mt-1">한 번에 최대 100개까지 무작위 난수 코드를 발급할 수 있습니다. (기본 1개월용)</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={generateCount}
-              onChange={(e) => setGenerateCount(parseInt(e.target.value) || 1)}
-              className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 w-32 focus:outline-none focus:border-yellow-500"
-            />
-            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">개</span>
+      <div className="bg-gray-800 p-6 rounded-2xl border border-gray-700">
+        <h2 className="text-white font-semibold flex items-center gap-2 mb-4">
+          코드 발급기
+        </h2>
+        
+        <div className="flex flex-col md:flex-row gap-6 items-start md:items-end">
+          <div className="flex-1 space-y-4 w-full">
+            <div className="flex items-center gap-4">
+              <label className="flex items-center gap-2 text-white cursor-pointer">
+                <input type="radio" name="codeType" checked={!isMultiUse} onChange={() => setIsMultiUse(false)} className="text-yellow-500 focus:ring-yellow-500 bg-gray-700 border-gray-600" />
+                단회용 (1인 1매 무작위 코드)
+              </label>
+              <label className="flex items-center gap-2 text-white cursor-pointer">
+                <input type="radio" name="codeType" checked={isMultiUse} onChange={() => setIsMultiUse(true)} className="text-yellow-500 focus:ring-yellow-500 bg-gray-700 border-gray-600" />
+                다회용 (누구나 쓸 수 있는 공용 마케팅 코드)
+              </label>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">프로모션/이벤트 종류 (필수)</label>
+                <input
+                  type="text"
+                  value={promoType}
+                  onChange={(e) => setPromoType(e.target.value)}
+                  placeholder="예: 오픈기념이벤트"
+                  className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 w-full focus:outline-none focus:border-yellow-500"
+                />
+              </div>
+              
+              {isMultiUse ? (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">지정할 공용 코드 (필수)</label>
+                  <input
+                    type="text"
+                    value={customCode}
+                    onChange={(e) => setCustomCode(e.target.value.toUpperCase())}
+                    placeholder="예: WELCOME2026"
+                    className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 w-full focus:outline-none focus:border-yellow-500 uppercase"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">발급 수량 (최대 100개)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={generateCount}
+                      onChange={(e) => setGenerateCount(parseInt(e.target.value) || 1)}
+                      className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 w-full focus:outline-none focus:border-yellow-500"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">개</span>
+                  </div>
+                </div>
+              )}
+              
+              <div>
+                <label className="block text-sm text-gray-400 mb-1">혜택 기간 (개월)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    max="120"
+                    value={durationMonths}
+                    onChange={(e) => setDurationMonths(parseInt(e.target.value) || 1)}
+                    className="bg-gray-900 border border-gray-700 text-white rounded-lg px-4 py-2 w-full focus:outline-none focus:border-yellow-500"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm">개월</span>
+                </div>
+              </div>
+            </div>
           </div>
+
           <button
             onClick={handleGenerateCodes}
             disabled={isGenerating}
-            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-2 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 h-10 w-full md:w-auto justify-center"
           >
             {isGenerating ? <Loader2 className="animate-spin" size={20} /> : <Plus size={20} />}
             발급하기
@@ -251,9 +358,9 @@ export default function PromotionCodes() {
                 </th>
                 <th className="p-4 font-medium">프로모션 코드</th>
                 <th className="p-4 font-medium">혜택 기간</th>
+                <th className="p-4 font-medium">유형</th>
                 <th className="p-4 font-medium">상태</th>
                 <th className="p-4 font-medium">사용자 UID</th>
-                <th className="p-4 font-medium">사용 일시</th>
                 <th className="p-4 font-medium text-right">발급 일시</th>
               </tr>
             </thead>
@@ -282,7 +389,19 @@ export default function PromotionCodes() {
                       {code.durationMonths}개월
                     </td>
                     <td className="p-4">
-                      {code.isUsed ? (
+                      {code.isMultiUse ? (
+                         <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded-lg text-xs">다회용 공용</span>
+                      ) : (
+                         <span className="px-2.5 py-1 bg-gray-700 text-gray-300 border border-gray-600 rounded-lg text-xs">단회용</span>
+                      )}
+                      <div className="mt-1 text-xs text-gray-400">{code.type}</div>
+                    </td>
+                    <td className="p-4">
+                      {code.isMultiUse ? (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                          <Clock size={14} /> 무제한
+                        </span>
+                      ) : code.isUsed ? (
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-300 border border-gray-600">
                           <CheckCircle size={14} /> 사용 완료
                         </span>
@@ -293,10 +412,7 @@ export default function PromotionCodes() {
                       )}
                     </td>
                     <td className="p-4 text-sm text-gray-400 font-mono">
-                      {code.usedBy || '-'}
-                    </td>
-                    <td className="p-4 text-sm text-gray-400">
-                      {code.usedAt ? code.usedAt.toDate().toLocaleString('ko-KR') : '-'}
+                      {code.isMultiUse ? '다수' : (code.usedBy || '-')}
                     </td>
                     <td className="p-4 text-sm text-gray-400 text-right">
                       {code.createdAt ? code.createdAt.toDate().toLocaleString('ko-KR') : '-'}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Send, History, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Send, History, CheckCircle2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface PushRequest {
   id: string;
@@ -32,7 +32,20 @@ export default function Push() {
     return unsubscribe;
   }, []);
 
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('정말 이 푸시 발송 내역을 삭제하시겠습니까?')) {
+      try {
+        await deleteDoc(doc(db, 'admin_push_requests', id));
+      } catch (error) {
+        console.error('Delete error:', error);
+        alert('삭제에 실패했습니다.');
+      }
+    }
+  };
+
   const handleSend = async (e: React.FormEvent) => {
+
     e.preventDefault();
     if (!title.trim() || !body.trim()) return;
 
@@ -140,12 +153,13 @@ export default function Push() {
                     <th className="p-4 font-medium w-64">메시지</th>
                     <th className="p-4 font-medium text-center">성공/실패</th>
                     <th className="p-4 font-medium text-right">요청 일시</th>
+                    <th className="p-4 font-medium text-center w-20">관리</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5 text-gray-200">
                   {requests.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-gray-500">
+                      <td colSpan={5} className="p-8 text-center text-gray-500">
                         발송 내역이 없습니다.
                       </td>
                     </tr>
@@ -179,6 +193,11 @@ export default function Push() {
                         </td>
                         <td className="p-4 text-right text-sm text-gray-400">
                           {formatDate(req.createdAt)}
+                        </td>
+                        <td className="p-4 text-center">
+                          <button onClick={() => handleDelete(req.id)} className="text-gray-400 hover:text-red-400 transition-colors">
+                            <Trash2 size={18} />
+                          </button>
                         </td>
                       </tr>
                     ))
