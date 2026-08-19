@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'app_glass_dialog.dart';
 
 /// 항목 목록 관리 다이얼로그 (프로그램 / 지출항목 / 수익항목 공용).
 ///
@@ -230,9 +231,10 @@ class _ListManageDialogState extends State<ListManageDialog> {
                 SizedBox(height: 16),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: TextButton(
+                  child: GlassDialogConfirmButton(
+                    label: '닫기',
+                    filled: true,
                     onPressed: () => Navigator.pop(context),
-                    child: Text('닫기', style: TextStyle(color: Color(0xFF9FA3AE))),
                   ),
                 ),
               ],
