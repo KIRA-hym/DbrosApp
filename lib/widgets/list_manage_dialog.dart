@@ -347,7 +347,7 @@ class _ItemRow extends StatelessWidget {
             index: index,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              child: Icon(Icons.drag_handle, color: Theme.of(context).dividerColor, size: 20),
+              child: Icon(Icons.drag_handle, color: const Color(0xFFFFC700), size: 20),
             ),
           ),
           Expanded(
