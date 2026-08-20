@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'paywall_page.dart';
 import '../services/auth_service.dart';
 import '../services/font_size_service.dart';
+import 'cs_inquiry_page.dart';
 
 class MyInfoPage extends StatelessWidget {
   const MyInfoPage({super.key});
@@ -63,7 +64,32 @@ class MyInfoPage extends StatelessWidget {
               _buildInfoRow('가입일자', createdAtStr),
               const Divider(color: Colors.white10, height: 32),
               _buildPromotionCodeRow(context, userDoc),
-              const SizedBox(height: 64),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const CsInquiryPage()),
+                  );
+                },
+                icon: const Icon(Icons.headset_mic, color: Colors.white),
+                label: Text(
+                  '고객지원 (이메일 문의)',
+                  style: TextStyle(
+                    fontSize: FontSizeService.getScaledFontSize(16),
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2C2F36), // 어두운 색상으로 차별화
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: () => _handleLogout(context),
                 icon: const Icon(Icons.logout, color: Colors.black87),

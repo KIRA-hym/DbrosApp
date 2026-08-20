@@ -1,0 +1,364 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../data/repositories/address_repository.dart';
+import '../../services/overlay_manager.dart';
+
+class QuickEntryUI extends StatefulWidget {
+  const QuickEntryUI({Key? key}) : super(key: key);
+
+  @override
+  State<QuickEntryUI> createState() => _QuickEntryUIState();
+}
+
+class _QuickEntryUIState extends State<QuickEntryUI> {
+  double _opacity = 1.0;
+  String _selectedProgram = '로지';
+  final List<String> _programs = ['로지', '티맵', '카카오', '핸들포유', '콜마너'];
+
+  final TextEditingController _originController = TextEditingController();
+  final TextEditingController _destController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
+
+  List<String> _originSuggestions = [];
+  List<String> _destSuggestions = [];
+  
+  bool _isOriginFocused = false;
+  bool _isDestFocused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _originController.addListener(() => _searchOrigin(_originController.text));
+    _destController.addListener(() => _searchDest(_destController.text));
+  }
+
+  @override
+  void dispose() {
+    _originController.dispose();
+    _destController.dispose();
+    _priceController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchOrigin(String query) async {
+    if (query.isEmpty) {
+      if (mounted) setState(() => _originSuggestions = []);
+      return;
+    }
+    final results = await AddressRepository().search(query);
+    if (mounted) setState(() => _originSuggestions = results);
+  }
+
+  Future<void> _searchDest(String query) async {
+    if (query.isEmpty) {
+      if (mounted) setState(() => _destSuggestions = []);
+      return;
+    }
+    final results = await AddressRepository().search(query);
+    if (mounted) setState(() => _destSuggestions = results);
+  }
+
+  void _submit() {
+    final origin = _originController.text.trim();
+    final dest = _destController.text.trim();
+    final priceStr = _priceController.text.trim().replaceAll(',', '');
+    
+    if (origin.isEmpty || dest.isEmpty || priceStr.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('모든 항목을 입력해주세요.')),
+      );
+      return;
+    }
+    
+    final price = int.tryParse(priceStr) ?? 0;
+    
+    // TODO: 실제 일지 저장 로직과 연동 (Provider 또는 서비스 호출)
+    print('✅ 일지 등록: [\$_selectedProgram] \$origin -> \$dest (요금: \$price)');
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('✅ 일지가 등록되었습니다!')),
+    );
+    
+    Future.delayed(const Duration(milliseconds: 500), () {
+      OverlayManager.closeOverlay();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // 배경 투명도 (0.3 ~ 1.0)
+    final bgAlpha = (_opacity - 0.1).clamp(0.0, 1.0);
+    final surfaceColor = Colors.white.withOpacity(_opacity);
+    
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: surfaceColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 40,
+              offset: const Offset(0, -10),
+            )
+          ],
+        ),
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 12, bottom: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 5,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+            
+            // Header (Opaque Title and Slider)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Opacity(
+                  opacity: _opacity.clamp(0.2, 1.0),
+                  child: const Text('수기 일지 작성', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
+                ),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.opacity, color: Colors.grey.shade600, size: 18),
+                          SizedBox(
+                            width: 70,
+                            child: SliderTheme(
+                              data: SliderThemeData(
+                                trackHeight: 4,
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                              ),
+                              child: Slider(
+                                value: _opacity,
+                                min: 0.15,
+                                max: 1.0,
+                                activeColor: Colors.blue,
+                                onChanged: (val) => setState(() => _opacity = val),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.close, color: Colors.grey.shade600),
+                      onPressed: OverlayManager.closeOverlay,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Fade Content
+            Opacity(
+              opacity: _opacity.clamp(0.2, 1.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Program selection
+                  Text('콜 발생 프로그램', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: _programs.map((p) {
+                        final isSelected = _selectedProgram == p;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(p),
+                            labelStyle: TextStyle(
+                              color: isSelected ? Colors.white : Colors.grey.shade700,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            ),
+                            selected: isSelected,
+                            selectedColor: Colors.blue,
+                            backgroundColor: Colors.grey.shade200,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(color: isSelected ? Colors.blue : Colors.grey.shade300),
+                            ),
+                            onSelected: (sel) {
+                              if (sel) setState(() => _selectedProgram = p);
+                            },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Origin
+                  Text('운행 구간', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  const SizedBox(height: 8),
+                  Focus(
+                    onFocusChange: (focus) => setState(() => _isOriginFocused = focus),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _originController,
+                          decoration: InputDecoration(
+                            hintText: '출발지 검색 (초성 입력)',
+                            prefixIcon: const Icon(Icons.location_on, color: Colors.blue),
+                            filled: true,
+                            fillColor: Colors.grey.shade200,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue, width: 2)),
+                          ),
+                        ),
+                        if (_isOriginFocused && _originSuggestions.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            constraints: const BoxConstraints(maxHeight: 150),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: _originSuggestions.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.search, size: 18, color: Colors.blue),
+                                  title: Text(_originSuggestions[index]),
+                                  onTap: () {
+                                    _originController.text = _originSuggestions[index];
+                                    setState(() {
+                                      _originSuggestions = [];
+                                      _isOriginFocused = false;
+                                    });
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  // Destination
+                  Focus(
+                    onFocusChange: (focus) => setState(() => _isDestFocused = focus),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _destController,
+                          decoration: InputDecoration(
+                            hintText: '도착지 검색 (초성 입력)',
+                            prefixIcon: const Icon(Icons.flag, color: Colors.red),
+                            filled: true,
+                            fillColor: Colors.grey.shade200,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue, width: 2)),
+                          ),
+                        ),
+                        if (_isDestFocused && _destSuggestions.isNotEmpty)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            constraints: const BoxConstraints(maxHeight: 150),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: _destSuggestions.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                return ListTile(
+                                  dense: true,
+                                  leading: const Icon(Icons.search, size: 18, color: Colors.blue),
+                                  title: Text(_destSuggestions[index]),
+                                  onTap: () {
+                                    _destController.text = _destSuggestions[index];
+                                    setState(() {
+                                      _destSuggestions = [];
+                                      _isDestFocused = false;
+                                    });
+                                    FocusScope.of(context).unfocus();
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                    
+                  const SizedBox(height: 16),
+                  // Price
+                  Text('운행 요금', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.grey.shade700)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _priceController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue),
+                    decoration: InputDecoration(
+                      hintText: '0',
+                      suffixText: '원',
+                      prefixIcon: const Icon(Icons.account_balance_wallet, color: Colors.grey),
+                      filled: true,
+                      fillColor: Colors.grey.shade200,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Colors.blue, width: 2)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 24),
+            // Submit button (Always opaque)
+            ElevatedButton(
+              onPressed: _submit,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                backgroundColor: Colors.blue,
+                foregroundColor: Colors.white,
+                elevation: 0,
+              ),
+              child: const Text('일지에 등록하기', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

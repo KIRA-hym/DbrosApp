@@ -1,0 +1,66 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
+import '../ui/overlay/quick_entry_ui.dart'; // We'll create this next
+
+class OverlayManager {
+  static OverlayEntry? _webOverlayEntry;
+
+  /// 오버레이 창을 띄웁니다.
+  static Future<void> showOverlay(BuildContext context) async {
+    if (kIsWeb) {
+      // 웹 환경 (시뮬레이터용 OverlayEntry)
+      if (_webOverlayEntry != null) return; // 이미 띄워져있음
+      
+      _webOverlayEntry = OverlayEntry(
+        builder: (context) => const WebOverlayWrapper(),
+      );
+      final overlay = Navigator.of(context).overlay ?? Overlay.of(context);
+      overlay?.insert(_webOverlayEntry!);
+    } else {
+      // 안드로이드 환경
+      final bool status = await FlutterOverlayWindow.isPermissionGranted();
+      if (!status) {
+        await FlutterOverlayWindow.requestPermission();
+        return;
+      }
+      
+      if (await FlutterOverlayWindow.isActive()) {
+        return;
+      }
+
+      await FlutterOverlayWindow.showOverlay(
+        enableDrag: true, // 드래그 활성화
+        overlayTitle: "퀵등록 실행중",
+        overlayContent: "",
+        flag: OverlayFlag.defaultFlag, // 초기에는 터치를 뺏지 않음
+        visibility: NotificationVisibility.visibilitySecret,
+        height: 60, // 플로팅 버튼 크기로 시작
+        width: 60,
+      );
+    }
+  }
+
+  /// 오버레이 창을 닫습니다.
+  static Future<void> closeOverlay() async {
+    if (kIsWeb) {
+      _webOverlayEntry?.remove();
+      _webOverlayEntry = null;
+    } else {
+      await FlutterOverlayWindow.closeOverlay();
+    }
+  }
+}
+
+/// 웹 환경에서 안드로이드 바탕화면처럼 띄워주기 위한 래퍼 위젯
+class WebOverlayWrapper extends StatelessWidget {
+  const WebOverlayWrapper({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Material(
+      type: MaterialType.transparency,
+      child: QuickEntryUI(),
+    );
+  }
+}

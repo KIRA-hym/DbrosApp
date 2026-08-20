@@ -1,0 +1,1 @@
+import 'dart:io'; void main() { var f = File('lib/ui/overlay/quick_entry_popup_form.dart'); var s = f.readAsStringSync(); s = s.replaceAll('import \'package:provider/provider.dart\';\n', ''); s = s.replaceAll('import \'../../services/today_stats_notification_service.dart\';\n', ''); f.writeAsStringSync(s); print('done'); }

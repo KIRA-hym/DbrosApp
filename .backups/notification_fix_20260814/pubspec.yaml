@@ -20,7 +20,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # ??븐뻼????戮?뻣: v{version}.{build 2???遊? ???? 1.0.02+1 ??v1.0.02.01, 1.0.02+9 ??v1.0.02.09
 # +9 ???깅쾳: 1.0.03+1 ??v1.0.03.01 (Android versionCode??gradle????????藥?????キ?살뿉???棺??嶺뚯빘鍮?)
 # APK ?源????????キ????뺢퀗??????吏?嶺뚯빘鍮?: tools/build_release_apk.ps1 ???裕?`dart run tool/bump_pubspec_version.dart` ??flutter build apk
-version: 1.1.0+110003
+version: 1.0.13+101315
 environment:
   sdk: ^3.11.5
 
@@ -91,7 +91,6 @@ dependencies:
   tutorial_coach_mark: ^1.3.3
   purchases_flutter: ^10.4.0
   flutter_svg: ^2.3.0
-  device_info_plus: ^12.4.0
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -178,7 +177,3 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
-dependency_overrides:
-  flutter_overlay_window:
-    path: ./plugins/flutter_overlay_window
