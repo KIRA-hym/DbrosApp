@@ -27,6 +27,7 @@ import '../services/backup_service.dart';
 import '../services/screenshot_auto_debug_log.dart';
 import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
+import '../services/feature_usage_service.dart';
 import '../services/overlay_manager.dart';
 import '../services/shorebird_update_service.dart';
 import '../services/apk_update_service.dart';
@@ -668,7 +669,7 @@ class _SettingsPageState extends State<SettingsPage> {
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked()) {
-                _showAdRewardDialog(context, () async {
+                _showAdRewardDialog(context, 'status_bar', () async {
                   final status = await Permission.notification.request();
                   if (!status.isGranted) {
                     if (!mounted) return;
@@ -757,7 +758,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     activeColor: Theme.of(context).primaryColor,
                     onChanged: (value) async {
                       if (value && !SettingsService.isFeatureUnlocked()) {
-                        _showAdRewardDialog(context, () async {
+                        _showAdRewardDialog(context, 'overlay_quick', () async {
                           if (!await _requestSystemAlertWindowPermission()) return;
                           await SettingsService.setOverlayQuickRegisterEnabled(true);
                           await OverlayManager.showOverlay(context);
@@ -2244,6 +2245,7 @@ class _SettingsPageState extends State<SettingsPage> {
 
   Future<void> _showAdRewardDialog(
     BuildContext context,
+    String featureKey,
     VoidCallback onSuccess,
   ) async {
     final confirm = await AppGlassDialog.show<bool>(
@@ -2252,7 +2254,7 @@ class _SettingsPageState extends State<SettingsPage> {
         icon: Icons.ondemand_video,
         title: '기능 일시 잠금 해제',
         content:
-            '30초 광고를 시청하시면 2시간 동안 해당 기능을 무료로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?',
+            '30초 광고를 시청하시면 내일 오전 9시까지 꺼짐 없이 편의기능이 무료로 유지됩니다.\n\n광고를 시청하시겠습니까?',
         actions: [
           Builder(
             builder: (ctx) => GlassDialogCancelButton(
@@ -2290,7 +2292,7 @@ class _SettingsPageState extends State<SettingsPage> {
         onAdClosed: () async {
           if (context.mounted) Navigator.pop(context); // Close loading dialog
           if (rewardEarned) {
-            await SettingsService.unlockFeaturesByAd();
+            await FeatureUsageService.grantDailyPass(featureKey);
             onSuccess();
           }
         },
