@@ -1271,6 +1271,7 @@ class _SettingsPageState extends State<SettingsPage> {
         icon: Icons.apps_rounded,
         items: List.from(SettingsService.programList),
         hintText: '새 프로그램 이름',
+        subtitleBuilder: (context, item) => ProgramTogglesWidget(programName: item),
         onAdd: (item) async {
           final list = List<String>.from(SettingsService.programList)
             ..add(item);

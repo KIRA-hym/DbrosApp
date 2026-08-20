@@ -76,6 +76,9 @@ class SettingsService {
     _themeModeNotifier.value = themeMode;
     _isAmoledBlackNotifier.value = isAmoledBlack;
     _addressSearchModeNotifier.value = addressSearchMode;
+    _noFeeProgramsNotifier.value = _prefs.getStringList('noFeePrograms') ?? ['카카오(일반)', '카카오(맞춤)', '카카오(프콜)', '카카오(제휴)', '티맵'];
+    _insuranceProgramsNotifier.value = _prefs.getStringList('insurancePrograms') ?? ['카카오(제휴)', '로지', '콜마너', '핸들포유', '기타'];
+
 
     _startAdRewardTimer();
   }
@@ -217,15 +220,11 @@ class SettingsService {
     final n = program.trim();
     if (n.isEmpty) return 0;
     
-    final isTmap = n.contains('티맵') || n.toLowerCase().contains('tmap');
-    if (isTmap) return 0;
+    // 수수료 미차감 항목에 포함되어 있으면 0 리턴
+    if (noFeePrograms.contains(n)) return 0;
 
     var fee = 0;
-    final isKakao = n.contains('카카오') || n.toLowerCase().contains('kakao');
-    final isHandle = n.contains('핸들포유') || n.contains('핸들');
-    if (!isKakao && !isHandle) {
-      fee += (grossFare * (baseFeeRate / 100)).round();
-    }
+    fee += (grossFare * (baseFeeRate / 100)).round();
     return fee;
   }
 
@@ -240,16 +239,34 @@ class SettingsService {
 
   /// 설정의 건당 보험료가 **이 프로그램**에만 반영되는지.
   static bool _perTripInsuranceAppliesToProgram(String normalizedProgram) {
-    final n = normalizedProgram.trim();
-    if (n.contains('카카오(제휴)')) return true;
-    if (n.contains('로지')) return true;
-    if (n.contains('콜마너')) return true;
-    if (n.contains('핸들포유') || n.contains('핸들')) return true;
-    if (n.contains('기타')) return true;
-    return false;
+    return insurancePrograms.contains(normalizedProgram.trim());
   }
 
   static List<String> get defaultProgramList => List<String>.from(_defaultProgramList);
+    static List<String> get noFeePrograms => _noFeeProgramsNotifier.value;
+  static Future<void> setNoFeeProgram(String program, bool isNoFee) async {
+    final list = List<String>.from(noFeePrograms);
+    if (isNoFee && !list.contains(program)) {
+      list.add(program);
+    } else if (!isNoFee) {
+      list.remove(program);
+    }
+    await _prefs.setStringList('noFeePrograms', list);
+    _noFeeProgramsNotifier.value = list;
+  }
+
+  static List<String> get insurancePrograms => _insuranceProgramsNotifier.value;
+  static Future<void> setInsuranceProgram(String program, bool applyInsurance) async {
+    final list = List<String>.from(insurancePrograms);
+    if (applyInsurance && !list.contains(program)) {
+      list.add(program);
+    } else if (!applyInsurance) {
+      list.remove(program);
+    }
+    await _prefs.setStringList('insurancePrograms', list);
+    _insuranceProgramsNotifier.value = list;
+  }
+
   static List<String> get defaultExpenseList => List<String>.from(_defaultExpenseList);
   static List<String> get defaultIncomeList => List<String>.from(_defaultIncomeList);
 

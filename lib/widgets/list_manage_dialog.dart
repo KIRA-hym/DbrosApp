@@ -20,6 +20,7 @@ class ListManageDialog extends StatefulWidget {
     required this.onDelete,
     this.onReorder,
     this.accentColor = const Color(0xFFFFC700),
+    this.subtitleBuilder,
   });
 
   final String title;
@@ -30,6 +31,7 @@ class ListManageDialog extends StatefulWidget {
   final Future<void> Function(int index, String item) onDelete;
   final Future<void> Function(List<String> items)? onReorder;
   final Color accentColor;
+  final Widget Function(BuildContext, String)? subtitleBuilder;
 
   static Future<void> show({
     required BuildContext context,
@@ -41,6 +43,7 @@ class ListManageDialog extends StatefulWidget {
     required Future<void> Function(int index, String item) onDelete,
     Future<void> Function(List<String> items)? onReorder,
     Color accentColor = const Color(0xFFFFC700),
+    Widget Function(BuildContext, String)? subtitleBuilder,
   }) {
     return showDialog<void>(
       context: context,
@@ -327,10 +330,11 @@ class _AddSaveButton extends StatelessWidget {
 // ─── 항목 행 ─────────────────────────────────────────────────────────
 
 class _ItemRow extends StatelessWidget {
-  const _ItemRow({super.key, required this.index, required this.item, required this.onDelete});
+  const _ItemRow({super.key, required this.index, required this.item, required this.onDelete, this.subtitleBuilder});
   final int index;
   final String item;
   final VoidCallback onDelete;
+  final Widget Function(BuildContext, String)? subtitleBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -351,9 +355,23 @@ class _ItemRow extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              item,
-              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item,
+                    style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 14),
+                  ),
+                  if (subtitleBuilder != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6.0),
+                      child: subtitleBuilder!(context, item),
+                    ),
+                ],
+              ),
             ),
           ),
           IconButton(
