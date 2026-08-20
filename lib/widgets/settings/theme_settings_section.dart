@@ -24,7 +24,7 @@ class ThemeSettingsSection extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                '화면 테마 설정', 
+                '화면 설정', 
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Theme.of(context).primaryColor, 
                   fontWeight: FontWeight.bold
@@ -82,6 +82,22 @@ class ThemeSettingsSection extends StatelessWidget {
                       ),
                     ],
                   );
+                },
+              );
+            },
+          ),
+          SizedBox(height: spacing),
+          ValueListenableBuilder<bool>(
+            valueListenable: SettingsService.showFloatingButtonsNotifier,
+            builder: (context, showButtons, _) {
+              return SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text("폰트크기 조절버튼", style: TextStyle(color: Colors.white)),
+                subtitle: const Text("메인 목록 화면에 폰트 크기 확대/축소 버튼 표시", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                value: showButtons,
+                activeColor: Theme.of(context).primaryColor,
+                onChanged: (value) {
+                  SettingsService.setShowFloatingButtons(value);
                 },
               );
             },

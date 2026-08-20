@@ -64,7 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
     text: SettingsService.perTripInsurance.toString(),
   );
   String _insuranceType = SettingsService.insuranceType;
-  bool _showFloatingButtons = SettingsService.showFloatingButtons;
+  
   // [원복] _quickRegisterOpacity 제거: 퀵등록 투명도 슬라이더 기능 원복으로 불필요
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
@@ -83,7 +83,8 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey _keyScreenshotAuto = GlobalKey();
   final GlobalKey _keyBackupRestore = GlobalKey();
   final GlobalKey _keyStorage = GlobalKey();
-  final GlobalKey _keyStatusBarQuick = GlobalKey();
+  final GlobalKey _keyAppConvenience = GlobalKey();
+    final GlobalKey _keyStatusBarQuick = GlobalKey();
   final GlobalKey _keyCallPointShare = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
@@ -307,8 +308,8 @@ class _SettingsPageState extends State<SettingsPage> {
             customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
-                title: "화면 테마 및 글자크기",
-                description: "앱의 테마를 라이트/다크로 변경하고, 화면 글자 크기를 조절할 수 있습니다.",
+                title: "화면 및 폰트 설정",
+                description: "앱의 테마를 변경하고, 메인 목록의 폰트 크기 조절 버튼 표시 여부를 설정할 수 있습니다.",
                 controller: controller,
               );
             },
@@ -372,73 +373,93 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     ];
 
-    if (!kIsWeb && Platform.isAndroid) {
-      if (_keyStatusBarQuick.currentContext != null) {
-        targets.add(
-          TargetFocus(
-            identify: "statusBarQuick",
-            keyTarget: _keyStatusBarQuick,
-            alignSkip: Alignment.bottomRight,
-            contents: [
-              TargetContent(
-                align: ContentAlign.custom,
-                customPosition: CustomTargetContentPosition(top: 0),
-                builder: (context, controller) {
-                  return GuideContentWidget(
-                    title: "고정 알림 상태바",
-                    description: "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
-                    controller: controller,
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      }
-      if (_keyScreenshotAuto.currentContext != null) {
-        targets.add(
-          TargetFocus(
-            identify: "screenshotAuto",
-            keyTarget: _keyScreenshotAuto,
-            alignSkip: Alignment.bottomRight,
-            contents: [
-              TargetContent(
-                align: ContentAlign.custom,
-                customPosition: CustomTargetContentPosition(top: 0),
-                builder: (context, controller) {
-                  return GuideContentWidget(
-                    title: "스크린샷 일지 자동저장",
-                    description: "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
-                    controller: controller,
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      }
-      if (_keyOverlayQuick.currentContext != null) {
-        targets.add(
-          TargetFocus(
-            identify: "overlayQuick",
-            keyTarget: _keyOverlayQuick,
-            alignSkip: Alignment.bottomRight,
-            contents: [
-              TargetContent(
-                align: ContentAlign.custom,
-                customPosition: CustomTargetContentPosition(top: 0),
-                builder: (context, controller) {
-                  return GuideContentWidget(
-                    title: "퀵등록 플로팅버튼",
-                    description: "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
-                    controller: controller,
-                  );
-                },
-              ),
-            ],
-          ),
-        );
-      }
+    if (_keyAppConvenience.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "appConvenience",
+          keyTarget: _keyAppConvenience,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "앱 편의 기능",
+                  description: "콜카드 스크린샷 자동저장, 플로팅 버튼, 고정 알림 등 편의 기능을 설정하는 영역입니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+    if (_keyStatusBarQuick.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "statusBarQuick",
+          keyTarget: _keyStatusBarQuick,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "고정 알림 상태바",
+                  description: "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+    if (_keyScreenshotAuto.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "screenshotAuto",
+          keyTarget: _keyScreenshotAuto,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "스크린샷 일지 자동저장",
+                  description: "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+    if (_keyOverlayQuick.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "overlayQuick",
+          keyTarget: _keyOverlayQuick,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "퀵등록 플로팅버튼",
+                  description: "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
     }
 
     if (_keyCallPointShare.currentContext != null) {
@@ -831,16 +852,7 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             }
           ),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text("폰트크기 조절버튼", style: TextStyle(color: Colors.white)),
-            value: _showFloatingButtons,
-            activeColor: Theme.of(context).primaryColor,
-            onChanged: (value) {
-              setState(() => _showFloatingButtons = value);
-              SettingsService.setShowFloatingButtons(value);
-            },
-          ),
+
           ValueListenableBuilder<String>(
             valueListenable: SettingsService.addressSearchModeNotifier,
             builder: (context, currentMode, _) {
