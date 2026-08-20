@@ -515,6 +515,24 @@ class _SettingsPageState extends State<SettingsPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
+      useSafeArea: true,
+      beforeFocus: (target) async {
+        final currentContext = target.keyTarget?.currentContext;
+        if (currentContext != null) {
+          try {
+            await Scrollable.ensureVisible(
+              currentContext,
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOut,
+              alignment: 0.5,
+            );
+            // wait a tiny bit for the scroll view to settle its layout
+            await Future.delayed(const Duration(milliseconds: 100));
+          } catch (e) {
+            // ignore scroll errors
+          }
+        }
+      },
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
