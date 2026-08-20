@@ -151,8 +151,9 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
     final nowIso = now.toIso8601String();
 
-    int fee = (price * 0.2).round();
-    int netIncome = price - fee;
+    int fee = SettingsService.deductionFeeFromGross(price, _selectedProgram);
+    int insurance = SettingsService.calculatePerTripInsurance(_selectedProgram);
+    int netIncome = price - fee - insurance;
 
     final row = <String, dynamic>{
       'work_date': work,
@@ -161,7 +162,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
       'program': _selectedProgram,
       'gross_fare': price,
       'fee': fee,
-      'insurance_fee': 0,
+      'insurance_fee': insurance,
       'transport_cost': 0,
       'net_income': netIncome,
       'start_location': origin,

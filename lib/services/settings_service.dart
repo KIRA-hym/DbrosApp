@@ -216,11 +216,14 @@ class SettingsService {
   static int deductionFeeFromGross(int grossFare, String program) {
     final n = program.trim();
     if (n.isEmpty) return 0;
-    if (n == '티맵') return 0;
+    
+    final isTmap = n.contains('티맵') || n.toLowerCase().contains('tmap');
+    if (isTmap) return 0;
 
     var fee = 0;
-    final isKakao = n == '카카오' || n.contains('카카오');
-    if (!isKakao && n != '핸들포유') {
+    final isKakao = n.contains('카카오') || n.toLowerCase().contains('kakao');
+    final isHandle = n.contains('핸들포유') || n.contains('핸들');
+    if (!isKakao && !isHandle) {
       fee += (grossFare * (baseFeeRate / 100)).round();
     }
     return fee;
@@ -237,14 +240,13 @@ class SettingsService {
 
   /// 설정의 건당 보험료가 **이 프로그램**에만 반영되는지.
   static bool _perTripInsuranceAppliesToProgram(String normalizedProgram) {
-    const withInsurance = <String>{
-      '카카오(제휴)',
-      '로지',
-      '콜마너',
-      '핸들포유',
-      '기타',
-    };
-    return withInsurance.contains(normalizedProgram);
+    final n = normalizedProgram.trim();
+    if (n.contains('카카오(제휴)')) return true;
+    if (n.contains('로지')) return true;
+    if (n.contains('콜마너')) return true;
+    if (n.contains('핸들포유') || n.contains('핸들')) return true;
+    if (n.contains('기타')) return true;
+    return false;
   }
 
   static List<String> get defaultProgramList => List<String>.from(_defaultProgramList);
