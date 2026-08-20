@@ -1,5 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:intl/intl.dart';
+﻿import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/work_date_utils.dart';
 
 class FeatureUsageService {
   static late SharedPreferences _prefs;
@@ -8,34 +8,57 @@ class FeatureUsageService {
     _prefs = await SharedPreferences.getInstance();
   }
 
-  static String get _todayKey => DateFormat('yyyy-MM-dd').format(DateTime.now());
+  static String get _todayKey => WorkDateUtils.effectiveWorkDateYmd();
 
   static Future<void> _checkAndResetDailyCounter(String featureKey) async {
-    final lastDate = _prefs.getString('${featureKey}_date');
+    final lastDate = _prefs.getString('$featureKey_date');
     if (lastDate != _todayKey) {
-      await _prefs.setString('${featureKey}_date', _todayKey);
-      await _prefs.setInt('${featureKey}_free_count', 0);
-      await _prefs.setInt('${featureKey}_ad_count', 0);
+      await _prefs.setString('$featureKey_date', _todayKey);
+      await _prefs.setInt('$featureKey_free_count', 0);
+      await _prefs.setInt('$featureKey_ad_count', 0);
+      await _prefs.setBool('$featureKey_daily_pass', false);
     }
   }
 
+  // --- Daily Pass Logic (오전 9시 일괄 초기화 무제한 패스) ---
+  
+  static Future<bool> hasDailyPassAsync(String featureKey) async {
+    await _checkAndResetDailyCounter(featureKey);
+    return _prefs.getBool('$featureKey_daily_pass') ?? false;
+  }
+
+  static Future<void> grantDailyPass(String featureKey) async {
+    await _checkAndResetDailyCounter(featureKey);
+    await _prefs.setBool('$featureKey_daily_pass', true);
+    // 통계/로깅용으로 카운트도 증가
+    final count = _prefs.getInt('$featureKey_ad_count') ?? 0;
+    await _prefs.setInt('$featureKey_ad_count', count + 1);
+  }
+
+  // 동기(Synchronous) 읽기 - UI나 프로바이더에서 즉시 상태를 확인할 때 사용
+  static bool hasDailyPassSync(String featureKey) {
+    final lastDate = _prefs.getString('$featureKey_date');
+    if (lastDate != _todayKey) return false;
+    return _prefs.getBool('$featureKey_daily_pass') ?? false;
+  }
+
+  // --- 기존 횟수 차감제 로직 (무료 횟수 체크용으로 유지) ---
+
   static Future<Map<String, int>> getUsageStats(String feature) async {
     await _checkAndResetDailyCounter(feature);
-    final freeCount = _prefs.getInt('${feature}_free_count') ?? 0;
-    final adCount = _prefs.getInt('${feature}_ad_count') ?? 0;
+    final freeCount = _prefs.getInt('$feature_free_count') ?? 0;
+    final adCount = _prefs.getInt('$feature_ad_count') ?? 0;
     return {'free': freeCount, 'ad': adCount};
   }
 
   static Future<void> incrementFreeUsage(String feature) async {
     await _checkAndResetDailyCounter(feature);
-    final count = _prefs.getInt('${feature}_free_count') ?? 0;
-    await _prefs.setInt('${feature}_free_count', count + 1);
+    final count = _prefs.getInt('$feature_free_count') ?? 0;
+    await _prefs.setInt('$feature_free_count', count + 1);
   }
 
   static Future<void> incrementAdUsage(String feature) async {
-    await _checkAndResetDailyCounter(feature);
-    final count = _prefs.getInt('${feature}_ad_count') ?? 0;
-    await _prefs.setInt('${feature}_ad_count', count + 1);
+    await grantDailyPass(feature); // 기존 adUsage 증가를 pass 발급으로 통일
   }
 
   // Helper check functions
@@ -46,13 +69,11 @@ class FeatureUsageService {
   }
 
   static Future<bool> canUseSingleOcrWithAd() async {
-    final stats = await getUsageStats('single_ocr');
-    return stats['ad']! < 1; // 무료 2회 초과 시 광고보고 1회 (총 3회)
+    return true; // 프리패스 제도로 변경되었으므로 언제든 광고 시청 가능
   }
 
   static Future<bool> canUseMultiOcrWithAd() async {
-    final stats = await getUsageStats('multi_ocr');
-    return stats['ad']! < 3; // 처음부터 광고보고 3회
+    return true; // 프리패스 제도로 변경되었으므로 언제든 광고 시청 가능
   }
 
   static Future<bool> canUseCallMapFree() async {
@@ -61,12 +82,10 @@ class FeatureUsageService {
   }
 
   static Future<bool> canUseCallMapWithAd() async {
-    final stats = await getUsageStats('call_map');
-    return stats['ad']! < 2; // 무료 초과시 광고보고 2회 (총 3회)
+    return true; // 프리패스 제도로 변경되었으므로 언제든 광고 시청 가능
   }
 
   static Future<bool> canUseStatsWithAd() async {
-    final stats = await getUsageStats('stats');
-    return stats['ad']! < 3; // 들어갈때마다 광고, 하루 3회
+    return true; // 프리패스 제도로 변경되었으므로 언제든 광고 시청 가능
   }
 }
