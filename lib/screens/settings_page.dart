@@ -282,15 +282,15 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "myInfo",
         keyTarget: _keyMyInfo,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
-                title: "내 정보 관리",
-                description: "회원가입 시 등록된 내 정보를 확인하고, 프로필 등을 관리할 수 있는 메뉴입니다.",
+                title: "내정보 및 혜택 관리",
+                description: "회원가입 정보, 이메일 문의(고객지원), 프로모션 코드 입력 및 프리미엄 구독 관리를 할 수 있는 메뉴입니다.",
                 controller: controller,
               );
             },
@@ -300,35 +300,52 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "themeSettings",
         keyTarget: _keyThemeSettings,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
-                title: "화면 테마 및 글자 크기 조절 기능",
-                description:
-                    "눈이 편안한 어두운 테마(다크모드)나 절전 블랙 테마로 변경할 수 있습니다. 또한, '글자 크기 조절 버튼 활성화' 옵션을 켜면 목록 화면에서 쉽게 글자 크기를 키우거나 줄이는 버튼이 나타납니다.",
+                title: "화면 테마 및 글자크기",
+                description: "앱의 테마를 라이트/다크로 변경하고, 화면 글자 크기를 조절할 수 있습니다.",
                 controller: controller,
               );
             },
           ),
         ],
       ),
+      if (_keyBackupRestore.currentContext != null)
+        TargetFocus(
+          identify: "backupRestore",
+          keyTarget: _keyBackupRestore,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "데이터 백업 및 복원",
+                  description: "기기 변경 시 기록해둔 데이터를 백업하고 복원할 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
       TargetFocus(
         identify: "feeInsurance",
         keyTarget: _keyFeeInsurance,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "수수료 및 보험료 설정",
-                description:
-                    "이용하시는 대리 프로그램의 기본 수수료율과 건당 보험료를 설정해주세요. 여기서 설정한 값은 콜 등록 시 자동으로 적용되어 정확한 순수익을 계산해줍니다.",
+                description: "사용하시는 대리 프로그램의 수수료율과 건당 보험료를 설정해두면 일지 작성 시 자동 계산됩니다.",
                 controller: controller,
               );
             },
@@ -338,16 +355,15 @@ class _SettingsPageState extends State<SettingsPage> {
       TargetFocus(
         identify: "categoryManager",
         keyTarget: _keyCategoryManager,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "항목 관리",
-                description:
-                    "자주 사용하는 대리 프로그램 이름이나 지출 항목(주유비, 식대 등)을 내 상황에 맞게 추가하거나 수정할 수 있습니다.",
+                description: "대리 프로그램 이름이나 지출 항목(주유비, 식대 등)을 자유롭게 추가/수정할 수 있습니다.",
                 controller: controller,
               );
             },
@@ -356,47 +372,89 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     ];
 
-    if (!kIsWeb &&
-        Platform.isAndroid &&
-        _keyStatusBarQuick.currentContext != null) {
-      targets.add(
-        TargetFocus(
-          identify: "statusBarQuick",
-          keyTarget: _keyStatusBarQuick,
-    alignSkip: Alignment.bottomRight,
-  contents: [
-            TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
-                return GuideContentWidget(
-                  title: "상태바 퀵기능",
-                  description:
-                      "앱을 직접 열지 않고도 스마트폰 상단 알림창(상태바)에서 간편하게 콜 일지를 작성할 수 있습니다.",
-                  controller: controller,
-                );
-              },
-            ),
-          ],
-        ),
-      );
+    if (!kIsWeb && Platform.isAndroid) {
+      if (_keyStatusBarQuick.currentContext != null) {
+        targets.add(
+          TargetFocus(
+            identify: "statusBarQuick",
+            keyTarget: _keyStatusBarQuick,
+            alignSkip: Alignment.bottomRight,
+            contents: [
+              TargetContent(
+                align: ContentAlign.custom,
+                customPosition: CustomTargetContentPosition(top: 0),
+                builder: (context, controller) {
+                  return GuideContentWidget(
+                    title: "고정 알림 상태바",
+                    description: "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
+                    controller: controller,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      }
+      if (_keyScreenshotAuto.currentContext != null) {
+        targets.add(
+          TargetFocus(
+            identify: "screenshotAuto",
+            keyTarget: _keyScreenshotAuto,
+            alignSkip: Alignment.bottomRight,
+            contents: [
+              TargetContent(
+                align: ContentAlign.custom,
+                customPosition: CustomTargetContentPosition(top: 0),
+                builder: (context, controller) {
+                  return GuideContentWidget(
+                    title: "스크린샷 일지 자동저장",
+                    description: "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
+                    controller: controller,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      }
+      if (_keyOverlayQuick.currentContext != null) {
+        targets.add(
+          TargetFocus(
+            identify: "overlayQuick",
+            keyTarget: _keyOverlayQuick,
+            alignSkip: Alignment.bottomRight,
+            contents: [
+              TargetContent(
+                align: ContentAlign.custom,
+                customPosition: CustomTargetContentPosition(top: 0),
+                builder: (context, controller) {
+                  return GuideContentWidget(
+                    title: "퀵등록 플로팅버튼",
+                    description: "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
+                    controller: controller,
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      }
     }
 
-    if (SettingsService.isOwnerMode && _keyCallPointShare.currentContext != null) {
+    if (_keyCallPointShare.currentContext != null) {
       targets.add(
         TargetFocus(
           identify: "callPointShare",
           keyTarget: _keyCallPointShare,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜포인트 공유",
-                  description:
-                      "동료 기사님들과 가상계좌(콜포인트) 내역을 공유하고 간편하게 관리할 수 있습니다.",
+                  description: "기사님들 간에 유용한 장소나 정보를 지도로 공유하는 커뮤니티 기능입니다.",
                   controller: controller,
                 );
               },
@@ -405,24 +463,21 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
-
-    if (!kIsWeb &&
-        Platform.isAndroid &&
-        _keyScreenshotAuto.currentContext != null) {
+    
+    if (_keyStorage.currentContext != null) {
       targets.add(
         TargetFocus(
-          identify: "screenshotAuto",
-          keyTarget: _keyScreenshotAuto,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          identify: "storage",
+          keyTarget: _keyStorage,
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
-                  title: "콜카드 자동인식 (안드로이드 전용)",
-                  description:
-                      "콜카드를 캡쳐하면 내용을 자동으로 인식해서 일지를 저장해 줍니다.\n\n(⚠️주의: 이미지가 흐리거나 인식이 제대로 되지 않는 경우 일지가 등록되지 않을 수 있습니다.)",
+                  title: "데이터 정리",
+                  description: "오래된 데이터를 삭제하여 앱 용량을 최적화합니다.",
                   controller: controller,
                 );
               },
@@ -431,51 +486,6 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
-
-    targets.add(
-      TargetFocus(
-        identify: "backupRestore",
-        keyTarget: _keyBackupRestore,
-    alignSkip: Alignment.bottomRight,
-  contents: [
-          TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
-              return GuideContentWidget(
-                title: "데이터 백업 및 복원",
-                description:
-                    "그동안 작성한 소중한 일지 데이터를 클라우드에 백업하거나, 휴대폰을 변경할 때 안전하게 복원할 수 있습니다. 주기적으로 백업하는 것을 권장합니다!",
-                controller: controller,
-              );
-            },
-          ),
-        ],
-      ),
-    );
-
-    targets.add(
-      TargetFocus(
-        identify: "storage",
-        keyTarget: _keyStorage,
-    alignSkip: Alignment.bottomRight,
-  contents: [
-          TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
-              return GuideContentWidget(
-                title: "데이터 정리",
-                description:
-                    "폰의 저장공간이 부족해지지 않도록 설정한 기간이 지난 오래된 데이터를 정리합니다. 이때, 일지 등록할 때 첨부된 콜카드 이미지들도 함께 삭제됩니다.",
-                controller: controller,
-                isLast: true,
-              );
-            },
-          ),
-        ],
-      ),
-    );
 
     _tutorialCoachMark = TutorialCoachMark(
       targets: targets,
@@ -484,34 +494,15 @@ class _SettingsPageState extends State<SettingsPage> {
       paddingFocus: 10,
       opacityShadow: 0.8,
       onFinish: () {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-          }
-        });
-        return true;
+        guideProvider.setGuideShown('settings_page');
+        setState(() {});
       },
+      onClickTarget: (target) {},
+      onClickOverlay: (target) {},
       onSkip: () {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-          }
-        });
+        guideProvider.setGuideShown('settings_page');
+        setState(() {});
         return true;
-      },
-      beforeFocus: (target) async {
-        if (target.keyTarget?.currentContext != null) {
-          try {
-            await Scrollable.ensureVisible(
-              target.keyTarget!.currentContext!,
-              duration: const Duration(milliseconds: 300),
-              alignment: 0.5,
-            );
-            await Future.delayed(const Duration(milliseconds: 100));
-          } catch (e) {
-            // ignore
-          }
-        }
       },
     )..show(context: context);
   }
