@@ -86,6 +86,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey _keyAppConvenience = GlobalKey();
     final GlobalKey _keyStatusBarQuick = GlobalKey();
     final GlobalKey _keyOverlayQuick = GlobalKey();
+    final GlobalKey _keyAddressSearchMode = GlobalKey();
   final GlobalKey _keyCallPointShare = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
@@ -241,7 +242,7 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildExpenseListSettings(),
       _buildIncomeListSettings(),
       Container(
-        key: _keyStatusBarQuick,
+        key: _keyAppConvenience,
         child: _buildAppConvenienceSettings(),
       ),
       if (SettingsService.isOwnerMode)
@@ -454,6 +455,29 @@ class _SettingsPageState extends State<SettingsPage> {
                 return GuideContentWidget(
                   title: "퀵등록 플로팅버튼",
                   description: "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
+                  controller: controller,
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_keyAddressSearchMode.currentContext != null) {
+      targets.add(
+        TargetFocus(
+          identify: "addressSearchMode",
+          keyTarget: _keyAddressSearchMode,
+          alignSkip: Alignment.bottomRight,
+          contents: [
+            TargetContent(
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
+                return GuideContentWidget(
+                  title: "주소 자동완성 방식",
+                  description: "출/도착지 입력 시 추천받을 주소의 기준(시/군/구 등)을 설정합니다.",
                   controller: controller,
                 );
               },
@@ -822,6 +846,7 @@ class _SettingsPageState extends State<SettingsPage> {
               return Column(
                 children: [
                   SwitchListTile(
+                    key: _keyOverlayQuick,
                     contentPadding: EdgeInsets.zero,
                     title: const Text("퀵등록 플로팅버튼", style: TextStyle(color: Colors.white)),
                     subtitle: const Text("화면에 빠른 등록 버튼 띄우기", style: TextStyle(color: Colors.grey, fontSize: 12)),
@@ -883,6 +908,7 @@ class _SettingsPageState extends State<SettingsPage> {
             valueListenable: SettingsService.addressSearchModeNotifier,
             builder: (context, currentMode, _) {
               return ListTile(
+                key: _keyAddressSearchMode,
                 contentPadding: EdgeInsets.zero,
                 title: const Text('주소 자동완성 방식', style: TextStyle(color: Colors.white)),
                 subtitle: const Text('입력 시 추천해 주는 기준 선택', style: TextStyle(color: Colors.grey, fontSize: 12)),
