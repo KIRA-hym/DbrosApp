@@ -85,6 +85,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey _keyStorage = GlobalKey();
   final GlobalKey _keyAppConvenience = GlobalKey();
     final GlobalKey _keyStatusBarQuick = GlobalKey();
+    final GlobalKey _keyOverlayQuick = GlobalKey();
   final GlobalKey _keyCallPointShare = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
@@ -515,14 +516,21 @@ class _SettingsPageState extends State<SettingsPage> {
       paddingFocus: 10,
       opacityShadow: 0.8,
       onFinish: () {
-        guideProvider.setGuideShown('settings_page');
-        setState(() {});
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        });
+        return true;
       },
       onClickTarget: (target) {},
       onClickOverlay: (target) {},
       onSkip: () {
-        guideProvider.setGuideShown('settings_page');
-        setState(() {});
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+          }
+        });
         return true;
       },
     )..show(context: context);
