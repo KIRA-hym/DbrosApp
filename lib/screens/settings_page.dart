@@ -2527,3 +2527,85 @@ class _BatchGeocodeProgressDialogState
     );
   }
 }
+
+class ProgramTogglesWidget extends StatefulWidget {
+  final String programName;
+  const ProgramTogglesWidget({super.key, required this.programName});
+
+  @override
+  State<ProgramTogglesWidget> createState() => _ProgramTogglesWidgetState();
+}
+
+class _ProgramTogglesWidgetState extends State<ProgramTogglesWidget> {
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<String>>(
+      valueListenable: SettingsService.noFeeProgramsNotifier,
+      builder: (context, noFeeList, _) {
+        return ValueListenableBuilder<List<String>>(
+          valueListenable: SettingsService.insuranceProgramsNotifier,
+          builder: (context, insuranceList, _) {
+            final isFeeApplied = !noFeeList.contains(widget.programName);
+            final isInsuranceApplied = insuranceList.contains(widget.programName);
+
+            return Wrap(
+              spacing: 8.0,
+              runSpacing: 4.0,
+              children: [
+                _buildChip(
+                  label: '수수료 차감',
+                  isActive: isFeeApplied,
+                  onTap: () async {
+                    await SettingsService.setNoFeeProgram(widget.programName, !isFeeApplied);
+                  },
+                ),
+                _buildChip(
+                  label: '건당 보험료',
+                  isActive: isInsuranceApplied,
+                  onTap: () async {
+                    await SettingsService.setInsuranceProgram(widget.programName, !isInsuranceApplied);
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildChip({required String label, required bool isActive, required VoidCallback onTap}) {
+    final primaryColor = Theme.of(context).primaryColor;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isActive ? primaryColor.withValues(alpha: 0.5) : Colors.transparent,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isActive ? Icons.check_circle : Icons.check_circle_outline,
+              size: 14,
+              color: isActive ? primaryColor : Colors.grey,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isActive ? primaryColor : Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

@@ -13,7 +13,9 @@ class SettingsService {
   static final ValueNotifier<bool> _isPremiumUserNotifier = ValueNotifier(false);
   static final ValueNotifier<ThemeMode> _themeModeNotifier = ValueNotifier(ThemeMode.dark);
   static final ValueNotifier<bool> _isAmoledBlackNotifier = ValueNotifier(false);
-  static final ValueNotifier<String> _addressSearchModeNotifier = ValueNotifier('both');
+    static final ValueNotifier<String> _addressSearchModeNotifier = ValueNotifier('both');
+  static final ValueNotifier<List<String>> _noFeeProgramsNotifier = ValueNotifier([]);
+  static final ValueNotifier<List<String>> _insuranceProgramsNotifier = ValueNotifier([]);
   
   static final ValueNotifier<bool> isFeatureUnlockedNotifier = ValueNotifier(false);
   static Timer? _adRewardTimer;
@@ -132,6 +134,8 @@ class SettingsService {
   static ValueNotifier<ThemeMode> get themeModeNotifier => _themeModeNotifier;
   static ValueNotifier<bool> get isAmoledBlackNotifier => _isAmoledBlackNotifier;
   static ValueNotifier<String> get addressSearchModeNotifier => _addressSearchModeNotifier;
+  static ValueNotifier<List<String>> get noFeeProgramsNotifier => _noFeeProgramsNotifier;
+  static ValueNotifier<List<String>> get insuranceProgramsNotifier => _insuranceProgramsNotifier;
 
   static ThemeMode get themeMode {
     final modeString = _prefs.getString('themeMode') ?? 'dark';
