@@ -716,24 +716,57 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
-              if (value) {
-                if (Platform.isAndroid && (await PackageInfo.fromPlatform()).version.startsWith('14')) {
-                  final storageStatus = await Permission.manageExternalStorage.request();
-                  if (!storageStatus.isGranted) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                    );
-                    return;
+              if (value && !SettingsService.isFeatureUnlocked()) {
+                _showAdRewardDialog(context, 'auto_screenshot', () async {
+                  if (!kIsWeb && Platform.isAndroid) {
+                    if ((await PackageInfo.fromPlatform()).version.startsWith('14')) {
+                      final storageStatus = await Permission.manageExternalStorage.request();
+                      if (!storageStatus.isGranted) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
+                        );
+                        return;
+                      }
+                    } else {
+                      final storageStatus = await Permission.storage.request();
+                      if (!storageStatus.isGranted) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
+                        );
+                        return;
+                      }
+                    }
                   }
-                } else {
-                  final storageStatus = await Permission.storage.request();
-                  if (!storageStatus.isGranted) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                    );
-                    return;
+                  await SettingsService.setScreenshotAutoRegisterEnabled(true);
+                  await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+                  if (!mounted) return;
+                  setState(() => _screenshotAutoRegisterEnabled = true);
+                });
+                return;
+              }
+
+              if (value) {
+                if (!kIsWeb && Platform.isAndroid) {
+                  if ((await PackageInfo.fromPlatform()).version.startsWith('14')) {
+                    final storageStatus = await Permission.manageExternalStorage.request();
+                    if (!storageStatus.isGranted) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
+                      );
+                      return;
+                    }
+                  } else {
+                    final storageStatus = await Permission.storage.request();
+                    if (!storageStatus.isGranted) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
+                      );
+                      return;
+                    }
                   }
                 }
               }
