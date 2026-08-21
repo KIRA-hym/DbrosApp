@@ -21,7 +21,7 @@ class FeatureUsageService {
   }
 
   // --- Daily Pass Logic (오전 9시 일괄 초기화 무제한 패스) ---
-  
+
   static Future<bool> hasDailyPassAsync(String featureKey) async {
     await _checkAndResetDailyCounter(featureKey);
     return _prefs.getBool('${featureKey}_daily_pass') ?? false;
@@ -62,7 +62,7 @@ class FeatureUsageService {
   }
 
   // Helper check functions
-  
+
   static Future<bool> canUseSingleOcrFree() async {
     final stats = await getUsageStats('single_ocr');
     return stats['free']! < 2; // 2회 무료
@@ -79,6 +79,15 @@ class FeatureUsageService {
   static Future<bool> canUseCallMapFree() async {
     final stats = await getUsageStats('call_map');
     return stats['free']! < 1; // 1회 무료
+  }
+
+  static Future<bool> canUseRouteMapFree() async {
+    final stats = await getUsageStats('route_map');
+    return stats['free']! < 1; // 1회 무료
+  }
+
+  static Future<bool> canUseRouteMapWithAd() async {
+    return true; // 프리패스 제도로 변경되었으므로 언제든 광고 시청 가능
   }
 
   static Future<bool> canUseCallMapWithAd() async {

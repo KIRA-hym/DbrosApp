@@ -10,6 +10,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../services/db_helper.dart';
 import '../main.dart';
+import '../utils/pro_feature_guard.dart';
+import '../services/feature_usage_service.dart';
 import 'write_log_page.dart';
 import 'stats_page.dart' show StatsRouteMapPage, TripSegment;
 import '../config/feature_flags.dart';
@@ -1172,15 +1174,23 @@ class _LogListPageState extends State<LogListPage> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StatsRouteMapPage(
-          periodLabel: '일간',
-          dateLabel: '근무일자: $dateStr',
-          segments: segments,
-        ),
-      ),
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'route_map',
+      canUseFree: FeatureUsageService.canUseRouteMapFree,
+      canUseWithAd: FeatureUsageService.canUseRouteMapWithAd,
+      onGranted: (isFreeTicket) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StatsRouteMapPage(
+              periodLabel: '일간',
+              dateLabel: '근무일자: $dateStr',
+              segments: segments,
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -3009,8 +3019,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final String time =
         timePrefix + log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
     final fullStart = log['start_location']?.toString().trim();
-      final startLat = log['start_lat'];
-      final endLat = log['end_lat'];
+    final startLat = log['start_lat'];
+    final endLat = log['end_lat'];
     final fullEnd = log['end_location']?.toString().trim();
     final fullWp = log['waypoint']?.toString().trim();
     final locStyle = TextStyle(
@@ -3043,7 +3053,11 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final displayWidget = Text(
         isMissing ? '⚠️ 누락' : t,
         style: locStyle.copyWith(
-          color: isMissing ? const Color(0xFFFF5252) : (!hasCoordinate && full != null && full.isNotEmpty ? Colors.orange : null),
+          color: isMissing
+              ? const Color(0xFFFF5252)
+              : (!hasCoordinate && full != null && full.isNotEmpty
+                    ? Colors.orange
+                    : null),
         ),
         maxLines: 1,
         softWrap: false,
@@ -3680,15 +3694,23 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       return;
     }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => StatsRouteMapPage(
-          periodLabel: '일간',
-          dateLabel: _currentDateTitle,
-          segments: segments,
-        ),
-      ),
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'route_map',
+      canUseFree: FeatureUsageService.canUseRouteMapFree,
+      canUseWithAd: FeatureUsageService.canUseRouteMapWithAd,
+      onGranted: (isFreeTicket) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => StatsRouteMapPage(
+              periodLabel: '일간',
+              dateLabel: _currentDateTitle,
+              segments: segments,
+            ),
+          ),
+        );
+      },
     );
   }
 

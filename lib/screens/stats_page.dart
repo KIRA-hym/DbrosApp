@@ -1232,21 +1232,29 @@ class _StatsPageState extends State<StatsPage> {
         return;
       }
 
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (_) => StatsRouteMapPage(
-            periodLabel: _selectedPeriod,
-            dateLabel: _selectedPeriod == '일간'
-                ? _getDailyDisplayText()
-                : _selectedPeriod == '주간'
-                ? _getWeeklyDisplayText()
-                : _selectedPeriod == '월간'
-                ? _getMonthlyDisplayText()
-                : _getYearlyDisplayText(),
-            segments: segments,
-          ),
-        ),
+      ProFeatureGuard.checkAndRun(
+        context: context,
+        featureKey: 'route_map',
+        canUseFree: FeatureUsageService.canUseRouteMapFree,
+        canUseWithAd: FeatureUsageService.canUseRouteMapWithAd,
+        onGranted: (isFreeTicket) {
+          Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => StatsRouteMapPage(
+                periodLabel: _selectedPeriod,
+                dateLabel: _selectedPeriod == '일간'
+                    ? _getDailyDisplayText()
+                    : _selectedPeriod == '주간'
+                    ? _getWeeklyDisplayText()
+                    : _selectedPeriod == '월간'
+                    ? _getMonthlyDisplayText()
+                    : _getYearlyDisplayText(),
+                segments: segments,
+              ),
+            ),
+          );
+        },
       );
     } catch (e) {
       if (!mounted) return;
