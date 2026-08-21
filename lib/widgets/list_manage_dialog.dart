@@ -50,6 +50,7 @@ class ListManageDialog extends StatefulWidget {
       barrierDismissible: true,
       barrierColor: Colors.black54,
       builder: (_) => ListManageDialog(
+        subtitleBuilder: subtitleBuilder,
         title: title,
         icon: icon,
         items: items,
@@ -222,6 +223,7 @@ class _ListManageDialogState extends State<ListManageDialog> {
                           itemCount: _items.length,
                           onReorder: _handleReorder,
                           itemBuilder: (_, i) => _ItemRow(
+                              subtitleBuilder: widget.subtitleBuilder,
                             key: ValueKey('${_items[i]}_$i'),
                             index: i,
                             item: _items[i],
