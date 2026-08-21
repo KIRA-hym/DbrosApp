@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
-import 'package:dbros_app/data/default_call_points.dart';
+
 
 import 'package:intl/intl.dart';
 import '../utils/drive_time_format.dart';
@@ -364,7 +364,7 @@ class DriveLogDatabase {
       await db.execute("DELETE FROM call_points WHERE type IN ('reference', 'restroom', 'shuttle')");
       try {
         final batch = db.batch();
-        for (var r in defaultCallPoints) {
+        for (var r in []) {
           batch.insert('call_points', {
             'type': r['type'],
             'is_mine': 0,

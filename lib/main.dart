@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'services/remote_config_service.dart';
+import 'services/map_data_sync_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
 import 'providers/today_stats_provider.dart';
 import 'providers/work_timer_provider.dart';
@@ -73,6 +74,8 @@ void main() async {
     }
     // RemoteConfigService는 네트워크 fetchAndActivate 포함 → 백그라운드 처리
     unawaited(RemoteConfigService().initialize());
+    // 맵 데이터(JSON) 백그라운드 동기화 (기존 구글 시트 대체)
+    unawaited(MapDataSyncService.syncCommonPoints());
     // FCM init은 getToken() 등 네트워크 호출 포함 → 백그라운드 처리
     unawaited(FcmService.instance.init());
   } catch (e) {
