@@ -19,6 +19,7 @@ import '../services/font_size_service.dart';
 import '../services/settings_service.dart';
 import '../services/weather_service.dart';
 import '../services/db_helper.dart';
+import '../services/expense_repository.dart';
 import '../services/youtube_rss_service.dart';
 import '../providers/work_timer_provider.dart';
 import '../utils/responsive_layout.dart';
@@ -600,27 +601,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               }
 
                               return SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildTodaySummaryCard(),
-                                    SizedBox(height: sectionGap),
-                                    SizedBox(
-                                      height: 60,
-                                      child: _buildUtilsRow(),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                  child: IntrinsicHeight(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        _buildTodaySummaryCard(),
+                                        SizedBox(height: sectionGap),
+                                        SizedBox(
+                                          height: 60,
+                                          child: _buildUtilsRow(),
+                                        ),
+                                        SizedBox(height: sectionGap),
+                                        SizedBox(
+                                          height: 85,
+                                          child: _buildRegisterRow(),
+                                        ),
+                                        SizedBox(height: sectionGap),
+                                        Expanded(
+                                          child: Container(
+                                            constraints: const BoxConstraints(minHeight: 220),
+                                            child: _buildYoutubeSection(),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(height: sectionGap),
-                                    SizedBox(
-                                      height: 85,
-                                      child: _buildRegisterRow(),
-                                    ),
-                                    SizedBox(height: sectionGap),
-
-                                    SizedBox(
-                                      height: 220,
-                                      child: _buildYoutubeSection(),
-                                    ),
-                                  ],
+                                  ),
                                 ),
                               );
                             },
@@ -899,6 +906,93 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+
+  Future<void> _showDriveCountDetail() async {
+    final ymd = WorkDateUtils.effectiveWorkDateYmd();
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(ymd, ymd);
+
+    final Map<String, int> counts = {};
+    for (final log in logs) {
+      final prog = (log['program'] as String?) ?? '기타';
+      counts[prog] = (counts[prog] ?? 0) + 1;
+    }
+
+    if (!mounted) return;
+
+    AppGlassDialog.show(
+      context: context,
+      dialog: AppGlassDialog(
+        title: '프로그램별 운행건수',
+        icon: Icons.local_taxi,
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: counts.isEmpty
+              ? [const Padding(padding: EdgeInsets.all(16), child: Center(child: Text('오늘 작성된 운행 일지가 없습니다.', style: TextStyle(color: Colors.white70))))]
+              : counts.entries.map((e) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(e.key, style: const TextStyle(fontSize: 15, color: Colors.white)),
+                        Text('${e.value}건', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4DABF7))),
+                      ],
+                    ),
+                  );
+                }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      )
+    );
+  }
+
+  Future<void> _showExpenseDetail() async {
+    final ymd = WorkDateUtils.effectiveWorkDateYmd();
+    final items = await ExpenseRepository.aggregateByCategoryForRange(ymd, ymd, includeAllDefinedCategories: false);
+
+    if (!mounted) return;
+
+    AppGlassDialog.show(
+      context: context,
+      dialog: AppGlassDialog(
+        title: '오늘의 지출 상세',
+        icon: Icons.receipt_long,
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: items.isEmpty
+              ? [const Padding(padding: EdgeInsets.all(16), child: Center(child: Text('오늘 등록된 지출이 없습니다.', style: TextStyle(color: Colors.white70))))]
+              : items.map((e) {
+                  final label = (e['label'] as String?) ?? '기타';
+                  final amount = (e['amount'] as num?)?.toInt() ?? 0;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(label, style: const TextStyle(fontSize: 15, color: Colors.white)),
+                        Text('${NumberFormat('#,###').format(amount)}원', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFFF5252))),
+                      ],
+                    ),
+                  );
+                }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('닫기', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      )
+    );
+  }
+
   Widget _buildTodaySummaryCard() {
     final statsProvider = Provider.of<TodayStatsProvider>(context);
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
@@ -913,123 +1007,129 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: _openTodayDailyList,
-          splashColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
-          highlightColor: Theme.of(context).dividerColor,
-          child: Padding(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: _openTodayDailyList,
+              splashColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+              highlightColor: Theme.of(context).dividerColor,
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              dateFull,
-                              style: TextStyle(
-                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (_weatherInfo != null) ...[
-                            const SizedBox(width: 8),
-                            InkWell(
-                              onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(_weatherInfo!.message),
-                                    behavior: SnackBarBehavior.floating,
-                                    duration: const Duration(seconds: 2),
-                                  ),
-                                );
-                              },
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
-                                  ),
-                                ),
-                                child: Text(
-                                  '${_weatherInfo!.emoji} ${_weatherInfo!.temperature}°',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                      size: 14,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: FittedBox(
-                        alignment: Alignment.centerLeft,
-                        fit: BoxFit.scaleDown,
-                        child: _buildSmallWorkTimerWidget(),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '오늘 순익',
-                          style: TextStyle(
-                            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  dateFull,
+                                  style: TextStyle(
+                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_weatherInfo != null) ...[
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(_weatherInfo!.message),
+                                        behavior: SnackBarBehavior.floating,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '${_weatherInfo!.emoji} ${_weatherInfo!.temperature}°',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                        SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                          size: 14,
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: FittedBox(
+                            alignment: Alignment.centerLeft,
+                            fit: BoxFit.scaleDown,
+                            child: _buildSmallWorkTimerWidget(),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              NumberFormat('#,###').format(statsProvider.todayNet),
-                              style: TextStyle(
-                                color: Color(0xFFFFC700),
-                                fontSize: 34,
-                                fontWeight: FontWeight.w700,
-                                height: 1.1,
-                              ),
-                            ),
-                            SizedBox(width: 4),
-                            Text(
-                              '원',
+                              '오늘 순익',
                               style: TextStyle(
                                 color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                                fontSize: 16,
+                                fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
+                            ),
+                            SizedBox(height: 10),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.baseline,
+                              textBaseline: TextBaseline.alphabetic,
+                              children: [
+                                Text(
+                                  NumberFormat('#,###').format(statsProvider.todayNet),
+                                  style: TextStyle(
+                                    color: Color(0xFFFFC700),
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.w700,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  '원',
+                                  style: TextStyle(
+                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -1037,74 +1137,89 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     ),
                   ],
                 ),
-                SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '운행건수',
-                              style: TextStyle(
-                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              '${statsProvider.todayLogs}건',
-                              style: TextStyle(
-                                color: Color(0xFF4DABF7),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 1,
-                        height: 24,
-                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1),
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      Expanded(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              '지출',
-                              style: TextStyle(
-                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                                fontSize: 13,
-                              ),
-                            ),
-                            Text(
-                              '${NumberFormat('#,###').format(statsProvider.todayExpenses)}원',
-                              style: TextStyle(
-                                color: Color(0xFFFF5252),
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _showDriveCountDetail,
+                        borderRadius: BorderRadius.horizontal(left: Radius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '운행건수',
+                                style: TextStyle(
+                                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                '${statsProvider.todayLogs}건',
+                                style: TextStyle(
+                                  color: Color(0xFF4DABF7),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _showExpenseDetail,
+                        borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '지출',
+                                style: TextStyle(
+                                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                  fontSize: 13,
+                                ),
+                              ),
+                              Text(
+                                '${NumberFormat('#,###').format(statsProvider.todayExpenses)}원',
+                                style: TextStyle(
+                                  color: Color(0xFFFF5252),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
+
   }
 
   Widget _buildUtilsRow() {

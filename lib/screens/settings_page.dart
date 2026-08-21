@@ -2556,7 +2556,7 @@ class _ProgramTogglesWidgetState extends State<ProgramTogglesWidget> {
                   label: '수수료 차감',
                   isActive: isFeeApplied,
                   onTap: () async {
-                    await SettingsService.setNoFeeProgram(widget.programName, !isFeeApplied);
+                    await SettingsService.setNoFeeProgram(widget.programName, isFeeApplied);
                   },
                 ),
                 _buildChip(

@@ -9,7 +9,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../services/db_helper.dart';
-import '../main.dart'; 
+import '../main.dart';
 import 'write_log_page.dart';
 import 'stats_page.dart' show StatsRouteMapPage, TripSegment;
 import '../config/feature_flags.dart';
@@ -77,14 +77,16 @@ class _LogListPageState extends State<LogListPage> {
 
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _todayKey = GlobalKey();
-  
+
   final GlobalKey _keyMonthHeader = GlobalKey();
   final GlobalKey _keyShareButton = GlobalKey();
   final GlobalKey _keyDailyList = GlobalKey();
   final GlobalKey _keyMonthlySummary = GlobalKey();
 
-  final ScreenshotController _monthShareScreenshotController = ScreenshotController();
+  final ScreenshotController _monthShareScreenshotController =
+      ScreenshotController();
   String? _masterDetailDate;
+
   /// 마스터-디테일 우측 패널 강제 갱신(하루 삭제·월 데이터 reload 등).
   int _detailRevision = 0;
   bool? _wasExpanded;
@@ -94,7 +96,8 @@ class _LogListPageState extends State<LogListPage> {
     final workYmd = WorkDateUtils.effectiveWorkDateYmd();
     final parsed = DateTime.tryParse(workYmd);
     if (parsed == null) return null;
-    if (parsed.year == _focusedMonth.year && parsed.month == _focusedMonth.month) {
+    if (parsed.year == _focusedMonth.year &&
+        parsed.month == _focusedMonth.month) {
       return workYmd;
     }
     return null;
@@ -103,20 +106,21 @@ class _LogListPageState extends State<LogListPage> {
   Map<String, List<Map<String, dynamic>>> get _filteredGroupedLogs {
     if (!_isSearchActive || _searchQuery.isEmpty) return _groupedLogs;
     final query = _searchQuery.toLowerCase();
-    
+
     final filtered = <String, List<Map<String, dynamic>>>{};
     for (final entry in _groupedLogs.entries) {
       final matchingLogs = entry.value.where((log) {
-        final startLoc = (log['start_location']?.toString() ?? '').toLowerCase();
+        final startLoc = (log['start_location']?.toString() ?? '')
+            .toLowerCase();
         final endLoc = (log['end_location']?.toString() ?? '').toLowerCase();
         final waypoint = (log['waypoint']?.toString() ?? '').toLowerCase();
         final program = (log['program']?.toString() ?? '').toLowerCase();
         final memo = (log['memo']?.toString() ?? '').toLowerCase();
         return startLoc.contains(query) ||
-               endLoc.contains(query) ||
-               waypoint.contains(query) ||
-               program.contains(query) ||
-               memo.contains(query);
+            endLoc.contains(query) ||
+            waypoint.contains(query) ||
+            program.contains(query) ||
+            memo.contains(query);
       }).toList();
       if (matchingLogs.isNotEmpty) {
         filtered[entry.key] = matchingLogs;
@@ -127,29 +131,39 @@ class _LogListPageState extends State<LogListPage> {
 
   int get _filteredTotalCount {
     if (!_isSearchActive || _searchQuery.isEmpty) return _totalCount;
-    return _filteredGroupedLogs.values.fold(0, (sum, logs) => sum + logs.length);
+    return _filteredGroupedLogs.values.fold(
+      0,
+      (sum, logs) => sum + logs.length,
+    );
   }
 
   int get _filteredTotalGross {
     if (!_isSearchActive || _searchQuery.isEmpty) return _totalGross;
-    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowIncomePlusTip(log));
+    return _filteredGroupedLogs.values
+        .expand((l) => l)
+        .fold(0, (sum, log) => sum + _rowIncomePlusTip(log));
   }
 
   int get _filteredTotalNet {
     if (!_isSearchActive || _searchQuery.isEmpty) return _totalNet;
-    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowNetProfit(log));
+    return _filteredGroupedLogs.values
+        .expand((l) => l)
+        .fold(0, (sum, log) => sum + _rowNetProfit(log));
   }
 
   int get _filteredTotalExpenses {
     if (!_isSearchActive || _searchQuery.isEmpty) return _totalExpenses;
-    return _filteredGroupedLogs.values.expand((l) => l).fold(0, (sum, log) => sum + _rowExpenseFeePlusTransport(log));
+    return _filteredGroupedLogs.values
+        .expand((l) => l)
+        .fold(0, (sum, log) => sum + _rowExpenseFeePlusTransport(log));
   }
 
   Widget _buildSearchFilters() {
     final Set<String> uniquePrograms = {};
     for (var list in _groupedLogs.values) {
       for (var log in list) {
-        if (log['program'] != null && log['program'].toString().trim().isNotEmpty) {
+        if (log['program'] != null &&
+            log['program'].toString().trim().isNotEmpty) {
           uniquePrograms.add(log['program'].toString().trim());
         }
       }
@@ -160,13 +174,17 @@ class _LogListPageState extends State<LogListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+        ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Row(
           children: programs.map((p) {
-            final isSelected = (p == '전체') ? _searchQuery.isEmpty : _searchQuery == p;
+            final isSelected = (p == '전체')
+                ? _searchQuery.isEmpty
+                : _searchQuery == p;
             return Padding(
               padding: const EdgeInsets.only(right: 8.0),
               child: FilterChip(
@@ -186,7 +204,9 @@ class _LogListPageState extends State<LogListPage> {
                     }
                   });
                 },
-                selectedColor: Theme.of(context).primaryColor.withValues(alpha: 0.2),
+                selectedColor: Theme.of(
+                  context,
+                ).primaryColor.withValues(alpha: 0.2),
                 checkmarkColor: Theme.of(context).primaryColor,
               ),
             );
@@ -206,13 +226,18 @@ class _LogListPageState extends State<LogListPage> {
     TextAlign valueAlign = TextAlign.start,
   }) {
     return Container(
-      alignment: valueAlign == TextAlign.end ? Alignment.centerRight : Alignment.centerLeft,
+      alignment: valueAlign == TextAlign.end
+          ? Alignment.centerRight
+          : Alignment.centerLeft,
       child: FittedBox(
         fit: BoxFit.scaleDown,
         child: Text.rich(
           TextSpan(
             children: [
-              TextSpan(text: '$label : ', style: TextStyle(color: labelColor, fontSize: 13)),
+              TextSpan(
+                text: '$label : ',
+                style: TextStyle(color: labelColor, fontSize: 13),
+              ),
               TextSpan(
                 text: '$prefix${NumberFormat('#,###').format(amount)}',
                 style: TextStyle(
@@ -242,7 +267,9 @@ class _LogListPageState extends State<LogListPage> {
     required String dateStr,
     required List<Map<String, dynamic>> dailyLogs,
   }) {
-    final dayColor = isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white);
+    final dayColor = isToday
+        ? Theme.of(context).primaryColor
+        : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -264,7 +291,8 @@ class _LogListPageState extends State<LogListPage> {
                             '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: dayColor,
                                   fontSize: 13,
@@ -275,10 +303,25 @@ class _LogListPageState extends State<LogListPage> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                            Text(
+                              '$logCount건',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
+                                    fontSize: 13,
+                                  ),
+                            ),
                             if (dailyLogs.any(_hasLogError)) ...[
                               const SizedBox(width: 4),
-                              const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                              const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.redAccent,
+                                size: 14,
+                              ),
                             ],
                           ],
                         ),
@@ -289,10 +332,17 @@ class _LogListPageState extends State<LogListPage> {
                   Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                        const TextSpan(
+                          text: '수입 : ',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontSize: 13,
+                          ),
+                        ),
                         TextSpan(
                           text: '₩${NumberFormat('#,###').format(dailyIncome)}',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
                                 color: Colors.lightBlueAccent,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -342,7 +392,9 @@ class _LogListPageState extends State<LogListPage> {
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color!,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -356,9 +408,11 @@ class _LogListPageState extends State<LogListPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Flexible(
@@ -368,15 +422,33 @@ class _LogListPageState extends State<LogListPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('$_filteredTotalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                      Text(
+                        '$_filteredTotalCount건',
+                        style: TextStyle(
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
+                          fontSize: 13,
+                        ),
+                      ),
                       SizedBox(width: 8),
                       Text.rich(
                         TextSpan(
                           children: [
-                            TextSpan(text: '총 수입: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
                             TextSpan(
-                              text: '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
-                              style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)
+                              text: '총 수입: ',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
+                              style: TextStyle(
+                                color: Colors.lightBlueAccent,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
@@ -398,8 +470,18 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(text: '순수익: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_filteredTotalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        TextSpan(
+                          text: '순수익: ',
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
+                        TextSpan(
+                          text:
+                              '₩${NumberFormat('#,###').format(_filteredTotalNet)}',
+                          style: TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -412,8 +494,18 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(text: '지출: ', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                        TextSpan(text: '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        TextSpan(
+                          text: '지출: ',
+                          style: TextStyle(color: Colors.grey, fontSize: 13),
+                        ),
+                        TextSpan(
+                          text:
+                              '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}',
+                          style: TextStyle(
+                            color: Color(0xFFFF5252),
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -443,7 +535,7 @@ class _LogListPageState extends State<LogListPage> {
   void initState() {
     super.initState();
     _loadMonthData();
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final guideProvider = Provider.of<GuideProvider>(context, listen: false);
@@ -484,7 +576,7 @@ class _LogListPageState extends State<LogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 일지 이동",
@@ -502,11 +594,12 @@ class _LogListPageState extends State<LogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 기록 공유",
-                description: "현재 보고 있는 월간 운행 내역 전체를 이미지로 캡처해서 카카오톡 등으로 공유할 수 있어요.",
+                description:
+                    "현재 보고 있는 월간 운행 내역 전체를 이미지로 캡처해서 카카오톡 등으로 공유할 수 있어요.",
                 controller: controller,
               );
             },
@@ -525,11 +618,12 @@ class _LogListPageState extends State<LogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "상세 진입 및 스와이프 삭제",
-                description: "날짜를 터치하면 해당 일자의 상세 내역을 볼 수 있고, 항목을 왼쪽으로 스와이프하면 그 날의 기록을 모두 삭제할 수 있어요.",
+                description:
+                    "날짜를 터치하면 해당 일자의 상세 내역을 볼 수 있고, 항목을 왼쪽으로 스와이프하면 그 날의 기록을 모두 삭제할 수 있어요.",
                 controller: controller,
               );
             },
@@ -546,7 +640,7 @@ class _LogListPageState extends State<LogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "월간 수입/지출 요약",
@@ -568,14 +662,24 @@ class _LogListPageState extends State<LogListPage> {
       opacityShadow: 0.8,
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
       },
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
@@ -595,7 +699,11 @@ class _LogListPageState extends State<LogListPage> {
 
   void _changeMonth(int offset) {
     setState(() {
-      _focusedMonth = DateTime(_focusedMonth.year, _focusedMonth.month + offset, 1);
+      _focusedMonth = DateTime(
+        _focusedMonth.year,
+        _focusedMonth.month + offset,
+        1,
+      );
       _isScrolled = false;
     });
     _loadMonthData();
@@ -604,7 +712,9 @@ class _LogListPageState extends State<LogListPage> {
   Future<void> _loadMonthData() async {
     setState(() => _isLoading = true);
     final String yearMonth = DateFormat('yyyy-MM').format(_focusedMonth);
-    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(yearMonth);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkMonthStrict(
+      yearMonth,
+    );
 
     Map<String, List<Map<String, dynamic>>> grouped = {};
     int count = logs.length;
@@ -645,7 +755,7 @@ class _LogListPageState extends State<LogListPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_todayKey.currentContext != null) {
         Scrollable.ensureVisible(
-          _todayKey.currentContext!, 
+          _todayKey.currentContext!,
           duration: Duration.zero,
           alignment: 0.0,
         );
@@ -654,7 +764,7 @@ class _LogListPageState extends State<LogListPage> {
           _scrollController.jumpTo(0);
         }
       }
-      
+
       if (mounted) {
         setState(() => _isScrolled = true);
       }
@@ -664,7 +774,7 @@ class _LogListPageState extends State<LogListPage> {
   @override
   Widget build(BuildContext context) {
     final isExpanded = ResponsiveLayout.isExpanded(context);
-    
+
     if (_wasExpanded == true && !isExpanded && _masterDetailDate != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -673,10 +783,7 @@ class _LogListPageState extends State<LogListPage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => DailyLogListPage(
-              dateStr: date,
-              dateTitle: date,
-            ),
+            builder: (_) => DailyLogListPage(dateStr: date, dateTitle: date),
           ),
         ).then((returnedDate) {
           if (returnedDate is String) {
@@ -696,7 +803,7 @@ class _LogListPageState extends State<LogListPage> {
         }
       });
     }
-    
+
     _wasExpanded = isExpanded;
 
     return Scaffold(
@@ -705,7 +812,10 @@ class _LogListPageState extends State<LogListPage> {
         leading: (_groupedLogs.isEmpty && !_isSearchActive)
             ? const SizedBox.shrink()
             : IconButton(
-                icon: Icon(_isSearchActive ? Icons.arrow_back : Icons.search, color: Theme.of(context).primaryColor),
+                icon: Icon(
+                  _isSearchActive ? Icons.arrow_back : Icons.search,
+                  color: Theme.of(context).primaryColor,
+                ),
                 onPressed: () {
                   setState(() {
                     _isSearchActive = !_isSearchActive;
@@ -738,9 +848,9 @@ class _LogListPageState extends State<LogListPage> {
             : Text(
                 "운행 일지 목록",
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
               ),
         centerTitle: !_isSearchActive,
         backgroundColor: Theme.of(context).cardTheme.color!,
@@ -770,47 +880,57 @@ class _LogListPageState extends State<LogListPage> {
                     dateTitle: '검색 결과',
                     embedded: isExpanded,
                     isSearchMode: true,
-                    searchResults: _filteredGroupedLogs.values.expand((e) => e).toList(),
+                    searchResults: _filteredGroupedLogs.values
+                        .expand((e) => e)
+                        .toList(),
                     onLogsChanged: _loadMonthData,
                   )
                 : (isExpanded
-                    ? _buildExpandedMasterDetailBody()
-                    : ResponsiveBody(
-                        child: Column(
-                          children: [
-                            _buildMonthHeader(),
-                            Expanded(
-                              child: ColoredBox(
-                                color: Theme.of(context).scaffoldBackgroundColor,
-                                child: _isLoading
-                                    ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-                                    : Stack(
-                                        children: [
-                                          Opacity(
-                                            opacity: _isScrolled ? 1.0 : 0.0,
-                                            child: _buildDailyList(
-                                              selectedDate: _masterDetailDate,
-                                              masterDetailMode: false,
-                                            ),
+                      ? _buildExpandedMasterDetailBody()
+                      : ResponsiveBody(
+                          child: Column(
+                            children: [
+                              _buildMonthHeader(),
+                              Expanded(
+                                child: ColoredBox(
+                                  color: Theme.of(
+                                    context,
+                                  ).scaffoldBackgroundColor,
+                                  child: _isLoading
+                                      ? Center(
+                                          child: CircularProgressIndicator(
+                                            color: Color(0xFFFFC700),
                                           ),
-                                          if (_groupedLogs.isNotEmpty)
-                                            Positioned(
-                                              top: 0,
-                                              left: 0,
-                                              right: 0,
-                                              height: 70,
-                                              child: IgnorePointer(
-                                                child: Container(key: _keyDailyList),
+                                        )
+                                      : Stack(
+                                          children: [
+                                            Opacity(
+                                              opacity: _isScrolled ? 1.0 : 0.0,
+                                              child: _buildDailyList(
+                                                selectedDate: _masterDetailDate,
+                                                masterDetailMode: false,
                                               ),
                                             ),
-                                        ],
-                                      ),
+                                            if (_groupedLogs.isNotEmpty)
+                                              Positioned(
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: 70,
+                                                child: IgnorePointer(
+                                                  child: Container(
+                                                    key: _keyDailyList,
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                ),
                               ),
-                            ),
-                            _buildMonthlySummaryFooter(),
-                          ],
-                        ),
-                      )),
+                              _buildMonthlySummaryFooter(),
+                            ],
+                          ),
+                        )),
           ),
         ],
       ),
@@ -824,7 +944,9 @@ class _LogListPageState extends State<LogListPage> {
         _buildMonthHeader(),
         Expanded(
           child: _isLoading
-              ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              ? Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+                )
               : Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -841,7 +963,8 @@ class _LogListPageState extends State<LogListPage> {
                                   _buildDailyList(
                                     masterDetailMode: true,
                                     selectedDate: selected,
-                                    onSelectDate: (d) => setState(() => _masterDetailDate = d),
+                                    onSelectDate: (d) =>
+                                        setState(() => _masterDetailDate = d),
                                   ),
                                   if (_groupedLogs.isNotEmpty)
                                     Positioned(
@@ -861,7 +984,10 @@ class _LogListPageState extends State<LogListPage> {
                         ),
                       ),
                     ),
-                    VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
+                    VerticalDivider(
+                      width: 1,
+                      color: Theme.of(context).dividerColor,
+                    ),
                     Expanded(
                       flex: 1,
                       child: selected == null
@@ -880,8 +1006,13 @@ class _LogListPageState extends State<LogListPage> {
                               onDateChanged: (newDate) {
                                 final parsed = DateTime.tryParse(newDate);
                                 if (parsed != null) {
-                                  if (parsed.year != _focusedMonth.year || parsed.month != _focusedMonth.month) {
-                                    _focusedMonth = DateTime(parsed.year, parsed.month, 1);
+                                  if (parsed.year != _focusedMonth.year ||
+                                      parsed.month != _focusedMonth.month) {
+                                    _focusedMonth = DateTime(
+                                      parsed.year,
+                                      parsed.month,
+                                      1,
+                                    );
                                     _loadMonthData();
                                   }
                                 }
@@ -924,7 +1055,11 @@ class _LogListPageState extends State<LogListPage> {
                       border: InputBorder.none,
                       isDense: true,
                     ),
-                    style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                    style: TextStyle(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                    ),
                     onChanged: (val) {
                       setState(() {
                         _searchQuery = val.trim();
@@ -949,25 +1084,47 @@ class _LogListPageState extends State<LogListPage> {
           : Stack(
               alignment: Alignment.center,
               children: [
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.arrow_left, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
+                      icon: Icon(
+                        Icons.arrow_left,
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        size: iconSize,
+                      ),
                       onPressed: () => _changeMonth(-1),
-                      constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
+                      constraints: BoxConstraints(
+                        minWidth: iconSize + 8,
+                        minHeight: iconSize + 8,
+                      ),
                     ),
                     SizedBox(width: isTablet ? 20 : 16),
                     Text(
-                      DateFormat('yyyy년 MM월').format(_focusedMonth), 
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))
+                      DateFormat('yyyy년 MM월').format(_focusedMonth),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                      ),
                     ),
                     SizedBox(width: isTablet ? 20 : 16),
                     IconButton(
-                      icon: Icon(Icons.arrow_right, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize), 
+                      icon: Icon(
+                        Icons.arrow_right,
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        size: iconSize,
+                      ),
                       onPressed: () => _changeMonth(1),
-                      constraints: BoxConstraints(minWidth: iconSize + 8, minHeight: iconSize + 8),
+                      constraints: BoxConstraints(
+                        minWidth: iconSize + 8,
+                        minHeight: iconSize + 8,
+                      ),
                     ),
                   ],
                 ),
@@ -991,20 +1148,27 @@ class _LogListPageState extends State<LogListPage> {
       final startLoc = (log['start_location'] ?? '').toString();
       final endLoc = (log['end_location'] ?? '').toString();
 
-      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+      if (startLat != null &&
+          startLng != null &&
+          endLat != null &&
+          endLng != null) {
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            startSnippet: '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
-            endSnippet: '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
+            startSnippet:
+                '$program · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet:
+                '$program · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }
     }
 
     if (segments.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('해당 일자에 표시할 좌표 데이터가 없습니다.')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('해당 일자에 표시할 좌표 데이터가 없습니다.')));
       return;
     }
 
@@ -1025,24 +1189,32 @@ class _LogListPageState extends State<LogListPage> {
     String? selectedDate,
     void Function(String dateStr)? onSelectDate,
   }) {
-    int daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
-    
+    int daysInMonth = DateUtils.getDaysInMonth(
+      _focusedMonth.year,
+      _focusedMonth.month,
+    );
+
     // 새벽 근무자를 위해 '자정 기준 오늘'이 아닌 '근무일 기준 오늘(어제일 수 있음)'을 포커스 타겟으로 지정
     final String targetDateStr = WorkDateUtils.effectiveWorkDateYmd();
-    
+
     return SingleChildScrollView(
       controller: _scrollController,
       child: Column(
         children: List.generate(daysInMonth, (index) {
           int day = index + 1;
-          DateTime currentDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+          DateTime currentDate = DateTime(
+            _focusedMonth.year,
+            _focusedMonth.month,
+            day,
+          );
           String dateStr = DateFormat('yyyy-MM-dd').format(currentDate);
-          String dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate); 
-          
+          String dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate);
+
           // 포커스 기준(오늘 위치)을 targetDateStr(근무일 기준 오늘)과 일치하는지 확인
           bool isTargetDay = dateStr == targetDateStr;
-          
-          List<Map<String, dynamic>> dailyLogs = _filteredGroupedLogs[dateStr] ?? [];
+
+          List<Map<String, dynamic>> dailyLogs =
+              _filteredGroupedLogs[dateStr] ?? [];
 
           final bool isFiltering = _isSearchActive && _searchQuery.isNotEmpty;
           if (isFiltering && dailyLogs.isEmpty) {
@@ -1058,20 +1230,61 @@ class _LogListPageState extends State<LogListPage> {
             return Container(
               key: isTargetDay ? _todayKey : null,
               decoration: BoxDecoration(
-                color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
-                border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+                color: isSelected
+                    ? (Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF2A2E38)
+                          : const Color(0xFFFFF3C4))
+                    : Theme.of(context).cardTheme.color!,
+                border: Border(
+                  bottom: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                    width: 0.5,
+                  ),
+                ),
               ),
               child: ListTile(
-                contentPadding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                leading: Icon(Icons.label, color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), size: iconSize),
-                title: Text("${day.toString().padLeft(2, '0')} ($dayOfWeek)", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontWeight: FontWeight.bold)),
-                trailing: Text("<일지 입력>", style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                ),
+                leading: Icon(
+                  Icons.label,
+                  color: isTargetDay
+                      ? Theme.of(context).primaryColor
+                      : (Theme.of(context).textTheme.bodyLarge?.color ??
+                                Colors.white)
+                            .withOpacity(0.7),
+                  size: iconSize,
+                ),
+                title: Text(
+                  "${day.toString().padLeft(2, '0')} ($dayOfWeek)",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: isTargetDay
+                        ? Theme.of(context).primaryColor
+                        : (Theme.of(context).textTheme.bodyLarge?.color ??
+                                  Colors.white)
+                              .withOpacity(0.7),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                trailing: Text(
+                  "<일지 입력>",
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color:
+                        (Theme.of(context).textTheme.bodySmall?.color ??
+                        Colors.grey),
+                  ),
+                ),
                 onTap: () {
                   if (masterDetailMode && onSelectDate != null) {
                     onSelectDate(dateStr);
                     return;
                   }
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(initialDate: dateStr))).then((_) => _loadMonthData());
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DriveLogForm(initialDate: dateStr),
+                    ),
+                  ).then((_) => _loadMonthData());
                 },
               ),
             );
@@ -1094,11 +1307,20 @@ class _LogListPageState extends State<LogListPage> {
           final spacing = isTablet ? 16.0 : 12.0;
           final innerSpacing = isTablet ? 6.0 : 4.0;
           final isSelected = selectedDate == dateStr;
-                  return Container(
-             key: isTargetDay ? _todayKey : null,
-             decoration: BoxDecoration(
-               color: isSelected ? (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF2A2E38) : const Color(0xFFFFF3C4)) : Theme.of(context).cardTheme.color!,
-              border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+          return Container(
+            key: isTargetDay ? _todayKey : null,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? (Theme.of(context).brightness == Brightness.dark
+                        ? const Color(0xFF2A2E38)
+                        : const Color(0xFFFFF3C4))
+                  : Theme.of(context).cardTheme.color!,
+              border: Border(
+                bottom: BorderSide(
+                  color: Theme.of(context).dividerColor,
+                  width: 0.5,
+                ),
+              ),
             ),
             child: Dismissible(
               key: Key("day_$dateStr"),
@@ -1110,9 +1332,23 @@ class _LogListPageState extends State<LogListPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: isTablet ? 26 : 24),
+                    Icon(
+                      Icons.delete,
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                      size: isTablet ? 26 : 24,
+                    ),
                     SizedBox(height: 4),
-                    Text("삭제", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: isTablet ? 13 : 12)),
+                    Text(
+                      "삭제",
+                      style: TextStyle(
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        fontSize: isTablet ? 13 : 12,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -1124,8 +1360,16 @@ class _LogListPageState extends State<LogListPage> {
                     title: '하루 일지 삭제',
                     content: '$dateStr의 운행일지 $logCount건을 모두 삭제하시겠습니까?',
                     actions: [
-                      Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
-                      Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
+                      Builder(
+                        builder: (ctx) => GlassDialogCancelButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      Builder(
+                        builder: (ctx) => GlassDialogDestructiveButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -1144,6 +1388,40 @@ class _LogListPageState extends State<LogListPage> {
                 );
               },
               child: InkWell(
+                onLongPress: () async {
+                  final confirm = await AppGlassDialog.show<bool>(
+                    context: context,
+                    dialog: AppGlassDialog(
+                      icon: Icons.delete_outline,
+                      title: '하루 일지 삭제',
+                      content: '${dateStr}의 운행일지 ${logCount}건을 모두 삭제하시겠습니까?',
+                      actions: [
+                        Builder(
+                          builder: (ctx) => GlassDialogCancelButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                          ),
+                        ),
+                        Builder(
+                          builder: (ctx) => GlassDialogDestructiveButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    for (var log in dailyLogs) {
+                      await DriveLogDatabase.instance.deleteLog(log['id']);
+                    }
+                    _loadMonthData();
+                    if (!mounted) return;
+                    showDbrosSnackBar(
+                      context,
+                      "${dateStr}의 모든 운행일지가 삭제되었습니다.",
+                      backgroundColor: Colors.red,
+                    );
+                  }
+                },
                 onTap: () {
                   if (masterDetailMode && onSelectDate != null) {
                     onSelectDate(dateStr);
@@ -1160,13 +1438,17 @@ class _LogListPageState extends State<LogListPage> {
                   ).then((result) {
                     _loadMonthData();
                     if (!mounted) return;
-                    if (result != null && ResponsiveLayout.isExpanded(context)) {
+                    if (result != null &&
+                        ResponsiveLayout.isExpanded(context)) {
                       setState(() => _masterDetailDate = result);
                     }
                   });
                 },
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                    vertical: verticalPadding,
+                  ),
                   child: masterDetailMode
                       ? _buildMasterDetailDayTile(
                           day: day,
@@ -1185,14 +1467,24 @@ class _LogListPageState extends State<LogListPage> {
                       : Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.contact_mail, color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
+                            Icon(
+                              Icons.contact_mail,
+                              color: isTargetDay
+                                  ? Theme.of(context).primaryColor
+                                  : (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
+                              size: iconSize,
+                            ),
                             SizedBox(width: spacing),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.baseline,
                                     textBaseline: TextBaseline.alphabetic,
                                     children: [
                                       Expanded(
@@ -1203,9 +1495,21 @@ class _LogListPageState extends State<LogListPage> {
                                                 '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: isTargetDay ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: isTargetDay
+                                                          ? Theme.of(
+                                                              context,
+                                                            ).primaryColor
+                                                          : (Theme.of(context)
+                                                                    .textTheme
+                                                                    .bodyLarge
+                                                                    ?.color ??
+                                                                Colors.white),
                                                       fontSize: 13,
                                                     ),
                                               ),
@@ -1214,10 +1518,30 @@ class _LogListPageState extends State<LogListPage> {
                                             Row(
                                               mainAxisSize: MainAxisSize.min,
                                               children: [
-                                                Text('$logCount건', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
-                                                if (dailyLogs.any(_hasLogError)) ...[
+                                                Text(
+                                                  '$logCount건',
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .bodySmall
+                                                      ?.copyWith(
+                                                        color:
+                                                            (Theme.of(context)
+                                                                .textTheme
+                                                                .bodyLarge
+                                                                ?.color ??
+                                                            Colors.white),
+                                                        fontSize: 13,
+                                                      ),
+                                                ),
+                                                if (dailyLogs.any(
+                                                  _hasLogError,
+                                                )) ...[
                                                   const SizedBox(width: 4),
-                                                  const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                                                  const Icon(
+                                                    Icons.warning_amber_rounded,
+                                                    color: Colors.redAccent,
+                                                    size: 14,
+                                                  ),
                                                 ],
                                               ],
                                             ),
@@ -1228,11 +1552,22 @@ class _LogListPageState extends State<LogListPage> {
                                       Text.rich(
                                         TextSpan(
                                           children: [
-                                            const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                                            const TextSpan(
+                                              text: '수입 : ',
+                                              style: TextStyle(
+                                                color: Colors.lightBlueAccent,
+                                                fontSize: 13,
+                                              ),
+                                            ),
                                             TextSpan(
-                                              text: '₩${NumberFormat('#,###').format(dailyIncome)}',
-                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                                    color: Colors.lightBlueAccent,
+                                              text:
+                                                  '₩${NumberFormat('#,###').format(dailyIncome)}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color:
+                                                        Colors.lightBlueAccent,
                                                     fontWeight: FontWeight.bold,
                                                   ),
                                             ),
@@ -1249,8 +1584,12 @@ class _LogListPageState extends State<LogListPage> {
                                         child: _buildMasterDetailAmountRow(
                                           label: '순익',
                                           amount: dailyNetProfit,
-                                          labelColor: Theme.of(context).primaryColor,
-                                          valueColor: Theme.of(context).primaryColor,
+                                          labelColor: Theme.of(
+                                            context,
+                                          ).primaryColor,
+                                          valueColor: Theme.of(
+                                            context,
+                                          ).primaryColor,
                                           prefix: '₩',
                                         ),
                                       ),
@@ -1289,7 +1628,10 @@ class _LogListPageState extends State<LogListPage> {
 
     return Container(
       key: _keyMonthlySummary,
-      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
+      padding: EdgeInsets.symmetric(
+        vertical: verticalPadding,
+        horizontal: horizontalPadding,
+      ),
       color: Theme.of(context).cardTheme.color!,
       child: SafeArea(
         top: false,
@@ -1299,14 +1641,32 @@ class _LogListPageState extends State<LogListPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('$_filteredTotalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
+                Text(
+                  '$_filteredTotalCount건',
+                  style: TextStyle(
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    fontSize: infoFontSize,
+                  ),
+                ),
                 Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(text: '총 수입 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
                       TextSpan(
-                        text: '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
-                        style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)
+                        text: '총 수입 ',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: infoFontSize,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            '₩${NumberFormat('#,###').format(_filteredTotalGross)}',
+                        style: TextStyle(
+                          color: Colors.lightBlueAccent,
+                          fontSize: infoFontSize,
+                        ),
                       ),
                     ],
                   ),
@@ -1320,16 +1680,42 @@ class _LogListPageState extends State<LogListPage> {
                 Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(text: '순수익 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
-                      TextSpan(text: '₩${NumberFormat('#,###').format(_filteredTotalNet)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: infoFontSize)),
+                      TextSpan(
+                        text: '순수익 ',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: infoFontSize,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            '₩${NumberFormat('#,###').format(_filteredTotalNet)}',
+                        style: TextStyle(
+                          color: Color(0xFFFFC700),
+                          fontSize: infoFontSize,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 Text.rich(
                   TextSpan(
                     children: [
-                      TextSpan(text: '지출 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
-                      TextSpan(text: '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
+                      TextSpan(
+                        text: '지출 ',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: infoFontSize,
+                        ),
+                      ),
+                      TextSpan(
+                        text:
+                            '-₩${NumberFormat('#,###').format(_filteredTotalExpenses)}',
+                        style: TextStyle(
+                          color: const Color(0xFFFF5252),
+                          fontSize: infoFontSize,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1363,7 +1749,10 @@ class _LogListPageState extends State<LogListPage> {
       final captureWidth = MediaQuery.sizeOf(context).width;
       final theme = Theme.of(context);
       final ymTitle = DateFormat('yyyy년 MM월').format(_focusedMonth);
-      final daysInMonth = DateUtils.getDaysInMonth(_focusedMonth.year, _focusedMonth.month);
+      final daysInMonth = DateUtils.getDaysInMonth(
+        _focusedMonth.year,
+        _focusedMonth.month,
+      );
       final now = DateTime.now();
 
       final captureRoot = Material(
@@ -1385,16 +1774,26 @@ class _LogListPageState extends State<LogListPage> {
                     textAlign: TextAlign.center,
                     style: theme.textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
                     ),
                   ),
                 ),
                 ...List<Widget>.generate(daysInMonth, (index) {
                   final day = index + 1;
-                  final currentDate = DateTime(_focusedMonth.year, _focusedMonth.month, day);
+                  final currentDate = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month,
+                    day,
+                  );
                   final dateStr = DateFormat('yyyy-MM-dd').format(currentDate);
-                  final dayOfWeek = DateFormat('E', 'ko_KR').format(currentDate);
-                  final isToday = currentDate.year == now.year &&
+                  final dayOfWeek = DateFormat(
+                    'E',
+                    'ko_KR',
+                  ).format(currentDate);
+                  final isToday =
+                      currentDate.year == now.year &&
                       currentDate.month == now.month &&
                       currentDate.day == now.day;
                   final dailyLogs = _groupedLogs[dateStr] ?? [];
@@ -1472,28 +1871,54 @@ class _LogListPageState extends State<LogListPage> {
     if (dailyLogs.isEmpty) {
       return Container(
         decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+          border: Border(
+            bottom: BorderSide(
+              color: Theme.of(context).dividerColor,
+              width: 0.5,
+            ),
+          ),
         ),
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding * 0.75),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding * 0.75,
+          ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.label, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), size: iconSize),
+                  Icon(
+                    Icons.label,
+                    color: isToday
+                        ? Theme.of(context).primaryColor
+                        : (Theme.of(context).textTheme.bodySmall?.color ??
+                              Colors.grey),
+                    size: iconSize,
+                  ),
                   SizedBox(width: spacing),
                   Text(
                     '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
+                      color: isToday
+                          ? Theme.of(context).primaryColor
+                          : (Theme.of(context).textTheme.bodyLarge?.color ??
+                                    Colors.white)
+                                .withOpacity(0.7),
                     ),
                   ),
                 ],
               ),
-              Text('<일지 입력>', style: theme.textTheme.bodySmall?.copyWith(color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey))),
+              Text(
+                '<일지 입력>',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color:
+                      (Theme.of(context).textTheme.bodySmall?.color ??
+                      Colors.grey),
+                ),
+              ),
             ],
           ),
         ),
@@ -1511,31 +1936,47 @@ class _LogListPageState extends State<LogListPage> {
     final logCount = dailyLogs.length;
     const double dayLabelReserve = 80;
     const double rightBlockReserve = 142;
-    final double middleW = (width -
-            horizontalPadding * 2 -
-            iconSize -
-            spacing -
-            dayLabelReserve -
-            spacing -
-            rightBlockReserve)
-        .clamp(72.0, 2000.0);
+    final double middleW =
+        (width -
+                horizontalPadding * 2 -
+                iconSize -
+                spacing -
+                dayLabelReserve -
+                spacing -
+                rightBlockReserve)
+            .clamp(72.0, 2000.0);
 
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color!,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: verticalPadding),
+        padding: EdgeInsets.symmetric(
+          horizontal: horizontalPadding,
+          vertical: verticalPadding,
+        ),
         child: Row(
           children: [
-            Icon(Icons.contact_mail, color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: iconSize),
+            Icon(
+              Icons.contact_mail,
+              color: isToday
+                  ? Theme.of(context).primaryColor
+                  : (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+              size: iconSize,
+            ),
             SizedBox(width: spacing),
             Text(
               '${day.toString().padLeft(2, '0')} ($dayOfWeek)',
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.bold,
-                color: isToday ? Theme.of(context).primaryColor : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                color: isToday
+                    ? Theme.of(context).primaryColor
+                    : (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
               ),
             ),
             SizedBox(width: spacing + 8),
@@ -1544,7 +1985,14 @@ class _LogListPageState extends State<LogListPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('$logCount건', style: theme.textTheme.bodyMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white))),
+                  Text(
+                    '$logCount건',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                    ),
+                  ),
                   SizedBox(height: innerSpacing),
                   Row(
                     children: [
@@ -1567,20 +2015,33 @@ class _LogListPageState extends State<LogListPage> {
               children: [
                 Row(
                   children: [
-                    Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                    Text(
+                      '수입 : ',
+                      style: TextStyle(
+                        color: Colors.lightBlueAccent,
+                        fontSize: 13,
+                      ),
+                    ),
                     Text(
                       '₩${NumberFormat('#,###').format(dailyIncome)}',
-                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.lightBlueAccent),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.lightBlueAccent,
+                      ),
                     ),
                   ],
                 ),
                 SizedBox(height: innerSpacing),
                 Row(
                   children: [
-                    Text('지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                    Text(
+                      '지출 : ',
+                      style: TextStyle(color: Color(0xFFFF5252), fontSize: 13),
+                    ),
                     Text(
                       '-₩${NumberFormat('#,###').format(dailyExpense)}',
-                      style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFFFF5252)),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFFFF5252),
+                      ),
                     ),
                   ],
                 ),
@@ -1601,7 +2062,10 @@ class _LogListPageState extends State<LogListPage> {
     final spacing = isTablet ? 8.0 : 6.0;
 
     return Container(
-      padding: EdgeInsets.symmetric(vertical: verticalPadding, horizontal: horizontalPadding),
+      padding: EdgeInsets.symmetric(
+        vertical: verticalPadding,
+        horizontal: horizontalPadding,
+      ),
       color: Theme.of(context).cardTheme.color,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1609,7 +2073,15 @@ class _LogListPageState extends State<LogListPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: infoFontSize)),
+              Text(
+                '$_totalCount건',
+                style: TextStyle(
+                  color:
+                      (Theme.of(context).textTheme.bodyLarge?.color ??
+                      Colors.white),
+                  fontSize: infoFontSize,
+                ),
+              ),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -1617,10 +2089,19 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        TextSpan(text: '총 수입 ', style: TextStyle(color: Colors.grey, fontSize: infoFontSize)),
+                        TextSpan(
+                          text: '총 수입 ',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: infoFontSize,
+                          ),
+                        ),
                         TextSpan(
                           text: '₩${NumberFormat('#,###').format(_totalGross)}',
-                          style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontSize: infoFontSize,
+                          ),
                         ),
                       ],
                     ),
@@ -1640,8 +2121,20 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalGross)}', style: TextStyle(color: Colors.lightBlueAccent, fontSize: infoFontSize)),
+                        const TextSpan(
+                          text: '수입 : ',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontSize: 13,
+                          ),
+                        ),
+                        TextSpan(
+                          text: '₩${NumberFormat('#,###').format(_totalGross)}',
+                          style: TextStyle(
+                            color: Colors.lightBlueAccent,
+                            fontSize: infoFontSize,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1654,8 +2147,21 @@ class _LogListPageState extends State<LogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenses)}', style: TextStyle(color: const Color(0xFFFF5252), fontSize: infoFontSize)),
+                        const TextSpan(
+                          text: '지출 : ',
+                          style: TextStyle(
+                            color: Color(0xFFFF5252),
+                            fontSize: 13,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              '-₩${NumberFormat('#,###').format(_totalExpenses)}',
+                          style: TextStyle(
+                            color: const Color(0xFFFF5252),
+                            fontSize: infoFontSize,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1668,6 +2174,7 @@ class _LogListPageState extends State<LogListPage> {
     );
   }
 }
+
 class _DailyDetailShareLayout {
   const _DailyDetailShareLayout({
     required this.isTablet,
@@ -1728,6 +2235,7 @@ class _DailyDetailShareLayout {
 class DailyLogListPage extends StatefulWidget {
   final String dateStr;
   final String dateTitle;
+
   /// 저장 직후 이 화면에서 스낵을 띄울 때 (작성 화면에서 저장+스낵 후 pop 하면 매니저/오버레이가 꼬일 수 있음)
   final String? snackMessage;
 
@@ -1758,7 +2266,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   List<Map<String, dynamic>> _dailyLogs = [];
   bool _isLoading = true;
   bool _poppingForExpandedLayout = false;
-  final ScreenshotController _shareScreenshotController = ScreenshotController();
+  final ScreenshotController _shareScreenshotController =
+      ScreenshotController();
 
   final GlobalKey _keyDailyDateNav = GlobalKey();
   final GlobalKey _keyDailyMapBtn = GlobalKey();
@@ -1834,7 +2343,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "다른 날짜 보기",
@@ -1847,7 +2356,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       ),
     ];
 
-    final showMapBtn = kMapFeaturesEnabled && _dailyLogs.any((log) => log['start_lat'] != null);
+    final showMapBtn =
+        kMapFeaturesEnabled &&
+        _dailyLogs.any((log) => log['start_lat'] != null);
     if (kMapFeaturesEnabled) {
       targets.add(
         TargetFocus(
@@ -1861,7 +2372,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "일일 동선 맵",
-                  description: "지도 아이콘을 누르면 그날 하루 동안 이동한 전체 경로를 지도에서 한눈에 볼 수 있어요! (GPS 데이터가 없으면 비활성화됩니다)",
+                  description:
+                      "지도 아이콘을 누르면 그날 하루 동안 이동한 전체 경로를 지도에서 한눈에 볼 수 있어요! (GPS 데이터가 없으면 비활성화됩니다)",
                   controller: controller,
                 );
               },
@@ -1881,11 +2393,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "일지 수정 및 삭제",
-                description: "개별 항목을 터치해 수정하거나, 왼쪽으로 스와이프해서 불필요한 일지를 개별 삭제할 수 있어요.",
+                description:
+                    "개별 항목을 터치해 수정하거나, 왼쪽으로 스와이프해서 불필요한 일지를 개별 삭제할 수 있어요.",
                 controller: controller,
               );
             },
@@ -1902,7 +2415,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         contents: [
           TargetContent(
             align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+            customPosition: CustomTargetContentPosition(top: 0),
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "하루 기록 공유",
@@ -1924,14 +2437,24 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       opacityShadow: 0.8,
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
       },
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
@@ -1949,7 +2472,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   @override
   void didUpdateWidget(DailyLogListPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.dateStr != widget.dateStr || (widget.isSearchMode && oldWidget.searchResults != widget.searchResults)) {
+    if (oldWidget.dateStr != widget.dateStr ||
+        (widget.isSearchMode &&
+            oldWidget.searchResults != widget.searchResults)) {
       _currentDateStr = widget.dateStr;
       _currentDateTitle = widget.dateTitle;
       _loadData();
@@ -1975,10 +2500,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       if (widget.isSearchMode && widget.searchResults != null) {
         logs = widget.searchResults!;
       } else {
-        final rawLogs = await DriveLogDatabase.instance.getLogsForWorkDate(_currentDateStr);
+        final rawLogs = await DriveLogDatabase.instance.getLogsForWorkDate(
+          _currentDateStr,
+        );
         logs = List<Map<String, dynamic>>.from(rawLogs);
       }
-      
+
       int incomeSum = 0;
       int netProfitSum = 0;
       int expenseSum = 0;
@@ -2131,25 +2658,37 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final padding = compact ? 6.0 : (isTablet ? 12.0 : 8.0);
     final hPad = compact ? 8.0 : (isTablet ? 12.0 : 8.0);
     final hasCoordinates = _dailyLogs.any((log) => log['start_lat'] != null);
-    
+
     // 가이드 타겟을 위해 지도 버튼 영역은 항상 확보 (좌표가 없으면 비활성화 상태로 표시)
-    final leftSlot  = compact ? (kMapFeaturesEnabled ? 36.0 : 0.0) : 0.0;
+    final leftSlot = compact ? (kMapFeaturesEnabled ? 36.0 : 0.0) : 0.0;
     final rightSlot = compact ? 96.0 : (kMapFeaturesEnabled ? 36.0 : 0.0);
-    
-    final titleStyle = (compact ? Theme.of(context).textTheme.titleSmall : Theme.of(context).textTheme.titleMedium)
-        ?.copyWith(fontWeight: FontWeight.bold, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white));
-        
+
+    final titleStyle =
+        (compact
+                ? Theme.of(context).textTheme.titleSmall
+                : Theme.of(context).textTheme.titleMedium)
+            ?.copyWith(
+              fontWeight: FontWeight.bold,
+              color:
+                  (Theme.of(context).textTheme.bodyLarge?.color ??
+                  Colors.white),
+            );
+
     final mapBtn = InkWell(
       key: _keyDailyMapBtn,
-      onTap: hasCoordinates ? _openDailyRouteMap : () {
-        showDbrosSnackBar(context, '저장된 GPS 좌표가 없어 지도를 표시할 수 없습니다.');
-      },
+      onTap: hasCoordinates
+          ? _openDailyRouteMap
+          : () {
+              showDbrosSnackBar(context, '저장된 GPS 좌표가 없어 지도를 표시할 수 없습니다.');
+            },
       child: Padding(
         padding: EdgeInsets.all(4.0),
         child: Icon(
-          Icons.map, 
-          color: hasCoordinates ? Color(0xFF4FC3F7) : Colors.grey.withOpacity(0.5), 
-          size: 18
+          Icons.map,
+          color: hasCoordinates
+              ? Color(0xFF4FC3F7)
+              : Colors.grey.withOpacity(0.5),
+          size: 18,
         ),
       ),
     );
@@ -2174,7 +2713,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: Icon(Icons.chevron_left, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  icon: Icon(
+                    Icons.chevron_left,
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                  ),
                   onPressed: () => _goToAdjacentDay(false),
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -2189,7 +2733,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.chevron_right, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)),
+                  icon: Icon(
+                    Icons.chevron_right,
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                  ),
                   onPressed: () => _goToAdjacentDay(true),
                   constraints: const BoxConstraints(),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -2206,14 +2755,25 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   ? TextButton.icon(
                       onPressed: _openAddLogForm,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      icon: Icon(Icons.add_circle_outline, size: 16, color: Color(0xFFFFC700)),
+                      icon: Icon(
+                        Icons.add_circle_outline,
+                        size: 16,
+                        color: Color(0xFFFFC700),
+                      ),
                       label: Text(
                         '입력',
-                        style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.w600, fontSize: 12),
+                        style: TextStyle(
+                          color: Color(0xFFFFC700),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
                       ),
                     )
                   : (kMapFeaturesEnabled ? mapBtn : const SizedBox.shrink()),
@@ -2224,7 +2784,10 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     );
   }
 
-  Widget _buildDailyDetailDateHeaderForCapture(ThemeData theme, double captureWidth) {
+  Widget _buildDailyDetailDateHeaderForCapture(
+    ThemeData theme,
+    double captureWidth,
+  ) {
     final isTablet = captureWidth > 600;
     final padding = isTablet ? 12.0 : 8.0;
     return Container(
@@ -2235,9 +2798,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         widget.dateTitle,
         textAlign: TextAlign.center,
         style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-            ),
+          fontWeight: FontWeight.bold,
+          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+        ),
       ),
     );
   }
@@ -2249,7 +2812,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         _buildDailyDetailDateHeader(),
         Expanded(
           child: _isLoading
-              ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
+              ? Center(
+                  child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+                )
               : ColoredBox(
                   color: Theme.of(context).scaffoldBackgroundColor,
                   child: Stack(
@@ -2298,8 +2863,13 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(context).primaryColor,
                   foregroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: Text(
                   '+ 일지 입력',
@@ -2329,13 +2899,20 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Theme.of(context).cardTheme.color!,
-        leading: IconButton(icon: Icon(Icons.arrow_back_ios, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)), onPressed: () => Navigator.pop(context)),
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color:
+                (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: Text(
           '운행 일지 상세',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).primaryColor,
-              ),
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).primaryColor,
+          ),
         ),
         centerTitle: true,
         actions: [
@@ -2354,21 +2931,22 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             ),
         ],
       ),
-      body: ResponsiveBody(
-        child: _buildDetailBody(),
-      ),
+      body: ResponsiveBody(child: _buildDetailBody()),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+          border: Border(
+            top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+          ),
         ),
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          selectedItemColor: Theme.of(context).primaryColor, 
-          unselectedItemColor: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), 
+          selectedItemColor: Theme.of(context).primaryColor,
+          unselectedItemColor:
+              (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
           selectedFontSize: 12,
           unselectedFontSize: 12,
-          currentIndex: 1, 
+          currentIndex: 1,
           onTap: (index) {
             if (index == 2) {
               _openAddLogForm();
@@ -2376,18 +2954,40 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               Navigator.pop(context);
             } else {
               Navigator.pushAndRemoveUntil(
-                context, 
-                MaterialPageRoute(builder: (_) => MainWrapper(initialIndex: index)), 
-                (route) => false
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MainWrapper(initialIndex: index),
+                ),
+                (route) => false,
               );
             }
           },
           items: [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), activeIcon: Icon(Icons.home), label: "홈"),
-            BottomNavigationBarItem(icon: Icon(Icons.list_alt), activeIcon: Icon(Icons.list_alt), label: "목록"),
-            BottomNavigationBarItem(icon: Icon(Icons.add_circle_outline), activeIcon: Icon(Icons.add_circle), label: "작성"),
-            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), activeIcon: Icon(Icons.bar_chart), label: "통계"),
-            BottomNavigationBarItem(icon: Icon(Icons.settings_outlined), activeIcon: Icon(Icons.settings), label: "설정"),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_filled),
+              activeIcon: Icon(Icons.home),
+              label: "홈",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.list_alt),
+              activeIcon: Icon(Icons.list_alt),
+              label: "목록",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.add_circle_outline),
+              activeIcon: Icon(Icons.add_circle),
+              label: "작성",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.bar_chart),
+              activeIcon: Icon(Icons.bar_chart),
+              label: "통계",
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings_outlined),
+              activeIcon: Icon(Icons.settings),
+              label: "설정",
+            ),
           ],
         ),
       ),
@@ -2406,27 +3006,43 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
         timePrefix = '${dateStr.substring(5, 7)}.${dateStr.substring(8, 10)} ';
       }
     }
-    final String time = timePrefix + log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
+    final String time =
+        timePrefix + log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
     final fullStart = log['start_location']?.toString().trim();
     final fullEnd = log['end_location']?.toString().trim();
     final fullWp = log['waypoint']?.toString().trim();
-    final locStyle = TextStyle(color: Theme.of(context).primaryColor, fontSize: lay.locationFontSize);
+    final locStyle = TextStyle(
+      color: Theme.of(context).primaryColor,
+      fontSize: lay.locationFontSize,
+    );
     final arrowIcon = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Icon(Icons.arrow_forward, color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey), size: lay.isTablet ? 14 : 12),
+      child: Icon(
+        Icons.arrow_forward,
+        color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+        size: lay.isTablet ? 14 : 12,
+      ),
     );
 
     final hasStartLoc = fullStart != null && fullStart.isNotEmpty;
     final hasStartCoord = log['start_lat'] != null && log['start_lng'] != null;
-    
+
     final hasEndLoc = fullEnd != null && fullEnd.isNotEmpty;
     final hasEndCoord = log['end_lat'] != null && log['end_lng'] != null;
 
-    Widget segment(String? full, String placeholder, {TextAlign align = TextAlign.start, bool hasCoordinate = true, bool isMissing = false}) {
+    Widget segment(
+      String? full,
+      String placeholder, {
+      TextAlign align = TextAlign.start,
+      bool hasCoordinate = true,
+      bool isMissing = false,
+    }) {
       final t = (full != null && full.isNotEmpty) ? full : placeholder;
       final displayWidget = Text(
         isMissing ? '⚠️ 누락' : t,
-        style: locStyle.copyWith(color: isMissing ? const Color(0xFFFF5252) : null),
+        style: locStyle.copyWith(
+          color: isMissing ? const Color(0xFFFF5252) : null,
+        ),
         maxLines: 1,
         softWrap: false,
         overflow: TextOverflow.ellipsis,
@@ -2436,13 +3052,19 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       if (!hasCoordinate && !isMissing && full != null && full.isNotEmpty) {
         return Row(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: align == TextAlign.end ? MainAxisAlignment.end : (align == TextAlign.center ? MainAxisAlignment.center : MainAxisAlignment.start),
+          mainAxisAlignment: align == TextAlign.end
+              ? MainAxisAlignment.end
+              : (align == TextAlign.center
+                    ? MainAxisAlignment.center
+                    : MainAxisAlignment.start),
           children: [
-            if (align != TextAlign.end) const Icon(Icons.location_off, color: Colors.orange, size: 14),
+            if (align != TextAlign.end)
+              const Icon(Icons.location_off, color: Colors.orange, size: 14),
             if (align != TextAlign.end) const SizedBox(width: 4),
             Flexible(child: displayWidget),
             if (align == TextAlign.end) const SizedBox(width: 4),
-            if (align == TextAlign.end) const Icon(Icons.location_off, color: Colors.orange, size: 14),
+            if (align == TextAlign.end)
+              const Icon(Icons.location_off, color: Colors.orange, size: 14),
           ],
         );
       }
@@ -2455,8 +3077,15 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final revenue = g + tip;
 
     return Container(
-      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5))),
-      padding: EdgeInsets.symmetric(horizontal: lay.rowHorizontalPadding, vertical: lay.rowVerticalPadding),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: lay.rowHorizontalPadding,
+        vertical: lay.rowVerticalPadding,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2466,7 +3095,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               Expanded(
                 child: Row(
                   children: [
-                    Text('[ $time ]', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: lay.timeFontSize)),
+                    Text(
+                      '[ $time ]',
+                      style: TextStyle(
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        fontWeight: FontWeight.bold,
+                        fontSize: lay.timeFontSize,
+                      ),
+                    ),
                     SizedBox(width: lay.innerSpacing),
                     Expanded(
                       child: Row(
@@ -2475,20 +3113,35 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                           Flexible(
                             child: Text(
                               log['program']?.toString() ?? '',
-                              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: lay.programFontSize),
+                              style: TextStyle(
+                                color:
+                                    (Theme.of(
+                                              context,
+                                            ).textTheme.bodyLarge?.color ??
+                                            Colors.white)
+                                        .withOpacity(0.7),
+                                fontSize: lay.programFontSize,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (_hasLogError(log)) ...[
                             const SizedBox(width: 4),
-                            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 14),
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: Colors.redAccent,
+                              size: 14,
+                            ),
                           ],
                         ],
                       ),
                     ),
                     SizedBox(width: lay.innerSpacing),
-                    DriveLogSourceChip(registrationSource: log['registration_source']?.toString()),
+                    DriveLogSourceChip(
+                      registrationSource: log['registration_source']
+                          ?.toString(),
+                    ),
                   ],
                 ),
               ),
@@ -2498,18 +3151,24 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: '수입 : ', 
+                      text: '수입 : ',
                       style: TextStyle(
-                        color: revenue == 0 ? const Color(0xFFFF5252) : Colors.lightBlueAccent, 
-                        fontSize: 13
-                      )
+                        color: revenue == 0
+                            ? const Color(0xFFFF5252)
+                            : Colors.lightBlueAccent,
+                        fontSize: 13,
+                      ),
                     ),
                     TextSpan(
-                      text: revenue == 0 ? '⚠️ 미입력' : '₩${NumberFormat('#,###').format(revenue)}',
+                      text: revenue == 0
+                          ? '⚠️ 미입력'
+                          : '₩${NumberFormat('#,###').format(revenue)}',
                       style: TextStyle(
-                        color: revenue == 0 ? const Color(0xFFFF5252) : Colors.lightBlueAccent, 
-                        fontSize: lay.incomeFontSize, 
-                        fontWeight: FontWeight.bold
+                        color: revenue == 0
+                            ? const Color(0xFFFF5252)
+                            : Colors.lightBlueAccent,
+                        fontSize: lay.incomeFontSize,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ],
@@ -2522,13 +3181,33 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(flex: 1, child: segment(fullStart, '출발지', isMissing: !hasStartLoc, hasCoordinate: hasStartCoord)),
+              Expanded(
+                flex: 1,
+                child: segment(
+                  fullStart,
+                  '출발지',
+                  isMissing: !hasStartLoc,
+                  hasCoordinate: hasStartCoord,
+                ),
+              ),
               arrowIcon,
               if (hasWp) ...[
-                Expanded(flex: 1, child: segment(fullWp, '경유', align: TextAlign.center)),
+                Expanded(
+                  flex: 1,
+                  child: segment(fullWp, '경유', align: TextAlign.center),
+                ),
                 arrowIcon,
               ],
-              Expanded(flex: 1, child: segment(fullEnd, '도착지', align: TextAlign.end, isMissing: !hasEndLoc, hasCoordinate: hasEndCoord)),
+              Expanded(
+                flex: 1,
+                child: segment(
+                  fullEnd,
+                  '도착지',
+                  align: TextAlign.end,
+                  isMissing: !hasEndLoc,
+                  hasCoordinate: hasEndCoord,
+                ),
+              ),
             ],
           ),
           SizedBox(height: lay.rowSpacing / 2),
@@ -2567,7 +3246,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 "[ 일일 합계 ]",
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color:
+                      (Theme.of(context).textTheme.bodyLarge?.color ??
+                      Colors.white),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             Flexible(
@@ -2577,12 +3261,30 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("$totalCount건", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: lay.footerInfoFontSize)),
+                    Text(
+                      "$totalCount건",
+                      style: TextStyle(
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        fontSize: lay.footerInfoFontSize,
+                      ),
+                    ),
                     SizedBox(width: 12),
-                    Text("수입 : ", style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                    Text(
+                      "수입 : ",
+                      style: TextStyle(
+                        color: Colors.lightBlueAccent,
+                        fontSize: 13,
+                      ),
+                    ),
                     Text(
                       "₩${NumberFormat('#,###').format(incomeSum)}",
-                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: lay.footerInfoFontSize, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        color: Colors.lightBlueAccent,
+                        fontSize: lay.footerInfoFontSize,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -2601,8 +3303,20 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 child: Text.rich(
                   TextSpan(
                     children: [
-                      const TextSpan(text: "순익 : ", style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                      TextSpan(text: "₩${NumberFormat('#,###').format(netSum)}", style: TextStyle(color: Color(0xFFFFC700), fontSize: lay.footerInfoFontSize)),
+                      const TextSpan(
+                        text: "순익 : ",
+                        style: TextStyle(
+                          color: Color(0xFFFFC700),
+                          fontSize: 13,
+                        ),
+                      ),
+                      TextSpan(
+                        text: "₩${NumberFormat('#,###').format(netSum)}",
+                        style: TextStyle(
+                          color: Color(0xFFFFC700),
+                          fontSize: lay.footerInfoFontSize,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2615,8 +3329,20 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                 child: Text.rich(
                   TextSpan(
                     children: [
-                      const TextSpan(text: "지출 : ", style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                      TextSpan(text: "-₩${NumberFormat('#,###').format(expenseSum)}", style: TextStyle(color: const Color(0xFFFF5252), fontSize: lay.footerInfoFontSize)),
+                      const TextSpan(
+                        text: "지출 : ",
+                        style: TextStyle(
+                          color: Color(0xFFFF5252),
+                          fontSize: 13,
+                        ),
+                      ),
+                      TextSpan(
+                        text: "-₩${NumberFormat('#,###').format(expenseSum)}",
+                        style: TextStyle(
+                          color: const Color(0xFFFF5252),
+                          fontSize: lay.footerInfoFontSize,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2633,8 +3359,11 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       itemCount: _dailyLogs.length,
       itemBuilder: (context, index) {
         final log = _dailyLogs[index];
-        final String time = log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
-        final lay = _DailyDetailShareLayout.fromWidth(MediaQuery.sizeOf(context).width);
+        final String time =
+            log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
+        final lay = _DailyDetailShareLayout.fromWidth(
+          MediaQuery.sizeOf(context).width,
+        );
 
         return Container(
           child: Dismissible(
@@ -2647,9 +3376,23 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.delete, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: lay.isTablet ? 26 : 24),
+                  Icon(
+                    Icons.delete,
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    size: lay.isTablet ? 26 : 24,
+                  ),
                   SizedBox(height: 4),
-                  Text("삭제", style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: lay.isTablet ? 13 : 12)),
+                  Text(
+                    "삭제",
+                    style: TextStyle(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                      fontSize: lay.isTablet ? 13 : 12,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2661,8 +3404,16 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   title: '운행일지 삭제',
                   content: '이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}',
                   actions: [
-                    Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
-                    Builder(builder: (ctx) => GlassDialogDestructiveButton(onPressed: () => Navigator.pop(ctx, true))),
+                    Builder(
+                      builder: (ctx) => GlassDialogCancelButton(
+                        onPressed: () => Navigator.pop(ctx, false),
+                      ),
+                    ),
+                    Builder(
+                      builder: (ctx) => GlassDialogDestructiveButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                      ),
+                    ),
                   ],
                 ),
               );
@@ -2680,8 +3431,46 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
               );
             },
             child: InkWell(
+              onLongPress: () async {
+                final confirm = await AppGlassDialog.show<bool>(
+                  context: context,
+                  dialog: AppGlassDialog(
+                    icon: Icons.delete_outline,
+                    title: '운행일지 삭제',
+                    content: '이 운행일지를 삭제하시겠습니까?\n\n$time ${log['program']}',
+                    actions: [
+                      Builder(
+                        builder: (ctx) => GlassDialogCancelButton(
+                          onPressed: () => Navigator.pop(ctx, false),
+                        ),
+                      ),
+                      Builder(
+                        builder: (ctx) => GlassDialogDestructiveButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await DriveLogDatabase.instance.deleteLog(log['id']);
+                  _loadData();
+                  widget.onLogsChanged?.call();
+                  if (!mounted) return;
+                  showDbrosSnackBar(
+                    context,
+                    "운행일지가 삭제되었습니다.",
+                    backgroundColor: Colors.red,
+                  );
+                }
+              },
               onTap: () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => DriveLogForm(existingLog: log))).then((_) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DriveLogForm(existingLog: log),
+                  ),
+                ).then((_) {
                   _loadData();
                   widget.onLogsChanged?.call();
                 });
@@ -2690,7 +3479,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
             ),
           ),
         );
-      }
+      },
     );
   }
 
@@ -2700,7 +3489,9 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color!,
-        border: Border(top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5)),
+        border: Border(
+          top: BorderSide(color: Theme.of(context).dividerColor, width: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2714,9 +3505,11 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                        fontWeight: FontWeight.bold,
-                      ),
+                    color:
+                        (Theme.of(context).textTheme.bodyLarge?.color ??
+                        Colors.white),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               Flexible(
@@ -2726,12 +3519,30 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('$_totalCount건', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontSize: 13)),
+                      Text(
+                        '$_totalCount건',
+                        style: TextStyle(
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
+                          fontSize: 13,
+                        ),
+                      ),
                       SizedBox(width: 10),
-                      Text('수입 : ', style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13)),
+                      Text(
+                        '수입 : ',
+                        style: TextStyle(
+                          color: Colors.lightBlueAccent,
+                          fontSize: 13,
+                        ),
+                      ),
                       Text(
                         '₩${NumberFormat('#,###').format(_totalIncomeSum)}',
-                        style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.lightBlueAccent,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -2750,8 +3561,21 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '순익 : ', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
-                        TextSpan(text: '₩${NumberFormat('#,###').format(_totalNetProfitSum)}', style: TextStyle(color: Color(0xFFFFC700), fontSize: 13)),
+                        const TextSpan(
+                          text: '순익 : ',
+                          style: TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontSize: 13,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              '₩${NumberFormat('#,###').format(_totalNetProfitSum)}',
+                          style: TextStyle(
+                            color: Color(0xFFFFC700),
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2764,8 +3588,21 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                   child: Text.rich(
                     TextSpan(
                       children: [
-                        const TextSpan(text: '지출 : ', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
-                        TextSpan(text: '-₩${NumberFormat('#,###').format(_totalExpenseSum)}', style: TextStyle(color: Color(0xFFFF5252), fontSize: 13)),
+                        const TextSpan(
+                          text: '지출 : ',
+                          style: TextStyle(
+                            color: Color(0xFFFF5252),
+                            fontSize: 13,
+                          ),
+                        ),
+                        TextSpan(
+                          text:
+                              '-₩${NumberFormat('#,###').format(_totalExpenseSum)}',
+                          style: TextStyle(
+                            color: Color(0xFFFF5252),
+                            fontSize: 13,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -2779,9 +3616,14 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   }
 
   Widget _buildDailySummaryFooter() {
-    final lay = _DailyDetailShareLayout.fromWidth(MediaQuery.sizeOf(context).width);
+    final lay = _DailyDetailShareLayout.fromWidth(
+      MediaQuery.sizeOf(context).width,
+    );
     return Container(
-      padding: EdgeInsets.symmetric(vertical: lay.footerVerticalPadding, horizontal: lay.footerHorizontalPadding),
+      padding: EdgeInsets.symmetric(
+        vertical: lay.footerVerticalPadding,
+        horizontal: lay.footerHorizontalPadding,
+      ),
       color: Theme.of(context).cardTheme.color!,
       child: SafeArea(
         top: false,
@@ -2810,16 +3652,21 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final startLoc = (log['start_location'] ?? '').toString();
       final endLoc = (log['end_location'] ?? '').toString();
 
-      if (startLat != null && startLng != null && endLat != null && endLng != null) {
+      if (startLat != null &&
+          startLng != null &&
+          endLat != null &&
+          endLng != null) {
         final time = log['drive_time']?.toString() ?? '';
         final prog = log['program']?.toString() ?? '';
-        
+
         segments.add(
           TripSegment(
             start: LatLng(startLat, startLng),
             end: LatLng(endLat, endLng),
-            startSnippet: '$prog · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
-            endSnippet: '$prog · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
+            startSnippet:
+                '$prog · $time\n(${startLoc.isNotEmpty ? startLoc : '주소 정보 없음'})',
+            endSnippet:
+                '$prog · $time\n(${endLoc.isNotEmpty ? endLoc : '주소 정보 없음'})',
           ),
         );
       }

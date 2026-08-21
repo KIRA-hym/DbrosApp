@@ -460,4 +460,32 @@ public class OverlayService extends Service implements View.OnTouchListener {
     }
 
 
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (windowManager != null && flutterView != null) {
+            int oldWidth = szWindow.x;
+            int oldHeight = szWindow.y;
+
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.HONEYCOMB) {
+                windowManager.getDefaultDisplay().getSize(szWindow);
+            } else {
+                android.util.DisplayMetrics displaymetrics = new android.util.DisplayMetrics();
+                windowManager.getDefaultDisplay().getMetrics(displaymetrics);
+                szWindow.set(displaymetrics.widthPixels, displaymetrics.heightPixels);
+            }
+
+            if (oldWidth > 0 && oldHeight > 0) {
+                WindowManager.LayoutParams params = (WindowManager.LayoutParams) flutterView.getLayoutParams();
+                
+                // Keep relative position
+                params.x = (int) (params.x * ((float) szWindow.x / oldWidth));
+                params.y = (int) (params.y * ((float) szWindow.y / oldHeight));
+                
+                windowManager.updateViewLayout(flutterView, params);
+            }
+        }
+    }
+
 }

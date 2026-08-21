@@ -1,3 +1,4 @@
+import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
@@ -336,6 +337,9 @@ class SettingsService {
   static Future<void> setOverlayButtonSize(double size) async {
     await _prefs.setDouble('overlayButtonSize', size);
     _overlayButtonSizeNotifier.value = size;
+    try {
+      await FlutterOverlayWindow.shareData({'type': 'overlay_size', 'value': size});
+    } catch (_) {}
   }
 
   static bool get statusBarQuickEnabled {

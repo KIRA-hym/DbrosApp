@@ -63,7 +63,7 @@ class MyInfoPage extends StatelessWidget {
               const Divider(color: Colors.white10, height: 32),
               _buildInfoRow('가입일자', createdAtStr),
               const Divider(color: Colors.white10, height: 32),
-              _buildPromotionCodeRow(context, userDoc),
+              // _buildPromotionCodeRow(context, userDoc), // 심사 반려 방지 위해 임시 숨김 처리 (결제 모듈 개발 후 해제 예정)
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {
