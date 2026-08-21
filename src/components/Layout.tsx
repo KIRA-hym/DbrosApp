@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { NavLink, Outlet } from 'react-router-dom';
-import { Bell, FileText, Settings, LogOut, FileSearch, Menu, X, Users, Ticket } from 'lucide-react';
+import { Bell, FileText, Settings, LogOut, FileSearch, Menu, X, Users, Ticket, MapPin } from 'lucide-react';
 
 export default function Layout() {
   const { logout, currentUser } = useAuth();
@@ -10,6 +10,7 @@ export default function Layout() {
   const menuItems = [
     { name: '유저 관리', path: '/', icon: <Users size={20} /> },
     { name: '프로모션 코드 관리', path: '/promotion', icon: <Ticket size={20} /> },
+    { name: '주변콜맵 관리', path: '/call-points', icon: <MapPin size={20} /> },
     { name: '공지사항 관리', path: '/notices', icon: <FileText size={20} /> },
     { name: '푸시 알림 센터', path: '/push', icon: <Bell size={20} /> },
     { name: 'OCR 룰/로그', path: '/ocr', icon: <FileSearch size={20} /> },
