@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
@@ -8,7 +8,7 @@ import 'db_helper.dart';
 class MapDataSyncService {
   // 테스트용 깃허브 Raw 링크 (나중에 관리자웹에서 생성한 Firebase Storage 링크로 변경)
   static const String defaultSyncUrl = 
-      'https://raw.githubusercontent.com/KIRA-hym/DbrosApp/main/assets/data/common_points.json';
+      'https://firebasestorage.googleapis.com/v0/b/dbros-apps-7bbmw4.firebasestorage.app/o/map_data%2Fcommon_points.json?alt=media';
 
   static Future<void> syncCommonPoints({String url = defaultSyncUrl}) async {
     if (kIsWeb) return; // 웹 환경은 SQLite(sqflite) 미지원
