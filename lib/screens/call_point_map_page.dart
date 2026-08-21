@@ -10,10 +10,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 import '../services/db_helper.dart';
-import '../services/google_sheets_share_service.dart';
+
 import '../utils/call_map_placemark_title.dart';
 import '../utils/marker_utils.dart';
 
@@ -517,64 +517,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             icon: Icon(Icons.layers, color: Theme.of(context).primaryColor),
             tooltip: '마커 표시 설정',
             onPressed: _showFilterBottomSheet,
-          ),
-          IconButton(
-            icon: Icon(Icons.sync, color: Theme.of(context).primaryColor),
-            tooltip: '주변콜맵 업데이트',
-            onPressed: () async {
-              // 쿨타임 체크 (5분)
-              final prefs = await SharedPreferences.getInstance();
-              final lastSync = prefs.getInt('lastGoogleSheetSync') ?? 0;
-              final now = DateTime.now().millisecondsSinceEpoch;
-              if (now - lastSync < 5 * 60 * 1000) {
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('업데이트는 5분마다 가능합니다. 잠시 후 다시 시도해주세요.')),
-                );
-                return;
-              }
-
-              // 확인 팝업
-              if (!mounted) return;
-              final confirm = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('주변콜맵 업데이트'),
-                  content: const Text('주변 콜맵 데이터를 서버에서 새로 불러오시겠습니까?'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('취소')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('확인')),
-                  ],
-                ),
-              );
-
-              if (confirm != true) return;
-
-              // 로딩 표시
-              if (!mounted) return;
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => const Center(child: CircularProgressIndicator()),
-              );
-
-              final success = await GoogleSheetsShareService.fetchSharedCoordinates();
-
-              if (!mounted) return;
-              Navigator.pop(context); // Hide loading
-
-              if (success) {
-                await prefs.setInt('lastGoogleSheetSync', now);
-                await _loadData(); // 마커 다시 불러오기
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('주변콜맵이 최신 정보로 업데이트되었습니다!')),
-                );
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('업데이트에 실패했습니다. 네트워크를 확인해주세요.')),
-                );
-              }
-            },
           ),
           const SizedBox(width: 8),
         ],
