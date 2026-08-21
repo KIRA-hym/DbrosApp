@@ -85,8 +85,9 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
-  final ScreenshotController _summaryScreenshotController = ScreenshotController();
-  
+  final ScreenshotController _summaryScreenshotController =
+      ScreenshotController();
+
   String _selectedPeriod = "일간";
   Map<String, dynamic> _stats = {};
   List<Map<String, dynamic>> _chartData = [];
@@ -346,7 +347,9 @@ class _StatsPageState extends State<StatsPage> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color!,
         borderRadius: BorderRadius.circular(compact ? 10 : 20),
-        border: compact ? Border.all(color: Theme.of(context).dividerColor) : null,
+        border: compact
+            ? Border.all(color: Theme.of(context).dividerColor)
+            : null,
       ),
       padding: compact
           ? const EdgeInsets.symmetric(horizontal: 2, vertical: 2)
@@ -363,7 +366,9 @@ class _StatsPageState extends State<StatsPage> {
     final int extraExpenses = await ExpenseRepository.sumAmountForExpenseDate(
       dateStr,
     );
-    final session = await DriveLogDatabase.instance.getWorkSessionForWorkDate(dateStr);
+    final session = await DriveLogDatabase.instance.getWorkSessionForWorkDate(
+      dateStr,
+    );
     return {
       'totalRevenue': stats['gross'] ?? 0,
       'totalNet': stats['net'] ?? 0,
@@ -479,7 +484,8 @@ class _StatsPageState extends State<StatsPage> {
       'totalExtraIncome': totalExtraIncome,
       'workDays': distinctWorkDates.length,
       'totalCount': totalCount,
-      'workSeconds': 0, // 연간 근무시간은 현재 쿼리가 복잡하므로 보류 또는 별도 계산 필요 (일단 0 처리, 요약 팝업에선 연간 시급 숨김)
+      'workSeconds':
+          0, // 연간 근무시간은 현재 쿼리가 복잡하므로 보류 또는 별도 계산 필요 (일단 0 처리, 요약 팝업에선 연간 시급 숨김)
     };
   }
 
@@ -763,7 +769,7 @@ class _StatsPageState extends State<StatsPage> {
       final program = (log['program'] ?? '').toString();
       final startLoc = (log['start_location'] ?? '').toString();
       final endLoc = (log['end_location'] ?? '').toString();
-      
+
       final gross = (log['gross_income'] as num?)?.toInt() ?? 0;
       final tip = (log['tip'] as num?)?.toInt() ?? 0;
       final fee = (log['fee'] as num?)?.toInt() ?? 0;
@@ -793,14 +799,20 @@ class _StatsPageState extends State<StatsPage> {
   Future<void> _shareSummaryPopupAsImage(BuildContext context) async {
     final int totalRuns = _stats['totalCount'] ?? 0;
     if (totalRuns == 0) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('공유할 운행 통계가 없습니다.')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('공유할 운행 통계가 없습니다.')));
       return;
     }
 
     try {
       final bytes = await _summaryScreenshotController.capture();
       if (bytes == null) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('캡처 실패')));
+        if (mounted)
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('캡처 실패')));
         return;
       }
       final tempDir = await getTemporaryDirectory();
@@ -809,17 +821,29 @@ class _StatsPageState extends State<StatsPage> {
       final xFile = XFile(file.path);
       await Share.shareXFiles(
         [xFile],
-        text: '${_selectedPeriod == "주간" ? "주간" : _selectedPeriod == "월간" ? "월간" : "연간"} 운행 요약 공유',
-        sharePositionOrigin: Rect.fromLTWH(0, 0, MediaQuery.of(context).size.width, MediaQuery.of(context).size.height / 2),
+        text:
+            '${_selectedPeriod == "주간"
+                ? "주간"
+                : _selectedPeriod == "월간"
+                ? "월간"
+                : "연간"} 운행 요약 공유',
+        sharePositionOrigin: Rect.fromLTWH(
+          0,
+          0,
+          MediaQuery.of(context).size.width,
+          MediaQuery.of(context).size.height / 2,
+        ),
       );
     } catch (e) {
       debugPrint('Share error: $e');
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('공유 실패: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('공유 실패: $e')));
     }
   }
 
   Future<void> _showStatsSummaryPopup() async {
-
     final int workedDays = _stats['workDays'] ?? 0;
     final int totalRevenue = _stats['totalRevenue'] ?? 0;
     final int totalExpense = _stats['totalExpenses'] ?? 0;
@@ -838,9 +862,13 @@ class _StatsPageState extends State<StatsPage> {
       endStr = startStr;
     } else if (_selectedPeriod == '주간') {
       totalDays = 7;
-      final weekStart = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+      final weekStart = _selectedDate.subtract(
+        Duration(days: _selectedDate.weekday - 1),
+      );
       startStr = DateFormat('yyyy-MM-dd').format(weekStart);
-      endStr = DateFormat('yyyy-MM-dd').format(weekStart.add(const Duration(days: 6)));
+      endStr = DateFormat(
+        'yyyy-MM-dd',
+      ).format(weekStart.add(const Duration(days: 6)));
     } else if (_selectedPeriod == '월간') {
       totalDays = DateTime(now.year, now.month + 1, 0).day;
       startStr = DateFormat('yyyy-MM-01').format(_selectedDate);
@@ -851,9 +879,11 @@ class _StatsPageState extends State<StatsPage> {
       startStr = '${_selectedDate.year}-01-01';
       endStr = '${_selectedDate.year}-12-31';
     }
-    
+
     final int restDays = totalDays - workedDays;
-    final int avgNetIncome = workedDays > 0 ? (totalNet / workedDays).round() : 0;
+    final int avgNetIncome = workedDays > 0
+        ? (totalNet / workedDays).round()
+        : 0;
     final int avgRuns = workedDays > 0 ? (totalRuns / workedDays).round() : 0;
 
     final int workSeconds = _stats['workSeconds'] ?? 0;
@@ -861,16 +891,23 @@ class _StatsPageState extends State<StatsPage> {
     final String? clockOutTime = _stats['clockOutTime'] as String?;
     final int totalHours = workSeconds ~/ 3600;
     final int totalMinutes = (workSeconds % 3600) ~/ 60;
-    final int avgHourly = workSeconds > 0 ? (totalNet / (workSeconds / 3600)).round() : 0;
+    final int avgHourly = workSeconds > 0
+        ? (totalNet / (workSeconds / 3600)).round()
+        : 0;
 
     String pPeriod = 'yearly';
-    if (_selectedPeriod == '일간') pPeriod = 'daily';
-    else if (_selectedPeriod == '주간') pPeriod = 'weekly';
-    else if (_selectedPeriod == '월간') pPeriod = 'monthly';
-    
+    if (_selectedPeriod == '일간')
+      pPeriod = 'daily';
+    else if (_selectedPeriod == '주간')
+      pPeriod = 'weekly';
+    else if (_selectedPeriod == '월간')
+      pPeriod = 'monthly';
+
     final programStats = await _getProgramStats(_selectedDate, pPeriod);
     final catStats = await ExpenseRepository.aggregateByCategoryForRange(
-      startStr, endStr, includeAllDefinedCategories: false,
+      startStr,
+      endStr,
+      includeAllDefinedCategories: false,
     );
 
     int kakaoRevenue = 0;
@@ -886,7 +923,10 @@ class _StatsPageState extends State<StatsPage> {
       }
     }
     if (kakaoRevenue > 0) {
-      combinedProgramStats.insert(0, {'program': '카카오', 'revenue': kakaoRevenue});
+      combinedProgramStats.insert(0, {
+        'program': '카카오',
+        'revenue': kakaoRevenue,
+      });
     }
 
     if (!mounted) return;
@@ -898,7 +938,15 @@ class _StatsPageState extends State<StatsPage> {
           children: [
             const Icon(Icons.assignment, color: Color(0xFFFFC700), size: 22),
             const SizedBox(width: 8),
-            Text('$_selectedPeriod 운행 종합 요약', style: const TextStyle(fontFamily: 'GmarketSans', color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              '$_selectedPeriod 운행 종합 요약',
+              style: const TextStyle(
+                fontFamily: 'GmarketSans',
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
             const Spacer(),
             if (totalRuns > 0)
               IconButton(
@@ -925,14 +973,31 @@ class _StatsPageState extends State<StatsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('💰 수익 요약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.amber)),
+                const Text(
+                  '💰 수익 요약',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.amber,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 _buildSummaryRow('총 매출', totalRevenue),
-                ...combinedProgramStats.map((p) => _buildBreakdownRow(p['program'] as String, p['revenue'] as int)),
-                
+                ...combinedProgramStats.map(
+                  (p) => _buildBreakdownRow(
+                    p['program'] as String,
+                    p['revenue'] as int,
+                  ),
+                ),
+
                 const SizedBox(height: 8),
                 _buildSummaryRow('총 지출', totalExpense),
-                ...catStats.map((c) => _buildBreakdownRow(c['label'] as String, c['amount'] as int)),
+                ...catStats.map(
+                  (c) => _buildBreakdownRow(
+                    c['label'] as String,
+                    c['amount'] as int,
+                  ),
+                ),
 
                 const SizedBox(height: 8),
                 _buildSummaryRow('총 순익', totalNet, isHighlight: true),
@@ -940,30 +1005,55 @@ class _StatsPageState extends State<StatsPage> {
                 _buildBreakdownRow('기타 수익', totalExtraIncome),
 
                 const SizedBox(height: 16),
-                const Text('🏃 활동 요약', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.lightBlueAccent)),
+                const Text(
+                  '🏃 활동 요약',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.lightBlueAccent,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 if (_selectedPeriod != '일간')
-                  _buildSummaryTextRow('출근 현황', '$workedDays일 출근 (휴무 $restDays일)'),
+                  _buildSummaryTextRow(
+                    '출근 현황',
+                    '$workedDays일 출근 (휴무 $restDays일)',
+                  ),
                 if (_selectedPeriod != '일간')
-                  _buildSummaryTextRow('일 평균 수익', '${NumberFormat('#,###').format(avgNetIncome)} 원'),
-                
+                  _buildSummaryTextRow(
+                    '일 평균 수익',
+                    '${NumberFormat('#,###').format(avgNetIncome)} 원',
+                  ),
+
                 if (_selectedPeriod == '일간') ...[
                   if (clockInTime != null)
-                    _buildSummaryTextRow('근무 시간', '${DateFormat('HH:mm').format(DateTime.parse(clockInTime))} ~ ${clockOutTime != null ? DateFormat('HH:mm').format(DateTime.parse(clockOutTime)) : '진행중'}')
+                    _buildSummaryTextRow(
+                      '근무 시간',
+                      '${DateFormat('HH:mm').format(DateTime.parse(clockInTime))} ~ ${clockOutTime != null ? DateFormat('HH:mm').format(DateTime.parse(clockOutTime)) : '진행중'}',
+                    )
                   else
                     _buildSummaryTextRow('근무 시간', '기록 없음'),
-                  _buildSummaryTextRow('총 소요', '${totalHours}시간 ${totalMinutes}분'),
+                  _buildSummaryTextRow(
+                    '총 소요',
+                    '${totalHours}시간 ${totalMinutes}분',
+                  ),
                 ] else if (_selectedPeriod != '연간') ...[
                   _buildSummaryTextRow('총 근무 시간', '${totalHours}시간'),
                 ],
 
                 if (_selectedPeriod != '연간' && workSeconds > 0)
-                  _buildSummaryTextRow('시간당 수익', '${NumberFormat('#,###').format(avgHourly)} 원'),
+                  _buildSummaryTextRow(
+                    '시간당 수익',
+                    '${NumberFormat('#,###').format(avgHourly)} 원',
+                  ),
 
                 if (_selectedPeriod == '일간')
                   _buildSummaryTextRow('운행 건수', '총 $totalRuns건')
                 else
-                  _buildSummaryTextRow('운행 건수', '총 $totalRuns건 (일 평균 $avgRuns건)'),
+                  _buildSummaryTextRow(
+                    '운행 건수',
+                    '총 $totalRuns건 (일 평균 $avgRuns건)',
+                  ),
               ],
             ),
           ),
@@ -974,19 +1064,21 @@ class _StatsPageState extends State<StatsPage> {
 
   void _showQuickSummaryPopup() {
     if (_stats.isEmpty) return;
-    
+
     final int workSeconds = _stats['workSeconds'] ?? 0;
     final String? clockInTime = _stats['clockInTime'] as String?;
     final String? clockOutTime = _stats['clockOutTime'] as String?;
     final int totalNet = _stats['totalNet'] ?? 0;
-    
+
     final int totalHours = workSeconds ~/ 3600;
     final int totalMinutes = (workSeconds % 3600) ~/ 60;
-    final int avgHourly = workSeconds > 0 ? (totalNet / (workSeconds / 3600)).round() : 0;
-    
+    final int avgHourly = workSeconds > 0
+        ? (totalNet / (workSeconds / 3600)).round()
+        : 0;
+
     String title = '⏰ 오늘의 근무 요약';
     String timeLine = '';
-    
+
     if (_selectedPeriod == '일간') {
       if (clockInTime != null) {
         final inDt = DateTime.parse(clockInTime);
@@ -1004,22 +1096,41 @@ class _StatsPageState extends State<StatsPage> {
       title = '⏰ $_selectedPeriod 근무 요약';
       timeLine = '총 근무 ${totalHours}시간';
     }
-    
+
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           backgroundColor: Theme.of(context).cardTheme.color,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(title, style: const TextStyle(fontFamily: 'GmarketSans', fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontFamily: 'GmarketSans',
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(timeLine, style: const TextStyle(fontSize: 15, color: Colors.white)),
+              Text(
+                timeLine,
+                style: const TextStyle(fontSize: 15, color: Colors.white),
+              ),
               const SizedBox(height: 8),
               if (_selectedPeriod != '연간')
-                Text('시간당 평균 ${NumberFormat('#,###').format(avgHourly)} 원', style: const TextStyle(fontSize: 15, color: Color(0xFFFFC700))),
+                Text(
+                  '시간당 평균 ${NumberFormat('#,###').format(avgHourly)} 원',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFFFFC700),
+                  ),
+                ),
             ],
           ),
           actions: [
@@ -1029,7 +1140,7 @@ class _StatsPageState extends State<StatsPage> {
             ),
           ],
         );
-      }
+      },
     );
   }
 
@@ -1039,8 +1150,14 @@ class _StatsPageState extends State<StatsPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text('↳ $label', style: const TextStyle(fontSize: 13, color: Colors.grey)),
-          Text('${NumberFormat('#,###').format(value)} 원', style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          Text(
+            '↳ $label',
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
+          Text(
+            '${NumberFormat('#,###').format(value)} 원',
+            style: const TextStyle(fontSize: 13, color: Colors.grey),
+          ),
         ],
       ),
     );
@@ -1074,7 +1191,10 @@ class _StatsPageState extends State<StatsPage> {
         children: [
           SizedBox(
             width: 80,
-            child: Text(label, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
           ),
           Expanded(
             child: Text(
@@ -1094,9 +1214,8 @@ class _StatsPageState extends State<StatsPage> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => Center(
-        child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-      ),
+      builder: (context) =>
+          Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
     );
 
     try {
@@ -1163,12 +1282,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_period",
           keyTarget: _keyPeriodSection,
           color: Colors.black,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "기간별 통계 확인",
                   description: "원하는 기간을 선택하여 나의 운행 통계를 간편하게 확인할 수 있습니다.",
@@ -1187,15 +1306,16 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_summary",
           keyTarget: _keySummarySection,
           color: Colors.black,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "핵심 통계 요약",
-                  description: "선택한 기간 동안의 총 순이익과 수입, 지출 내역 및 전체 운행 건수를 한눈에 파악하세요.",
+                  description:
+                      "선택한 기간 동안의 총 순이익과 수입, 지출 내역 및 전체 운행 건수를 한눈에 파악하세요.",
                   controller: controller,
                 );
               },
@@ -1211,15 +1331,16 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_expense_income",
           keyTarget: _keyExpenseIncomeCard,
           color: Colors.black,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "상세 내역 팝업",
-                  description: "이 카드를 터치하면 어떤 항목으로 지출이 발생했는지, 경유비 등 추가 수익은 얼마인지 상세 내역을 팝업으로 볼 수 있습니다.",
+                  description:
+                      "이 카드를 터치하면 어떤 항목으로 지출이 발생했는지, 경유비 등 추가 수익은 얼마인지 상세 내역을 팝업으로 볼 수 있습니다.",
                   controller: controller,
                 );
               },
@@ -1235,15 +1356,16 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_work_count",
           keyTarget: _keyWorkCountCard,
           color: Colors.black,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "운행 요약 리포트",
-                  description: "건수 카드를 터치해 보세요! 해당 기간 동안의 일자별 운행 요약 리포트를 간략하게 확인할 수 있습니다.",
+                  description:
+                      "건수 카드를 터치해 보세요! 해당 기간 동안의 일자별 운행 요약 리포트를 간략하게 확인할 수 있습니다.",
                   controller: controller,
                 );
               },
@@ -1259,12 +1381,12 @@ class _StatsPageState extends State<StatsPage> {
           identify: "stats_chart",
           keyTarget: _keyChartSection,
           color: Colors.black,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+          alignSkip: Alignment.bottomRight,
+          contents: [
             TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+              align: ContentAlign.custom,
+              customPosition: CustomTargetContentPosition(top: 0),
+              builder: (context, controller) {
                 return GuideContentWidget(
                   title: "시각적인 수익 분석",
                   description: "프로그램별, 요일별 수익 분포를 차트로 파악하여 나의 수입 패턴을 분석해 보세요!",
@@ -1284,16 +1406,26 @@ class _StatsPageState extends State<StatsPage> {
       textSkip: "건너뛰기",
       paddingFocus: 10,
       opacityShadow: 0.8,
-            onFinish: () {
+      onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
       },
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
@@ -1342,9 +1474,7 @@ class _StatsPageState extends State<StatsPage> {
       body: ResponsiveBody(
         fullWidthWhenExpanded: true,
         child: _isLoading
-            ? Center(
-                child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-              )
+            ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
             : LayoutBuilder(
                 builder: (context, constraints) {
                   // 접힘 폰: 2×2·세로 차트. 펼침(폴드·가로): 지표 1열 + 차트 좌우.
@@ -1416,29 +1546,29 @@ class _StatsPageState extends State<StatsPage> {
                                     key: _keyChartSection,
                                     child: Row(
                                       crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(
-                                        child: _buildChartPanel(
-                                          _buildProgramChart(
-                                            chartTitleFontSize,
-                                            compact: compact,
-                                            horizontalBars: true,
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(
+                                          child: _buildChartPanel(
+                                            _buildProgramChart(
+                                              chartTitleFontSize,
+                                              compact: compact,
+                                              horizontalBars: true,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      SizedBox(width: gapBetweenCharts),
-                                      Expanded(
-                                        child: _buildChartPanel(
-                                          _buildSecondChart(
-                                            chartTitleFontSize,
-                                            compact: compact,
-                                            horizontalBars: true,
+                                        SizedBox(width: gapBetweenCharts),
+                                        Expanded(
+                                          child: _buildChartPanel(
+                                            _buildSecondChart(
+                                              chartTitleFontSize,
+                                              compact: compact,
+                                              horizontalBars: true,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1479,28 +1609,28 @@ class _StatsPageState extends State<StatsPage> {
                               key: _keyChartSection,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: _buildChartPanel(
-                                    _buildProgramChart(
-                                      chartTitleFontSize,
-                                      compact: compact,
-                                      horizontalBars: true,
+                                children: [
+                                  Expanded(
+                                    child: _buildChartPanel(
+                                      _buildProgramChart(
+                                        chartTitleFontSize,
+                                        compact: compact,
+                                        horizontalBars: true,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                SizedBox(width: gapBetweenCharts),
-                                Expanded(
-                                  child: _buildChartPanel(
-                                    _buildSecondChart(
-                                      chartTitleFontSize,
-                                      compact: compact,
-                                      horizontalBars: true,
+                                  SizedBox(width: gapBetweenCharts),
+                                  Expanded(
+                                    child: _buildChartPanel(
+                                      _buildSecondChart(
+                                        chartTitleFontSize,
+                                        compact: compact,
+                                        horizontalBars: true,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
-                            ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -1548,29 +1678,29 @@ class _StatsPageState extends State<StatsPage> {
     return Container(
       key: _keySummarySection,
       child: Column(
-      children: [
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: cards[0]),
-              SizedBox(width: gap),
-              Expanded(child: cards[1]),
-            ],
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: cards[0]),
+                SizedBox(width: gap),
+                Expanded(child: cards[1]),
+              ],
+            ),
           ),
-        ),
-        SizedBox(height: gap),
-        Expanded(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: cards[3]),
-              SizedBox(width: gap),
-              Expanded(child: cards[2]),
-            ],
+          SizedBox(height: gap),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: cards[3]),
+                SizedBox(width: gap),
+                Expanded(child: cards[2]),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
       ),
     );
   }
@@ -1601,36 +1731,41 @@ class _StatsPageState extends State<StatsPage> {
         child: GestureDetector(
           onTap: _showExpenseIncomeDetailPopup,
           child: _statMetricCard(
-          title: '지출/수익',
-          valueBuilder: _expenseExtraIncomeRich,
-          titleFontSize: titleFontSize,
-          valueFontSize: valueFontSize,
-          icon: Icons.money_off,
+            title: '지출/수익',
+            valueBuilder: _expenseExtraIncomeRich,
+            titleFontSize: titleFontSize,
+            valueFontSize: valueFontSize,
+            icon: Icons.money_off,
+          ),
         ),
-      ),
       ),
       Container(
         key: _keyWorkCountCard,
         child: GestureDetector(
           onTap: _showQuickSummaryPopup,
           child: _selectedPeriod != '일간'
-            ? _statMetricCard(
-                title: '근무·운행 건수',
-                value: '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
-                valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                titleFontSize: titleFontSize,
-                valueFontSize: valueFontSize,
-                icon: Icons.local_taxi,
-              )
-            : _statMetricCard(
-                title: '운행 건수',
-                value: '${_stats['totalCount'] ?? 0}',
-                valueColor: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                titleFontSize: titleFontSize,
-                valueFontSize: valueFontSize,
-                icon: Icons.local_taxi,
-              ),
-      ),
+              ? _statMetricCard(
+                  title: '근무·운행 건수',
+                  value:
+                      '${_stats['workDays'] ?? 0} / ${_stats['totalCount'] ?? 0}',
+                  valueColor:
+                      (Theme.of(context).textTheme.bodyLarge?.color ??
+                      Colors.white),
+                  titleFontSize: titleFontSize,
+                  valueFontSize: valueFontSize,
+                  icon: Icons.local_taxi,
+                )
+              : _statMetricCard(
+                  title: '운행 건수',
+                  value: '${_stats['totalCount'] ?? 0}',
+                  valueColor:
+                      (Theme.of(context).textTheme.bodyLarge?.color ??
+                      Colors.white),
+                  titleFontSize: titleFontSize,
+                  valueFontSize: valueFontSize,
+                  icon: Icons.local_taxi,
+                ),
+        ),
       ),
     ];
   }
@@ -1678,42 +1813,43 @@ class _StatsPageState extends State<StatsPage> {
       child: Align(
         alignment: align,
         child: Wrap(
-        spacing: compact ? 6 : 10,
-        runSpacing: compact ? 6 : 10,
-        alignment: wrapAlignment,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: ['일간', '주간', '월간', '연간'].map((t) {
-          return ElevatedButton(
-            onPressed: () {
-              setState(() => _selectedPeriod = t);
-              _loadStats();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: t == _selectedPeriod
-                  ? Theme.of(context).primaryColor
-                  : Theme.of(context).cardTheme.color!,
-              foregroundColor: t == _selectedPeriod
-                  ? Colors.black
-                  : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+          spacing: compact ? 6 : 10,
+          runSpacing: compact ? 6 : 10,
+          alignment: wrapAlignment,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: ['일간', '주간', '월간', '연간'].map((t) {
+            return ElevatedButton(
+              onPressed: () {
+                setState(() => _selectedPeriod = t);
+                _loadStats();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: t == _selectedPeriod
+                    ? Theme.of(context).primaryColor
+                    : Theme.of(context).cardTheme.color!,
+                foregroundColor: t == _selectedPeriod
+                    ? Colors.black
+                    : (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 12 : 16,
+                  vertical: compact ? 6 : 8,
+                ),
               ),
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 12 : 16,
-                vertical: compact ? 6 : 8,
+              child: Text(
+                t,
+                style: TextStyle(
+                  fontFamily: 'GmarketSans',
+                  fontWeight: FontWeight.w700,
+                  fontSize: compact ? buttonFontSize * 0.92 : buttonFontSize,
+                ),
               ),
-            ),
-            child: Text(
-              t,
-              style: TextStyle(
-                fontFamily: 'GmarketSans',
-                fontWeight: FontWeight.w700,
-                fontSize: compact ? buttonFontSize * 0.92 : buttonFontSize,
-              ),
-            ),
-          );
-        }).toList(),
-      ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -1868,7 +2004,8 @@ class _StatsPageState extends State<StatsPage> {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
+        color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+            .withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
@@ -1899,7 +2036,12 @@ class _StatsPageState extends State<StatsPage> {
               ),
             ],
           ),
-          Divider(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.12), height: 16),
+          Divider(
+            color:
+                (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+                    .withOpacity(0.12),
+            height: 16,
+          ),
           ...rows,
         ],
       ),
@@ -1924,7 +2066,13 @@ class _StatsPageState extends State<StatsPage> {
           Expanded(
             child: Text(
               label,
-              style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7), fontSize: 13),
+              style: TextStyle(
+                color:
+                    (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white)
+                        .withOpacity(0.7),
+                fontSize: 13,
+              ),
             ),
           ),
           Text(
@@ -1971,7 +2119,9 @@ class _StatsPageState extends State<StatsPage> {
       fontWeight: FontWeight.w700,
       fontSize: fontSize,
       height: 1.25,
-      color: color ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+      color:
+          color ??
+          (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
     );
   }
 
@@ -1997,7 +2147,9 @@ class _StatsPageState extends State<StatsPage> {
         overflow: TextOverflow.ellipsis,
         style: _statMetricUnifiedTextStyle(
           fontSize: displayFs,
-          color: valueColor ?? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+          color:
+              valueColor ??
+              (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
         ),
       );
     }
@@ -2119,7 +2271,9 @@ class _StatsPageState extends State<StatsPage> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: _selectedPeriod != '일간' ? _showStatsSummaryPopup : null,
+                  onTap: _selectedPeriod != '일간'
+                      ? _showStatsSummaryPopup
+                      : null,
                   child: Row(
                     children: [
                       Flexible(
@@ -2129,7 +2283,9 @@ class _StatsPageState extends State<StatsPage> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'GmarketSans',
-                            color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                            color:
+                                (Theme.of(context).textTheme.bodyLarge?.color ??
+                                Colors.white),
                             fontWeight: FontWeight.w700,
                             fontSize: sectionTitleFontSize,
                           ),
@@ -2138,7 +2294,13 @@ class _StatsPageState extends State<StatsPage> {
                       if (_selectedPeriod != '일간')
                         Padding(
                           padding: const EdgeInsets.only(left: 6.0),
-                          child: Icon(Icons.info_outline, size: 16, color: Theme.of(context).primaryColor.withValues(alpha: 0.7)),
+                          child: Icon(
+                            Icons.info_outline,
+                            size: 16,
+                            color: Theme.of(
+                              context,
+                            ).primaryColor.withValues(alpha: 0.7),
+                          ),
                         ),
                     ],
                   ),
@@ -2278,7 +2440,9 @@ class _StatsPageState extends State<StatsPage> {
                     maxLines: maxTitleLines,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
                       fontWeight: FontWeight.bold,
                       fontSize: titleFontSize,
                       height: 1.1,
@@ -2584,7 +2748,11 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color ??
+                                        Colors.grey),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2598,7 +2766,11 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   NumberFormat('#,###').format(value),
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2777,7 +2949,11 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall?.color ??
+                                        Colors.grey),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2791,7 +2967,11 @@ class _StatsPageState extends State<StatsPage> {
                                 Text(
                                   _formatCurrencyK(value),
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
                                     fontSize: textFontSize,
                                   ),
                                   textAlign: TextAlign.center,
@@ -2849,11 +3029,18 @@ class _RouteFetchData {
   _RouteFetchData(this.points, this.distanceMeters);
 }
 
+class _RouteFetchData {
+  final List<LatLng> points;
+  final double distanceMeters;
+  _RouteFetchData(this.points, this.distanceMeters);
+}
+
 class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   GoogleMapController? _controller;
   bool _roadRouteEnabled = false;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
+  double _totalRoadDistanceMeters = 0.0;
   double _totalRoadDistanceMeters = 0.0;
 
   Set<Marker> _markers = {};
@@ -3002,27 +3189,28 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     setState(() {
       _roadRouteLoading = true;
     });
-    
+
     try {
       // 실제 운행 구간(N개)에 대해서만 병렬(Future.wait)로 경로 조회
       final futures = <Future<MapEntry<int, _RouteFetchData>>>[];
       for (int i = 0; i < widget.segments.length; i++) {
         futures.add(
-          _fetchRoadPath(widget.segments[i].start, widget.segments[i].end).then(
-            (points) => MapEntry(i, points),
-          ),
+          _fetchRoadPath(
+            widget.segments[i].start,
+            widget.segments[i].end,
+          ).then((points) => MapEntry(i, points)),
         );
       }
-      
+
       final results = await Future.wait(futures);
-      
+
       if (!mounted) return;
       setState(() {
         _roadRouteSegments.clear();
-          _totalRoadDistanceMeters = 0.0;
+        _totalRoadDistanceMeters = 0.0;
         for (final entry in results) {
           _roadRouteSegments[entry.key] = entry.value.points;
-            _totalRoadDistanceMeters += entry.value.distanceMeters;
+          _totalRoadDistanceMeters += entry.value.distanceMeters;
         }
         _roadRouteEnabled = true;
       });
@@ -3057,7 +3245,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       }
       return out;
     }
-    
+
     for (int i = 0; i < widget.segments.length; i++) {
       final seg = widget.segments[i];
       final segColor = _segmentColors[i % _segmentColors.length];
@@ -3143,9 +3331,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         ),
       ),
       body: _markersLoading
-          ? Center(
-              child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-            )
+          ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
           : GoogleMap(
               initialCameraPosition: CameraPosition(target: initial, zoom: 12),
               myLocationButtonEnabled: false,

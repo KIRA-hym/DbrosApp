@@ -64,7 +64,7 @@ class _SettingsPageState extends State<SettingsPage> {
     text: SettingsService.perTripInsurance.toString(),
   );
   String _insuranceType = SettingsService.insuranceType;
-  
+
   // [원복] _quickRegisterOpacity 제거: 퀵등록 투명도 슬라이더 기능 원복으로 불필요
   bool _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
   bool _autoBackupEnabled = SettingsService.autoBackupEnabled;
@@ -84,9 +84,9 @@ class _SettingsPageState extends State<SettingsPage> {
   final GlobalKey _keyBackupRestore = GlobalKey();
   final GlobalKey _keyStorage = GlobalKey();
   final GlobalKey _keyAppConvenience = GlobalKey();
-    final GlobalKey _keyStatusBarQuick = GlobalKey();
-    final GlobalKey _keyOverlayQuick = GlobalKey();
-    final GlobalKey _keyAddressSearchMode = GlobalKey();
+  final GlobalKey _keyStatusBarQuick = GlobalKey();
+  final GlobalKey _keyOverlayQuick = GlobalKey();
+  final GlobalKey _keyAddressSearchMode = GlobalKey();
   final GlobalKey _keyCallPointShare = GlobalKey();
   TutorialCoachMark? _tutorialCoachMark;
 
@@ -241,10 +241,7 @@ class _SettingsPageState extends State<SettingsPage> {
       Container(key: _keyCategoryManager, child: _buildProgramListSettings()),
       _buildExpenseListSettings(),
       _buildIncomeListSettings(),
-      Container(
-        key: _keyAppConvenience,
-        child: _buildAppConvenienceSettings(),
-      ),
+      Container(key: _keyAppConvenience, child: _buildAppConvenienceSettings()),
       if (SettingsService.isOwnerMode)
         Container(
           key: _keyCallPointShare,
@@ -288,12 +285,11 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            
-            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "내정보 및 혜택 관리",
-                description: "회원가입 정보, 이메일 문의(고객지원), 프로모션 코드 입력 및 프리미엄 구독 관리를 할 수 있는 메뉴입니다.",
+                description:
+                    "회원가입 정보, 이메일 문의(고객지원), 프로모션 코드 입력 및 프리미엄 구독 관리를 할 수 있는 메뉴입니다.",
                 controller: controller,
               );
             },
@@ -306,12 +302,11 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            
-            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "화면 및 폰트 설정",
-                description: "앱의 테마를 변경하고, 메인 목록의 폰트 크기 조절 버튼 표시 여부를 설정할 수 있습니다.",
+                description:
+                    "앱의 테마를 변경하고, 메인 목록의 폰트 크기 조절 버튼 표시 여부를 설정할 수 있습니다.",
                 controller: controller,
               );
             },
@@ -325,8 +320,6 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "데이터 백업 및 복원",
@@ -343,12 +336,11 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            
-            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "수수료 및 보험료 설정",
-                description: "사용하시는 대리 프로그램의 수수료율과 건당 보험료를 설정해두면 일지 작성 시 자동 계산됩니다.",
+                description:
+                    "사용하시는 대리 프로그램의 수수료율과 건당 보험료를 설정해두면 일지 작성 시 자동 계산됩니다.",
                 controller: controller,
               );
             },
@@ -361,12 +353,11 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            
-            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "항목 관리",
-                description: "대리 프로그램 이름이나 지출 항목(주유비, 식대 등)을 자유롭게 추가/수정할 수 있습니다.",
+                description:
+                    "대리 프로그램 이름이나 지출 항목(주유비, 식대 등)을 자유롭게 추가/수정할 수 있습니다.",
                 controller: controller,
               );
             },
@@ -383,12 +374,11 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "앱 편의 기능",
-                  description: "콜카드 스크린샷 자동저장, 플로팅 버튼, 고정 알림 등 편의 기능을 설정하는 영역입니다.",
+                  description:
+                      "콜카드 스크린샷 자동저장, 플로팅 버튼, 고정 알림 등 편의 기능을 설정하는 영역입니다.",
                   controller: controller,
                 );
               },
@@ -405,12 +395,11 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "고정 알림 상태바",
-                  description: "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
+                  description:
+                      "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
                   controller: controller,
                 );
               },
@@ -427,12 +416,11 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "스크린샷 일지 자동저장",
-                  description: "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
+                  description:
+                      "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
                   controller: controller,
                 );
               },
@@ -449,12 +437,11 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "퀵등록 플로팅버튼",
-                  description: "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
+                  description:
+                      "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
                   controller: controller,
                 );
               },
@@ -472,8 +459,6 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "주소 자동완성 방식",
@@ -495,8 +480,6 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜포인트 공유",
@@ -509,7 +492,7 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
       );
     }
-    
+
     if (_keyStorage.currentContext != null) {
       targets.add(
         TargetFocus(
@@ -518,8 +501,6 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              
-              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "데이터 정리",
@@ -560,7 +541,11 @@ class _SettingsPageState extends State<SettingsPage> {
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
-            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+            _scrollController.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
           }
         });
         return true;
@@ -570,7 +555,11 @@ class _SettingsPageState extends State<SettingsPage> {
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
-            _scrollController.animateTo(0.0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+            _scrollController.animateTo(
+              0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
           }
         });
         return true;
@@ -588,16 +577,23 @@ class _SettingsPageState extends State<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("기본 수수료율 (%)", style: TextStyle(color: Colors.white, fontSize: 14)),
+            const Text(
+              "기본 수수료율 (%)",
+              style: TextStyle(color: Colors.white, fontSize: 14),
+            ),
             const SizedBox(height: 8),
             TextField(
               controller: _baseFeeCon,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
                 filled: true,
                 fillColor: const Color(0xFF2C2F3D),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ],
@@ -614,10 +610,14 @@ class _SettingsPageState extends State<SettingsPage> {
               label: '저장',
               filled: true,
               onPressed: () async {
-                await SettingsService.setBaseFeeRate(double.tryParse(_baseFeeCon.text) ?? 20.0);
+                await SettingsService.setBaseFeeRate(
+                  double.tryParse(_baseFeeCon.text) ?? 20.0,
+                );
                 if (context.mounted) {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("수수료 설정이 저장되었습니다.")));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("수수료 설정이 저장되었습니다.")),
+                  );
                 }
               },
             ),
@@ -640,7 +640,10 @@ class _SettingsPageState extends State<SettingsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 RadioListTile<String>(
-                  title: const Text("적용 안 함", style: TextStyle(color: Colors.white)),
+                  title: const Text(
+                    "적용 안 함",
+                    style: TextStyle(color: Colors.white),
+                  ),
                   value: 'none',
                   groupValue: _insuranceType,
                   activeColor: Theme.of(context).primaryColor,
@@ -650,7 +653,10 @@ class _SettingsPageState extends State<SettingsPage> {
                   },
                 ),
                 RadioListTile<String>(
-                  title: const Text("건당 보험료", style: TextStyle(color: Colors.white)),
+                  title: const Text(
+                    "건당 보험료",
+                    style: TextStyle(color: Colors.white),
+                  ),
                   value: 'per_trip',
                   groupValue: _insuranceType,
                   activeColor: Theme.of(context).primaryColor,
@@ -661,7 +667,11 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 if (_insuranceType == 'per_trip')
                   Padding(
-                    padding: const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 8.0),
+                    padding: const EdgeInsets.only(
+                      left: 16.0,
+                      right: 16.0,
+                      bottom: 8.0,
+                    ),
                     child: TextField(
                       controller: _perTripInsCon,
                       keyboardType: TextInputType.number,
@@ -671,13 +681,15 @@ class _SettingsPageState extends State<SettingsPage> {
                         labelStyle: const TextStyle(color: Colors.grey),
                         filled: true,
                         fillColor: const Color(0xFF2C2F3D),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                     ),
                   ),
               ],
             );
-          }
+          },
         ),
         actions: [
           Builder(
@@ -692,10 +704,14 @@ class _SettingsPageState extends State<SettingsPage> {
               filled: true,
               onPressed: () async {
                 await SettingsService.setInsuranceType(_insuranceType);
-                await SettingsService.setPerTripInsurance(int.tryParse(_perTripInsCon.text) ?? 0);
+                await SettingsService.setPerTripInsurance(
+                  int.tryParse(_perTripInsCon.text) ?? 0,
+                );
                 if (context.mounted) {
                   Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("보험료 설정이 저장되었습니다.")));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("보험료 설정이 저장되었습니다.")),
+                  );
                 }
               },
             ),
@@ -704,6 +720,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
+
   Widget _buildAppConvenienceSettings() {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
@@ -725,8 +742,14 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(height: spacing),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
-            title: const Text("고정 알림 상태바", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("알림 패널에 오늘 순익 표시", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            title: const Text(
+              "고정 알림 상태바",
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              "알림 패널에 오늘 순익 표시",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             value: _statusBarQuickEnabled,
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
@@ -736,12 +759,15 @@ class _SettingsPageState extends State<SettingsPage> {
                   if (!status.isGranted) {
                     if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요.")),
+                      const SnackBar(
+                        content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요."),
+                      ),
                     );
                     return;
                   }
                   await SettingsService.setStatusBarQuickEnabled(true);
-                  await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+                  await TodayStatsNotificationService.instance
+                      .refreshFromDbIfEnabled();
                   if (!mounted) return;
                   setState(() => _statusBarQuickEnabled = true);
                 });
@@ -753,7 +779,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (!status.isGranted) {
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요.")),
+                    const SnackBar(
+                      content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요."),
+                    ),
                   );
                   return;
                 }
@@ -761,7 +789,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
               await SettingsService.setStatusBarQuickEnabled(value);
               if (value) {
-                await TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+                await TodayStatsNotificationService.instance
+                    .refreshFromDbIfEnabled();
               } else {
                 await TodayStatsNotificationService.instance.cancel();
               }
@@ -773,26 +802,32 @@ class _SettingsPageState extends State<SettingsPage> {
           SwitchListTile(
             key: _keyScreenshotAuto,
             contentPadding: EdgeInsets.zero,
-            title: const Text("스크린샷 일지 자동저장", style: TextStyle(color: Colors.white)),
-            subtitle: const Text("스크린샷 찍을 때 일지 등록", style: TextStyle(color: Colors.grey, fontSize: 12)),
+            title: const Text(
+              "스크린샷 일지 자동저장",
+              style: TextStyle(color: Colors.white),
+            ),
+            subtitle: const Text(
+              "스크린샷 찍을 때 일지 등록",
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             value: _screenshotAutoRegisterEnabled,
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked()) {
                 _showAdRewardDialog(context, 'auto_screenshot', () async {
                   if (!kIsWeb && Platform.isAndroid) {
-                    final manageStatus = await Permission.manageExternalStorage.request();
                     final storageStatus = await Permission.storage.request();
                     final photosStatus = await Permission.photos.request();
-                    
-                    if (!manageStatus.isGranted && !storageStatus.isGranted && !photosStatus.isGranted) {
+
+                    if (!storageStatus.isGranted && !photosStatus.isGranted) {
                       if (!mounted) return;
                       AppGlassDialog.show<void>(
                         context: context,
                         dialog: AppGlassDialog(
                           icon: Icons.folder_off_outlined,
                           title: '권한 설정 필요',
-                          content: '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
+                          content:
+                              '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
                           actions: [
                             Builder(
                               builder: (ctx) => GlassDialogCancelButton(
@@ -809,7 +844,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                     openAppSettings();
                                   },
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(context).primaryColor,
+                                    backgroundColor: Theme.of(
+                                      context,
+                                    ).primaryColor,
                                     foregroundColor: Colors.black,
                                   ),
                                   child: const Text('설정으로 이동'),
@@ -823,7 +860,8 @@ class _SettingsPageState extends State<SettingsPage> {
                     }
                   }
                   await SettingsService.setScreenshotAutoRegisterEnabled(true);
-                  await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+                  await ScreenshotAutoRegisterService.instance
+                      .syncWithSettingsPreference();
                   if (!mounted) return;
                   setState(() => _screenshotAutoRegisterEnabled = true);
                 });
@@ -832,8 +870,11 @@ class _SettingsPageState extends State<SettingsPage> {
 
               if (value) {
                 if (!kIsWeb && Platform.isAndroid) {
-                  if ((await PackageInfo.fromPlatform()).version.startsWith('14')) {
-                    final storageStatus = await Permission.manageExternalStorage.request();
+                  if ((await PackageInfo.fromPlatform()).version.startsWith(
+                    '14',
+                  )) {
+                    final storageStatus = await Permission.manageExternalStorage
+                        .request();
                     if (!storageStatus.isGranted) {
                       if (!mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -855,7 +896,8 @@ class _SettingsPageState extends State<SettingsPage> {
               }
 
               await SettingsService.setScreenshotAutoRegisterEnabled(value);
-              await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+              await ScreenshotAutoRegisterService.instance
+                  .syncWithSettingsPreference();
 
               if (!mounted) return;
               setState(() => _screenshotAutoRegisterEnabled = value);
@@ -869,25 +911,37 @@ class _SettingsPageState extends State<SettingsPage> {
                   SwitchListTile(
                     key: _keyOverlayQuick,
                     contentPadding: EdgeInsets.zero,
-                    title: const Text("퀵등록 플로팅버튼", style: TextStyle(color: Colors.white)),
-                    subtitle: const Text("화면에 빠른 등록 버튼 띄우기", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    title: const Text(
+                      "퀵등록 플로팅버튼",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    subtitle: const Text(
+                      "화면에 빠른 등록 버튼 띄우기",
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
                     value: overlayEnabled,
                     activeColor: Theme.of(context).primaryColor,
                     onChanged: (value) async {
                       if (value && !SettingsService.isFeatureUnlocked()) {
                         _showAdRewardDialog(context, 'overlay_quick', () async {
-                          if (!await _requestSystemAlertWindowPermission()) return;
-                          await SettingsService.setOverlayQuickRegisterEnabled(true);
+                          if (!await _requestSystemAlertWindowPermission())
+                            return;
+                          await SettingsService.setOverlayQuickRegisterEnabled(
+                            true,
+                          );
                           await OverlayManager.showOverlay(context);
                         });
                         return;
                       }
 
                       if (value) {
-                        if (!await _requestSystemAlertWindowPermission()) return;
+                        if (!await _requestSystemAlertWindowPermission())
+                          return;
                       }
-                      
-                      await SettingsService.setOverlayQuickRegisterEnabled(value);
+
+                      await SettingsService.setOverlayQuickRegisterEnabled(
+                        value,
+                      );
                       if (value) {
                         await OverlayManager.showOverlay(context);
                       } else {
@@ -897,13 +951,20 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   if (overlayEnabled)
                     ValueListenableBuilder<double>(
-                      valueListenable: SettingsService.overlayButtonSizeNotifier,
+                      valueListenable:
+                          SettingsService.overlayButtonSizeNotifier,
                       builder: (context, btnSize, _) {
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16.0),
                           child: Row(
                             children: [
-                              const Text("버튼 크기 조절", style: TextStyle(color: Colors.grey, fontSize: 13)),
+                              const Text(
+                                "버튼 크기 조절",
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 13,
+                                ),
+                              ),
                               Expanded(
                                 child: Slider(
                                   value: btnSize,
@@ -918,11 +979,11 @@ class _SettingsPageState extends State<SettingsPage> {
                             ],
                           ),
                         );
-                      }
+                      },
                     ),
                 ],
               );
-            }
+            },
           ),
 
           ValueListenableBuilder<String>(
@@ -931,12 +992,22 @@ class _SettingsPageState extends State<SettingsPage> {
               return ListTile(
                 key: _keyAddressSearchMode,
                 contentPadding: EdgeInsets.zero,
-                title: const Text('주소 자동완성 방식', style: TextStyle(color: Colors.white)),
-                subtitle: const Text('입력 시 추천해 주는 기준 선택', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                title: const Text(
+                  '주소 자동완성 방식',
+                  style: TextStyle(color: Colors.white),
+                ),
+                subtitle: const Text(
+                  '입력 시 추천해 주는 기준 선택',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
                 trailing: DropdownButton<String>(
                   value: currentMode,
                   dropdownColor: Theme.of(context).cardTheme.color,
-                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 14, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                   underline: const SizedBox(),
                   items: const [
                     DropdownMenuItem(value: 'both', child: Text('기록+주소 (기본)')),
@@ -1017,8 +1088,8 @@ class _SettingsPageState extends State<SettingsPage> {
     }
 
     return SingleChildScrollView(
-        controller: _scrollController,
-        padding: EdgeInsets.all(horizontalPadding),
+      controller: _scrollController,
+      padding: EdgeInsets.all(horizontalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -1121,9 +1192,7 @@ class _SettingsPageState extends State<SettingsPage> {
       final currentState = SettingsService.isOwnerMode;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            currentState ? '오너 모드가 활성화되어 있습니다.' : '관리자 권한이 없습니다.',
-          ),
+          content: Text(currentState ? '오너 모드가 활성화되어 있습니다.' : '관리자 권한이 없습니다.'),
         ),
       );
     }
@@ -1292,7 +1361,8 @@ class _SettingsPageState extends State<SettingsPage> {
         icon: Icons.apps_rounded,
         items: List.from(SettingsService.programList),
         hintText: '새 프로그램 이름',
-        subtitleBuilder: (context, item) => ProgramTogglesWidget(programName: item),
+        subtitleBuilder: (context, item) =>
+            ProgramTogglesWidget(programName: item),
         onAdd: (item) async {
           final list = List<String>.from(SettingsService.programList)
             ..add(item);
@@ -2283,10 +2353,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 children: [
                   Icon(Icons.help_outline, size: 20),
                   SizedBox(width: 8),
-                  Text(
-                    '앱이용가이드',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
+                  Text('앱이용가이드', style: TextStyle(fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
@@ -2567,7 +2634,9 @@ class _ProgramTogglesWidgetState extends State<ProgramTogglesWidget> {
           valueListenable: SettingsService.insuranceProgramsNotifier,
           builder: (context, insuranceList, _) {
             final isFeeApplied = !noFeeList.contains(widget.programName);
-            final isInsuranceApplied = insuranceList.contains(widget.programName);
+            final isInsuranceApplied = insuranceList.contains(
+              widget.programName,
+            );
 
             return Wrap(
               spacing: 8.0,
@@ -2577,14 +2646,20 @@ class _ProgramTogglesWidgetState extends State<ProgramTogglesWidget> {
                   label: '수수료 차감',
                   isActive: isFeeApplied,
                   onTap: () async {
-                    await SettingsService.setNoFeeProgram(widget.programName, isFeeApplied);
+                    await SettingsService.setNoFeeProgram(
+                      widget.programName,
+                      isFeeApplied,
+                    );
                   },
                 ),
                 _buildChip(
                   label: '건당 보험료',
                   isActive: isInsuranceApplied,
                   onTap: () async {
-                    await SettingsService.setInsuranceProgram(widget.programName, !isInsuranceApplied);
+                    await SettingsService.setInsuranceProgram(
+                      widget.programName,
+                      !isInsuranceApplied,
+                    );
                   },
                 ),
               ],
@@ -2595,17 +2670,25 @@ class _ProgramTogglesWidgetState extends State<ProgramTogglesWidget> {
     );
   }
 
-  Widget _buildChip({required String label, required bool isActive, required VoidCallback onTap}) {
+  Widget _buildChip({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
     final primaryColor = Theme.of(context).primaryColor;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: isActive ? primaryColor.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.05),
+          color: isActive
+              ? primaryColor.withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.05),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isActive ? primaryColor.withValues(alpha: 0.5) : Colors.transparent,
+            color: isActive
+                ? primaryColor.withValues(alpha: 0.5)
+                : Colors.transparent,
           ),
         ),
         child: Row(

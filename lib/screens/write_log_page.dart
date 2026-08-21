@@ -1566,7 +1566,8 @@ class _DriveLogFormState extends State<DriveLogForm>
       await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
 
       if (_currentRawText != null && _currentRawText!.trim().isNotEmpty) {
-        final wasParsingError = (widget.existingLog?['has_parsing_error'] == 1) || _hasOcrWarning;
+        final wasParsingError =
+            (widget.existingLog?['has_parsing_error'] == 1) || _hasOcrWarning;
         if (wasParsingError) {
           final correctedData = {
             'program': _selectedProgram,
@@ -2445,7 +2446,10 @@ class _DriveLogFormState extends State<DriveLogForm>
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (_logId != null && !_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
+                    if (_logId != null &&
+                        !_isStartLocMissing &&
+                        _startLat == null &&
+                        _startLocCon.text.trim().isNotEmpty)
                       Tooltip(
                         message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
                         triggerMode: TooltipTriggerMode.tap,
@@ -2458,7 +2462,9 @@ class _DriveLogFormState extends State<DriveLogForm>
                           ),
                         ),
                       )
-                    else if (!_isStartLocMissing && _startLat == null)
+                    else if (_logId != null &&
+                        !_isStartLocMissing &&
+                        _startLat == null)
                       const Icon(
                         Icons.location_off,
                         color: Colors.orange,
@@ -2485,7 +2491,10 @@ class _DriveLogFormState extends State<DriveLogForm>
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_logId != null && !_isEndLocMissing && _endLat == null && _endLocCon.text.trim().isNotEmpty)
+                if (_logId != null &&
+                    !_isEndLocMissing &&
+                    _endLat == null &&
+                    _endLocCon.text.trim().isNotEmpty)
                   Tooltip(
                     message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
                     triggerMode: TooltipTriggerMode.tap,
@@ -2498,7 +2507,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                       ),
                     ),
                   )
-                else if (!_isEndLocMissing && _endLat == null)
+                else if (_logId != null && !_isEndLocMissing && _endLat == null)
                   const Icon(
                     Icons.location_off,
                     color: Colors.orange,
@@ -2694,31 +2703,33 @@ class _DriveLogFormState extends State<DriveLogForm>
         return option;
       },
       optionsBuilder: (TextEditingValue v) async {
-          if (v.text.isEmpty) return const Iterable<String>.empty();
-          
-          final query = v.text.trim();
-          final queryLower = query.toLowerCase();
-          final mode = SettingsService.addressSearchMode;
-          
-          List<String> historyMatches = [];
-          Set<String> historySet = {};
-          if (mode == 'both' || mode == 'history') {
-            final historyRaw = _distinctLocations
-                .where((s) => s.toLowerCase().contains(queryLower))
-                .toList();
-            historyMatches = historyRaw.map((s) => '[최근] $s').toList();
-            historySet = historyRaw.toSet();
-          }
-          
-          List<String> filteredDbMatches = [];
-          if (mode == 'both' || mode == 'address') {
-            final dbMatches = await AddressRepository().search(query);
-            filteredDbMatches = dbMatches.where((s) => !historySet.contains(s)).toList();
-          }
-          
-          return [...historyMatches, ...filteredDbMatches];
-        },
-        fieldViewBuilder: (context, con, fn, onFieldSubmitted) {
+        if (v.text.isEmpty) return const Iterable<String>.empty();
+
+        final query = v.text.trim();
+        final queryLower = query.toLowerCase();
+        final mode = SettingsService.addressSearchMode;
+
+        List<String> historyMatches = [];
+        Set<String> historySet = {};
+        if (mode == 'both' || mode == 'history') {
+          final historyRaw = _distinctLocations
+              .where((s) => s.toLowerCase().contains(queryLower))
+              .toList();
+          historyMatches = historyRaw.map((s) => '[최근] $s').toList();
+          historySet = historyRaw.toSet();
+        }
+
+        List<String> filteredDbMatches = [];
+        if (mode == 'both' || mode == 'address') {
+          final dbMatches = await AddressRepository().search(query);
+          filteredDbMatches = dbMatches
+              .where((s) => !historySet.contains(s))
+              .toList();
+        }
+
+        return [...historyMatches, ...filteredDbMatches];
+      },
+      fieldViewBuilder: (context, con, fn, onFieldSubmitted) {
         return TextField(
           controller: con,
           focusNode: fn,
