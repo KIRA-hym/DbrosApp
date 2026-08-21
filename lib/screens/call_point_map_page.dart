@@ -7,9 +7,10 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart'
+import 'package:google_maps_flutter/google_maps_flutter.dart' hide ClusterManager, Cluster
     if (dart.library.html) '../utils/maps_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
 
 
 import '../services/db_helper.dart';
@@ -19,11 +20,14 @@ import '../utils/marker_utils.dart';
 
 import '../services/settings_service.dart';
 
-class CallPointData {
+class CallPointData with ClusterItem {
   final Map<String, dynamic> data;
   final LatLng position;
 
   CallPointData({required this.data, required this.position});
+
+  @override
+  LatLng get location => position;
 }
 
 class CallPointMapPage extends StatefulWidget {
@@ -36,6 +40,7 @@ class CallPointMapPage extends StatefulWidget {
 class _CallPointMapPageState extends State<CallPointMapPage> {
   final Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = {};
+  late ClusterManager<CallPointData> _clusterManager;
   Position? _currentPosition;
   bool _loading = true;
   bool _permissionGranted = false;
@@ -60,6 +65,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   void initState() {
     super.initState();
     _visibleTypes = SettingsService.mapVisibleTypes;
+    _clusterManager = ClusterManager<CallPointData>(
+      [],
+      _updateMarkers,
+      markerBuilder: _markerBuilder,
+    );
     _initMap();
   }
 
@@ -193,6 +203,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
   }
 
+  void _updateMarkers(Set<Marker> markers) {
+    if (mounted) {
+      setState(() {
+        _markers = markers;
+      });
+    }
+  }
+
   void _applyFilter() {
     final List<CallPointData> filtered = _allPoints.where((p) {
       final type = p.data['type'];
@@ -207,35 +225,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       return false;
     }).toList();
     
-    final newMarkers = <Marker>{};
-    final locationCounts = <String, int>{};
-    
-    int index = 0;
-    for (final point in filtered) {
-      final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
-      final overlapCount = locationCounts[locKey] ?? 0;
-      locationCounts[locKey] = overlapCount + 1;
-      
-      double jitterLat = point.position.latitude;
-      double jitterLng = point.position.longitude;
-      
-      // 완전히 같은 위치에 있는 마커들이 서로를 가리지 않도록 약간 분산 (jitter)
-      if (overlapCount > 0) {
-        // overlapCount에 따라 대각선으로 약 1.5~2미터 간격 벌림
-        jitterLat += (overlapCount * 0.000015);
-        jitterLng += (overlapCount * 0.000015);
-      }
-      
-      final adjustedPosition = LatLng(jitterLat, jitterLng);
-      newMarkers.add(_buildMarker(point, adjustedPosition, index));
-      index++;
-    }
-    
-    if (mounted) {
-      setState(() {
-        _markers = newMarkers;
-      });
-    }
+    _clusterManager.setItems(filtered);
   }
 
   void _showFilterBottomSheet() {
@@ -316,76 +306,26 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
 
 
-  InfoWindow _infoWindowForPoint(CallPointData point) {
-    final data = point.data;
-    if (data['type'] == 'reference') {
-      final loc = _referenceDisplayLocation(data['start_location']?.toString() ?? '');
-      final name = loc.isNotEmpty ? loc : '콜포인트';
-      return InfoWindow(
-        title: name,
-        snippet: '콜포인트',
+  Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
+    if (cluster.isMultiple) {
+      return Marker(
+        markerId: MarkerId(cluster.getId()),
+        position: cluster.location,
+        onTap: () => _showClusterBottomSheet(cluster.items.toList()),
+        icon: await _getClusterBitmap(cluster.count),
       );
     }
-
-    final createdAtStr = data['created_at']?.toString().trim() ?? '';
-    String displayDateTime = '';
-    if (createdAtStr.length >= 16) {
-      displayDateTime = createdAtStr.substring(0, 16).replaceAll('T', ' ');
-    } else {
-      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr.replaceAll('T', ' ') : '시간 정보 없음';
-    }
-
-    final program = data['program']?.toString().trim() ?? '';
-    final grossFareRaw = data['gross_fare'];
-    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
     
-    String programLine = '';
-    if (program.isNotEmpty) {
-      if (grossFare > 0) {
-        programLine = ' · $program ${NumberFormat('#,###').format(grossFare)}';
-      } else {
-        programLine = ' · $program';
-      }
-    } else if (grossFare > 0) {
-      programLine = ' · ${NumberFormat('#,###').format(grossFare)}';
-    }
-    
-    final startLoc = data['start_location']?.toString().trim() ?? '';
-    final endLoc = data['end_location']?.toString().trim() ?? '';
-    final routeLine = startLoc.isNotEmpty || endLoc.isNotEmpty
-        ? '${startLoc.isNotEmpty ? startLoc : '—'} → ${endLoc.isNotEmpty ? endLoc : '—'}'
-        : '출발·도착 정보 없음';
-        
-    return InfoWindow(
-      title: '$displayDateTime$programLine',
-      snippet: routeLine,
-    );
-  }
-
-  Future<void> _onMarkerTap(CallPointData point) async {
-    if (!_controller.isCompleted) return;
-    try {
-      final controller = await _controller.future;
-      await controller.showMarkerInfoWindow(MarkerId(point.data['id'].toString()));
-    } catch (e) {
-      debugPrint('마커 InfoWindow 표시 오류: $e');
-    }
-  }
-
-  Marker _buildMarker(CallPointData point, LatLng position, int index) {
-    final infoWindow = _infoWindowForPoint(point);
-    // index를 포함하여 MarkerId 중복을 원천 차단
-    final markerId = MarkerId('${point.data['id']}_$index');
+    final point = cluster.items.first;
     final data = point.data;
     BitmapDescriptor icon;
     double zIndex = 0.0;
     
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
-        // Note: In older code 'log' might mean mine. Let's explicitly check is_mine.
         if (data['is_mine'] == 1) {
           icon = _logIconMine!;
-          zIndex = 5.0; // 내 위치 우선순위
+          zIndex = 5.0;
         } else {
           icon = _logIconOther!;
         }
@@ -394,80 +334,194 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       }
     } else if (data['type'] == 'restroom') {
       icon = _restroomIcon!;
-      zIndex = 10.0; // 화장실 최우선 노출
+      zIndex = 10.0;
     } else if (data['type'] == 'shuttle') {
       icon = _shuttleIcon!;
-      zIndex = 10.0; // 셔틀 최우선 노출
+      zIndex = 10.0;
     } else {
       icon = _refIcon!;
     }
 
     return Marker(
-      markerId: markerId,
-      position: position,
-      infoWindow: infoWindow,
-      onTap: () => _onMarkerTap(point),
+      markerId: MarkerId(point.data['id'].toString()),
+      position: cluster.location,
+      onTap: () => _showClusterBottomSheet([point]),
       icon: icon,
       zIndex: zIndex,
     );
   }
 
-  Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text, Color color = Colors.red, bool isStar = false, bool isHeart = false}) async {
+  Future<BitmapDescriptor> _getClusterBitmap(int count, {int size = 110}) async {
     final PictureRecorder pictureRecorder = PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint = Paint()..color = color;
-
-    if (text != null) {
-      canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint);
-      TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
-      painter.text = TextSpan(
-        text: text,
-        style: TextStyle(fontSize: size / 2.5, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
-      );
-      painter.layout();
-      painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
-    } else {
-      if (isStar) {
-        _drawStar(canvas, Offset(size / 2, size / 2), size / 2.0, paint);
-      } else if (isHeart) {
-        _drawHeart(canvas, size.toDouble(), paint);
-      } else {
-        canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint);
-      }
-    }
-
+    final Paint paint = Paint()..color = const Color(0xFFFFC700);
+    final Paint strokePaint = Paint()
+      ..color = Colors.black87
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0;
+    
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0 - 2.0, paint);
+    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0 - 2.0, strokePaint);
+    
+    TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
+    painter.text = TextSpan(
+      text: count.toString(),
+      style: TextStyle(
+        fontSize: size / 2.5, 
+        color: Colors.black87, 
+        fontWeight: FontWeight.bold
+      ),
+    );
+    painter.layout();
+    painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
+    
     final img = await pictureRecorder.endRecording().toImage(size, size);
-    final data = await img.toByteData(format: ImageByteFormat.png);
-    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
+    final byteData = await img.toByteData(format: ImageByteFormat.png);
+    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
   }
 
-  void _drawStar(Canvas canvas, Offset center, double radius, Paint paint) {
-    Path path = Path();
-    int points = 5;
-    double angle = (math.pi * 2) / points;
-    for (int i = 0; i < points * 2; i++) {
-      double r = (i % 2 == 0) ? radius : radius / 2;
-      double theta = i * angle / 2 - math.pi / 2;
-      double x = center.dx + r * math.cos(theta);
-      double y = center.dy + r * math.sin(theta);
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-    canvas.drawPath(path, paint);
-  }
-
-  void _drawHeart(Canvas canvas, double size, Paint paint) {
-    Path path = Path();
-    path.moveTo(size / 2, size / 4);
-    path.cubicTo(size * 5 / 8, 0, size, 0, size, size * 3 / 8);
-    path.cubicTo(size, size * 5 / 8, size / 2, size * 7 / 8, size / 2, size * 7 / 8);
-    path.cubicTo(size / 2, size * 7 / 8, 0, size * 5 / 8, 0, size * 3 / 8);
-    path.cubicTo(0, 0, size * 3 / 8, 0, size / 2, size / 4);
-    canvas.drawPath(path, paint);
+  void _showClusterBottomSheet(List<CallPointData> items) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2.5),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                child: Row(
+                  children: [
+                    Text(
+                      items.length == 1 ? '상세 정보' : '${items.length}개의 마커', 
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    )
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: items.length,
+                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final data = items[index].data;
+                    final type = data['type'];
+                    
+                    if (type == 'reference') {
+                      final loc = _referenceDisplayLocation(data['start_location']?.toString() ?? '');
+                      return ListTile(
+                        leading: const CircleAvatar(backgroundColor: Color(0xFFFBBF24), child: Icon(Icons.star, color: Colors.white, size: 20)),
+                        title: Text(loc.isNotEmpty ? loc : '대기 콜포인트', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        subtitle: const Text('주변 대기 포인트 (추천)'),
+                      );
+                    } else if (type == 'restroom' || type == 'shuttle') {
+                       return ListTile(
+                         leading: CircleAvatar(backgroundColor: Colors.grey, child: Text(type == 'restroom' ? '🚻' : '🚌', style: const TextStyle(fontSize: 18))),
+                         title: Text(data['start_location']?.toString() ?? (type == 'restroom' ? '화장실' : '셔틀'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                       );
+                    }
+                    
+                    // Log or shared
+                    final createdAtStr = data['created_at']?.toString().trim() ?? '';
+                    String displayDateTime = createdAtStr.length >= 16 ? createdAtStr.substring(0, 16).replaceAll('T', ' ') : createdAtStr;
+                    final program = data['program']?.toString().trim() ?? '';
+                    final grossFareRaw = data['gross_fare'];
+                    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
+                    
+                    final startLoc = data['start_location']?.toString().trim() ?? '';
+                    final endLoc = data['end_location']?.toString().trim() ?? '';
+                    
+                    final isMine = data['is_mine'] == 1;
+                    
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isMine ? const Color(0xFFEC4899) : const Color(0xFF3B82F6),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(isMine ? '내 기록' : '공유', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(displayDateTime, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                              ),
+                              if (program.isNotEmpty)
+                                Text(program, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  const Icon(Icons.circle, size: 10, color: Colors.blue),
+                                  Container(width: 1, height: 16, color: Colors.grey),
+                                  const Icon(Icons.circle, size: 10, color: Colors.red),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(startLoc.isNotEmpty ? startLoc : '출발지 미상', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                    const SizedBox(height: 8),
+                                    Text(endLoc.isNotEmpty ? endLoc : '도착지 미상', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  ],
+                                ),
+                              ),
+                              if (grossFare > 0)
+                                Container(
+                                  alignment: Alignment.centerRight,
+                                  child: Text('${NumberFormat("#,###").format(grossFare)}원', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildAppBarTitle() {
@@ -571,6 +625,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             compassEnabled: true,
             mapToolbarEnabled: false,
             zoomControlsEnabled: false,
+            onCameraMove: _clusterManager.onCameraMove,
+            onCameraIdle: _clusterManager.updateMap,
           ),
         ),
         _buildLegend(),
