@@ -3379,7 +3379,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '총 운행거리  KM',
+                            '총 운행거리 ${(_totalRoadDistanceMeters / 1000).toStringAsFixed(1)} KM',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,

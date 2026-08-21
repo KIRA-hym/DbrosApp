@@ -870,27 +870,59 @@ class _SettingsPageState extends State<SettingsPage> {
 
               if (value) {
                 if (!kIsWeb && Platform.isAndroid) {
-                  if ((await PackageInfo.fromPlatform()).version.startsWith(
-                    '14',
-                  )) {
-                    final storageStatus = await Permission.manageExternalStorage
-                        .request();
-                    if (!storageStatus.isGranted) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                      );
-                      return;
-                    }
-                  } else {
-                    final storageStatus = await Permission.storage.request();
-                    if (!storageStatus.isGranted) {
-                      if (!mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                      );
-                      return;
-                    }
+                  final storageStatus = await Permission.storage.request();
+                  final photosStatus = await Permission.photos.request();
+                  if (!storageStatus.isGranted && !photosStatus.isGranted) {
+                    if (!mounted) return;
+                    AppGlassDialog.show<void>(
+                      context: context,
+                      dialog: AppGlassDialog(
+                        icon: Icons.folder_off_outlined,
+                        title: '권한 설정 필요',
+                        content:
+                            '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
+                        actions: [
+                          Builder(
+                            builder: (ctx) => GlassDialogCancelButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              label: '취소',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Builder(
+                            builder: (ctx) => Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  openAppSettings();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.black,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
+                                child: const Text(
+                                  '설정으로 이동',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
                   }
                 }
               }
