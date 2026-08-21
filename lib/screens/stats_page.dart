@@ -2852,7 +2852,6 @@ class _RouteFetchData {
 class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   GoogleMapController? _controller;
   bool _roadRouteEnabled = false;
-        _totalRoadDistanceMeters = 0.0;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
   double _totalRoadDistanceMeters = 0.0;
