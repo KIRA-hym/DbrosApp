@@ -225,7 +225,26 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       return false;
     }).toList();
     
-    _clusterManager.setItems(filtered);
+    // 완전히 동일한 좌표에 있는 마커들이 최대 줌에서도 뭉쳐있지 않도록 미세 분산(Jitter) 처리 복구
+    final List<CallPointData> jitteredList = [];
+    final locationCounts = <String, int>{};
+    
+    for (final p in filtered) {
+      final locKey = '${p.position.latitude.toStringAsFixed(5)},${p.position.longitude.toStringAsFixed(5)}';
+      final overlapCount = locationCounts[locKey] ?? 0;
+      locationCounts[locKey] = overlapCount + 1;
+      
+      double jitterLat = p.position.latitude;
+      double jitterLng = p.position.longitude;
+      
+      if (overlapCount > 0) {
+        jitterLat += (overlapCount * 0.000015);
+        jitterLng += (overlapCount * 0.000015);
+      }
+      jitteredList.add(CallPointData(data: p.data, position: LatLng(jitterLat, jitterLng)));
+    }
+    
+    _clusterManager.setItems(jitteredList);
   }
 
   void _showFilterBottomSheet() {
