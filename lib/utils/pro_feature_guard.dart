@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
 import '../services/feature_usage_service.dart';
 import '../services/rewarded_ad_service.dart';
@@ -48,7 +48,9 @@ class ProFeatureGuard {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (ctx) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+          builder: (ctx) => const Center(
+            child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+          ),
         );
 
         bool rewardEarned = false;
@@ -60,7 +62,9 @@ class ProFeatureGuard {
           onAdClosed: () async {
             if (context.mounted) Navigator.pop(context); // Close loading dialog
             if (rewardEarned) {
-              await FeatureUsageService.incrementAdUsage(featureKey); // This grants the Daily Pass!
+              await FeatureUsageService.incrementAdUsage(
+                featureKey,
+              ); // This grants the Daily Pass!
               onGranted(false);
             }
           },
@@ -81,12 +85,25 @@ class ProFeatureGuard {
     _showProUpgradeDialog(context);
   }
 
-  static Future<bool?> _showAdPromptDialog(BuildContext context, String featureKey) {
-    final bool hasFreeUses = (featureKey != 'multi_ocr' && featureKey != 'stats');
+  static Future<bool?> _showAdPromptDialog(
+    BuildContext context,
+    String featureKey,
+  ) {
+    final bool hasFreeUses =
+        (featureKey == 'route_map' || featureKey == 'single_ocr');
     final String title = hasFreeUses ? '무료 이용 횟수 소진' : '기능 일시 잠금 해제';
-    final String content = hasFreeUses 
-        ? '기본 제공 무료 횟수를 모두 사용했습니다.\n30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?'
-        : '30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
+
+    String content;
+    if (featureKey == 'route_map') {
+      content =
+          '기본 제공 무료 횟수를 모두 사용했습니다.\n30초 광고를 시청하시면 지도를 1회 열람하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
+    } else if (hasFreeUses) {
+      content =
+          '기본 제공 무료 횟수를 모두 사용했습니다.\n30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
+    } else {
+      content =
+          '30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
+    }
 
     return AppGlassDialog.show<bool>(
       context: context,
@@ -95,7 +112,11 @@ class ProFeatureGuard {
         title: title,
         content: content,
         actions: [
-          Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx, false))),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+          ),
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -127,7 +148,12 @@ class ProFeatureGuard {
         ),
         content: '해당 기능은 프리미엄 구독자 전용입니다.\n구독하시고 무제한으로 이용해 보세요.',
         actions: [
-          Builder(builder: (ctx) => GlassDialogCancelButton(onPressed: () => Navigator.pop(ctx), label: '닫기')),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx),
+              label: '닫기',
+            ),
+          ),
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(

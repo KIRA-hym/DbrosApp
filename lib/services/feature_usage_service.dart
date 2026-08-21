@@ -58,7 +58,13 @@ class FeatureUsageService {
   }
 
   static Future<void> incrementAdUsage(String feature) async {
-    await grantDailyPass(feature); // 기존 adUsage 증가를 pass 발급으로 통일
+    if (feature == 'route_map') {
+      await _checkAndResetDailyCounter(feature);
+      final count = _prefs.getInt('${feature}_ad_count') ?? 0;
+      await _prefs.setInt('${feature}_ad_count', count + 1);
+    } else {
+      await grantDailyPass(feature); // 기존 adUsage 증가를 pass 발급으로 통일
+    }
   }
 
   // Helper check functions
@@ -77,8 +83,7 @@ class FeatureUsageService {
   }
 
   static Future<bool> canUseCallMapFree() async {
-    final stats = await getUsageStats('call_map');
-    return stats['free']! < 1; // 1회 무료
+    return false; // 무료 없음
   }
 
   static Future<bool> canUseRouteMapFree() async {
