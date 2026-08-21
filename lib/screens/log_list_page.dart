@@ -3043,7 +3043,7 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
       final displayWidget = Text(
         isMissing ? '⚠️ 누락' : t,
         style: locStyle.copyWith(
-          color: isMissing ? const Color(0xFFFF5252) : null,
+          color: isMissing ? const Color(0xFFFF5252) : (!hasCoordinate && full != null && full.isNotEmpty ? Colors.orange : null),
         ),
         maxLines: 1,
         softWrap: false,
