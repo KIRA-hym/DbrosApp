@@ -3029,18 +3029,11 @@ class _RouteFetchData {
   _RouteFetchData(this.points, this.distanceMeters);
 }
 
-class _RouteFetchData {
-  final List<LatLng> points;
-  final double distanceMeters;
-  _RouteFetchData(this.points, this.distanceMeters);
-}
-
 class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   GoogleMapController? _controller;
   bool _roadRouteEnabled = false;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
-  double _totalRoadDistanceMeters = 0.0;
   double _totalRoadDistanceMeters = 0.0;
 
   Set<Marker> _markers = {};
@@ -3332,17 +3325,72 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       ),
       body: _markersLoading
           ? Center(child: CircularProgressIndicator(color: Color(0xFFFFC700)))
-          : GoogleMap(
-              initialCameraPosition: CameraPosition(target: initial, zoom: 12),
-              myLocationButtonEnabled: false,
-              markers: _markers,
-              polylines: polylines,
-              onMapCreated: (controller) {
-                _controller = controller;
-                WidgetsBinding.instance.addPostFrameCallback(
-                  (_) => _fitBounds(),
-                );
-              },
+          : Stack(
+              children: [
+                GoogleMap(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).padding.bottom + 16,
+                  ),
+                  initialCameraPosition: CameraPosition(
+                    target: initial,
+                    zoom: 12,
+                  ),
+                  myLocationButtonEnabled: false,
+                  markers: _markers,
+                  polylines: polylines,
+                  onMapCreated: (controller) {
+                    _controller = controller;
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) => _fitBounds(),
+                    );
+                  },
+                ),
+                if (_roadRouteEnabled && _totalRoadDistanceMeters > 0)
+                  Positioned(
+                    top: 16,
+                    left: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E2024).withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFFFFC700),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.directions_car,
+                            color: Color(0xFFFFC700),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '총 운행거리  KM',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
     );
   }
