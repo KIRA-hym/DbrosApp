@@ -2843,11 +2843,19 @@ class StatsRouteMapPage extends StatefulWidget {
   State<StatsRouteMapPage> createState() => StatsRouteMapPageState();
 }
 
+class _RouteFetchData {
+  final List<LatLng> points;
+  final double distanceMeters;
+  _RouteFetchData(this.points, this.distanceMeters);
+}
+
 class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   GoogleMapController? _controller;
   bool _roadRouteEnabled = false;
+        _totalRoadDistanceMeters = 0.0;
   bool _roadRouteLoading = false;
   final Map<int, List<LatLng>> _roadRouteSegments = <int, List<LatLng>>{};
+  double _totalRoadDistanceMeters = 0.0;
 
   Set<Marker> _markers = {};
   bool _markersLoading = true;
@@ -2948,7 +2956,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     return out;
   }
 
-  Future<List<LatLng>> _fetchRoadPath(LatLng from, LatLng to) async {
+  Future<_RouteFetchData> _fetchRoadPath(LatLng from, LatLng to) async {
     final uri = Uri.parse(
       'https://router.project-osrm.org/route/v1/driving/'
       '${from.longitude},${from.latitude};${to.longitude},${to.latitude}'
@@ -2960,7 +2968,8 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     }
     final map = jsonDecode(res.body) as Map<String, dynamic>;
     final routes = map['routes'] as List<dynamic>? ?? [];
-    if (routes.isEmpty) return [from, to];
+    if (routes.isEmpty) return _RouteFetchData([from, to], 0.0);
+    final distance = (routes.first['distance'] as num?)?.toDouble() ?? 0.0;
     final geometry = routes.first['geometry'] as Map<String, dynamic>?;
     final coords = geometry?['coordinates'] as List<dynamic>? ?? [];
     final points = <LatLng>[];
@@ -2971,7 +2980,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
         if (lat != null && lon != null) points.add(LatLng(lat, lon));
       }
     }
-    return points.isEmpty ? [from, to] : points;
+    return _RouteFetchData(points.isEmpty ? [from, to] : points, distance);
   }
 
   Future<void> _toggleRoadRoute() async {
@@ -2979,6 +2988,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     if (_roadRouteEnabled) {
       setState(() {
         _roadRouteEnabled = false;
+        _totalRoadDistanceMeters = 0.0;
       });
       return;
     }
@@ -2996,7 +3006,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     
     try {
       // 실제 운행 구간(N개)에 대해서만 병렬(Future.wait)로 경로 조회
-      final futures = <Future<MapEntry<int, List<LatLng>>>>[];
+      final futures = <Future<MapEntry<int, _RouteFetchData>>>[];
       for (int i = 0; i < widget.segments.length; i++) {
         futures.add(
           _fetchRoadPath(widget.segments[i].start, widget.segments[i].end).then(
@@ -3010,8 +3020,10 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       if (!mounted) return;
       setState(() {
         _roadRouteSegments.clear();
+          _totalRoadDistanceMeters = 0.0;
         for (final entry in results) {
-          _roadRouteSegments[entry.key] = entry.value;
+          _roadRouteSegments[entry.key] = entry.value.points;
+            _totalRoadDistanceMeters += entry.value.distanceMeters;
         }
         _roadRouteEnabled = true;
       });

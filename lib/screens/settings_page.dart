@@ -288,8 +288,8 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.custom,
-            customPosition: CustomTargetContentPosition(top: 0),
+            
+            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "내정보 및 혜택 관리",
@@ -306,8 +306,8 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.custom,
-            customPosition: CustomTargetContentPosition(top: 0),
+            
+            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "화면 및 폰트 설정",
@@ -325,8 +325,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "데이터 백업 및 복원",
@@ -343,8 +343,8 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.custom,
-            customPosition: CustomTargetContentPosition(top: 0),
+            
+            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "수수료 및 보험료 설정",
@@ -361,8 +361,8 @@ class _SettingsPageState extends State<SettingsPage> {
         alignSkip: Alignment.bottomRight,
         contents: [
           TargetContent(
-            align: ContentAlign.custom,
-            customPosition: CustomTargetContentPosition(top: 0),
+            
+            
             builder: (context, controller) {
               return GuideContentWidget(
                 title: "항목 관리",
@@ -383,8 +383,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "앱 편의 기능",
@@ -405,8 +405,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "고정 알림 상태바",
@@ -427,8 +427,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "스크린샷 일지 자동저장",
@@ -449,8 +449,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "퀵등록 플로팅버튼",
@@ -472,8 +472,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "주소 자동완성 방식",
@@ -495,8 +495,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "콜포인트 공유",
@@ -518,8 +518,8 @@ class _SettingsPageState extends State<SettingsPage> {
           alignSkip: Alignment.bottomRight,
           contents: [
             TargetContent(
-              align: ContentAlign.custom,
-              customPosition: CustomTargetContentPosition(top: 0),
+              
+              
               builder: (context, controller) {
                 return GuideContentWidget(
                   title: "데이터 정리",
@@ -781,24 +781,45 @@ class _SettingsPageState extends State<SettingsPage> {
               if (value && !SettingsService.isFeatureUnlocked()) {
                 _showAdRewardDialog(context, 'auto_screenshot', () async {
                   if (!kIsWeb && Platform.isAndroid) {
-                    if ((await PackageInfo.fromPlatform()).version.startsWith('14')) {
-                      final storageStatus = await Permission.manageExternalStorage.request();
-                      if (!storageStatus.isGranted) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                        );
-                        return;
-                      }
-                    } else {
-                      final storageStatus = await Permission.storage.request();
-                      if (!storageStatus.isGranted) {
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("파일 접근 권한이 필요합니다.")),
-                        );
-                        return;
-                      }
+                    final manageStatus = await Permission.manageExternalStorage.request();
+                    final storageStatus = await Permission.storage.request();
+                    final photosStatus = await Permission.photos.request();
+                    
+                    if (!manageStatus.isGranted && !storageStatus.isGranted && !photosStatus.isGranted) {
+                      if (!mounted) return;
+                      AppGlassDialog.show<void>(
+                        context: context,
+                        dialog: AppGlassDialog(
+                          icon: Icons.folder_off_outlined,
+                          title: '권한 설정 필요',
+                          content: '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
+                          actions: [
+                            Builder(
+                              builder: (ctx) => GlassDialogCancelButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                label: '취소',
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Builder(
+                              builder: (ctx) => Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    openAppSettings();
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Theme.of(context).primaryColor,
+                                    foregroundColor: Colors.black,
+                                  ),
+                                  child: const Text('설정으로 이동'),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                      return;
                     }
                   }
                   await SettingsService.setScreenshotAutoRegisterEnabled(true);

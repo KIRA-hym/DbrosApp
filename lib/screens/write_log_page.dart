@@ -2445,9 +2445,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (!_isStartLocMissing &&
-                        _startLat == null &&
-                        _startLocCon.text.trim().isNotEmpty)
+                    if (_logId != null && !_isStartLocMissing && _startLat == null && _startLocCon.text.trim().isNotEmpty)
                       Tooltip(
                         message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
                         triggerMode: TooltipTriggerMode.tap,
@@ -2487,9 +2485,7 @@ class _DriveLogFormState extends State<DriveLogForm>
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (!_isEndLocMissing &&
-                    _endLat == null &&
-                    _endLocCon.text.trim().isNotEmpty)
+                if (_logId != null && !_isEndLocMissing && _endLat == null && _endLocCon.text.trim().isNotEmpty)
                   Tooltip(
                     message: "좌표를 찾을 수 없습니다. 주소를 다시 검색하거나 직접 지정해 주세요.",
                     triggerMode: TooltipTriggerMode.tap,

@@ -3009,6 +3009,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     final String time =
         timePrefix + log['drive_time'].toString().replaceFirst(':', '시 ') + "분";
     final fullStart = log['start_location']?.toString().trim();
+      final startLat = log['start_lat'];
+      final endLat = log['end_lat'];
     final fullEnd = log['end_location']?.toString().trim();
     final fullWp = log['waypoint']?.toString().trim();
     final locStyle = TextStyle(
