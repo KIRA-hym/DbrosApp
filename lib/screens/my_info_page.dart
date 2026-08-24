@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'paywall_page.dart';
@@ -58,9 +59,7 @@ class MyInfoPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildInfoRow('이름', displayName),
-              const Divider(color: Colors.white10, height: 32),
-              _buildInfoRow('이메일', email),
+                            _buildInfoRow('이메일', email),
               const Divider(color: Colors.white10, height: 32),
               _buildInfoRow('가입일자', createdAtStr),
               const Divider(color: Colors.white10, height: 32),
@@ -131,17 +130,65 @@ class MyInfoPage extends StatelessWidget {
   }
 
   Widget _buildPromotionCodeRow(BuildContext context, Map<String, dynamic>? userDoc) {
-    final premiumUntil = userDoc?['premiumUntil'];
-    String premiumText = '무료 이용 중 (광고 포함)';
-    bool isActive = false;
-    if (premiumUntil != null) {
-      final date = (premiumUntil as dynamic).toDate();
-      if (date.isAfter(DateTime.now())) {
-        isActive = true;
-        premiumText = '${DateFormat('yyyy.MM.dd').format(date)} 까지';
-      } else {
-        premiumText = '만료됨';
+    bool isActive = PremiumService.isPremium;
+
+    Widget buildPremiumText() {
+      if (!isActive) {
+        return Text(
+          '무료 이용 중 (광고 포함)',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: FontSizeService.getScaledFontSize(16),
+            fontWeight: FontWeight.bold,
+          ),
+        );
       }
+      
+      return FutureBuilder<CustomerInfo>(
+        future: Purchases.getCustomerInfo(),
+        builder: (context, snapshot) {
+          String text = '프리미엄 구독 중';
+          if (snapshot.hasData && snapshot.data!.entitlements.active.isNotEmpty) {
+            final entitlement = snapshot.data!.entitlements.active.values.first;
+            final isAnnual = entitlement.productIdentifier.contains('annual') || entitlement.productIdentifier.contains('yearly');
+            final typeStr = isAnnual ? '연간' : '월간';
+            
+            final latest = entitlement.latestPurchaseDate;
+            final expire = entitlement.expirationDate;
+            
+            if (latest != null && expire != null) {
+              try {
+                final startDate = DateTime.parse(latest);
+                final expireDate = DateTime.parse(expire);
+                text = '$typeStr 구독 중 (${DateFormat('yyyy.MM.dd').format(startDate)} ~ ${DateFormat('yyyy.MM.dd').format(expireDate)})';
+              } catch (_) {
+                text = '$typeStr 구독 중';
+              }
+            } else {
+              text = '$typeStr 구독 중';
+            }
+          } else {
+            final premiumUntil = userDoc?['premiumUntil'];
+            if (premiumUntil != null) {
+              try {
+                final date = (premiumUntil as dynamic).toDate();
+                if (date.isAfter(DateTime.now())) {
+                  text = '무료 체험 중 (${DateFormat('yyyy.MM.dd').format(date)} 까지)';
+                }
+              } catch (_) {}
+            }
+          }
+          
+          return Text(
+            text,
+            style: TextStyle(
+              color: const Color(0xFFFFC700),
+              fontSize: FontSizeService.getScaledFontSize(16),
+              fontWeight: FontWeight.bold,
+            ),
+          );
+        },
+      );
     }
 
     return Container(
@@ -164,14 +211,7 @@ class MyInfoPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            premiumText,
-            style: TextStyle(
-              color: isActive ? const Color(0xFFFFC700) : Colors.white,
-              fontSize: FontSizeService.getScaledFontSize(16),
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          buildPremiumText(),
           const SizedBox(height: 20),
           if (!PremiumService.hasUsedLaunchTrial && !isActive) ...[
             ElevatedButton.icon(

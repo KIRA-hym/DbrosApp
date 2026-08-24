@@ -7,6 +7,7 @@ import '../config/feature_flags.dart';
 
 class SettingsService {
   static late SharedPreferences _prefs;
+  static Future<void> reload() async { await _prefs.reload(); }
   static final ValueNotifier<bool> _showFloatingButtonsNotifier = ValueNotifier(true);
   static final ValueNotifier<bool> _overlayQuickRegisterNotifier = ValueNotifier(false);
   static final ValueNotifier<double> _overlayButtonSizeNotifier = ValueNotifier(60.0);

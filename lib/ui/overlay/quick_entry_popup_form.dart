@@ -65,6 +65,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
   }
 
   void _toggleListening(String field) async {
+    await SettingsService.reload();
     if (!PremiumService.isPremium) {
       showDialog(
         context: context,
