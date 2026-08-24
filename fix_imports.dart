@@ -1,1 +1,14 @@
-import 'dart:io'; void main() { var f = File('lib/ui/overlay/quick_entry_popup_form.dart'); var s = f.readAsStringSync(); s = s.replaceAll('import \'package:provider/provider.dart\';\n', ''); s = s.replaceAll('import \'../../services/today_stats_notification_service.dart\';\n', ''); f.writeAsStringSync(s); print('done'); }
+﻿import 'dart:io';
+
+void main() {
+  var file = File('lib/screens/stats_page.dart');
+  var c = file.readAsStringSync();
+  
+  if (!c.contains("import '../utils/pro_feature_guard.dart';")) {
+    c = "import '../utils/pro_feature_guard.dart';\nimport '../services/feature_usage_service.dart';\n" + c;
+    file.writeAsStringSync(c);
+    print('Imports added successfully.');
+  } else {
+    print('Imports already exist.');
+  }
+}
