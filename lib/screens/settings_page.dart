@@ -1067,6 +1067,16 @@ class _SettingsPageState extends State<SettingsPage> {
       );
       return false;
     }
+    
+    final micStatus = await Permission.microphone.request();
+    if (!micStatus.isGranted) {
+      if (!mounted) return false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("음성 인식 퀵등록을 위해 마이크 권한이 필요합니다. 설정에서 마이크 권한을 허용해주세요.")),
+      );
+      return false;
+    }
+    
     return true;
   }
 

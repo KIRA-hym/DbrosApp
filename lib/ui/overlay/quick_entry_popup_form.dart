@@ -93,12 +93,43 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
       return;
     }
 
-    var status = await Permission.microphone.request();
+    // 1. 오버레이(백그라운드)에서는 권한 요청(request) 다이얼로그가 안 뜰 수 있으므로 status만 체크
+    var status = await Permission.microphone.status;
     if (status != PermissionStatus.granted) {
+      // 만약 권한이 없다면 여기서 다이얼로그 띄워 안내
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2D34),
+          title: const Text('마이크 권한 필요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n오버레이 창을 닫고 앱 본체를 열어 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
+      );
       return;
     }
 
-    bool available = await _speechToText.initialize();
+    // 2. STT 초기화 시 에러 콜백 추가하여 먹통 원인 파악
+    bool available = false;
+    try {
+      available = await _speechToText.initialize(
+        onError: (error) {
+          print('STT Error: ${error.errorMsg}');
+          setState(() {
+            _isListening = false;
+            _activeSttField = '';
+          });
+        },
+      );
+    } catch (e) {
+      print('STT Init Exception: $e');
+    }
+    
     if (available) {
       setState(() {
         _isListening = true;
@@ -121,6 +152,22 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
           }
         },
         localeId: 'ko_KR',
+      );
+    } else {
+      // 초기화 실패 시 (기기가 STT 미지원 등)
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2D34),
+          title: const Text('음성 인식 오류', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('기기에서 음성 인식(STT)을 초기화할 수 없습니다.\n구글 음성 인식 엔진이 켜져 있는지 확인해주세요.', style: TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
       );
     }
   }
