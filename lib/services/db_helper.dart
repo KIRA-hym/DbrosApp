@@ -923,10 +923,20 @@ class DriveLogDatabase {
   Future<String?> getLatestDriveTimeHmOnWorkDate(String workDateYmd) async {
     final logs = await getLogsForWorkDate(workDateYmd);
     String? best;
+    DateTime? bestDt;
     for (final log in logs) {
       final n = normalizeDriveTimeHm(log['drive_time']?.toString());
       if (n == null) continue;
-      if (best == null || n.compareTo(best) > 0) best = n;
+      
+      final driveDateStr = WorkDateUtils.resolveDriveDateForNightShift(workDateYmd, n);
+      final currentDt = DateTime.tryParse('$driveDateStr $n:00');
+      
+      if (currentDt == null) continue;
+      
+      if (bestDt == null || currentDt.isAfter(bestDt)) {
+        bestDt = currentDt;
+        best = n;
+      }
     }
     return best;
   }
