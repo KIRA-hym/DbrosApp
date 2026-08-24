@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'paywall_page.dart';
 import '../services/auth_service.dart';
+import '../services/premium_service.dart';
 import '../services/font_size_service.dart';
 import 'cs_inquiry_page.dart';
 
@@ -63,7 +64,7 @@ class MyInfoPage extends StatelessWidget {
               const Divider(color: Colors.white10, height: 32),
               _buildInfoRow('가입일자', createdAtStr),
               const Divider(color: Colors.white10, height: 32),
-              // _buildPromotionCodeRow(context, userDoc), // 심사 반려 방지 위해 임시 숨김 처리 (결제 모듈 개발 후 해제 예정)
+              _buildPromotionCodeRow(context, userDoc),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 onPressed: () {
@@ -131,7 +132,7 @@ class MyInfoPage extends StatelessWidget {
 
   Widget _buildPromotionCodeRow(BuildContext context, Map<String, dynamic>? userDoc) {
     final premiumUntil = userDoc?['premiumUntil'];
-    String premiumText = '미적용';
+    String premiumText = '무료 이용 중 (광고 포함)';
     bool isActive = false;
     if (premiumUntil != null) {
       final date = (premiumUntil as dynamic).toDate();
@@ -143,76 +144,116 @@ class MyInfoPage extends StatelessWidget {
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              '프리미엄 기능',
-              style: TextStyle(
-                color: const Color(0xFF9FA3AE),
-                fontSize: FontSizeService.getScaledFontSize(14),
-                fontWeight: FontWeight.w400,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E2024),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFC700).withOpacity(0.2)),
+      ),
+      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '구독 정보',
+            style: TextStyle(
+              color: const Color(0xFF9FA3AE),
+              fontSize: FontSizeService.getScaledFontSize(14),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            premiumText,
+            style: TextStyle(
+              color: isActive ? const Color(0xFFFFC700) : Colors.white,
+              fontSize: FontSizeService.getScaledFontSize(16),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (!PremiumService.hasUsedLaunchTrial && !isActive) ...[
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await PremiumService.startLaunchTrial();
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('14일 무료 체험이 시작되었습니다! 앱의 모든 기능을 사용해보세요.')),
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('오류 발생: ${e.toString().replaceAll('Exception: ', '')}')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.card_giftcard, size: 18),
+              label: Text(
+                '출시기념 14일 무료 체험',
+                style: TextStyle(
+                  fontSize: FontSizeService.getScaledFontSize(14),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00C853),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                elevation: 0,
               ),
             ),
-            Text(
-              premiumText,
-              style: TextStyle(
-                color: isActive ? const Color(0xFFFFC700) : Colors.white,
-                fontSize: FontSizeService.getScaledFontSize(14),
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              ),
-            ),
+            const SizedBox(height: 12),
           ],
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton(
-          onPressed: () => _handlePromotionCode(context),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2C2F36),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+          ElevatedButton(
+            onPressed: () => _handlePromotionCode(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Color(0xFF9FA3AE)),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              elevation: 0,
             ),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            elevation: 0,
-          ),
-          child: Text(
-            '프로모션 코드 입력',
-            style: TextStyle(
-              fontSize: FontSizeService.getScaledFontSize(13),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const PaywallPage()),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFFFFC700).withOpacity(0.15),
-            foregroundColor: const Color(0xFFFFC700),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            elevation: 0,
-          ),
-          child: Text(
-            isActive ? '프리미엄 구독 관리' : '운행일지관리 프리미엄 시작',
-            style: TextStyle(
-              fontSize: FontSizeService.getScaledFontSize(13),
-              fontWeight: FontWeight.w700,
+            child: Text(
+              '프로모션 쿠폰 입력',
+              style: TextStyle(
+                fontSize: FontSizeService.getScaledFontSize(14),
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PaywallPage()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFC700).withOpacity(0.15),
+              foregroundColor: const Color(0xFFFFC700),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              elevation: 0,
+            ),
+            child: Text(
+              isActive ? '프리미엄 구독 관리' : '프리미엄 구독',
+              style: TextStyle(
+                fontSize: FontSizeService.getScaledFontSize(14),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -227,11 +268,11 @@ class MyInfoPage extends StatelessWidget {
           builder: (context, setState) {
             return AlertDialog(
               backgroundColor: Theme.of(context).cardTheme.color!,
-              title: const Text('프로모션 코드 입력', style: TextStyle(color: Colors.white)),
+              title: const Text('프로모션 쿠폰 입력', style: TextStyle(color: Colors.white)),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('발급받으신 프로모션 코드를 입력해주세요.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  const Text('발급받으신 프로모션 쿠폰을 입력해주세요.', style: TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 16),
                   TextField(
                     controller: controller,
@@ -273,7 +314,7 @@ class MyInfoPage extends StatelessWidget {
                             Navigator.pop(ctx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('프로모션 코드가 성공적으로 적용되었습니다!'),
+                                content: Text('프로모션 쿠폰이 성공적으로 적용되었습니다!'),
                                 backgroundColor: Colors.green,
                               ),
                             );

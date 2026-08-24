@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import '../services/subscription_service.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:dbros_app/services/subscription_service.dart';
+import 'package:dbros_app/services/auth_service.dart';
+import '../services/font_size_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PaywallPage extends StatefulWidget {
-  const PaywallPage({super.key});
+  const PaywallPage({Key? key}) : super(key: key);
 
   @override
   State<PaywallPage> createState() => _PaywallPageState();
@@ -17,10 +19,10 @@ class _PaywallPageState extends State<PaywallPage> {
   @override
   void initState() {
     super.initState();
-    _fetchOfferings();
+    _loadOfferings();
   }
 
-  Future<void> _fetchOfferings() async {
+  Future<void> _loadOfferings() async {
     setState(() => _isLoading = true);
     final offerings = await SubscriptionService.getOfferings();
     if (mounted) {
@@ -34,251 +36,120 @@ class _PaywallPageState extends State<PaywallPage> {
   Future<void> _purchasePackage(Package package) async {
     setState(() => _isLoading = true);
     final success = await SubscriptionService.purchasePackage(package);
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('구독이 완료되었습니다. 프리미엄 기능을 이용해 보세요!')),
-        );
-        Navigator.pop(context);
-      } else {
-        // 취소하거나 에러가 발생한 경우 (조용히 넘어가도 무방)
-      }
-    }
-  }
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-  Future<void> _restorePurchases() async {
-    setState(() => _isLoading = true);
-    final success = await SubscriptionService.restorePurchases();
-    if (mounted) {
-      setState(() => _isLoading = false);
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('구매 내역이 복원되었습니다.')),
-        );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('복원할 구매 내역이 없습니다.')),
-        );
-      }
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('프리미엄 구독이 시작되었습니다. 감사합니다!')),
+      );
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('결제가 취소되었거나 실패했습니다.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 패키지를 쉽게 찾기 위한 헬퍼
-    Package? monthlyPkg;
-    Package? yearlyPkg;
-
-    if (_offerings != null && _offerings!.current != null) {
-      monthlyPkg = _offerings!.current!.monthly;
-      yearlyPkg = _offerings!.current!.annual;
-    }
-
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFF121418),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.close, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pop(false),
         ),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF1E2128), // 다크 톤 배경
-              Color(0xFF0F1115),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 16),
-              // 헤더 영역
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24),
-                child: Text(
-                  '운행일지관리 프리미엄\n무제한으로 누려보세요',
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  '운행일지관리\n프리미엄 구독',
                   style: TextStyle(
+                    color: Color(0xFFFFC700),
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    height: 1.3,
                   ),
+                  textAlign: TextAlign.center,
                 ),
-              ),
-              const SizedBox(height: 32),
+                const SizedBox(height: 8),
+                const Text(
+                  '아래 기능이 무제한으로 제공됩니다.',
+                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
 
-              // 기능 목록
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    _buildFeatureItem(
-                      icon: FontAwesomeIcons.bolt,
-                      title: '콜카드 무제한 퀵 등록',
-                      subtitle: '광고 시청 없이 다중 콜카드를 한 번에 자동 입력하세요.',
-                    ),
-                    _buildFeatureItem(
-                      icon: FontAwesomeIcons.robot,
-                      title: '자동 스샷 일지 저장',
-                      subtitle: '이미지 속 운행 정보를 텍스트로 완벽하게 변환해 줍니다.',
-                    ),
-                    _buildFeatureItem(
-                      icon: FontAwesomeIcons.chartPie,
-                      title: '상세 운행 통계',
-                      subtitle: '기간별, 플랫폼별 상세한 순익 분석 리포트를 제공합니다.',
-                    ),
-                    _buildFeatureItem(
-                      icon: FontAwesomeIcons.bell,
-                      title: '스마트 알림창 퀵기능',
-                      subtitle: '화면 상단 알림창에서 오늘 실적을 실시간으로 확인하세요.',
-                    ),
-                  ],
-                ),
-              ),
+                // Benefits
+                _buildBenefitItem(Icons.document_scanner, '스크린샷 자동 일지 등록', '화면 캡처 한 번으로 복잡한 운행일지가 자동으로 작성됩니다.'),
+                _buildBenefitItem(Icons.bar_chart, '상세 수익 통계 대시보드', '일/주/월/년 단위 수익과 지출 통계와 프로그램별 그래프로 파악하세요.'),
+                _buildBenefitItem(Icons.map, '일자별 운행 동선 지도', '오늘 내가 이동한 전체 경로와 총 운행 거리를 지도로 꼼꼼히 확인하세요.'),
+                _buildBenefitItem(Icons.block, '광고 완벽 제거', '앱 내의 모든 광고가 제거되어 더욱 쾌적하게 이용하실 수 있습니다.'),
+                _buildBenefitItem(Icons.bolt, '팝업창 빠른 등록 & 음성 인식', '다른 앱 위에 팝업을 띄워 수기 입력이나 음성 인식으로 화면 전환 없이 빠르게 등록하세요.'),
+                
+                const SizedBox(height: 32),
 
-              // 구독 상품 영역 (Glassmorphism 카드)
-              Container(
-                margin: const EdgeInsets.all(24),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                // Subscription Options
+                const Text(
+                  '정기 구독',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                child: Column(
-                  children: [
-                    if (_isLoading)
-                      const Padding(
-                        padding: EdgeInsets.all(32.0),
-                        child: CircularProgressIndicator(color: Color(0xFFFFC700)),
-                      )
-                    else ...[
-                      // 연간 구독 (추천)
-                      _buildPackageCard(
-                        title: '연간 구독 (추천)',
-                        priceString: yearlyPkg != null ? yearlyPkg.storeProduct.priceString : '₩25,000',
-                        subtitle: '연 25,000원 (약 17% 할인)',
-                        isHighlight: true,
-                        onTap: () {
-                          if (yearlyPkg != null) {
-                            _purchasePackage(yearlyPkg);
-                          } else {
-                            // 설정 전 테스트용 모의 UI
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('구글 스토어 연동 전 미리보기 화면입니다.')),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      // 월간 구독
-                      _buildPackageCard(
-                        title: '월간 구독',
-                        priceString: monthlyPkg != null ? monthlyPkg.storeProduct.priceString : '₩2,500',
-                        subtitle: '매월 자동 결제',
-                        isHighlight: false,
-                        onTap: () {
-                          if (monthlyPkg != null) {
-                            _purchasePackage(monthlyPkg);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('구글 스토어 연동 전 미리보기 화면입니다.')),
-                            );
-                          }
-                        },
-                      ),
-                    ]
-                  ],
-                ),
-              ),
+                const SizedBox(height: 12),
+                
+                if (_offerings != null && _offerings!.current != null && _offerings!.current!.availablePackages.isNotEmpty)
+                  ..._offerings!.current!.availablePackages.map((pkg) => _buildPackageCard(pkg)).toList()
+                else
+                  // Fallback UI if RevenueCat is not configured yet
+                  Column(
+                    children: [
+                      _buildMockPackageCard('프리미엄 월간 구독', '3,000원', ' / 월', false),
+                      _buildMockPackageCard('프리미엄 연간 구독', '27,000원', ' / 년', true, originalPrice: '36,000원'),
+                    ],
+                  ),
 
-              // 하단 액션 (복원 및 약관)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    TextButton(
-                      onPressed: _isLoading ? null : _restorePurchases,
-                      child: const Text(
-                        '구매 복원',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                    ),
-                    const Text('|', style: TextStyle(color: Colors.white24, fontSize: 12)),
-                    TextButton(
-                      onPressed: () {},
-                      child: const Text(
-                        '이용 약관',
-                        style: TextStyle(color: Colors.white54, fontSize: 12),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            ],
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
-        ),
+          if (_isLoading)
+            Container(
+              color: Colors.black.withOpacity(0.5),
+              child: const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildFeatureItem({
-    required dynamic icon,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _buildBenefitItem(IconData icon, String title, String desc) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 48,
-            height: 48,
-            alignment: Alignment.center,
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: const Color(0xFFFFC700).withOpacity(0.15),
-              borderRadius: BorderRadius.circular(16),
+              shape: BoxShape.circle,
             ),
-            child: icon is IconData 
-                ? Icon(icon, color: const Color(0xFFFFC700), size: 20)
-                : FaIcon(icon, color: const Color(0xFFFFC700), size: 20),
+            child: Icon(icon, color: const Color(0xFFFFC700), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 2),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+                Text(title, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Colors.white60,
-                    height: 1.4,
-                  ),
-                ),
+                Text(desc, style: const TextStyle(color: Colors.grey, fontSize: 13, height: 1.4)),
               ],
             ),
           ),
@@ -287,61 +158,118 @@ class _PaywallPageState extends State<PaywallPage> {
     );
   }
 
-  Widget _buildPackageCard({
-    required String title,
-    required String priceString,
-    required String subtitle,
-    required bool isHighlight,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildPackageCard(Package package) {
+    final isAnnual = package.packageType == PackageType.annual;
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      onTap: () => _purchasePackage(package),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isHighlight ? const Color(0xFFFFC700).withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isHighlight ? const Color(0xFFFFC700) : Colors.white.withOpacity(0.1),
-            width: isHighlight ? 2 : 1,
-          ),
+          color: isAnnual ? const Color(0xFFFFC700).withOpacity(0.15) : const Color(0xFF1E2024),
+          border: Border.all(color: isAnnual ? const Color(0xFFFFC700) : Colors.transparent, width: 2),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isHighlight ? const Color(0xFFFFC700) : Colors.white,
-                    ),
+                    package.storeProduct.title,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isHighlight ? const Color(0xFFFFC700).withOpacity(0.8) : Colors.white54,
+                  if (isAnnual)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 4.0),
+                      child: Text('25% 특가 할인!', style: TextStyle(color: Color(0xFFFFC700), fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
-                  ),
                 ],
               ),
             ),
-            Text(
-              priceString,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (isAnnual)
+                  const Text('36,000원', style: TextStyle(color: Colors.grey, fontSize: 12, decoration: TextDecoration.lineThrough)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text(
+                      package.storeProduct.priceString,
+                      style: TextStyle(color: isAnnual ? const Color(0xFFFFC700) : Colors.white, fontSize: isAnnual ? 18 : 16, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      isAnnual ? ' / 년' : ' / 월',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMockPackageCard(String title, String currentPrice, String period, bool isAnnual, {String? originalPrice}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isAnnual ? const Color(0xFFFFC700).withOpacity(0.15) : const Color(0xFF1E2024),
+        border: Border.all(color: isAnnual ? const Color(0xFFFFC700) : Colors.transparent, width: 2),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (isAnnual)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4.0),
+                    child: Text('25% 특가 할인!', style: TextStyle(color: Color(0xFFFFC700), fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (originalPrice != null)
+                Text(originalPrice, style: const TextStyle(color: Colors.grey, fontSize: 12, decoration: TextDecoration.lineThrough)),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    currentPrice,
+                    style: TextStyle(color: isAnnual ? const Color(0xFFFFC700) : Colors.white, fontSize: isAnnual ? 18 : 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    period,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

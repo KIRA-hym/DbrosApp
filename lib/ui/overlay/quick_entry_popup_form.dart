@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
+import 'package:dbros_app/services/premium_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -23,6 +26,9 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
   bool _isPanelVisible = false; // 퀵등록 팝업 애니메이션 트리거
 
   double _opacity = 0.9;
+  stt.SpeechToText _speechToText = stt.SpeechToText();
+  bool _isListening = false;
+  String _activeSttField = '';
   String _selectedProgram = '';
   late List<String> _programs;
 
@@ -56,6 +62,66 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _isPanelVisible = true);
     });
+  }
+
+  void _toggleListening(String field) async {
+    if (!PremiumService.isPremium) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2D34),
+          title: const Text('프리미엄 기능', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('음성 인식 퀵 등록은 프리미엄 기능입니다.\n앱 설정에서 프리미엄을 구독해주세요.', style: TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    if (_isListening && _activeSttField == field) {
+      _speechToText.stop();
+      setState(() {
+        _isListening = false;
+        _activeSttField = '';
+      });
+      return;
+    }
+
+    var status = await Permission.microphone.request();
+    if (status != PermissionStatus.granted) {
+      return;
+    }
+
+    bool available = await _speechToText.initialize();
+    if (available) {
+      setState(() {
+        _isListening = true;
+        _activeSttField = field;
+      });
+      _speechToText.listen(
+        onResult: (result) {
+          setState(() {
+            if (field == 'origin') {
+              _originController.text = result.recognizedWords;
+            } else if (field == 'dest') {
+              _destController.text = result.recognizedWords;
+            }
+          });
+          if (result.finalResult) {
+            setState(() {
+              _isListening = false;
+              _activeSttField = '';
+            });
+          }
+        },
+        localeId: 'ko_KR',
+      );
+    }
   }
 
   @override
@@ -504,7 +570,20 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                               15,
                                             ),
                                       ),
-                                      decoration: _inputDecoration(''),
+                                      decoration: _inputDecoration(
+                                        '',
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            (_isListening && _activeSttField == 'origin') 
+                                                ? Icons.mic 
+                                                : Icons.mic_none,
+                                            color: (_isListening && _activeSttField == 'origin') 
+                                                ? Colors.redAccent 
+                                                : const Color(0xFF666666),
+                                          ),
+                                          onPressed: () => _toggleListening('origin'),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -546,7 +625,20 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                               15,
                                             ),
                                       ),
-                                      decoration: _inputDecoration(''),
+                                      decoration: _inputDecoration(
+                                        '',
+                                        suffixIcon: IconButton(
+                                          icon: Icon(
+                                            (_isListening && _activeSttField == 'dest') 
+                                                ? Icons.mic 
+                                                : Icons.mic_none,
+                                            color: (_isListening && _activeSttField == 'dest') 
+                                                ? Colors.redAccent 
+                                                : const Color(0xFF666666),
+                                          ),
+                                          onPressed: () => _toggleListening('dest'),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -654,11 +746,13 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     String hint, {
     String? suffixText,
     Color? suffixColor,
+    Widget? suffixIcon,
   }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: Color(0xFF666666)),
       suffixText: suffixText,
+      suffixIcon: suffixIcon,
       suffixStyle: suffixText != null
           ? TextStyle(
               color: suffixColor ?? Colors.white,

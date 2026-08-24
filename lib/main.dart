@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
@@ -183,6 +183,7 @@ void main() async {
 void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  try { await Firebase.initializeApp(); } catch (e) {}
   await SettingsService.init();
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
@@ -292,6 +293,7 @@ class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
 void popupMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
+  try { await Firebase.initializeApp(); } catch (e) {}
   await SettingsService.init();
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
