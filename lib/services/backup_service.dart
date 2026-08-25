@@ -277,7 +277,7 @@ class BackupService {
     } finally {
       if (backupFile != null && await backupFile.exists()) {
         try {
-          await backupFile.delete();
+          await backupFile!.delete();
         } catch (_) {}
       }
     }
@@ -304,7 +304,7 @@ class BackupService {
       Future.delayed(const Duration(seconds: 15), () async {
         try {
           if (backupFile != null && await backupFile.exists()) {
-            await backupFile.delete();
+            await backupFile!.delete();
           }
         } catch (_) {}
       });
@@ -473,7 +473,7 @@ class BackupService {
         if (path != null && path.isNotEmpty) {
           await SettingsService.setLastAutoBackupDate(now.toIso8601String());
           try {
-            await backupFile.delete();
+            await backupFile!.delete();
           } catch (_) {}
           return true;
         }
