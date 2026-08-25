@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
@@ -371,14 +371,6 @@ class _DbrosAppState extends State<DbrosApp> with WidgetsBindingObserver {
       // 앱이 백그라운드에서 포그라운드로 올라올 때 DB 동기화 강제 실행
       // (OS가 백그라운드 앱을 잠시 멈춤 상태로 두어 오버레이의 통신 신호가 유실된 경우를 복구)
       DriveLogDatabase.afterLogsChanged?.call();
-
-      if (SettingsService.overlayQuickRegisterEnabled && !kIsWeb && Platform.isAndroid) {
-        FlutterOverlayWindow.isActive().then((isActive) {
-          if (!isActive && mounted && rootNavigatorKey.currentContext != null) {
-            OverlayManager.showOverlay(rootNavigatorKey.currentContext!);
-          }
-        });
-      }
     }
   }
 
