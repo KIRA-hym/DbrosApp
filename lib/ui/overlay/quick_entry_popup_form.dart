@@ -747,7 +747,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                 ), // TweenAnimationBuilder 끝
               ), // Align 끝
             ), // IgnorePointer 끝
-          // AnimatedOpacity 끝
+          ), // AnimatedOpacity 끝
           if (_isListening)
             Positioned(
               bottom: 24,
