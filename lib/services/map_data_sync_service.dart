@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -15,15 +16,24 @@ class MapDataSyncService {
 
     try {
       debugPrint('[MapDataSync] JSON 다운로드 시작: $url');
-      final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode != 200) {
-        debugPrint('[MapDataSync] 다운로드 실패. HTTP 상태 코드: ${response.statusCode}');
-        return;
+      String jsonString = '';
+      
+      try {
+        final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 10));
+        if (response.statusCode == 200) {
+          jsonString = utf8.decode(response.bodyBytes);
+        } else {
+          debugPrint('[MapDataSync] 다운로드 실패 (${response.statusCode}). 로컬 에셋으로 폴백합니다.');
+        }
+      } catch (e) {
+        debugPrint('[MapDataSync] 다운로드 예외 발생 ($e). 로컬 에셋으로 폴백합니다.');
       }
 
-      // utf8 디코딩 처리 (한글 깨짐 방지)
-      final String jsonString = utf8.decode(response.bodyBytes);
+      if (jsonString.isEmpty) {
+        // 폴백: assets/data/common_points.json 읽기
+        jsonString = await rootBundle.loadString('assets/data/common_points.json');
+      }
+
       final List<dynamic> jsonList = jsonDecode(jsonString);
 
       if (jsonList.isEmpty) {
