@@ -24,7 +24,7 @@ class QuickEntryPopupForm extends StatefulWidget {
 }
 
 class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
-  bool _isPanelVisible = false; // ?�등�??�업 ?�니메이???�리�?
+  bool _isPanelVisible = false; // 퀵등록 팝업 애니메이션 트리거
 
   double _opacity = 0.9;
   stt.SpeechToText _speechToText = stt.SpeechToText();
@@ -59,7 +59,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     _originController.addListener(() => _searchOrigin(_originController.text));
     _destController.addListener(() => _searchDest(_destController.text));
 
-    // ?�이?�로�??�업???????�이?�브 �??�장(matchParent) ?�간??벌어주어 ?�상/찌그?�짐 방�?
+    // 다이얼로그 팝업이 뜰 때 네이티브 창 확장(matchParent) 시간을 벌어주어 잔상/찌그러짐 방지
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _isPanelVisible = true);
     });
@@ -72,12 +72,12 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('?�리미엄 기능', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('?�성 ?�식 ???�록?� ?�리미엄 기능?�니??\n???�정?�서 ?�리미엄??구독?�주?�요.', style: TextStyle(color: Colors.grey)),
+          title: const Text('프리미엄 기능', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('음성 인식 퀵 등록은 프리미엄 기능입니다.\n앱 설정에서 프리미엄을 구독해주세요.', style: TextStyle(color: Colors.grey)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('?�인', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
         ),
@@ -94,16 +94,16 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
       return;
     }
 
-    // 1. ?�버?�이(백그?�운???�서??권한 ?�청(request) ?�이?�로그�? ???????�으므�?status�?체크
+    // 1. 오버레이(백그라운드)에서는 권한 요청(request) 다이얼로그가 안 뜰 수 있으므로 status만 체크
     var status = await Permission.microphone.status;
     if (status != PermissionStatus.granted) {
-      // 만약 권한???�다�??�기???�이?�로�??�워 ?�내
+      // 만약 권한이 없다면 여기서 다이얼로그 띄워 안내
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('마이??권한 ?�요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('?�성 ?�식???�해 마이??권한???�요?�니??\n?�버?�이 창을 ?�고 ??본체�??�거???�정?�서 권한???�용?�주?�요.', style: TextStyle(color: Colors.grey)),
+          title: const Text('마이크 권한 필요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n오버레이 창을 닫고 앱 본체를 열거나 설정에서 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -114,7 +114,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                 Navigator.pop(context);
                 openAppSettings();
               },
-              child: const Text('?�정?�로 ?�동', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text('설정으로 이동', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
         ),
@@ -122,7 +122,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
       return;
     }
 
-    // 2. STT 초기?????�러 콜백 추�??�여 먹통 ?�인 ?�악
+    // 2. STT 초기화 시 에러 콜백 추가하여 먹통 원인 파악
     bool available = false;
     try {
       available = await _speechToText.initialize(
@@ -162,17 +162,17 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
         localeId: 'ko_KR',
       );
     } else {
-      // 초기???�패 ??(기기가 STT 미�?????
+      // 초기화 실패 시 (기기가 STT 미지원 등)
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('?�성 ?�식 ?�류', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('기기?�서 ?�성 ?�식(STT)??초기?�할 ???�습?�다.\n구�? ?�성 ?�식 ?�진??켜져 ?�는지 ?�인?�주?�요.', style: TextStyle(color: Colors.grey)),
+          title: const Text('음성 인식 오류', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('기기에서 음성 인식(STT)을 초기화할 수 없습니다.\n구글 음성 인식 엔진이 켜져 있는지 확인해주세요.', style: TextStyle(color: Colors.grey)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('?�인', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
         ),
@@ -190,7 +190,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
 
   void _resetForm() {
     setState(() {
-      _selectedProgram = '로�?';
+      _selectedProgram = '로지';
       _originController.clear();
       _destController.clear();
       _priceController.clear();
@@ -261,7 +261,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     if (origin.isEmpty || dest.isEmpty || priceStr.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('모든 ??��???�력?�주?�요.')));
+      ).showSnackBar(const SnackBar(content: Text('모든 항목을 입력해주세요.')));
       return;
     }
 
@@ -299,7 +299,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
     try {
       final newId = await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
       print(
-        '???�등�??��? ?�???�료: [$_selectedProgram] $origin -> $dest (?�금: $price)',
+        '✅ 퀵등록 일지 저장 완료: [$_selectedProgram] $origin -> $dest (요금: $price)',
       );
       
       try {
@@ -314,11 +314,11 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
         _closePanel();
       });
     } catch (e) {
-      print('?�등�??�러: $e');
+      print('퀵등록 에러: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('?�???�패: $e')));
+        ).showSnackBar(SnackBar(content: Text('저장 실패: $e')));
       }
     }
   }
@@ -326,12 +326,12 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
   void _closePanel() async {
     FocusScope.of(context).unfocus();
 
-    // 1. 먼�? ?�업??fade-out
+    // 1. 먼저 팝업을 fade-out
     if (mounted) {
       setState(() => _isPanelVisible = false);
     }
 
-    // 2. fade-out ?�니메이???��????�기 콜백 ?�출
+    // 2. fade-out 애니메이션 대기 후 닫기 콜백 호출
     await Future.delayed(const Duration(milliseconds: 220));
     if (widget.onClose != null) {
       widget.onClose!();
@@ -344,7 +344,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    // ?�수 ?�업 ?�이?�로�?�?리턴
+    // 순수 팝업 다이얼로그 뷰 리턴
 
     // Panel background color based on theme
     final isAmoled = SettingsService.isAmoledBlackNotifier.value;
@@ -356,7 +356,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
         opacity: _opacity,
         child: Stack(
           children: [
-            // ?�이?�로�?배경???�치?�면 ?�힘
+            // 다이얼로그 배경을 터치하면 닫힘
             Positioned.fill(
               child: GestureDetector(
                 onTap: _closePanel,
@@ -364,7 +364,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
               ),
             ),
 
-          // Panel - _isPanelVisible???�라 부?�럽�?fade-in/out (?�상 방�?)
+          // Panel - _isPanelVisible에 따라 부드럽게 fade-in/out (잔상 방지)
           AnimatedOpacity(
             opacity: _isPanelVisible ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 200),
@@ -431,7 +431,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '?��? ?�등�?,
+                                    '일지 퀵등록',
                                     style: TextStyle(
                                       fontSize:
                                           FontSizeService.getScaledFontSize(18),
@@ -524,10 +524,10 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                           ),
                           const SizedBox(height: 20),
 
-                          // Form Row: 콜정�?
+                          // Form Row: 콜정보
                           _buildFormRow(
                             icon: Icons.apps,
-                            label: '콜정�?,
+                            label: '콜정보',
                             child: DropdownButtonHideUnderline(
                               child: Container(
                                 height: 44,
@@ -577,11 +577,11 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                             ),
                           ),
 
-                          // Form Row: ?�금
+                          // Form Row: 요금
                           _buildFormRow(
                             icon: Icons.account_balance_wallet,
                             iconColor: const Color(0xFFFFC700),
-                            label: '??�?,
+                            label: '요 금',
                             child: SizedBox(
                               height: 44,
                               child: TextField(
@@ -597,7 +597,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                 ),
                                 decoration: _inputDecoration(
                                   '',
-                                  suffixText: '??,
+                                  suffixText: '원',
                                   suffixColor: const Color(0xFFFFC700),
                                 ),
                               ),
@@ -659,11 +659,11 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                             ),
                           ),
 
-                          // Form Row: ?�착지
+                          // Form Row: 도착지
                           _buildFormRow(
                             icon: Icons.flag,
                             iconColor: const Color(0xFFFF6B6B),
-                            label: '?�착지',
+                            label: '도착지',
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -731,7 +731,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                               ).withOpacity(0.4),
                             ),
                             child: Text(
-                              '??�?,
+                              '등 록',
                               style: TextStyle(
                                 fontSize: FontSizeService.getScaledFontSize(16),
                                 fontWeight: FontWeight.bold,
@@ -739,19 +739,55 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                               ),
                             ),
                           ),
-                        ], // Column children ??
-                      ), // Column ??
-                    ), // Padding ??
-                  ), // Container ??
-                  ), // Opacity 괄호 추�?
-                ), // TweenAnimationBuilder ??
-              ), // Align ??
-            ), // IgnorePointer ??
-          ), // AnimatedOpacity ??
-        ], // Stack children ??
-      ), // Stack ??
-      ), // Opacity ??
-    ); // Scaffold ??
+                        ], // Column children 끝
+                      ), // Column 끝
+                    ), // Padding 끝
+                  ), // Container 끝
+                  ), // Opacity 괄호 추가
+                ), // TweenAnimationBuilder 끝
+              ), // Align 끝
+            ), // IgnorePointer 끝
+          // AnimatedOpacity 끝
+          if (_isListening)
+            Positioned(
+              bottom: 24,
+              left: 24,
+              right: 24,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isListening ? 1.0 : 0.0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.8),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.mic, color: Colors.white, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _activeSttField == 'origin' ? '출발지를 말씀해 주세요...' : '도착지를 말씀해 주세요...',
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ], // Stack children 끝
+      ), // Stack 끝
+      ), // Opacity 끝
+    ); // Scaffold 끝
   }
 
   Widget _buildFormRow({
