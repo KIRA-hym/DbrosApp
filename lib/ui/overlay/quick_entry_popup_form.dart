@@ -13,6 +13,7 @@ import '../../services/font_size_service.dart';
 import '../../services/db_helper.dart';
 import '../../utils/work_date_utils.dart';
 import '../../utils/drive_time_format.dart';
+import '../../widgets/pulse_animation_wrapper.dart';
 
 class QuickEntryPopupForm extends StatefulWidget {
   final VoidCallback? onClose;
