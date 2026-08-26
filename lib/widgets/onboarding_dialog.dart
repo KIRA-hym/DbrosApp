@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/settings_service.dart';
 
 class OnboardingDialog extends StatefulWidget {
@@ -70,6 +71,8 @@ class _OnboardingDialogState extends State<OnboardingDialog> {
     if (mounted) {
       Navigator.of(context).pop();
     }
+    // 앱 첫 설치(온보딩 종료) 시 마이크 권한 미리 요청
+    await Permission.microphone.request();
   }
 
   // 목업과 100% 동일한 SVG 그래픽 문자열

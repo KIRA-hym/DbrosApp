@@ -103,11 +103,18 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
           title: const Text('마이크 권한 필요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n오버레이 창을 닫고 앱 본체를 열어 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
+          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n오버레이 창을 닫고 앱 본체를 열거나 설정에서 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text('취소', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings();
+              },
+              child: const Text('설정으로 이동', style: TextStyle(color: Color(0xFFFFC700))),
             ),
           ],
         ),
@@ -621,7 +628,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                       ),
                                       decoration: _inputDecoration(
                                         '',
-                                        suffixIcon: IconButton(
+                                        suffixIcon: PulseAnimationWrapper(isAnimating: _isListening && _activeSttField == 'origin', child: IconButton(
                                           icon: Icon(
                                             (_isListening && _activeSttField == 'origin') 
                                                 ? Icons.mic 
@@ -631,7 +638,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                                 : const Color(0xFF666666),
                                           ),
                                           onPressed: () => _toggleListening('origin'),
-                                        ),
+                                        )),
                                       ),
                                     ),
                                   ),
@@ -676,7 +683,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                       ),
                                       decoration: _inputDecoration(
                                         '',
-                                        suffixIcon: IconButton(
+                                        suffixIcon: PulseAnimationWrapper(isAnimating: _isListening && _activeSttField == 'dest', child: IconButton(
                                           icon: Icon(
                                             (_isListening && _activeSttField == 'dest') 
                                                 ? Icons.mic 
@@ -686,7 +693,7 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
                                                 : const Color(0xFF666666),
                                           ),
                                           onPressed: () => _toggleListening('dest'),
-                                        ),
+                                        )),
                                       ),
                                     ),
                                   ),

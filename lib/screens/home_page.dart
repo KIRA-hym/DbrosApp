@@ -39,6 +39,7 @@ import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
 import '../widgets/permission_disclosure_dialog.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../widgets/onboarding_dialog.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
@@ -105,11 +106,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) setState(() {});
     });
     _loadWeather();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
+        // 기존 유저들도 마이크 권한을 앱 실행 시 미리 받을 수 있도록 함.
+        // 오버레이(백그라운드)에서 권한 요청 시 앱 먹통 방지.
+        final status = await Permission.microphone.status;
+        if (status.isDenied) {
+          await Permission.microphone.request();
+        }
+
         OnboardingDialog.showIfNeeded(context);
-        
-        final guideProvider = Provider.of<GuideProvider>(context, listen: false);
+
+        final guideProvider = Provider.of<GuideProvider>(
+          context,
+          listen: false,
+        );
         guideProvider.addListener(_onGuideRequested);
         if (guideProvider.pendingGuideTarget == 'home') {
           _showHomeGuide();
@@ -134,12 +145,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "myInfo",
         keyTarget: _keyMyInfo,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "내 정보",
                 description: "내 정보 확인과 앱 환경설정은 여기서 관리할 수 있어요.",
@@ -152,15 +163,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "workTimer",
         keyTarget: _keyWorkTimer,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "출근/퇴근",
-                description: "운행 시작 전 '출근'을 누르고, 일이 끝나면 '퇴근'을 눌러 나의 근무시간을 정확하게 기록해 보세요!",
+                description:
+                    "운행 시작 전 '출근'을 누르고, 일이 끝나면 '퇴근'을 눌러 나의 근무시간을 정확하게 기록해 보세요!",
                 controller: controller,
               );
             },
@@ -170,15 +182,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "singleRegister",
         keyTarget: _keySingleRegister,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "콜카드 단건등록",
-                description: "콜카드를 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
+                description:
+                    "콜카드를 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
                 controller: controller,
               );
             },
@@ -188,15 +201,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "multiRegister",
         keyTarget: _keyMultiRegister,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "콜카드 다중등록",
-                description: "콜카드를 여러 개 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
+                description:
+                    "콜카드를 여러 개 첨부하면 내용을 자동으로 인식하여 셋팅해줍니다.\n\n단, 인식이 제대로 되지 않는 경우 잘못된 값이 입력되거나 일지가 등록되지 않을 수 있으니 주의해 주세요.",
                 controller: controller,
               );
             },
@@ -206,12 +220,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "waitingFee",
         keyTarget: _keyWaitingFee,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "대기비용 계산",
                 description: "법인고객 대기시간이 발생했나요? 대기 시간에 따른 예상요금을 확인할 수 있어요.",
@@ -224,12 +238,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       TargetFocus(
         identify: "map",
         keyTarget: _keyMap,
-    alignSkip: Alignment.bottomRight,
-  contents: [
+        alignSkip: Alignment.bottomRight,
+        contents: [
           TargetContent(
-    align: ContentAlign.custom,
-  customPosition: CustomTargetContentPosition(top: 0),
-  builder: (context, controller) {
+            align: ContentAlign.custom,
+            customPosition: CustomTargetContentPosition(top: 0),
+            builder: (context, controller) {
               return GuideContentWidget(
                 title: "주변 콜맵",
                 description: "현재 내 위치 주변에 대리 콜 포인트가 얼마나 있는지 지도로 한눈에 파악하세요!",
@@ -250,14 +264,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       opacityShadow: 0.8,
       onFinish: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
       },
       onSkip: () {
         Future.delayed(const Duration(milliseconds: 300), () {
-          try { Navigator.of(context, rootNavigator: true).popUntil((route) => route.isFirst); } catch (_) {}
+          try {
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).popUntil((route) => route.isFirst);
+          } catch (_) {}
           mainTabEventController.add(4);
         });
         return true;
@@ -348,7 +372,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       });
       return;
     }
-    
+
     final raw = kHomeYoutubeVideoId.trim();
     if (raw.isEmpty) {
       if (!mounted) return;
@@ -459,7 +483,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 alignment: Alignment.centerLeft,
                 child: InkWell(
                   onTap: () {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => const MyInfoPage()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MyInfoPage(),
+                      ),
+                    );
                   },
                   borderRadius: BorderRadius.circular(20),
                   child: Consumer<AuthService>(
@@ -473,7 +502,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                           backgroundColor: Colors.transparent,
                         );
                       }
-                      return Icon(Icons.account_circle, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), size: 40);
+                      return Icon(
+                        Icons.account_circle,
+                        color:
+                            (Theme.of(context).textTheme.bodyLarge?.color ??
+                            Colors.white),
+                        size: 40,
+                      );
                     },
                   ),
                 ),
@@ -488,7 +523,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const NoticeListPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const NoticeListPage(),
+                        ),
                       );
                     },
                     borderRadius: BorderRadius.circular(20),
@@ -497,7 +534,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         return Stack(
                           clipBehavior: Clip.none,
                           children: [
-                            const Icon(Icons.notifications_none, color: Color(0xFFFFC700), size: 30),
+                            const Icon(
+                              Icons.notifications_none,
+                              color: Color(0xFFFFC700),
+                              size: 30,
+                            ),
                             if (noticeBadge.hasUnread)
                               Positioned(
                                 right: 0,
@@ -525,10 +566,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             centerTitle: true,
             title: SizedBox(
               height: titleFontSize + 40,
-              child: Image.asset(
-                'assets/title.png',
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset('assets/title.png', fit: BoxFit.contain),
             ),
           ),
           body: Stack(
@@ -602,10 +640,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
                               return SingleChildScrollView(
                                 child: ConstrainedBox(
-                                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                  constraints: BoxConstraints(
+                                    minHeight: constraints.maxHeight,
+                                  ),
                                   child: IntrinsicHeight(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
                                       children: [
                                         _buildTodaySummaryCard(),
                                         SizedBox(height: sectionGap),
@@ -621,7 +662,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         SizedBox(height: sectionGap),
                                         Expanded(
                                           child: Container(
-                                            constraints: const BoxConstraints(minHeight: 220),
+                                            constraints: const BoxConstraints(
+                                              minHeight: 220,
+                                            ),
                                             child: _buildYoutubeSection(),
                                           ),
                                         ),
@@ -693,7 +736,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   child: Text(
                     noticeMsg,
                     style: TextStyle(
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
                       fontSize: 14,
                       height: 1.4,
                       fontWeight: FontWeight.w600,
@@ -779,8 +824,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   void _handleClockIn(WorkTimerProvider provider) async {
     final currentWorkDate = WorkDateUtils.effectiveWorkDateYmd();
-    final session = await DriveLogDatabase.instance.getDailyWorkSession(currentWorkDate);
-    
+    final session = await DriveLogDatabase.instance.getDailyWorkSession(
+      currentWorkDate,
+    );
+
     if (!mounted) return;
 
     if (session != null && (session['total_seconds'] ?? 0) > 0) {
@@ -791,8 +838,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           title: '출근 확인',
           content: '근무를 이어서 진행하시겠습니까?\n("아니요"를 누르면 초기화됩니다.)',
           actions: [
-            GlassDialogCancelButton(label: '아니요', onPressed: () => Navigator.pop(context, 'reset')),
-            GlassDialogConfirmButton(label: '예', filled: true, onPressed: () => Navigator.pop(context, 'continue')),
+            GlassDialogCancelButton(
+              label: '아니요',
+              onPressed: () => Navigator.pop(context, 'reset'),
+            ),
+            GlassDialogConfirmButton(
+              label: '예',
+              filled: true,
+              onPressed: () => Navigator.pop(context, 'continue'),
+            ),
           ],
         ),
       );
@@ -815,8 +869,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: '퇴근 확인',
         content: '퇴근 처리하시겠습니까?\n기록은 자동으로 저장됩니다.',
         actions: [
-          GlassDialogCancelButton(onPressed: () => Navigator.pop(context, false)),
-          GlassDialogDestructiveButton(label: '퇴근하기', filled: true, onPressed: () => Navigator.pop(context, true)),
+          GlassDialogCancelButton(
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          GlassDialogDestructiveButton(
+            label: '퇴근하기',
+            filled: true,
+            onPressed: () => Navigator.pop(context, true),
+          ),
         ],
       ),
     );
@@ -836,8 +896,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         title: '근무시간 초기화',
         content: '근무시간을 초기화 하시겠습니까?',
         actions: [
-          GlassDialogCancelButton(onPressed: () => Navigator.pop(context, false)),
-          GlassDialogDestructiveButton(label: '예', filled: true, onPressed: () => Navigator.pop(context, true)),
+          GlassDialogCancelButton(
+            onPressed: () => Navigator.pop(context, false),
+          ),
+          GlassDialogDestructiveButton(
+            label: '예',
+            filled: true,
+            onPressed: () => Navigator.pop(context, true),
+          ),
         ],
       ),
     );
@@ -859,28 +925,68 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               mainAxisSize: MainAxisSize.min,
               children: [
                 InkWell(
-                  onTap: isClockedIn ? () {} : () => _handleClockIn(timerProvider),
+                  onTap: isClockedIn
+                      ? () {}
+                      : () => _handleClockIn(timerProvider),
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1) : const Color(0xFFFFC700),
+                      color: isClockedIn
+                          ? (Theme.of(context).textTheme.bodyLarge?.color ??
+                                    Colors.white)
+                                .withValues(alpha: 0.1)
+                          : const Color(0xFFFFC700),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text('출근', style: TextStyle(color: isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5) : Colors.black, fontSize: 13, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      '출근',
+                      style: TextStyle(
+                        color: isClockedIn
+                            ? (Theme.of(context).textTheme.bodyLarge?.color ??
+                                      Colors.white)
+                                  .withValues(alpha: 0.5)
+                            : Colors.black,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
                 InkWell(
-                  onTap: !isClockedIn ? () => _handleResetWorkTime(timerProvider) : () => _handleClockOut(timerProvider),
+                  onTap: !isClockedIn
+                      ? () => _handleResetWorkTime(timerProvider)
+                      : () => _handleClockOut(timerProvider),
                   borderRadius: BorderRadius.circular(6),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: !isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1) : const Color(0xFFFF5252),
+                      color: !isClockedIn
+                          ? (Theme.of(context).textTheme.bodyLarge?.color ??
+                                    Colors.white)
+                                .withValues(alpha: 0.1)
+                          : const Color(0xFFFF5252),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text('퇴근', style: TextStyle(color: !isClockedIn ? (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5) : Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                    child: Text(
+                      '퇴근',
+                      style: TextStyle(
+                        color: !isClockedIn
+                            ? (Theme.of(context).textTheme.bodyLarge?.color ??
+                                      Colors.white)
+                                  .withValues(alpha: 0.5)
+                            : Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -894,7 +1000,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
                   fontFeatures: const [FontFeature.tabularFigures()],
-                  color: isClockedIn ? const Color(0xFFFFC700) : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.5),
+                  color: isClockedIn
+                      ? const Color(0xFFFFC700)
+                      : (Theme.of(context).textTheme.bodyLarge?.color ??
+                                Colors.white)
+                            .withValues(alpha: 0.5),
                   letterSpacing: 1.0,
                   height: 1.1,
                 ),
@@ -906,10 +1016,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
-
   Future<void> _showDriveCountDetail() async {
     final ymd = WorkDateUtils.effectiveWorkDateYmd();
-    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(ymd, ymd);
+    final logs = await DriveLogDatabase.instance.getLogsByWorkDateRangeStrict(
+      ymd,
+      ymd,
+    );
 
     final Map<String, int> counts = {};
     for (final log in logs) {
@@ -928,15 +1040,41 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: counts.isEmpty
-              ? [const Padding(padding: EdgeInsets.all(16), child: Center(child: Text('오늘 작성된 운행 일지가 없습니다.', style: TextStyle(color: Colors.white70))))]
+              ? [
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        '오늘 작성된 운행 일지가 없습니다.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
+                ]
               : counts.entries.map((e) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6.0,
+                      horizontal: 8.0,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(e.key, style: const TextStyle(fontSize: 15, color: Colors.white)),
-                        Text('${e.value}건', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF4DABF7))),
+                        Text(
+                          e.key,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          '${e.value}건',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF4DABF7),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -948,13 +1086,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: const Text('닫기', style: TextStyle(color: Colors.white70)),
           ),
         ],
-      )
+      ),
     );
   }
 
   Future<void> _showExpenseDetail() async {
     final ymd = WorkDateUtils.effectiveWorkDateYmd();
-    final items = await ExpenseRepository.aggregateByCategoryForRange(ymd, ymd, includeAllDefinedCategories: false);
+    final items = await ExpenseRepository.aggregateByCategoryForRange(
+      ymd,
+      ymd,
+      includeAllDefinedCategories: false,
+    );
 
     if (!mounted) return;
 
@@ -967,17 +1109,43 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: items.isEmpty
-              ? [const Padding(padding: EdgeInsets.all(16), child: Center(child: Text('오늘 등록된 지출이 없습니다.', style: TextStyle(color: Colors.white70))))]
+              ? [
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(
+                      child: Text(
+                        '오늘 등록된 지출이 없습니다.',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                    ),
+                  ),
+                ]
               : items.map((e) {
                   final label = (e['label'] as String?) ?? '기타';
                   final amount = (e['amount'] as num?)?.toInt() ?? 0;
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 6.0,
+                      horizontal: 8.0,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(label, style: const TextStyle(fontSize: 15, color: Colors.white)),
-                        Text('${NumberFormat('#,###').format(amount)}원', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFFF5252))),
+                        Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          '${NumberFormat('#,###').format(amount)}원',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFFF5252),
+                          ),
+                        ),
                       ],
                     ),
                   );
@@ -989,14 +1157,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             child: const Text('닫기', style: TextStyle(color: Colors.white70)),
           ),
         ],
-      )
+      ),
     );
   }
 
   Widget _buildTodaySummaryCard() {
     final statsProvider = Provider.of<TodayStatsProvider>(context);
     final DateTime workDay = WorkDateUtils.effectiveWorkDateStartOfDay();
-    final String dateFull = "${workDay.year}년 ${workDay.month}월 ${workDay.day}일 (${DateFormat('E', 'ko').format(workDay)})";
+    final String dateFull =
+        "${workDay.year}년 ${workDay.month}월 ${workDay.day}일 (${DateFormat('E', 'ko').format(workDay)})";
 
     return Container(
       decoration: BoxDecoration(
@@ -1013,7 +1182,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           children: [
             InkWell(
               onTap: _openTodayDailyList,
-              splashColor: Theme.of(context).primaryColor.withValues(alpha: 0.12),
+              splashColor: Theme.of(
+                context,
+              ).primaryColor.withValues(alpha: 0.12),
               highlightColor: Theme.of(context).dividerColor,
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
@@ -1031,7 +1202,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 child: Text(
                                   dateFull,
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -1052,12 +1227,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   },
                                   borderRadius: BorderRadius.circular(16),
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
                                     decoration: BoxDecoration(
-                                      color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
+                                      color: Theme.of(
+                                        context,
+                                      ).primaryColor.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(16),
                                       border: Border.all(
-                                        color: Theme.of(context).primaryColor.withValues(alpha: 0.3),
+                                        color: Theme.of(
+                                          context,
+                                        ).primaryColor.withValues(alpha: 0.3),
                                       ),
                                     ),
                                     child: Text(
@@ -1076,7 +1258,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         const SizedBox(width: 8),
                         Icon(
                           Icons.arrow_forward_ios,
-                          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                          color:
+                              (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white),
                           size: 14,
                         ),
                       ],
@@ -1100,7 +1284,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                             Text(
                               '오늘 순익',
                               style: TextStyle(
-                                color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                color:
+                                    (Theme.of(
+                                      context,
+                                    ).textTheme.bodyLarge?.color ??
+                                    Colors.white),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -1112,7 +1300,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               textBaseline: TextBaseline.alphabetic,
                               children: [
                                 Text(
-                                  NumberFormat('#,###').format(statsProvider.todayNet),
+                                  NumberFormat(
+                                    '#,###',
+                                  ).format(statsProvider.todayNet),
                                   style: TextStyle(
                                     color: Color(0xFFFFC700),
                                     fontSize: 34,
@@ -1124,7 +1314,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 Text(
                                   '원',
                                   style: TextStyle(
-                                    color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -1143,7 +1337,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
               child: Container(
                 decoration: BoxDecoration(
-                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.05),
+                  color:
+                      (Theme.of(context).textTheme.bodyLarge?.color ??
+                              Colors.white)
+                          .withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -1151,16 +1348,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Expanded(
                       child: InkWell(
                         onTap: _showDriveCountDetail,
-                        borderRadius: BorderRadius.horizontal(left: Radius.circular(12)),
+                        borderRadius: BorderRadius.horizontal(
+                          left: Radius.circular(12),
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 '운행건수',
                                 style: TextStyle(
-                                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                  color:
+                                      (Theme.of(
+                                        context,
+                                      ).textTheme.bodyLarge?.color ??
+                                      Colors.white),
                                   fontSize: 13,
                                 ),
                               ),
@@ -1180,21 +1386,33 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     Container(
                       width: 1,
                       height: 24,
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withValues(alpha: 0.1),
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                                  Colors.white)
+                              .withValues(alpha: 0.1),
                     ),
                     Expanded(
                       child: InkWell(
                         onTap: _showExpenseDetail,
-                        borderRadius: BorderRadius.horizontal(right: Radius.circular(12)),
+                        borderRadius: BorderRadius.horizontal(
+                          right: Radius.circular(12),
+                        ),
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 '지출',
                                 style: TextStyle(
-                                  color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                                  color:
+                                      (Theme.of(
+                                        context,
+                                      ).textTheme.bodyLarge?.color ??
+                                      Colors.white),
                                   fontSize: 13,
                                 ),
                               ),
@@ -1219,7 +1437,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         ),
       ),
     );
-
   }
 
   Widget _buildUtilsRow() {
@@ -1240,9 +1457,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.timer_outlined, color: Color(0xFFFFC700), size: 20),
+                  Icon(
+                    Icons.timer_outlined,
+                    color: Color(0xFFFFC700),
+                    size: 20,
+                  ),
                   SizedBox(width: 6),
-                  Text('대기비용 계산', style: TextStyle(color: Color(0xFFFFC700), fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    '대기비용 계산',
+                    style: TextStyle(
+                      color: Color(0xFFFFC700),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1260,7 +1488,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 canUseFree: FeatureUsageService.canUseCallMapFree,
                 canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
                 onGranted: (isFreeTicket) {
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CallPointMapPage()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CallPointMapPage()),
+                  );
                 },
               );
             },
@@ -1277,7 +1508,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 children: [
                   Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
                   SizedBox(width: 6),
-                  Text('주변 콜맵', style: TextStyle(color: kMapFeaturesEnabled ? Theme.of(context).primaryColor : Colors.grey, fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(
+                    '주변 콜맵',
+                    style: TextStyle(
+                      color: kMapFeaturesEnabled
+                          ? Theme.of(context).primaryColor
+                          : Colors.grey,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1294,9 +1534,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keySingleRegister,
           child: InkWell(
             onTap: () async {
-              final canProceed = await ensureCallCardRecognitionDisclaimer(context, 'single');
+              final canProceed = await ensureCallCardRecognitionDisclaimer(
+                context,
+                'single',
+              );
               if (!canProceed) return;
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const SingleCallCardForm()));
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SingleCallCardForm()),
+              );
               TodayStatsProvider.instance.refresh();
             },
             borderRadius: BorderRadius.circular(16),
@@ -1312,7 +1558,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 children: [
                   Icon(Icons.credit_card, color: Color(0xFFFFC700), size: 32),
                   SizedBox(height: 10),
-                  Text('콜카드 단건등록', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(
+                    '콜카드 단건등록',
+                    style: TextStyle(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1323,9 +1578,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           key: _keyMultiRegister,
           child: InkWell(
             onTap: () async {
-              final canProceed = await ensureCallCardRecognitionDisclaimer(context, 'multi');
+              final canProceed = await ensureCallCardRecognitionDisclaimer(
+                context,
+                'multi',
+              );
               if (!canProceed) return;
-              await Navigator.push(context, MaterialPageRoute(builder: (_) => const MultiCallCardForm()));
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MultiCallCardForm()),
+              );
               TodayStatsProvider.instance.refresh();
             },
             borderRadius: BorderRadius.circular(16),
@@ -1339,9 +1600,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.library_add_check, color: Color(0xFFFFC700), size: 32),
+                  Icon(
+                    Icons.library_add_check,
+                    color: Color(0xFFFFC700),
+                    size: 32,
+                  ),
                   SizedBox(height: 10),
-                  Text('콜카드 다중등록', style: TextStyle(color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold, fontSize: 15)),
+                  Text(
+                    '콜카드 다중등록',
+                    style: TextStyle(
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1404,7 +1678,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                     ),
                                     SizedBox(height: 6),
                                     Text(
-                                      YoutubeRssService.lastErrorMsg ?? '채널 방문하기',
+                                      YoutubeRssService.lastErrorMsg ??
+                                          '채널 방문하기',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: Color(0xFF9FA3AE),
@@ -1434,7 +1709,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       ),
                                       SizedBox(height: 6),
                                       Text(
-                                        YoutubeRssService.lastErrorMsg ?? '썸네일 오류',
+                                        YoutubeRssService.lastErrorMsg ??
+                                            '썸네일 오류',
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: Color(0xFF9FA3AE),
@@ -1461,58 +1737,90 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               ),
                             )
                           : (_latestYoutubeTitle.isEmpty &&
-                                  _latestYoutubeChannelName.isEmpty &&
-                                  _latestYoutubePublishedDot.isEmpty
-                              ? const SizedBox.shrink()
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (_latestYoutubeChannelName.isNotEmpty || _latestYoutubePublishedDot.isNotEmpty)
-                                      Padding(
-                                        padding: const EdgeInsets.only(bottom: 6),
-                                        child: Row(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                _latestYoutubeChannelName,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                      color: const Color(0xFF9FA3AE),
-                                                      height: 1.2,
-                                                    ),
-                                              ),
-                                            ),
-                                            if (_latestYoutubePublishedDot.isNotEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(left: 6),
+                                    _latestYoutubeChannelName.isEmpty &&
+                                    _latestYoutubePublishedDot.isEmpty
+                                ? const SizedBox.shrink()
+                                : Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (_latestYoutubeChannelName
+                                              .isNotEmpty ||
+                                          _latestYoutubePublishedDot.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 6,
+                                          ),
+                                          child: Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
                                                 child: Text(
-                                                  _latestYoutubePublishedDot,
-                                                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                                        color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-                                                        fontSize: 10,
+                                                  _latestYoutubeChannelName,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: Theme.of(context)
+                                                      .textTheme
+                                                      .labelMedium
+                                                      ?.copyWith(
+                                                        color: const Color(
+                                                          0xFF9FA3AE,
+                                                        ),
                                                         height: 1.2,
                                                       ),
                                                 ),
                                               ),
-                                          ],
+                                              if (_latestYoutubePublishedDot
+                                                  .isNotEmpty)
+                                                Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        left: 6,
+                                                      ),
+                                                  child: Text(
+                                                    _latestYoutubePublishedDot,
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .labelMedium
+                                                        ?.copyWith(
+                                                          color:
+                                                              (Theme.of(context)
+                                                                  .textTheme
+                                                                  .bodySmall
+                                                                  ?.color ??
+                                                              Colors.grey),
+                                                          fontSize: 10,
+                                                          height: 1.2,
+                                                        ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    if (_latestYoutubeTitle.isNotEmpty)
-                                      Text(
-                                        _latestYoutubeTitle,
-                                        maxLines: useVerticalLayout ? 2 : 3,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                              color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                                              height: 1.3,
-                                              fontSize: isTablet ? 14 : 12,
-                                            ),
-                                      ),
-                                  ],
-                                ));
+                                      if (_latestYoutubeTitle.isNotEmpty)
+                                        Text(
+                                          _latestYoutubeTitle,
+                                          maxLines: useVerticalLayout ? 2 : 3,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(
+                                                color:
+                                                    (Theme.of(context)
+                                                        .textTheme
+                                                        .bodyLarge
+                                                        ?.color ??
+                                                    Colors.white),
+                                                height: 1.3,
+                                                fontSize: isTablet ? 14 : 12,
+                                              ),
+                                        ),
+                                    ],
+                                  ));
 
                       if (useVerticalLayout) {
                         return Column(
@@ -1584,7 +1892,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           child: Text(
             '최근운행일지\n아직 등록된 운행일지가 없습니다.',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+              color:
+                  (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
               height: 1.35,
             ),
           ),
@@ -1613,13 +1922,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final end = (log['end_location'] ?? '').toString().trim();
     final hasWaypoint = waypoint.isNotEmpty;
     final metaTextStyle = TextStyle(
-      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+          .withOpacity(0.7),
       fontWeight: FontWeight.w500,
       height: 1.1,
       fontSize: bodyFs,
     );
     final routeTextStyle = TextStyle(
-      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
+      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white)
+          .withOpacity(0.7),
       fontWeight: FontWeight.w500,
       height: 1.1,
       fontSize: bodyFs,
@@ -1880,7 +2191,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     maxLines: label.contains('\n') ? 2 : 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
+                      color:
+                          (Theme.of(context).textTheme.bodyLarge?.color ??
+                          Colors.white),
                       fontWeight: FontWeight.bold,
                       fontSize: textFs,
                       height: 1.15,
@@ -1929,7 +2242,7 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
 
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (!_scrollController.hasClients) return;
-      
+
       final currentScroll = _scrollController.offset;
       _scrollController.animateTo(
         currentScroll + _itemHeight,
@@ -1949,10 +2262,11 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
   @override
   void didUpdateWidget(covariant AnimatedRecentLogs oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.logs != widget.logs || oldWidget.isTablet != widget.isTablet) {
+    if (oldWidget.logs != widget.logs ||
+        oldWidget.isTablet != widget.isTablet) {
       _timer?.cancel();
       if (_scrollController.hasClients) {
-         _scrollController.jumpTo(0);
+        _scrollController.jumpTo(0);
       }
       _startAutoScroll();
     }
@@ -1989,7 +2303,12 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
     final parts = address.trim().split(RegExp(r'\s+'));
     for (int i = parts.length - 1; i >= 0; i--) {
       final p = parts[i];
-      if (p.endsWith('동') || p.endsWith('읍') || p.endsWith('면') || p.endsWith('구') || p.endsWith('리') || p.endsWith('로')) {
+      if (p.endsWith('동') ||
+          p.endsWith('읍') ||
+          p.endsWith('면') ||
+          p.endsWith('구') ||
+          p.endsWith('리') ||
+          p.endsWith('로')) {
         return p;
       }
     }
@@ -2005,7 +2324,8 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
     final int visibleCount = 3;
     final double titleHeight = 30.0;
     final double paddingHeight = 24.0;
-    final double containerHeight = titleHeight + paddingHeight + (_itemHeight * visibleCount);
+    final double containerHeight =
+        titleHeight + paddingHeight + (_itemHeight * visibleCount);
 
     final bool isScrollable = widget.logs.length > visibleCount;
     final double titleFs = widget.isTablet ? 13.5 : 12.0;
@@ -2063,17 +2383,24 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                 final startDong = _extractDong(start);
                 final endDong = _extractDong(end);
                 final route = '$startDong -> $endDong';
-                final double rowFontSize = ResponsiveLayout.summaryValueFontSize(context) * 0.85;
+                final double rowFontSize =
+                    ResponsiveLayout.summaryValueFontSize(context) * 0.85;
 
                 return SizedBox(
                   height: _itemHeight,
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 8.0),
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 8.0,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(8.0),
-                      border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.08),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -2125,14 +2452,24 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.white,
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium?.color ??
+                                        Colors.white,
                                     fontSize: rowFontSize,
                                   ),
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                                child: Icon(Icons.arrow_forward_rounded, size: 10, color: Colors.white38),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4.0,
+                                ),
+                                child: Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 10,
+                                  color: Colors.white38,
+                                ),
                               ),
                               Flexible(
                                 child: Text(
@@ -2140,7 +2477,11 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
-                                    color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.white,
+                                    color:
+                                        Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium?.color ??
+                                        Colors.white,
                                     fontSize: rowFontSize,
                                   ),
                                 ),
@@ -2163,7 +2504,9 @@ class _AnimatedRecentLogsState extends State<AnimatedRecentLogs> {
                               color: Colors.lightBlueAccent,
                               fontWeight: FontWeight.bold,
                               fontSize: rowFontSize,
-                              fontFeatures: const [FontFeature.tabularFigures()],
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
                             ),
                           ),
                         ),
