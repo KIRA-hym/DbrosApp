@@ -44,18 +44,20 @@ class FcmService {
     // 백그라운드 핸들러 등록
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-    // 알림 권한 요청
-    final settings = await _messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    // 알림 권한 요청 (Android는 앱 진입 시 권한을 묶어서(notification, microphone) permission_handler로 별도 요청함)
+    if (Platform.isIOS) {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
 
-    if (settings.authorizationStatus != AuthorizationStatus.authorized &&
-        settings.authorizationStatus != AuthorizationStatus.provisional) {
-      debugPrint('[FcmService] permission denied: ${settings.authorizationStatus}');
-      _initialized = true;
-      return;
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        debugPrint('[FcmService] permission denied: ${settings.authorizationStatus}');
+        _initialized = true;
+        return;
+      }
     }
 
     // Android 채널 설정
