@@ -1551,6 +1551,13 @@ class _DriveLogFormState extends State<DriveLogForm>
 
       await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
 
+      // ���̾�̽�(Firestore) ������ǥ ������ ���� ���� (�񵿱� ó��)
+      final String startLocCheck = _startLocCon.text.trim();
+      final String endLocCheck = _endLocCon.text.trim();
+      if (startLocCheck.isNotEmpty || endLocCheck.isNotEmpty) {
+        OcrErrorLoggerService.instance.logSharedCallPoint(rowData: row);
+      }
+
       if (_currentRawText != null && _currentRawText!.trim().isNotEmpty) {
         final wasParsingError =
             (widget.existingLog?['has_parsing_error'] == 1) || _hasOcrWarning;

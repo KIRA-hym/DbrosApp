@@ -1,4 +1,8 @@
-import 'dart:math';
+import 'dart:io';
+
+void main() {
+  var file = File('lib/services/ocr_error_logger.dart');
+  var content = """import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -12,13 +16,13 @@ class OcrErrorLoggerService {
   final Set<String> _sessionSentHashes = {};
 
   Future<bool> _canUploadToday(SharedPreferences prefs, String todayStr) async {
-    final countKey = 'unified_upload_count_$todayStr';
+    final countKey = 'unified_upload_count_\$todayStr';
     final currentCount = prefs.getInt(countKey) ?? 0;
     return currentCount < 5;
   }
 
   Future<void> _incrementUploadCount(SharedPreferences prefs, String todayStr) async {
-    final countKey = 'unified_upload_count_$todayStr';
+    final countKey = 'unified_upload_count_\$todayStr';
     final currentCount = prefs.getInt(countKey) ?? 0;
     await prefs.setInt(countKey, currentCount + 1);
   }
@@ -55,15 +59,15 @@ class OcrErrorLoggerService {
         'error_reason': errorReason ?? 'Unknown parsing failure',
         'parsed_data': parsedData,
         'timestamp': FieldValue.serverTimestamp(),
-        'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
+        'app_version': '\${packageInfo.version}+\${packageInfo.buildNumber}',
       });
 
       _sessionSentHashes.add(textHash);
       await _incrementUploadCount(prefs, todayStr);
       
-      if (kDebugMode) print('OCR Error Logged to Firestore for platform: $platform');
+      if (kDebugMode) print('OCR Error Logged to Firestore for platform: \$platform');
     } catch (e) {
-      if (kDebugMode) print('Failed to log OCR error: $e');
+      if (kDebugMode) print('Failed to log OCR error: \$e');
     }
   }
 
@@ -75,7 +79,7 @@ class OcrErrorLoggerService {
     try {
       final textHash = rawText.hashCode.toString();
       
-      if (_sessionSentHashes.contains('corr_$textHash')) return;
+      if (_sessionSentHashes.contains('corr_\$textHash')) return;
 
       final prefs = await SharedPreferences.getInstance();
       final todayStr = DateTime.now().toIso8601String().substring(0, 10);
@@ -92,15 +96,15 @@ class OcrErrorLoggerService {
         'raw_text': rawText,
         'corrected_data': correctedData,
         'timestamp': FieldValue.serverTimestamp(),
-        'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
+        'app_version': '\${packageInfo.version}+\${packageInfo.buildNumber}',
       });
 
-      _sessionSentHashes.add('corr_$textHash');
+      _sessionSentHashes.add('corr_\$textHash');
       await _incrementUploadCount(prefs, todayStr);
       
-      if (kDebugMode) print('OCR Correction Logged to Firestore for platform: $platform');
+      if (kDebugMode) print('OCR Correction Logged to Firestore for platform: \$platform');
     } catch (e) {
-      if (kDebugMode) print('Failed to log OCR correction: $e');
+      if (kDebugMode) print('Failed to log OCR correction: \$e');
     }
   }
 
@@ -109,9 +113,9 @@ class OcrErrorLoggerService {
   }) async {
     try {
       // Create a unique hash for this data to prevent duplicate uploads in the same session
-      final dataHash = "${rowData['start_location']}_${rowData['end_location']}_${rowData['gross_fare']}_${rowData['program']}".hashCode.toString();
+      final dataHash = "\${rowData['start_location']}_\${rowData['end_location']}_\${rowData['gross_fare']}_\${rowData['program']}".hashCode.toString();
       
-      if (_sessionSentHashes.contains('shared_$dataHash')) return;
+      if (_sessionSentHashes.contains('shared_\$dataHash')) return;
 
       final prefs = await SharedPreferences.getInstance();
       final todayStr = DateTime.now().toIso8601String().substring(0, 10);
@@ -136,15 +140,17 @@ class OcrErrorLoggerService {
         'waypoint': rowData['waypoint'] ?? '',
         'drive_time': rowData['drive_time'] ?? '',
         'timestamp': FieldValue.serverTimestamp(),
-        'app_version': '${packageInfo.version}+${packageInfo.buildNumber}',
+        'app_version': '\${packageInfo.version}+\${packageInfo.buildNumber}',
       });
 
-      _sessionSentHashes.add('shared_$dataHash');
+      _sessionSentHashes.add('shared_\$dataHash');
       await _incrementUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('Shared Call Point Logged to Firestore');
     } catch (e) {
-      if (kDebugMode) print('Failed to log shared call point: $e');
+      if (kDebugMode) print('Failed to log shared call point: \$e');
     }
   }
+}""";
+  file.writeAsStringSync(content);
 }
