@@ -7,10 +7,9 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:geolocator/geolocator.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart' hide ClusterManager, Cluster
+import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:google_maps_cluster_manager_2/google_maps_cluster_manager_2.dart';
 
 
 import '../services/db_helper.dart';
@@ -20,14 +19,11 @@ import '../utils/marker_utils.dart';
 
 import '../services/settings_service.dart';
 
-class CallPointData with ClusterItem {
+class CallPointData {
   final Map<String, dynamic> data;
   final LatLng position;
 
   CallPointData({required this.data, required this.position});
-
-  @override
-  LatLng get location => position;
 }
 
 class CallPointMapPage extends StatefulWidget {
@@ -40,7 +36,6 @@ class CallPointMapPage extends StatefulWidget {
 class _CallPointMapPageState extends State<CallPointMapPage> {
   final Completer<GoogleMapController> _controller = Completer();
   Set<Marker> _markers = {};
-  late ClusterManager<CallPointData> _clusterManager;
   Position? _currentPosition;
   bool _loading = true;
   bool _permissionGranted = false;
@@ -56,6 +51,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   BitmapDescriptor? _refIcon;
   BitmapDescriptor? _restroomIcon;
   BitmapDescriptor? _shuttleIcon;
+  BitmapDescriptor? _logIconMineSelected;
+  BitmapDescriptor? _logIconOtherSelected;
+  BitmapDescriptor? _refIconSelected;
+  BitmapDescriptor? _restroomIconSelected;
+  BitmapDescriptor? _shuttleIconSelected;
+  
+  String? _selectedLocKey;
+  final Map<String, List<CallPointData>> _groupedPoints = {};
   final Map<String, BitmapDescriptor> _clusterIcons = {};
 
   /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
@@ -65,21 +68,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   void initState() {
     super.initState();
     _visibleTypes = SettingsService.mapVisibleTypes;
-    _clusterManager = ClusterManager<CallPointData>(
-      [],
-      _updateMarkers,
-      markerBuilder: _markerBuilder,
-    );
     _initMap();
   }
 
   Future<void> _precacheIcons() async {
-    // 단순 동그라미 형태로 되돌리고, 요구사항(별모양 확대, 마커 테두리 검정색 적용)
+    // 단순 동그라미 형태를 내돌리고, 요구사항(별모양 하트, 마커 테두리 검정색 적용)
     _logIconMine ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.black, dy: 1.0);
     _logIconOther ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.black, dy: 0.5);
     _refIcon ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.black, textScale: 1.3, dy: -2.0);
     _restroomIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
     _shuttleIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
+    
+    _logIconMineSelected ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 85, borderColor: Colors.white, dy: 1.0);
+    _logIconOtherSelected ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 85, borderColor: Colors.white, dy: 0.5);
+    _refIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 85, borderColor: Colors.white, textScale: 1.3, dy: -2.0);
+    _restroomIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0);
+    _shuttleIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0);
   }
 
   Future<void> _initMap() async {
@@ -203,14 +207,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
   }
 
-  void _updateMarkers(Set<Marker> markers) {
-    if (mounted) {
-      setState(() {
-        _markers = markers;
-      });
-    }
-  }
-
   void _applyFilter() {
     final List<CallPointData> filtered = _allPoints.where((p) {
       final type = p.data['type'];
@@ -225,26 +221,38 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       return false;
     }).toList();
     
-    // 완전히 동일한 좌표에 있는 마커들이 최대 줌에서도 뭉쳐있지 않도록 미세 분산(Jitter) 처리 복구
-    final List<CallPointData> jitteredList = [];
+    final newMarkers = <Marker>{};
+    _groupedPoints.clear();
     final locationCounts = <String, int>{};
     
-    for (final p in filtered) {
-      final locKey = '${p.position.latitude.toStringAsFixed(5)},${p.position.longitude.toStringAsFixed(5)}';
+    int index = 0;
+    for (final point in filtered) {
+      final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
+      if (!_groupedPoints.containsKey(locKey)) { _groupedPoints[locKey] = []; }
+      _groupedPoints[locKey]!.add(point);
       final overlapCount = locationCounts[locKey] ?? 0;
       locationCounts[locKey] = overlapCount + 1;
       
-      double jitterLat = p.position.latitude;
-      double jitterLng = p.position.longitude;
+      double jitterLat = point.position.latitude;
+      double jitterLng = point.position.longitude;
       
+      // 완전히 같은 위치에 있는 마커들이 서로를 가리지 않도록 약간 분산 (jitter)
       if (overlapCount > 0) {
+        // overlapCount에 따라 대각선으로 약 1.5~2미터 간격 벌림
         jitterLat += (overlapCount * 0.000015);
         jitterLng += (overlapCount * 0.000015);
       }
-      jitteredList.add(CallPointData(data: p.data, position: LatLng(jitterLat, jitterLng)));
+      
+      final adjustedPosition = LatLng(jitterLat, jitterLng);
+      newMarkers.add(_buildMarker(point, adjustedPosition, index, locKey));
+      index++;
     }
     
-    _clusterManager.setItems(jitteredList);
+    if (mounted) {
+      setState(() {
+        _markers = newMarkers;
+      });
+    }
   }
 
   void _showFilterBottomSheet() {
@@ -325,222 +333,264 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
 
 
-  Future<Marker> _markerBuilder(Cluster<CallPointData> cluster) async {
-    if (cluster.isMultiple) {
-      return Marker(
-        markerId: MarkerId(cluster.getId()),
-        position: cluster.location,
-        onTap: () => _showClusterBottomSheet(cluster.items.toList()),
-        icon: await _getClusterBitmap(cluster.count),
-      );
-    }
+  void _onMarkerTap(String locKey) {
+    if (!mounted) return;
+    setState(() {
+      _selectedLocKey = locKey;
+      _applyFilter();
+    });
     
-    final point = cluster.items.first;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _buildBottomSheet(locKey),
+    ).whenComplete(() {
+      if (mounted) {
+        setState(() {
+          _selectedLocKey = null;
+          _applyFilter();
+        });
+      }
+    });
+  }
+
+  Widget _buildBottomSheet(String locKey) {
+    final points = _groupedPoints[locKey] ?? [];
+    
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1E2025),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.only(top: 16, bottom: 40, left: 20, right: 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 5,
+            decoration: BoxDecoration(color: const Color(0xFF4A4D55), borderRadius: BorderRadius.circular(3)),
+            margin: const EdgeInsets.only(bottom: 20),
+          ),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.6),
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: points.length,
+              separatorBuilder: (c, i) => const SizedBox(height: 16),
+              itemBuilder: (c, i) => _buildBottomSheetItem(points[i]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomSheetItem(CallPointData point) {
     final data = point.data;
+    final type = data['type'];
+    final isMine = data['is_mine'] == 1;
+    
+    String badgeText = '';
+    Color badgeColor = Colors.grey;
+    Color badgeBg = Colors.grey.withOpacity(0.2);
+    
+    if (type == 'log' || type == 'shared') {
+      badgeText = isMine ? '내 기록' : '공유 콜';
+      badgeColor = isMine ? const Color(0xFFEC4899) : const Color(0xFF3B82F6);
+      badgeBg = badgeColor.withOpacity(0.2);
+    } else if (type == 'reference') {
+      badgeText = '대기 콜포인트';
+      badgeColor = const Color(0xFFFBBF24);
+      badgeBg = badgeColor.withOpacity(0.2);
+    } else if (type == 'restroom') {
+      badgeText = '화장실';
+      badgeColor = Colors.white;
+      badgeBg = Colors.white24;
+    } else if (type == 'shuttle') {
+      badgeText = '셔틀';
+      badgeColor = Colors.white;
+      badgeBg = Colors.white24;
+    }
+
+    final createdAtStr = data['created_at']?.toString().trim() ?? '';
+    String displayDateTime = '';
+    if (createdAtStr.length >= 16) {
+      displayDateTime = createdAtStr.substring(0, 16).replaceAll('T', ' ');
+    } else {
+      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr.replaceAll('T', ' ') : '';
+    }
+
+    final program = data['program']?.toString().trim() ?? '';
+    final grossFareRaw = data['gross_fare'];
+    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
+    
+    final startLoc = data['start_location']?.toString().trim() ?? '';
+    final endLoc = data['end_location']?.toString().trim() ?? '';
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF282B33),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: badgeColor, width: 5)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(4)),
+                    child: Text(badgeText, style: TextStyle(color: badgeColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(displayDateTime, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
+                ],
+              ),
+              if (program.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFF60A5FA).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text(program, style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 14, fontWeight: FontWeight.w600)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  const SizedBox(height: 4),
+                  Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
+                  Container(width: 2, height: 24, color: const Color(0xFF4A4D55), margin: const EdgeInsets.symmetric(vertical: 4)),
+                  Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle)),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(startLoc.isNotEmpty ? startLoc : '출발지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: startLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
+                    const SizedBox(height: 16),
+                    Text(endLoc.isNotEmpty ? endLoc : '도착지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: endLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (grossFare > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.only(top: 12),
+              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF4A4D55), style: BorderStyle.solid))),
+              alignment: Alignment.centerRight,
+              child: Text('${NumberFormat('#,###').format(grossFare)} 원', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFFFBBF24))),
+            ),
+          ]
+        ],
+      ),
+    );
+  }
+
+  Marker _buildMarker(CallPointData point, LatLng position, int index, String locKey) {
+    final data = point.data;
+    bool isSelected = _selectedLocKey == locKey;
     BitmapDescriptor icon;
-    double zIndex = 0.0;
+    double zIndex = isSelected ? 100.0 : 0.0;
     
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
         if (data['is_mine'] == 1) {
-          icon = _logIconMine!;
-          zIndex = 5.0;
+          icon = isSelected ? _logIconMineSelected! : _logIconMine!;
+          if (!isSelected) zIndex = 5.0;
         } else {
-          icon = _logIconOther!;
+          icon = isSelected ? _logIconOtherSelected! : _logIconOther!;
         }
       } else {
-        icon = _logIconOther!;
+        icon = isSelected ? _logIconOtherSelected! : _logIconOther!;
       }
     } else if (data['type'] == 'restroom') {
-      icon = _restroomIcon!;
-      zIndex = 10.0;
+      icon = isSelected ? _restroomIconSelected! : _restroomIcon!;
+      if (!isSelected) zIndex = 10.0;
     } else if (data['type'] == 'shuttle') {
-      icon = _shuttleIcon!;
-      zIndex = 10.0;
+      icon = isSelected ? _shuttleIconSelected! : _shuttleIcon!;
+      if (!isSelected) zIndex = 10.0;
     } else {
-      icon = _refIcon!;
+      icon = isSelected ? _refIconSelected! : _refIcon!;
     }
 
     return Marker(
-      markerId: MarkerId(point.data['id'].toString()),
-      position: cluster.location,
-      onTap: () => _showClusterBottomSheet([point]),
+      markerId: MarkerId('${data['id']}_$index'),
+      position: position,
+      onTap: () => _onMarkerTap(locKey),
       icon: icon,
       zIndex: zIndex,
     );
   }
 
-  Future<BitmapDescriptor> _getClusterBitmap(int count, {int size = 110}) async {
+  Future<BitmapDescriptor> _getMarkerBitmap(int size, {String? text, Color color = Colors.red, bool isStar = false, bool isHeart = false}) async {
     final PictureRecorder pictureRecorder = PictureRecorder();
     final Canvas canvas = Canvas(pictureRecorder);
-    final Paint paint = Paint()..color = const Color(0xFFFFC700);
-    final Paint strokePaint = Paint()
-      ..color = Colors.black87
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
-    
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0 - 2.0, paint);
-    canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0 - 2.0, strokePaint);
-    
-    TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
-    painter.text = TextSpan(
-      text: count.toString(),
-      style: TextStyle(
-        fontSize: size / 2.5, 
-        color: Colors.black87, 
-        fontWeight: FontWeight.bold
-      ),
-    );
-    painter.layout();
-    painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
-    
+    final Paint paint = Paint()..color = color;
+
+    if (text != null) {
+      canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint);
+      TextPainter painter = TextPainter(textDirection: TextDirection.ltr);
+      painter.text = TextSpan(
+        text: text,
+        style: TextStyle(fontSize: size / 2.5, color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white), fontWeight: FontWeight.bold),
+      );
+      painter.layout();
+      painter.paint(canvas, Offset(size / 2 - painter.width / 2, size / 2 - painter.height / 2));
+    } else {
+      if (isStar) {
+        _drawStar(canvas, Offset(size / 2, size / 2), size / 2.0, paint);
+      } else if (isHeart) {
+        _drawHeart(canvas, size.toDouble(), paint);
+      } else {
+        canvas.drawCircle(Offset(size / 2, size / 2), size / 2.0, paint);
+      }
+    }
+
     final img = await pictureRecorder.endRecording().toImage(size, size);
-    final byteData = await img.toByteData(format: ImageByteFormat.png);
-    return BitmapDescriptor.bytes(byteData!.buffer.asUint8List());
+    final data = await img.toByteData(format: ImageByteFormat.png);
+    return BitmapDescriptor.fromBytes(data!.buffer.asUint8List());
   }
 
-  void _showClusterBottomSheet(List<CallPointData> items) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2.5),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    Text(
-                      items.length == 1 ? '상세 정보' : '${items.length}개의 마커', 
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    )
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: items.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final data = items[index].data;
-                    final type = data['type'];
-                    
-                    if (type == 'reference') {
-                      final loc = _referenceDisplayLocation(data['start_location']?.toString() ?? '');
-                      return ListTile(
-                        leading: const CircleAvatar(backgroundColor: Color(0xFFFBBF24), child: Icon(Icons.star, color: Colors.white, size: 20)),
-                        title: Text(loc.isNotEmpty ? loc : '대기 콜포인트', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        subtitle: const Text('주변 대기 포인트 (추천)'),
-                      );
-                    } else if (type == 'restroom' || type == 'shuttle') {
-                       return ListTile(
-                         leading: CircleAvatar(backgroundColor: Colors.grey, child: Text(type == 'restroom' ? '🚻' : '🚌', style: const TextStyle(fontSize: 18))),
-                         title: Text(data['start_location']?.toString() ?? (type == 'restroom' ? '화장실' : '셔틀'), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                       );
-                    }
-                    
-                    // Log or shared
-                    final createdAtStr = data['created_at']?.toString().trim() ?? '';
-                    String displayDateTime = createdAtStr.length >= 16 ? createdAtStr.substring(0, 16).replaceAll('T', ' ') : createdAtStr;
-                    final program = data['program']?.toString().trim() ?? '';
-                    final grossFareRaw = data['gross_fare'];
-                    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
-                    
-                    final startLoc = data['start_location']?.toString().trim() ?? '';
-                    final endLoc = data['end_location']?.toString().trim() ?? '';
-                    
-                    final isMine = data['is_mine'] == 1;
-                    
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: isMine ? const Color(0xFFEC4899) : const Color(0xFF3B82F6),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(isMine ? '내 기록' : '공유', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(displayDateTime, style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                              ),
-                              if (program.isNotEmpty)
-                                Text(program, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Column(
-                                children: [
-                                  const Icon(Icons.circle, size: 10, color: Colors.blue),
-                                  Container(width: 1, height: 16, color: Colors.grey),
-                                  const Icon(Icons.circle, size: 10, color: Colors.red),
-                                ],
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(startLoc.isNotEmpty ? startLoc : '출발지 미상', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                    const SizedBox(height: 8),
-                                    Text(endLoc.isNotEmpty ? endLoc : '도착지 미상', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                  ],
-                                ),
-                              ),
-                              if (grossFare > 0)
-                                Container(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('${NumberFormat("#,###").format(grossFare)}원', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  void _drawStar(Canvas canvas, Offset center, double radius, Paint paint) {
+    Path path = Path();
+    int points = 5;
+    double angle = (math.pi * 2) / points;
+    for (int i = 0; i < points * 2; i++) {
+      double r = (i % 2 == 0) ? radius : radius / 2;
+      double theta = i * angle / 2 - math.pi / 2;
+      double x = center.dx + r * math.cos(theta);
+      double y = center.dy + r * math.sin(theta);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  void _drawHeart(Canvas canvas, double size, Paint paint) {
+    Path path = Path();
+    path.moveTo(size / 2, size / 4);
+    path.cubicTo(size * 5 / 8, 0, size, 0, size, size * 3 / 8);
+    path.cubicTo(size, size * 5 / 8, size / 2, size * 7 / 8, size / 2, size * 7 / 8);
+    path.cubicTo(size / 2, size * 7 / 8, 0, size * 5 / 8, 0, size * 3 / 8);
+    path.cubicTo(0, 0, size * 3 / 8, 0, size / 2, size / 4);
+    canvas.drawPath(path, paint);
   }
 
   Widget _buildAppBarTitle() {
@@ -644,8 +694,6 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             compassEnabled: true,
             mapToolbarEnabled: false,
             zoomControlsEnabled: false,
-            onCameraMove: _clusterManager.onCameraMove,
-            onCameraIdle: _clusterManager.updateMap,
           ),
         ),
         _buildLegend(),

@@ -755,16 +755,7 @@ class _SettingsPageState extends State<SettingsPage> {
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked()) {
                 _showAdRewardDialog(context, 'status_bar', () async {
-                  final status = await Permission.notification.request();
-                  if (!status.isGranted) {
-                    if (!mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요."),
-                      ),
-                    );
-                    return;
-                  }
+                  if (!await _requirePermission([Permission.notification], "알림")) return;
                   await SettingsService.setStatusBarQuickEnabled(true);
                   await TodayStatsNotificationService.instance
                       .refreshFromDbIfEnabled();
@@ -775,16 +766,7 @@ class _SettingsPageState extends State<SettingsPage> {
               }
 
               if (value) {
-                final status = await Permission.notification.request();
-                if (!status.isGranted) {
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("알림 권한이 필요합니다. 설정에서 허용해 주세요."),
-                    ),
-                  );
-                  return;
-                }
+                if (!await _requirePermission([Permission.notification], "알림")) return;
               }
 
               await SettingsService.setStatusBarQuickEnabled(value);
@@ -1058,25 +1040,43 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
+  Future<bool> _requirePermission(List<Permission> permissions, String permName) async {
+    bool anyGranted = false;
+    for (var p in permissions) {
+      final status = await p.request();
+      if (status.isGranted) {
+        anyGranted = true;
+      }
+    }
+    if (anyGranted) return true;
+    
+    if (!mounted) return false;
+    final bool? goToSettings = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AppGlassDialog(
+        title: '$permName 권한 허용 필요',
+        content: '기능을 사용하려면 기기 설정에서 $permName 권한을 허용해 주세요.',
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('설정으로 이동', style: TextStyle(color: Theme.of(context).primaryColor)),
+          ),
+        ],
+      ),
+    );
+    if (goToSettings == true) {
+      await openAppSettings();
+    }
+    return false;
+  }
+
   Future<bool> _requestSystemAlertWindowPermission() async {
-    final status = await Permission.systemAlertWindow.request();
-    if (!status.isGranted) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("다른 앱 위에 표시 권한이 필요합니다. 설정에서 허용해 주세요.")),
-      );
-      return false;
-    }
-    
-    final micStatus = await Permission.microphone.request();
-    if (!micStatus.isGranted) {
-      if (!mounted) return false;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("음성 인식 퀵등록을 위해 마이크 권한이 필요합니다. 설정에서 마이크 권한을 허용해주세요.")),
-      );
-      return false;
-    }
-    
+    if (!await _requirePermission([Permission.systemAlertWindow], '다른 앱 위에 표시')) return false;
+    if (!await _requirePermission([Permission.microphone], '마이크')) return false;
     return true;
   }
 
@@ -1790,7 +1790,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  BackupService.restoreFromFilePicker(context);
+                  BackupService.restoreFromDrivePicker(context);
                 },
               ),
             ],

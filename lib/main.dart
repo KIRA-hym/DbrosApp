@@ -3,6 +3,8 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/permission_onboarding_page.dart';
 import 'services/remote_config_service.dart';
 import 'services/map_data_sync_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
@@ -446,21 +448,7 @@ class _DbrosAppState extends State<DbrosApp> with WidgetsBindingObserver {
                 ),
               );
             },
-            home: Consumer<AuthService>(
-              builder: (context, auth, child) {
-                if (auth.status == AuthStatus.uninitialized) {
-                  return const Scaffold(
-                    backgroundColor: Color(0xFF121418),
-                    body: Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
-                  );
-                } else if (auth.status == AuthStatus.unauthenticated) {
-                  return const LoginPage();
-                } else if (auth.status == AuthStatus.banned) {
-                  return const BannedPage();
-                }
-                return const MainWrapper();
-              },
-            ),
+            home: const AppEntryPoint(),
           ),
         );
               },
@@ -818,6 +806,66 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         ),
       ),
     ),
+    );
+  }
+}
+
+class AppEntryPoint extends StatefulWidget {
+  const AppEntryPoint({super.key});
+
+  @override
+  State<AppEntryPoint> createState() => _AppEntryPointState();
+}
+
+class _AppEntryPointState extends State<AppEntryPoint> {
+  bool? _hasSeenOnboarding;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _hasSeenOnboarding = prefs.getBool('has_seen_permission_onboarding') ?? false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasSeenOnboarding == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF121418),
+        body: Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+      );
+    }
+    
+    if (!_hasSeenOnboarding!) {
+      return PermissionOnboardingPage(
+        onComplete: () {
+          setState(() {
+            _hasSeenOnboarding = true;
+          });
+        }
+      );
+    }
+
+    return Consumer<AuthService>(
+      builder: (context, auth, child) {
+        if (auth.status == AuthStatus.uninitialized) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF121418),
+            body: Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+          );
+        } else if (auth.status == AuthStatus.unauthenticated) {
+          return const LoginPage();
+        } else if (auth.status == AuthStatus.banned) {
+          return const BannedPage();
+        }
+        return const MainWrapper();
+      },
     );
   }
 }

@@ -59,7 +59,7 @@ void main(List<String> args) {
   final major = nameParts.isNotEmpty ? (int.tryParse(nameParts[0]) ?? 1) : 1;
   final minor = nameParts.length > 1 ? (int.tryParse(nameParts[1]) ?? 0) : 0;
   final patch = nameParts.length > 2 ? (int.tryParse(nameParts[2]) ?? 0) : 0;
-  final newVersionCode = major * 100000 + minor * 1000 + patch * 100 + internalBuild;
+  final newVersionCode = major * 100000 + minor * 10000 + patch * 100 + internalBuild;
 
   final newLine = 'version: $name+$newVersionCode';
   if (dryRun) {

@@ -311,6 +311,45 @@ class BackupService {
     }
   }
 
+  static Future<bool> restoreFromDrivePicker(BuildContext context) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.any,
+      );
+
+      if (result == null || result.files.isEmpty) {
+        if (!context.mounted) return false;
+        _maybeShowSnackBar(context, '복원 파일 선택을 취소했습니다.');
+        return false;
+      }
+      final pickedPath = result.files.single.path;
+      if (pickedPath == null) {
+        throw const FormatException('파일 경로를 가져올 수 없습니다. 파일이 유효한지 확인해주세요.');
+      }
+
+      final fileName = _safeFileNameFromPath(pickedPath);
+      final pickedFile = File(pickedPath);
+      if (!(await pickedFile.exists())) {
+        throw const FormatException('선택한 파일이 기기에 존재하지 않습니다.');
+      }
+
+      if (fileName.toLowerCase().endsWith('.zip')) {
+        await _restoreFromBackupZip(pickedFile);
+      } else {
+        final jsonData = await pickedFile.readAsString();
+        await _restoreFromBackupJson(jsonData);
+      }
+      
+      if (!context.mounted) return true;
+      _maybeShowSnackBar(context, '데이터 복원이 완료되었습니다.');
+      DriveLogDatabase.afterLogsChanged?.call();
+      return true;
+    } catch (e) {
+      if (!context.mounted) return false;
+      _maybeShowSnackBar(context, '복원 중 오류: $e');
+      return false;
+    }
+  }
   static Future<bool> restoreFromFilePicker(BuildContext context) async {
     try {
       final targetDir = Directory('/storage/emulated/0/Download/운행일지관리');

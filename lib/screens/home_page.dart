@@ -108,13 +108,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _loadWeather();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        // 기존/신규 유저 모두 앱 실행 시 알림 및 마이크 권한을 묶어서 미리 요청
-        // 오버레이(백그라운드)에서 권한 요청 시 앱 먹통 현상 방지
-        await [
-          Permission.notification,
-          Permission.microphone,
-        ].request();
-
+        // 권한 요청 로직은 PermissionOnboardingPage로 이관됨
         OnboardingDialog.showIfNeeded(context);
 
         final guideProvider = Provider.of<GuideProvider>(
