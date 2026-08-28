@@ -633,38 +633,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                               }
 
                               return SingleChildScrollView(
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: constraints.maxHeight,
-                                  ),
-                                  child: IntrinsicHeight(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.stretch,
-                                      children: [
-                                        _buildTodaySummaryCard(),
-                                        SizedBox(height: sectionGap),
-                                        SizedBox(
-                                          height: 60,
-                                          child: _buildUtilsRow(),
-                                        ),
-                                        SizedBox(height: sectionGap),
-                                        SizedBox(
-                                          height: 85,
-                                          child: _buildRegisterRow(),
-                                        ),
-                                        SizedBox(height: sectionGap),
-                                        Expanded(
-                                          child: Container(
-                                            constraints: const BoxConstraints(
-                                              minHeight: 220,
-                                            ),
-                                            child: _buildYoutubeSection(),
-                                          ),
-                                        ),
-                                      ],
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _buildTodaySummaryCard(),
+                                    SizedBox(height: sectionGap),
+                                    SizedBox(
+                                      height: 60,
+                                      child: _buildUtilsRow(),
                                     ),
-                                  ),
+                                    SizedBox(height: sectionGap),
+                                    SizedBox(
+                                      height: 85,
+                                      child: _buildRegisterRow(),
+                                    ),
+                                    SizedBox(height: sectionGap),
+                                    AspectRatio(
+                                      aspectRatio: 16 / 9,
+                                      child: _buildYoutubeSection(),
+                                    ),
+                                  ],
                                 ),
                               );
                             },
