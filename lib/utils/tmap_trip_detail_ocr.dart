@@ -98,7 +98,7 @@ class TmapTripDetailOcr {
     // --- ROBUST FALLBACK FOR ADDRESSES USING REGEX ---
     if (startAddress.isEmpty || endAddress.isEmpty) {
       final flat2 = normalized.replaceAll(RegExp(r'\s+'), ' ');
-      final addrRegex = RegExp(r'(\uC11C\uC6B8|\uBD80\uC0B0|\uB300\uAD6C|\uC778\uCC9C|\uAD11\uC8FC|\uB300\uC804|\uC6B8\uC0B0|\uC138\uC885|\uACBD\uAE30|\uAC15\uC6D0|\uCDA9\uBD81|\uCDA9\uB0A8|\uC804\uBD81|\uC804\uB0A8|\uACBD\uBD81|\uACBD\uB0A8|\uC81C\uC8FC)\s+[\uAC00-\uD7A3]+\s*(?:\uC2DC|\uAD70|\uAD6C)\s+[^\uB3C4\uCC29\uC2E4\uC218\uC775\n]*');
+      final addrRegex = RegExp(r'(\uC11C\uC6B8|\uBD80\uC0B0|\uB300\uAD6C|\uC778\uCC9C|\uAD11\uC8FC|\uB300\uC804|\uC6B8\uC0B0|\uC138\uC885|\uACBD\uAE30|\uAC15\uC6D0|\uCDA9\uBD81|\uCDA9\uB0A8|\uC804\uBD81|\uC804\uB0A8|\uACBD\uBD81|\uACBD\uB0A8|\uC81C\uC8FC)\s+[\uAC00-\uD7A3]+\s*(?:\uC2DC|\uAD70|\uAD6C)\s+(?:(?!\uC11C\uC6B8|\uBD80\uC0B0|\uB300\uAD6C|\uC778\uCC9C|\uAD11\uC8FC|\uB300\uC804|\uC6B8\uC0B0|\uC138\uC885|\uACBD\uAE30|\uAC15\uC6D0|\uCDA9\uBD81|\uCDA9\uB0A8|\uC804\uBD81|\uC804\uB0A8|\uACBD\uBD81|\uACBD\uB0A8|\uC81C\uC8FC)[^\uB3C4\uCC29\uC2E4\uC218\uC775\n])*');
       final matches = addrRegex.allMatches(flat2).toList();
       
       if (matches.isNotEmpty) {
@@ -123,16 +123,18 @@ class TmapTripDetailOcr {
     var driveStartTimeHm = '';
     final flat = normalized.replaceAll(RegExp(r'\s+'), ' ');
     // 1. 날짜 추출 (운행일자 텍스트 무시, 1~2자리 모두 허용)
+    int timeSearchStart = 0;
     final dateMatch = RegExp(r'(\d{4})\s*[.\-\uB144]\s*(\d{1,2})\s*[.\-\uC6D4]\s*(\d{1,2})').firstMatch(flat);
     if (dateMatch != null) {
       final y = dateMatch.group(1)!;
       final m = dateMatch.group(2)!.padLeft(2, '0');
       final d = dateMatch.group(3)!.padLeft(2, '0');
       driveDateYmd = '$y-$m-$d';
+      timeSearchStart = dateMatch.end;
     }
 
-    // 2. 시간 추출 (00:00 패턴 스캔 후 무조건 첫 번째 매칭값 사용)
-    final timeMatches = RegExp(r'(\d{2})\s*:\s*(\d{2})').allMatches(flat).toList();
+    // 2. 시간 추출 (상단 상태바 시간을 피하기 위해 날짜 이후부터 스캔)
+    final timeMatches = RegExp(r'(\d{2})\s*:\s*(\d{2})').allMatches(flat, timeSearchStart).toList();
     if (timeMatches.isNotEmpty) {
       driveStartTimeHm = timeMatches.first.group(0)!.replaceAll(' ', '');
     }
