@@ -11,6 +11,18 @@ class OcrErrorLoggerService {
 
   final Set<String> _sessionSentHashes = {};
 
+  Future<bool> _canUploadSuccessToday(SharedPreferences prefs, String todayStr) async {
+    final countKey = 'success_upload_count_$todayStr';
+    final currentCount = prefs.getInt(countKey) ?? 0;
+    return currentCount < 5;
+  }
+
+  Future<void> _incrementSuccessUploadCount(SharedPreferences prefs, String todayStr) async {
+    final countKey = 'success_upload_count_$todayStr';
+    final currentCount = prefs.getInt(countKey) ?? 0;
+    await prefs.setInt(countKey, currentCount + 1);
+  }
+
   Future<bool> _canUploadToday(SharedPreferences prefs, String todayStr) async {
     final countKey = 'unified_upload_count_$todayStr';
     final currentCount = prefs.getInt(countKey) ?? 0;
@@ -39,13 +51,9 @@ class OcrErrorLoggerService {
         return;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-      
-      if (!await _canUploadToday(prefs, todayStr)) {
-        if (kDebugMode) print('OCR Error Log skipped due to unified daily limit (5)');
-        return;
-      }
+      // No daily limit for error logs
+      // final prefs = await SharedPreferences.getInstance();
+      // final todayStr = DateTime.now().toIso8601String().substring(0, 10);
 
       final packageInfo = await PackageInfo.fromPlatform();
       
@@ -59,7 +67,6 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add(textHash);
-      await _incrementUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('OCR Error Logged to Firestore for platform: $platform');
     } catch (e) {
@@ -77,13 +84,7 @@ class OcrErrorLoggerService {
       
       if (_sessionSentHashes.contains('corr_$textHash')) return;
 
-      final prefs = await SharedPreferences.getInstance();
-      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-      
-      if (!await _canUploadToday(prefs, todayStr)) {
-        if (kDebugMode) print('OCR Correction Log skipped due to unified daily limit (5)');
-        return;
-      }
+      // No daily limit for correction logs
 
       final packageInfo = await PackageInfo.fromPlatform();
       
@@ -96,7 +97,7 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add('corr_$textHash');
-      await _incrementUploadCount(prefs, todayStr);
+      await _incrementSuccessUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('OCR Correction Logged to Firestore for platform: $platform');
     } catch (e) {
@@ -116,8 +117,8 @@ class OcrErrorLoggerService {
       final prefs = await SharedPreferences.getInstance();
       final todayStr = DateTime.now().toIso8601String().substring(0, 10);
       
-      if (!await _canUploadToday(prefs, todayStr)) {
-        if (kDebugMode) print('Shared Call Point Log skipped due to unified daily limit (5)');
+      if (!await _canUploadSuccessToday(prefs, todayStr)) {
+        if (kDebugMode) print('Shared Call Point Log skipped due to success daily limit (5)');
         return;
       }
 
@@ -140,7 +141,7 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add('shared_$dataHash');
-      await _incrementUploadCount(prefs, todayStr);
+      await _incrementSuccessUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('Shared Call Point Logged to Firestore');
     } catch (e) {
