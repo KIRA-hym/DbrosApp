@@ -11,6 +11,18 @@ class OcrErrorLoggerService {
 
   final Set<String> _sessionSentHashes = {};
 
+  Future<bool> _canUploadErrorToday(SharedPreferences prefs, String todayStr) async {
+    final countKey = 'error_upload_count_$todayStr';
+    final currentCount = prefs.getInt(countKey) ?? 0;
+    return currentCount < 5;
+  }
+
+  Future<void> _incrementErrorUploadCount(SharedPreferences prefs, String todayStr) async {
+    final countKey = 'error_upload_count_$todayStr';
+    final currentCount = prefs.getInt(countKey) ?? 0;
+    await prefs.setInt(countKey, currentCount + 1);
+  }
+
   Future<bool> _canUploadSuccessToday(SharedPreferences prefs, String todayStr) async {
     final countKey = 'success_upload_count_$todayStr';
     final currentCount = prefs.getInt(countKey) ?? 0;
@@ -51,9 +63,13 @@ class OcrErrorLoggerService {
         return;
       }
 
-      // No daily limit for error logs
-      // final prefs = await SharedPreferences.getInstance();
-      // final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      
+      if (!await _canUploadErrorToday(prefs, todayStr)) {
+        if (kDebugMode) print('OCR Error Log skipped due to error daily limit (5)');
+        return;
+      }
 
       final packageInfo = await PackageInfo.fromPlatform();
       
@@ -67,6 +83,7 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add(textHash);
+      await _incrementErrorUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('OCR Error Logged to Firestore for platform: $platform');
     } catch (e) {
@@ -84,7 +101,13 @@ class OcrErrorLoggerService {
       
       if (_sessionSentHashes.contains('corr_$textHash')) return;
 
-      // No daily limit for correction logs
+      final prefs = await SharedPreferences.getInstance();
+      final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+      
+      if (!await _canUploadErrorToday(prefs, todayStr)) {
+        if (kDebugMode) print('OCR Correction Log skipped due to error daily limit (5)');
+        return;
+      }
 
       final packageInfo = await PackageInfo.fromPlatform();
       
@@ -97,6 +120,7 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add('corr_$textHash');
+      await _incrementErrorUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('OCR Correction Logged to Firestore for platform: $platform');
     } catch (e) {
