@@ -164,9 +164,23 @@ class CallCardOcrParseService {
     if (!isValidForAutoSave(logData)) return null;
 
     final dateToUse = originalDate ?? DateTime.now();
-    final work = WorkDateUtils.effectiveWorkDateYmd(dateToUse);
-    final timeStr = formatDriveTimeHm(dateToUse);
-    final drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
+    var work = WorkDateUtils.effectiveWorkDateYmd(dateToUse);
+    var timeStr = formatDriveTimeHm(dateToUse);
+    var drive = WorkDateUtils.resolveDriveDateForNightShift(work, timeStr);
+
+    // OCR로 추출된 실제 운행일/운행시간이 있다면 우선 적용 (캡처 시간보다 우선)
+    if (_nonEmptyTrimmed(logData['drive_date'])) {
+      drive = logData['drive_date'].toString().trim();
+    }
+    if (_nonEmptyTrimmed(logData['drive_time'])) {
+      timeStr = logData['drive_time'].toString().trim();
+    }
+    if (_nonEmptyTrimmed(logData['drive_date']) && _nonEmptyTrimmed(logData['drive_time'])) {
+      try {
+        final parsedDt = DateTime.parse('$drive $timeStr:00');
+        work = WorkDateUtils.effectiveWorkDateYmd(parsedDt);
+      } catch (_) {}
+    }
     final nowIso = DateTime.now().toIso8601String();
     
     final db = await DriveLogDatabase.instance.database;
