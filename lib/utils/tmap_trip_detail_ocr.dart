@@ -91,6 +91,10 @@ class TmapTripDetailOcr {
       }
     }
 
+    // Clear false positives from horizontal parsing
+    if (startAddress.contains('\uC6B4\uD589\uC77C\uC790') || startAddress.contains('\uC6B4\uD589\uBC88\uD638') || startAddress.contains('\uC694\uAE30\uC694')) startAddress = '';
+    if (endAddress.contains('\uC6B4\uD589\uC77C\uC790') || endAddress.contains('\uC6B4\uD589\uBC88\uD638') || endAddress.contains('\uC694\uAE30\uC694')) endAddress = '';
+
     // --- NEW FALLBACK FOR VERTICAL/TWO-COLUMN FORMAT ---
     if (startAddress.isEmpty || endAddress.isEmpty) {
       final lines = normalized.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
@@ -122,13 +126,13 @@ class TmapTripDetailOcr {
     var driveDateYmd = '';
     var driveStartTimeHm = '';
     final flat = normalized.replaceAll(RegExp(r'\s+'), ' ');
-    final dtMatch = RegExp(r'운행일자\s*(\d{4})[.\-](\d{1,2})[.\-](\d{1,2}).*?(\d{2}:\d{2})\s*~').firstMatch(flat);
+    final dtMatch = RegExp(r'\uC6B4\uD589\uC77C\uC790\s*(\d{4})\s*[.\-\uB144]\s*(\d{1,2})\s*[.\-\uC6D4]\s*(\d{1,2}).*?(\d{2}\s*:\s*\d{2})\s*~').firstMatch(flat);
     if (dtMatch != null) {
       final y = dtMatch.group(1)!;
       final m = dtMatch.group(2)!.padLeft(2, '0');
       final d = dtMatch.group(3)!.padLeft(2, '0');
       driveDateYmd = '$y-$m-$d';
-      driveStartTimeHm = dtMatch.group(4)!;
+      driveStartTimeHm = dtMatch.group(4)!.replaceAll(' ', '');
     }
 
     if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0) {
