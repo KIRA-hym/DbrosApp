@@ -126,7 +126,7 @@ class TmapTripDetailOcr {
     var driveDateYmd = '';
     var driveStartTimeHm = '';
     final flat = normalized.replaceAll(RegExp(r'\s+'), ' ');
-    final dtMatch = RegExp(r'\uC6B4\uD589\uC77C\uC790\s*(\d{4})\s*[.\-\uB144]\s*(\d{1,2})\s*[.\-\uC6D4]\s*(\d{1,2}).*?(\d{2}\s*:\s*\d{2})\s*~').firstMatch(flat);
+    final dtMatch = RegExp(r'\uC6B4\uD589\uC77C\uC790\s*(\d{4})\s*[.\-\uB144]\s*(\d{1,2})\s*[.\-\uC6D4]\s*(\d{1,2}).*?(\d{2}\s*:\s*\d{2})').firstMatch(flat);
     if (dtMatch != null) {
       final y = dtMatch.group(1)!;
       final m = dtMatch.group(2)!.padLeft(2, '0');
@@ -134,6 +134,19 @@ class TmapTripDetailOcr {
       driveDateYmd = '$y-$m-$d';
       driveStartTimeHm = dtMatch.group(4)!.replaceAll(' ', '');
     }
+
+    // Cleanup garbage appended by ML Kit grouping
+    String cleanAddr(String a) {
+      if (a.isEmpty) return a;
+      var res = a;
+      final fareMatch = RegExp(r'\d{1,3}(,\d{3})*\s*[P원]').firstMatch(res);
+      if (fareMatch != null) res = res.substring(0, fareMatch.start);
+      final insIdx = res.indexOf('보험');
+      if (insIdx != -1) res = res.substring(0, insIdx);
+      return res.trim();
+    }
+    startAddress = cleanAddr(startAddress);
+    endAddress = cleanAddr(endAddress);
 
     if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0) {
       OcrErrorLoggerService.instance.logError(
