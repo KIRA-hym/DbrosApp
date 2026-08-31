@@ -91,6 +91,30 @@ class TmapTripDetailOcr {
       }
     }
 
+    // --- NEW FALLBACK FOR VERTICAL/TWO-COLUMN FORMAT ---
+    if (startAddress.isEmpty || endAddress.isEmpty) {
+      final lines = normalized.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+      final infoIdx = lines.indexWhere((e) => e.replaceAll(RegExp(r'\s+'), '') == '운행상세정보');
+      if (infoIdx != -1 && infoIdx + 2 < lines.length) {
+        final s = lines[infoIdx + 1];
+        final e = lines[infoIdx + 2];
+        if (startAddress.isEmpty && s.length > 3 && !s.contains(RegExp(r'[\d,]+\s*[P원]$')) && !s.contains('운행') && !s.contains('보험')) {
+          startAddress = s;
+        }
+        if (endAddress.isEmpty && e.length > 3 && !e.contains(RegExp(r'[\d,]+\s*[P원]$')) && !e.contains('운행') && !e.contains('보험')) {
+          endAddress = e;
+        }
+      }
+    }
+
+    if (grossFare == 0) {
+      final fareMatch = RegExp(r'([\d,]+)\s*P').firstMatch(normalized.replaceAll(RegExp(r'\s+'), ' '));
+      if (fareMatch != null) {
+        grossFare = int.tryParse(fareMatch.group(1)!.replaceAll(',', '')) ?? 0;
+      }
+    }
+    // ---------------------------------------------------
+
     if (grossFare == 0 && startAddress.isEmpty && endAddress.isEmpty) {
       return null;
     }
