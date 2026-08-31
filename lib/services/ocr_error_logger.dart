@@ -97,7 +97,6 @@ class OcrErrorLoggerService {
       });
 
       _sessionSentHashes.add('corr_$textHash');
-      await _incrementSuccessUploadCount(prefs, todayStr);
       
       if (kDebugMode) print('OCR Correction Logged to Firestore for platform: $platform');
     } catch (e) {
