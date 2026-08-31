@@ -632,29 +632,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                 );
                               }
 
-                              return SingleChildScrollView(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    _buildTodaySummaryCard(),
-                                    SizedBox(height: sectionGap),
-                                    SizedBox(
-                                      height: 60,
-                                      child: _buildUtilsRow(),
+                              return CustomScrollView(
+                                slivers: [
+                                  SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        _buildTodaySummaryCard(),
+                                        SizedBox(
+                                          height: 60,
+                                          child: _buildUtilsRow(),
+                                        ),
+                                        SizedBox(
+                                          height: 85,
+                                          child: _buildRegisterRow(),
+                                        ),
+                                        AspectRatio(
+                                          aspectRatio: 16 / 9,
+                                          child: _buildYoutubeSection(),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(height: sectionGap),
-                                    SizedBox(
-                                      height: 85,
-                                      child: _buildRegisterRow(),
-                                    ),
-                                    SizedBox(height: sectionGap),
-                                    AspectRatio(
-                                      aspectRatio: 16 / 9,
-                                      child: _buildYoutubeSection(),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               );
                             },
                           ),

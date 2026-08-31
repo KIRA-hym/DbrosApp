@@ -95,6 +95,18 @@ class TmapTripDetailOcr {
       return null;
     }
 
+    var driveDateYmd = '';
+    var driveStartTimeHm = '';
+    final flat = normalized.replaceAll(RegExp(r'\s+'), ' ');
+    final dtMatch = RegExp(r'운행일자\s*(\d{4})[.\-](\d{1,2})[.\-](\d{1,2}).*?(\d{2}:\d{2})\s*~').firstMatch(flat);
+    if (dtMatch != null) {
+      final y = dtMatch.group(1)!;
+      final m = dtMatch.group(2)!.padLeft(2, '0');
+      final d = dtMatch.group(3)!.padLeft(2, '0');
+      driveDateYmd = '$y-$m-$d';
+      driveStartTimeHm = dtMatch.group(4)!;
+    }
+
     if (startAddress.isEmpty || endAddress.isEmpty || grossFare == 0) {
       OcrErrorLoggerService.instance.logError(
         platform: 'tmap',
@@ -113,7 +125,9 @@ class TmapTripDetailOcr {
       grossFare: grossFare,
       startAddress: startAddress,
       endAddress: endAddress,
-      waypoint: waypoint,
+      waypoint: waypoint.isEmpty ? null : waypoint,
+      driveDateYmd: driveDateYmd,
+      driveStartTimeHm: driveStartTimeHm,
     );
   }
 
