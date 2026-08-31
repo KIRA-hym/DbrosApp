@@ -95,19 +95,15 @@ class TmapTripDetailOcr {
     if (startAddress.contains('\uC6B4\uD589\uC77C\uC790') || startAddress.contains('\uC6B4\uD589\uBC88\uD638') || startAddress.contains('\uC694\uAE30\uC694')) startAddress = '';
     if (endAddress.contains('\uC6B4\uD589\uC77C\uC790') || endAddress.contains('\uC6B4\uD589\uBC88\uD638') || endAddress.contains('\uC694\uAE30\uC694')) endAddress = '';
 
-    // --- NEW FALLBACK FOR VERTICAL/TWO-COLUMN FORMAT ---
+    // --- ROBUST FALLBACK FOR ADDRESSES USING REGEX ---
     if (startAddress.isEmpty || endAddress.isEmpty) {
-      final lines = normalized.split('\n').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
-      final infoIdx = lines.indexWhere((e) => e.replaceAll(RegExp(r'\s+'), '') == '운행상세정보');
-      if (infoIdx != -1 && infoIdx + 2 < lines.length) {
-        final s = lines[infoIdx + 1];
-        final e = lines[infoIdx + 2];
-        if (startAddress.isEmpty && s.length > 3 && !s.contains(RegExp(r'[\d,]+\s*[P원]$')) && !s.contains('운행') && !s.contains('보험')) {
-          startAddress = s;
-        }
-        if (endAddress.isEmpty && e.length > 3 && !e.contains(RegExp(r'[\d,]+\s*[P원]$')) && !e.contains('운행') && !e.contains('보험')) {
-          endAddress = e;
-        }
+      final flat2 = normalized.replaceAll(RegExp(r'\s+'), ' ');
+      final addrRegex = RegExp(r'(\uC11C\uC6B8|\uBD80\uC0B0|\uB300\uAD6C|\uC778\uCC9C|\uAD11\uC8FC|\uB300\uC804|\uC6B8\uC0B0|\uC138\uC885|\uACBD\uAE30|\uAC15\uC6D0|\uCDA9\uBD81|\uCDA9\uB0A8|\uC804\uBD81|\uC804\uB0A8|\uACBD\uBD81|\uACBD\uB0A8|\uC81C\uC8FC)\s+[\uAC00-\uD7A3]+\s*(?:\uC2DC|\uAD70|\uAD6C)\s+[^\uB3C4\uCC29\uC2E4\uC218\uC775\n]*');
+      final matches = addrRegex.allMatches(flat2).toList();
+      
+      if (matches.isNotEmpty) {
+        if (startAddress.isEmpty) startAddress = matches.first.group(0)!.trim();
+        if (endAddress.isEmpty) endAddress = matches.last.group(0)!.trim();
       }
     }
 
