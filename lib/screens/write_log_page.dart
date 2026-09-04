@@ -1985,6 +1985,44 @@ class _DriveLogFormState extends State<DriveLogForm>
     ).show(context: context);
   }
 
+  Widget _buildListeningOverlay() {
+    if (!_isListening) return const SizedBox.shrink();
+    return Positioned(
+      bottom: 24,
+      left: 24,
+      right: 24,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 300),
+        opacity: _isListening ? 1.0 : 0.0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.mic, color: Colors.redAccent, size: 24),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _activeSttField == 'origin' ? '출발지를 말씀해 주세요...' : '도착지를 말씀해 주세요...',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -2092,7 +2130,7 @@ class _DriveLogFormState extends State<DriveLogForm>
       // 기존: return Opacity(opacity: quickUiOpacity, child: Scaffold(...))
       return Scaffold(
         backgroundColor: const Color(0xCC000000), // 80% 불투명 검정 — 기존 반투명 UI 유지
-        body: SafeArea(
+        body: Stack(children: [ SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(top: 36.0),
             child: Center(
@@ -2120,7 +2158,7 @@ class _DriveLogFormState extends State<DriveLogForm>
               ),
             ),
           ),
-        ),
+        ), if (_isListening) _buildListeningOverlay(), ], ),
       );
     }
 
@@ -2203,11 +2241,11 @@ class _DriveLogFormState extends State<DriveLogForm>
             ),
           ],
         ),
-        body: ResponsiveBody(
+        body: Stack(children: [ ResponsiveBody(
           fullWidthWhenExpanded: true,
           maxWidth: isExpanded ? size.width : formMaxW,
           child: form,
-        ),
+        ), if (_isListening) _buildListeningOverlay(), ], ),
       ),
     );
   }
@@ -2993,19 +3031,20 @@ class _DriveLogFormState extends State<DriveLogForm>
       children: [
         Row(
           children: [
-            Expanded(
-              child: Text(
+
+            Text(
                 label,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color:
                       (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-                ),
+
               ),
             ),
             if (labelAction != null) ...[
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               labelAction,
             ],
+            const Spacer(),
           ],
         ),
         SizedBox(height: 8),
