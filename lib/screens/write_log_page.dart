@@ -2338,8 +2338,8 @@ class _DriveLogFormState extends State<DriveLogForm>
               children: [
                 Row(
                   children: [
-                    Expanded(
-                      child: Text(
+
+                      Text(
                         "출발지",
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color:
@@ -2347,7 +2347,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                               Colors.grey),
                         ),
                       ),
-                    ),
+
                     PulseAnimationWrapper(
                       isActive: _isListening && _activeSttField == 'origin',
                       child: IconButton(
@@ -2361,7 +2361,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                         onPressed: () => _startListeningWithGuard('origin'),
                       ),
                     ),
-                    SizedBox(width: 8),
+                    const Spacer(),
                     GestureDetector(
                       onTap: () {
                         setState(() {
@@ -2579,8 +2579,8 @@ class _DriveLogFormState extends State<DriveLogForm>
             children: [
               Row(
                 children: [
-                  Expanded(
-                    child: Text(
+
+                    Text(
                       "출발지",
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color:
@@ -2588,7 +2588,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                             Colors.grey),
                       ),
                     ),
-                  ),
+
                   PulseAnimationWrapper(
                     isActive: _isListening && _activeSttField == 'origin',
                     child: IconButton(
@@ -2602,7 +2602,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                       onPressed: () => _startListeningWithGuard('origin'),
                     ),
                   ),
-                  SizedBox(width: 8),
+                  const Spacer(),
                   GestureDetector(
                     onTap: () {
                       setState(() {
