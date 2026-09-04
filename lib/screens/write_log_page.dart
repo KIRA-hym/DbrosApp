@@ -10,6 +10,8 @@ import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:permission_handler/permission_handler.dart';
 import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +19,7 @@ import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
+import '../widgets/pulse_animation_wrapper.dart';
 import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
@@ -118,6 +121,10 @@ class _DriveLogFormState extends State<DriveLogForm>
   final _waypointCon = TextEditingController();
   final _endLocCon = TextEditingController();
   final _memoCon = TextEditingController();
+
+  stt.SpeechToText _speechToText = stt.SpeechToText();
+  bool _isListening = false;
+  String _activeSttField = '';
 
   bool _hasOcrWarning = false;
   int? _logId;
@@ -417,6 +424,115 @@ class _DriveLogFormState extends State<DriveLogForm>
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden) {
       _workDateRollTimer?.cancel();
+    }
+  }
+
+  void _startListeningWithGuard(String field) {
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'voice_entry',
+      canUseFree: () async => false,
+      canUseWithAd: () async => true,
+      onGranted: (isFreeTicket) {
+        _toggleListening(field);
+      },
+    );
+  }
+
+  void _toggleListening(String field) async {
+    if (_isListening && _activeSttField == field) {
+      _speechToText.stop();
+      setState(() {
+        _isListening = false;
+        _activeSttField = '';
+      });
+      return;
+    }
+
+    var status = await Permission.microphone.status;
+    if (status != PermissionStatus.granted) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2D34),
+          title: const Text('마이크 권한 필요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n설정에서 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                openAppSettings();
+              },
+              child: const Text('설정으로 이동', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    bool available = false;
+    try {
+      available = await _speechToText.initialize(
+        onError: (error) {
+          debugPrint('STT Error: \${error.errorMsg}');
+          if (mounted) {
+            setState(() {
+              _isListening = false;
+              _activeSttField = '';
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('STT Init Exception: \$e');
+    }
+
+    if (available) {
+      setState(() {
+        _isListening = true;
+        _activeSttField = field;
+      });
+      _speechToText.listen(
+        onResult: (result) {
+          if (!mounted) return;
+          setState(() {
+            if (field == 'origin') {
+              _startLocCon.text = result.recognizedWords;
+            } else if (field == 'dest') {
+              _endLocCon.text = result.recognizedWords;
+            }
+          });
+          if (result.finalResult) {
+            setState(() {
+              _isListening = false;
+              _activeSttField = '';
+            });
+          }
+        },
+        localeId: 'ko_KR',
+      );
+    } else {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: const Color(0xFF2A2D34),
+          title: const Text('음성 인식 오류', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: const Text('기기에서 음성 인식(STT)을 초기화할 수 없습니다.\n구글 음성 인식 엔진이 켜져 있는지 확인해주세요.', style: TextStyle(color: Colors.grey)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -2194,6 +2310,19 @@ class _DriveLogFormState extends State<DriveLogForm>
                         ),
                       ),
                     ),
+                    PulseAnimationWrapper(
+                      isActive: _isListening && _activeSttField == 'origin',
+                      child: IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          (_isListening && _activeSttField == 'origin') ? Icons.mic : Icons.mic_none,
+                          size: 20,
+                          color: (_isListening && _activeSttField == 'origin') ? Colors.redAccent : const Color(0xFF666666),
+                        ),
+                        onPressed: () => _startListeningWithGuard('origin'),
+                      ),
+                    ),
                     SizedBox(width: 8),
                     GestureDetector(
                       onTap: () {
@@ -2237,6 +2366,19 @@ class _DriveLogFormState extends State<DriveLogForm>
               _endLocCon,
               label: "도착지",
               focusNode: _endLocFocusNode,
+              labelAction: PulseAnimationWrapper(
+                isActive: _isListening && _activeSttField == 'dest',
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  icon: Icon(
+                    (_isListening && _activeSttField == 'dest') ? Icons.mic : Icons.mic_none,
+                    size: 20,
+                    color: (_isListening && _activeSttField == 'dest') ? Colors.redAccent : const Color(0xFF666666),
+                  ),
+                  onPressed: () => _startListeningWithGuard('dest'),
+                ),
+              ),
               suffixIcon: kMapFeaturesEnabled
                   ? _pinPickButton(forStart: false)
                   : null,
@@ -2409,6 +2551,19 @@ class _DriveLogFormState extends State<DriveLogForm>
                       ),
                     ),
                   ),
+                  PulseAnimationWrapper(
+                    isActive: _isListening && _activeSttField == 'origin',
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        (_isListening && _activeSttField == 'origin') ? Icons.mic : Icons.mic_none,
+                        size: 20,
+                        color: (_isListening && _activeSttField == 'origin') ? Colors.redAccent : const Color(0xFF666666),
+                      ),
+                      onPressed: () => _startListeningWithGuard('origin'),
+                    ),
+                  ),
                   SizedBox(width: 8),
                   GestureDetector(
                     onTap: () {
@@ -2481,6 +2636,19 @@ class _DriveLogFormState extends State<DriveLogForm>
             label: "도착지",
             focusNode: _endLocFocusNode,
             isError: _isEndLocMissing,
+            labelAction: PulseAnimationWrapper(
+              isActive: _isListening && _activeSttField == 'dest',
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: Icon(
+                  (_isListening && _activeSttField == 'dest') ? Icons.mic : Icons.mic_none,
+                  size: 20,
+                  color: (_isListening && _activeSttField == 'dest') ? Colors.redAccent : const Color(0xFF666666),
+                ),
+                onPressed: () => _startListeningWithGuard('dest'),
+              ),
+            ),
             suffixIcon: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -2818,16 +2986,27 @@ class _DriveLogFormState extends State<DriveLogForm>
     FocusNode? focusNode,
     Widget? suffixIcon,
     bool isError = false,
+    Widget? labelAction,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color:
-                (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color:
+                      (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
+                ),
+              ),
+            ),
+            if (labelAction != null) ...[
+              SizedBox(width: 8),
+              labelAction,
+            ],
+          ],
         ),
         SizedBox(height: 8),
         _buildLocationAutocompleteTextField(
