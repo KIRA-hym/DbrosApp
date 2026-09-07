@@ -3041,7 +3041,6 @@ class _DriveLogFormState extends State<DriveLogForm>
               ),
             ),
             if (labelAction != null) ...[
-              const SizedBox(width: 8),
               labelAction,
             ],
             const Spacer(),
