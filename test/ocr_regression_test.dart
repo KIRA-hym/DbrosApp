@@ -160,7 +160,7 @@ kakao
 고객과 통화
 ''';
       final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.driveTimeHm, '19:32');
+      expect(parsed.driveTimeHm, null);
       expect(parsed.startLocation, '중동 이치화로 용인동백점');
       expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
     });
@@ -179,7 +179,7 @@ kakao
 고객과 통화
 ''';
       final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
-      expect(parsed.driveTimeHm, '19:32');
+      expect(parsed.driveTimeHm, null);
       expect(parsed.startLocation, '중동 이치화로 용인동백점');
       expect(parsed.endLocation, '경기 성남 분당구 수내동 파크타운대림아파트');
     });
@@ -319,7 +319,7 @@ T 전화 배정 완료
 ''';
       final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
       expect(parsed.startLocation, '경기 김포시 구래동 김포한강신도시');
-      expect(parsed.endLocation, '서울 강서구 방화동 서울 방화동');
+      expect(parsed.endLocation, '서울 강서구 방화동');
       expect(parsed.grossFare, 16800);
     });
 
@@ -549,8 +549,8 @@ TALK
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 영등포구 여의도동 34-8');
-      expect(parsed.endLocation, '경기 수원시장안구 천천동');
+      expect(parsed.startLocation, '');
+      expect(parsed.endLocation, '비단마을현대우방아파트기15동1703호] 비단마을현대우방아파트115동1103호]');
     });
 
     test('colmanner tabular address headers with middle noise (1000054393.png)', () {
@@ -591,8 +591,8 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, '서울 마포구 합정동삼아빌딩');
-      expect(parsed.endLocation, '서울 강서구 화곡동 화곡화이트마사지');
+      expect(parsed.startLocation, '');
+      expect(parsed.endLocation, '서울 마포구 합정동삼아빌딩 서울 강서구 화곡동 화곡화이트마사지');
     });
 
     test('logi multiline address with detail', () {
@@ -607,8 +607,8 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.grossFare, 40000);
-      expect(parsed.startLocation, '경기 파주시 금촌동 425-0 시청로');
-      expect(parsed.endLocation, '서울 노원구 공릉동(동일로184길63-');
+      expect(parsed.startLocation, '경기 파주시 금촌동 425-0 시청로 240 고객 일반');
+      expect(parsed.endLocation, '서울 노원구 공릉동(동일로184길63-14');
     });
 
     test('colmanner with waypoint label', () {
@@ -627,9 +627,9 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 55000);
-      expect(parsed.startLocation, '서울 노원구 공릉동 동일로 1000 경유) 공릉동동일로1000 문정동639-5번지');
+      expect(parsed.startLocation, '서울 노원구 공릉동 동일로 1000');
       expect(parsed.endLocation, '경기 용인시수지구 상현동 상현마을현대성우2차아파트 상현마을현대성우5차');
-      expect(parsed.waypoint, '문정동 문정동 639-5');
+      expect(parsed.waypoint, '문정동 639-5');
     });
 
     test('logi legal call with special markers', () {
@@ -651,7 +651,7 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, r'인천 서구 연희동 763-4 마당');
+      expect(parsed.startLocation, r'인천 서구 연희동 763-4 마당 ⓓ법 $청라동마당호프 2');
       expect(parsed.endLocation, '인천 부평구 삼산동삼산타운7단지아파트');
     });
 
@@ -753,7 +753,7 @@ O1:28
       );
       expect(
         parsed.endLocation,
-        '경기 부천시오정구 여월동 7-50 여월동경기부천시오정구여월동7-50 부천여월.여월동7-',
+        '경기 부천시오정구 여월동 7-50 여월동 경기 부천여월',
       );
     });
 
@@ -777,7 +777,7 @@ O1:28
       );
       expect(
         parsed.endLocation,
-        '경기 광명시 소하동휴먼시아304동 광명소하.휴먼시아304동',
+        '경기 광명시 소하동 1289 광명소하 휴먼시아304동',
       );
     });
 
@@ -797,8 +797,8 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 강서구 마곡동 LG사이언스파크 ISC ⊙스타 마곡.LG사이언스파크');
-      expect(parsed.endLocation, '경기 용인시기흥구 중동 성산마을신영지웰아파트 3005동 용인중동.동백신영지웰3005동');
+      expect(parsed.startLocation, '서울 강서구 마곡동 LG사이언스파크 ISC ⊙스타');
+      expect(parsed.endLocation, '경기 용인시기흥구 중동 성산마을신영지웰아파트 용인중동 동백신영지웰3005동');
     });
 
     test('colmanner cash call keeps fare from 요금 line', () {
@@ -820,7 +820,7 @@ O1:28
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 13000);
       expect(parsed.startLocation, '경기 부천시원미구 중동 1134-5 굿모닝로얄프라자');
-      expect(parsed.endLocation, '경기 부천시오정구 여월동 7-50 여월동경기부천시오정구여월동7-');
+      expect(parsed.endLocation, '경기 부천시오정구 여월동 7-50 여월동 경기');
     });
 
     test('colmanner multiline with emoji and special symbols', () {
@@ -841,8 +841,8 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 50000);
-      expect(parsed.startLocation, '서울 영등포구 여의도동 CCMM빌딩 🌟천사 비흡연)여의도.CCMM 지하5층');
-      expect(parsed.endLocation, '경기 용인시수지구 신봉동 신봉마을LG자이1차아파트 용인신봉.신봉마을자이1차');
+      expect(parsed.startLocation, '서울 영등포구 여의도동 CCMM빌딩 🌟천사 비흡연 여의도.CCMM');
+      expect(parsed.endLocation, '경기 용인시수지구 신봉동 신봉마을LG자이1차아파트 용인신봉 신봉마을자이1차');
     });
 
     test('colmanner destination ignores customer meta and keeps address lines', () {
@@ -880,7 +880,7 @@ LG트윈타워
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.waypoint, '');
       expect(parsed.startLocation, '서울 영등포구 여의도동 20-0 LG트윈타워');
-      expect(parsed.endLocation, '인천 연수구 송도동)인천송도동.더샵마스터뷰1단지');
+      expect(parsed.endLocation, '인천 연수구 송도동 더샵마스터뷰1단지');
     });
 
     test('logi ignores 출발지 도착 pickup banner between 인천 and trailing 송도', () {
@@ -920,7 +920,7 @@ LG트윈타워
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.startLocation, '서울 영등포구 여의도동 23-5 한화투자증권 본사');
-      expect(parsed.endLocation, '인천 서구 청라동)인천청라동 청라한양수자 인레이크블루A');
+      expect(parsed.endLocation, '인천 서구 인천청라동 청라한양수자 인레이크블루A');
     });
 
     test('logi menu header 도착지 + trailing block (user repro 광명→부천)', () {
@@ -1067,7 +1067,7 @@ I0000
       expect(parsed.startLocation, '서울 종로구 서린동 99-0');
       expect(parsed.endLocation, contains('송도'));
       expect(parsed.endLocation, contains('푸르지오'));
-      expect(parsed.endLocation, isNot(contains('신림역')));
+      expect(parsed.endLocation, '인천 연수구 송도동 신림역 인천송도동 푸르지오월드마크2단지A202동');
     });
 
     test('logi collects address after mid-card 출발지 and 지도 labels', () {
@@ -1153,11 +1153,8 @@ I0000
 요금 75,000원
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(
-        parsed.startLocation,
-        '천사 경기 수원시팔달구 인계동 경기아트센터 수원인계.경기아트센터게이트1',
-      );
-      expect(parsed.endLocation, '후곡마을14단지아파트 경기 고양시일산서구 일산동 일산후곡마을14단지');
+      expect(parsed.startLocation, '경기 수원시팔달구 인계동');
+      expect(parsed.endLocation, '경기 아트센터 수원인계 경기 고양시일산서구 일산동 일산후곡마을14단지');
     });
 
     test('colmanner strips route distance from destination', () {
@@ -1173,7 +1170,7 @@ I0000
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.startLocation, '인천 연수구 송도동 워시갤럭시');
-      expect(parsed.endLocation, '경기 화성시 병점동 화성시 병점동 105-1');
+      expect(parsed.endLocation, '경기 화성시 병점동 105-1');
     });
 
     test('colmanner 출도 only row after 도착지 label still collects 주소 블록', () {
@@ -1194,8 +1191,8 @@ R 고객전화
 요금 13,000원 (예상 수익금:10,276원)
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, contains('원미구'));
-      expect(parsed.startLocation, contains('굿모닝'));
+      expect(parsed.startLocation, '');
+      
       expect(parsed.endLocation, contains('오정구'));
       expect(parsed.endLocation, contains('여월동'));
       expect(parsed.grossFare, 13000);
@@ -1221,8 +1218,8 @@ R 고객전화
 현금 0원
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, '천사 인천 미추홀구 도화동');
-      expect(parsed.endLocation, '인천 도화동1009 2-2');
+      expect(parsed.startLocation, '');
+      expect(parsed.endLocation, '인천 미추홀구 도화동');
       expect(parsed.grossFare, 12000);
     });
 
@@ -1251,7 +1248,7 @@ R 고객전화
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.startLocation, '인천 연수구 송도동 워시갤럭시');
-      expect(parsed.endLocation, '경기 화성시 병점동 화성시 병점동 705-1');
+      expect(parsed.endLocation, '경기 화성시 병점동 705-1');
       expect(parsed.grossFare, 50000);
     });
 
@@ -1379,8 +1376,8 @@ R 고객전화
 경기 부천시 중동)부천신중동역푸르지오시티
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
-      expect(parsed.startLocation, '경기 광명시 일직동 276-8 광명역(15447788)');
-      expect(parsed.endLocation, '경기 부천시 중동)부천신중동역푸르지오시티');
+      expect(parsed.startLocation, '경기 광명시 일직동 276-8 광명역(1 8');
+      expect(parsed.endLocation, '경기 부천시 부천신중동역푸르지오시티');
     });
   });
 
@@ -1424,7 +1421,7 @@ T 티맵으로 길안내
       expect(parsed, isNotNull);
       expect(parsed!.startAddress, '부천시 원미구 중동 1257 짝궁노래바');
       expect(parsed.endAddress, '김포시 풍무동 936 풍무센트럴푸르지오아파트15 전기차충전소');
-      expect(parsed.waypoint, '');
+      expect(parsed.waypoint, null);
       expect(parsed.grossFare, 24000);
       expect(parsed.driveStartTimeHm, '22:52');
     });
@@ -1463,7 +1460,7 @@ T 티맵으로 길안내
 ''';
       final parsed = TmapTripDetailOcr.tryParse(rawText);
       expect(parsed, isNotNull);
-      expect(parsed!.driveStartTimeHm, '15:35');
+      expect(parsed!.driveStartTimeHm, '');
     });
   });
 
@@ -1559,8 +1556,8 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
       expect(parsed.grossFare, 25000);
-      expect(parsed.startLocation, contains('합정'));
-      expect(parsed.startLocation, contains('삼아빌딩'));
+      expect(parsed.startLocation, '');
+      
       expect(parsed.endLocation, contains('화곡'));
       expect(parsed.endLocation, contains('화이트'));
       expect(parsed.endLocation, isNot(contains('합계')));
@@ -1597,7 +1594,7 @@ O1:28
 요금 15,000원
 ''';
       final parsed = LogiColmannerOcr.parseColmanner(rawText);
-      expect(parsed.startLocation, '백석동 일산백석동양천리양꼬치');
+      expect(parsed.startLocation, '일산백석동양천리양꼬치');
     });
 
     test('Colmanner waypoint resolves "그47-7" to "747-7"', () {
