@@ -2776,7 +2776,7 @@ class _DriveLogFormState extends State<DriveLogForm>
 
   Widget _buildFormLayout() {
     const gap = 20.0;
-    final bottomPad = MediaQuery.of(context).padding.bottom;
+    final bottomPad = MediaQuery.paddingOf(context).bottom;
     if (ResponsiveLayout.isExpanded(context)) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3090,7 +3090,7 @@ class _DriveLogFormState extends State<DriveLogForm>
           onTap: onTap,
           onChanged: onChanged,
           textAlign: isNumber ? TextAlign.right : TextAlign.left,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
           inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -3202,7 +3202,7 @@ class _DriveLogFormState extends State<DriveLogForm>
                   onChanged: onChanged,
                   textAlign: isNumber ? TextAlign.right : TextAlign.left,
                   keyboardType: isNumber
-                      ? TextInputType.number
+                      ? const TextInputType.numberWithOptions(decimal: true)
                       : TextInputType.text,
                   inputFormatters: isNumber
                       ? [thousandSeparatorFormatter]
