@@ -57,7 +57,7 @@ class CallCardOcrParseService {
     final logData = <String, dynamic>{
       'program': detectedProgram,
       'image_path': imageFile.path,
-      'drive_date': defaultWorkDate,
+      'drive_date': '',
       'drive_time': '',
       'gross_fare': 0,
       'transport_cost': 0,
@@ -209,7 +209,15 @@ class CallCardOcrParseService {
     final hasStart = _nonEmptyTrimmed(logData['start_location']);
     final hasEnd = _nonEmptyTrimmed(logData['end_location']);
     final hasFare = _parsedGrossFare(logData) > 0;
-    final int hasParsingError = (!hasStart || !hasEnd || !hasFare) ? 1 : 0;
+    // 로지/콜마너에서 "요금 0원"이 원본에 명시된 경우: 운행 완료 후 정산되는 콜이므로
+    // 요금 미인식이 아닌 정상 파싱으로 간주 (오류 로그 전송 제외)
+    final rawText = logData['raw_text']?.toString() ?? '';
+    final isLogiOrColmanner = program == '로지' || program == '콜마너';
+    final isExplicitZeroFare = isLogiOrColmanner &&
+        !hasFare &&
+        _isExplicitZeroFareInText(rawText);
+    final int hasParsingError =
+        (!hasStart || !hasEnd || (!hasFare && !isExplicitZeroFare)) ? 1 : 0;
 
     final row = <String, dynamic>{
       'work_date': work,
@@ -373,5 +381,36 @@ class CallCardOcrParseService {
     if (r.waypoint != null && r.waypoint!.isNotEmpty) {
       logData['waypoint'] = r.waypoint;
     }
+  }
+
+  /// 로지/콜마너 OCR 원본 텍스트에 "요금 0원" 또는 "요금 0"이 명시되어 있는지 확인한다.
+  /// 이 경우는 운행 완료 후 정산되는 콜로, 파싱 실패가 아닌 정상 인식으로 처리한다.
+  static bool _isExplicitZeroFareInText(String rawText) {
+    if (rawText.trim().isEmpty) return false;
+    // 줄 단위로 검사: 요금 라벨이 있는 줄에서 0원 패턴 탐지
+    final lines = rawText.split(RegExp(r'[\r\n]+'));
+    for (final line in lines) {
+      final t = line.replaceAll(' ', '');
+      // "요금" 키워드가 있는 줄에서 "0원", "0", "0,0", "00" 등 0원 표현 탐지
+      if (t.contains('요금')) {
+        // 요금 뒤 숫자 추출
+        final m = RegExp(r'요금[:：]?\s*([\d,]+)\s*원?').firstMatch(line);
+        if (m != null) {
+          final numStr = m.group(1)!.replaceAll(',', '').trim();
+          final val = int.tryParse(numStr) ?? -1;
+          if (val == 0) return true;
+        }
+        // 요금만 단독으로 있고 뒤에 숫자가 없는 줄 다음 줄이 "0"인 경우
+        final fareOnlyLine = RegExp(r'^요금[:：]?\s*$').hasMatch(t);
+        if (fareOnlyLine) {
+          final idx = lines.indexOf(line);
+          if (idx + 1 < lines.length) {
+            final nextT = lines[idx + 1].replaceAll(RegExp(r'[\s,원]'), '');
+            if (nextT == '0') return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 }

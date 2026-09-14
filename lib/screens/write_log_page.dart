@@ -1675,8 +1675,18 @@ class _DriveLogFormState extends State<DriveLogForm>
       }
 
       if (_currentRawText != null && _currentRawText!.trim().isNotEmpty) {
+        // 수동 입력 화면의 OCR 경고(_hasOcrWarning)가 요금=0 때문에만 발생했고,
+        // DB 저장 시 has_parsing_error=0(정상)으로 기록된 건은 운행 후 정산 콜이므로
+        // 오류 로그 전송 대상에서 제외한다.
+        final existingHasParsingError =
+            widget.existingLog?['has_parsing_error'];
+        final wasExplicitZeroFareCall =
+            _hasOcrWarning &&
+            existingHasParsingError != null &&
+            existingHasParsingError != 1;
         final wasParsingError =
-            (widget.existingLog?['has_parsing_error'] == 1) || _hasOcrWarning;
+            (existingHasParsingError == 1) ||
+            (_hasOcrWarning && !wasExplicitZeroFareCall);
         if (wasParsingError) {
           final correctedData = {
             'program': _selectedProgram,
