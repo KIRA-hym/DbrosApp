@@ -823,7 +823,7 @@ class DriveLogDatabase {
         COALESCE(SUM(
           MAX(0,
             COALESCE(gross_fare, 0) + COALESCE(waypoint_tip, 0)
-              - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)
+              - COALESCE(fee, 0) - COALESCE(transport_cost, 0)
           )
         ), 0) as net,
         COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0) + COALESCE(insurance_fee, 0)), 0) as expenses,
@@ -854,7 +854,7 @@ class DriveLogDatabase {
         COALESCE(SUM(
           MAX(0,
             COALESCE(gross_fare, 0) + COALESCE(waypoint_tip, 0)
-              - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)
+              - COALESCE(fee, 0) - COALESCE(transport_cost, 0)
           )
         ), 0) as net,
         COALESCE(SUM(COALESCE(fee, 0) + COALESCE(transport_cost, 0) + COALESCE(insurance_fee, 0)), 0) as expenses,
