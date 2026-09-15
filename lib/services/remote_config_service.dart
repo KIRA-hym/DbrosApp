@@ -99,4 +99,44 @@ class RemoteConfigService {
     }
     return rc.getString('app_notice_message');
   }
+
+  // ── SmartOcrService / GeminiOcrService 관련 ──────────────────────────────
+
+  /// Google AI Studio에서 발급한 Gemini API Key.
+  /// Firebase Remote Config 'gemini_api_key' 키로 관리 (앱 업데이트 없이 변경 가능).
+  String get geminiApiKey {
+    final rc = _remoteConfig;
+    if (rc == null) return '';
+    return rc.getString('gemini_api_key');
+  }
+
+  /// 하루 최대 Gemini API 호출 허용 횟수 (기본값 1400 = 무료 티어 내).
+  /// Firebase Remote Config 'gemini_daily_limit' 키로 관리.
+  /// 0으로 설정하면 Gemini 완전 비활성화.
+  int get geminiDailyLimit {
+    final rc = _remoteConfig;
+    if (rc == null) return 1400;
+    final val = rc.getInt('gemini_daily_limit');
+    return val > 0 ? val : 1400;
+  }
+
+  /// OCR 결과 주소에 포함되면 가비지로 판단하는 단어 목록.
+  /// Firebase Remote Config 'ocr_forbidden_words' 키로 관리 (쉼표 구분 문자열).
+  List<String> get ocrForbiddenWords {
+    final rc = _remoteConfig;
+    const defaults = ['상황실', '기사메모', '연락처', '킥보드', '대여시간', '고객메모', '취소불가'];
+    if (rc == null) return defaults;
+    final raw = rc.getString('ocr_forbidden_words');
+    if (raw.isEmpty) return defaults;
+    return raw.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+  }
+
+  /// OCR 주소 최대 허용 글자 수. 초과 시 가비지로 판단.
+  /// Firebase Remote Config 'ocr_max_address_length' 키로 관리.
+  int get ocrMaxAddressLength {
+    final rc = _remoteConfig;
+    if (rc == null) return 25;
+    final val = rc.getInt('ocr_max_address_length');
+    return val > 0 ? val : 25;
+  }
 }
