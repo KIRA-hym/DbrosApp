@@ -104,7 +104,7 @@ class _SettingsPageState extends State<SettingsPage> {
   Timer? _versionTapTimer;
 
   int _unreadNoticeCount = 0;
-  bool _hasPostponedUpdate = false;
+
 
   @override
   void initState() {
@@ -120,14 +120,13 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   Future<void> _loadApkUpdateStatus() async {
-    final hasApk = await ApkUpdateService.instance.checkForUpdate();
+    await ApkUpdateService.instance.checkForUpdate();
     if (mounted) setState(() {});
   }
 
   Future<void> _loadPostponedUpdateStatus() async {
-    final hasPostponed = await ShorebirdUpdateService.instance
-        .hasPostponedUpdate();
-    if (mounted) setState(() => _hasPostponedUpdate = hasPostponed);
+    await ShorebirdUpdateService.instance.hasPostponedUpdate();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadShorebirdPatchLabel() async {
@@ -174,25 +173,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  void _checkFeeChanges() {
-    final currentValue = double.tryParse(_baseFeeCon.text) ?? 20.0;
-    setState(() {
-      _hasFeeChanges = currentValue != _initialBaseFeeRate;
-    });
-  }
-
-  void _checkInsuranceChanges() {
-    setState(() {
-      bool typeChanged = _insuranceType != _initialInsuranceType;
-      bool amountChanged = false;
-      if (_insuranceType == 'per_trip') {
-        final currentPerTrip = int.tryParse(_perTripInsCon.text) ?? 0;
-        amountChanged = currentPerTrip != _initialPerTripInsurance;
-      }
-
-      _hasInsuranceChanges = typeChanged || amountChanged;
-    });
-  }
 
   @override
   void dispose() {
@@ -1099,7 +1079,6 @@ class _SettingsPageState extends State<SettingsPage> {
         padding: EdgeInsets.all(horizontalPadding),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final itemWidth = (constraints.maxWidth - gridGap) / 2;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -1184,7 +1163,6 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget _buildVersionInfoSection(TextStyle versionStyle) {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
     final label = _appVersionLabel.isEmpty ? '…' : _appVersionLabel;
 
     return Container(
@@ -1249,7 +1227,6 @@ class _SettingsPageState extends State<SettingsPage> {
     final isTablet = ResponsiveLayout.isFoldOrTablet(context);
     final padding = isTablet ? 20.0 : 16.0;
     final spacing = isTablet ? 20.0 : 16.0;
-    final borderRadius = isTablet ? 24.0 : 20.0;
 
     return Container(
       decoration: BorderedSection.decoration(context, borderRadius: 12),
@@ -1291,104 +1268,6 @@ class _SettingsPageState extends State<SettingsPage> {
           SizedBox(height: spacing),
           ...children,
         ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsItem({
-    required IconData icon,
-    required String title,
-    Color titleColor = const Color(0xFFFFFFFF),
-    VoidCallback? onTap,
-  }) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon, color: Theme.of(context).primaryColor),
-      title: Text(title, style: TextStyle(color: titleColor, fontSize: 16)),
-      trailing: Icon(Icons.chevron_right, color: Color(0xFF6E717C), size: 16),
-      onTap: onTap,
-    );
-  }
-
-  Widget _buildRadioTile(String title, String value, {Widget? child}) {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final leftPadding = isTablet ? 40.0 : 32.0;
-    final bottomPadding = isTablet ? 16.0 : 12.0;
-
-    return Column(
-      children: [
-        RadioListTile<String>(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            title,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color:
-                  (Theme.of(context).textTheme.bodyLarge?.color ??
-                  Colors.white),
-            ),
-          ),
-          value: value,
-          groupValue: _insuranceType,
-          activeColor: Theme.of(context).primaryColor,
-          onChanged: (v) {
-            setState(() {
-              _insuranceType = v!;
-            });
-            _checkInsuranceChanges();
-          },
-        ),
-        if (child != null)
-          Padding(
-            padding: EdgeInsets.only(left: leftPadding, bottom: bottomPadding),
-            child: child,
-          ),
-      ],
-    );
-  }
-
-  Widget _buildTextField(
-    TextEditingController con,
-    String label, {
-    VoidCallback? onChanged,
-  }) {
-    final isTablet = ResponsiveLayout.isFoldOrTablet(context);
-    final borderRadius = isTablet ? 16.0 : 12.0;
-    final horizontalPadding = isTablet ? 20.0 : 16.0;
-    final verticalPadding = isTablet ? 16.0 : 12.0;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(borderRadius),
-      ),
-      child: TextField(
-        controller: con,
-        keyboardType: TextInputType.number,
-        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-          color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color:
-                (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-          ),
-          floatingLabelStyle: TextStyle(
-            color: Color(0xFFFFC700),
-            fontWeight: FontWeight.bold,
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: horizontalPadding,
-            vertical: verticalPadding,
-          ),
-        ),
-        onChanged: (value) {
-          if (onChanged != null) onChanged();
-        },
-        onSubmitted: (value) {
-          if (onChanged != null) onChanged();
-        },
       ),
     );
   }
@@ -1753,7 +1632,7 @@ class _SettingsPageState extends State<SettingsPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '복원 위치 선택',
+                '복원 파일 선택',
                 style: TextStyle(
                   color:
                       (Theme.of(context).textTheme.bodyLarge?.color ??
@@ -1764,33 +1643,63 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               SizedBox(height: 16),
               ListTile(
-                leading: Icon(Icons.phone_android, color: Color(0xFFFFC700)),
+                leading: Icon(Icons.cloud_download, color: Color(0xFFFFC700)),
                 title: Text(
-                  '단말기에서 가져오기',
+                  '백업 파일 가져오기',
                   style: TextStyle(
                     color:
                         (Theme.of(context).textTheme.bodyLarge?.color ??
                         Colors.white),
                   ),
                 ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  BackupService.restoreFromFilePicker(context);
-                },
-              ),
-              ListTile(
-                leading: Icon(Icons.cloud_download, color: Color(0xFF2196F3)),
-                title: Text(
-                  '구글 드라이브에서 가져오기',
-                  style: TextStyle(
-                    color:
-                        (Theme.of(context).textTheme.bodyLarge?.color ??
-                        Colors.white),
-                  ),
+                subtitle: Text(
+                  '단말기 또는 Google Drive에서 백업 파일을 선택합니다.',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
                 ),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(ctx);
-                  BackupService.restoreFromDrivePicker(context);
+                  if (!mounted) return;
+                  final confirmed = await showDialog<bool>(
+                    context: context,
+                    builder: (dialogCtx) => AlertDialog(
+                      backgroundColor: const Color(0xFF1E2024),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      title: const Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Color(0xFFFFC700), size: 22),
+                          SizedBox(width: 8),
+                          Text('백업 파일 선택 안내', style: TextStyle(color: Colors.white, fontSize: 16)),
+                        ],
+                      ),
+                      content: const Text(
+                        'Google Drive에 저장된 백업 파일을 복원하려면,\n'
+                        '파일 탐색기가 열린 후 왼쪽 ☰ 메뉴에서\n'
+                        '\'Google Drive\'를 선택하세요.\n\n'
+                        '단말기 내부 파일이라면 바로 선택하시면 됩니다.',
+                        style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(dialogCtx).pop(false),
+                          child: const Text('취소', style: TextStyle(color: Colors.grey)),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFC700),
+                            foregroundColor: Colors.black,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          onPressed: () => Navigator.of(dialogCtx).pop(true),
+                          child: const Text('파일 선택', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirmed == true && mounted) {
+                    BackupService.restoreFromFilePicker(context);
+                  }
                 },
               ),
             ],

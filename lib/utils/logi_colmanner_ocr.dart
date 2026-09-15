@@ -680,6 +680,9 @@ class LogiColmannerOcr {
     if (RegExp(r'^\d{1,3}[가-힣]\d{2,4}[가-힣]?$').hasMatch(line.replaceAll(' ', ''))) {
       return true;
     }
+    
+    // 스마트콜, 배차정보 등 부가 텍스트 (가비지 데이터 방어용)
+    if (line.contains('스마트콜고객') || line.contains('상세배차정보') || line.contains('발주사') || line.contains('이용개시번호')) return true;
 
     return false;
   }
@@ -1752,6 +1755,7 @@ class LogiColmannerOcr {
             _isLogiMemoLineForBody(t) ||
             _isLogiFareClassNoiseLine(t) ||
             _isLogiCountdownRemainLine(t)) {
+          pendingText.clear();
           continue;
         }
       }

@@ -12,6 +12,7 @@ import '../utils/work_date_utils.dart';
 import 'db_helper.dart';
 import 'image_storage_service.dart';
 import 'ocr_parse_log_service.dart';
+import 'ocr_rule_engine.dart'; // 신규 룰 엔진
 import 'settings_service.dart';
 import 'smart_ocr_service.dart'; // 신규 추가
 
@@ -47,40 +48,48 @@ class CallCardOcrParseService {
     final blocks = List<TextBlock>.from(recognizedText.blocks)
       ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
 
-    final rawProgram = _detectProgram(blocks, recognizedText.text);
-    if (rawProgram == null) {
-      return {};
-    }
+    Map<String, dynamic>? logData = OcrRuleEngine.tryParse(recognizedText.text, blocks);
+    String detectedProgram;
 
-    final detectedProgram = _normalizeProgramForSave(rawProgram);
-    final defaultWorkDate = workDateYmd ?? WorkDateUtils.effectiveWorkDateYmd();
+    if (logData != null) {
+      logData['image_path'] = imageFile.path;
+      detectedProgram = logData['program'];
+    } else {
+      // 룰 엔진 실패 시 기존 로직으로 Fallback
+      final rawProgram = _detectProgram(blocks, recognizedText.text);
+      if (rawProgram == null) {
+        return {};
+      }
 
-    final logData = <String, dynamic>{
-      'program': detectedProgram,
-      'image_path': imageFile.path,
-      'drive_date': '',
-      'drive_time': '',
-      'gross_fare': 0,
-      'transport_cost': 0,
-      'start_location': '',
-      'waypoint': '',
-      'end_location': '',
-      'memo': '',
-      'raw_text': recognizedText.text,
-    };
+      detectedProgram = _normalizeProgramForSave(rawProgram);
 
-    if (rawProgram == KakaoCustomCallOcr.programCustom) {
-      await _parseKakaoCustom(blocks, logData, fullText: recognizedText.text);
-    } else if (rawProgram == KakaoCallCardOcr.programGeneral ||
-        rawProgram == KakaoCallCardOcr.programPro ||
-        rawProgram == KakaoCallCardOcr.programAlliance) {
-      await _parseKakao(blocks, logData, fullText: recognizedText.text);
-    } else if (rawProgram == '로지') {
-      await _parseLogi(blocks, logData);
-    } else if (rawProgram == '콜마너') {
-      await _parseColmanner(blocks, logData);
-    } else if (rawProgram == '티맵') {
-      await _parseTmapTripDetail(recognizedText, logData);
+      logData = <String, dynamic>{
+        'program': detectedProgram,
+        'image_path': imageFile.path,
+        'drive_date': '',
+        'drive_time': '',
+        'gross_fare': 0,
+        'transport_cost': 0,
+        'start_location': '',
+        'waypoint': '',
+        'end_location': '',
+        'memo': '',
+        'raw_text': recognizedText.text,
+      };
+
+      if (rawProgram == KakaoCustomCallOcr.programCustom) {
+        await _parseKakaoCustom(blocks, logData, fullText: recognizedText.text);
+      } else if (rawProgram == KakaoCallCardOcr.programGeneral ||
+          rawProgram == KakaoCallCardOcr.programPro ||
+          rawProgram == KakaoCallCardOcr.programAlliance) {
+        await _parseKakao(blocks, logData, fullText: recognizedText.text);
+      } else if (rawProgram == '로지') {
+        await _parseLogi(blocks, logData);
+      } else if (rawProgram == '콜마너') {
+        await _parseColmanner(blocks, logData);
+      } else if (rawProgram == '티맵') {
+        await _parseTmapTripDetail(recognizedText, logData);
+      }
     }
 
     final grossFare = logData['gross_fare'] as int;

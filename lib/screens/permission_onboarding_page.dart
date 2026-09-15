@@ -32,7 +32,55 @@ class _PermissionOnboardingPageState extends State<PermissionOnboardingPage> {
         Permission.storage,
       ];
 
-      await permissionsToRequest.request();
+      final statuses = await permissionsToRequest.request();
+
+      // 핵심 권한(사진/저장소)이 거부된 경우 안내 다이얼로그 표시
+      final isPhotoDenied = statuses[Permission.photos]?.isDenied == true ||
+          statuses[Permission.photos]?.isPermanentlyDenied == true ||
+          statuses[Permission.storage]?.isDenied == true ||
+          statuses[Permission.storage]?.isPermanentlyDenied == true;
+
+      if (isPhotoDenied && mounted) {
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF1E2024),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 24),
+                SizedBox(width: 8),
+                Text('사진 권한 필요', style: TextStyle(color: Colors.white, fontSize: 18)),
+              ],
+            ),
+            content: const Text(
+              '스크린샷 자동 인식은 이 앱의 핵심 기능입니다.\n'
+              '사진 권한 없이는 콜카드 자동 등록이 동작하지 않습니다.\n\n'
+              '설정 > 앱 > Dbros > 권한 에서 사진 권한을 허용해 주세요.',
+              style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('나중에', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  openAppSettings();
+                },
+                child: const Text('설정으로 이동', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+      }
 
       // 2. 오버레이(다른 앱 위에 표시) 권한 확인 및 요청
       if (!await Permission.systemAlertWindow.isGranted) {

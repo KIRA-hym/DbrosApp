@@ -18,6 +18,7 @@ import '../utils/call_map_placemark_title.dart';
 import '../utils/marker_utils.dart';
 
 import '../services/settings_service.dart';
+import '../services/call_point_sync_service.dart';
 
 class CallPointData {
   final Map<String, dynamic> data;
@@ -38,6 +39,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   Set<Marker> _markers = {};
   Position? _currentPosition;
   bool _loading = true;
+  bool _hasUpdateAvailable = false;
+  int _serverVersion = 0;
   bool _permissionGranted = false;
   String _areaTitle = '';
   String _areaSubline = '';
@@ -93,6 +96,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       
       // 항상 DB 데이터 먼저 로드하여 마커를 표시할 수 있게 함
       await _loadData();
+      await _checkForUpdate();
 
       if (_permissionGranted) {
         Position? pos;
@@ -165,6 +169,31 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       return false;
     }
     return true;
+  }
+
+    Future<void> _checkForUpdate() async {
+    try {
+      final version = await CallPointSyncService.checkServerVersion();
+      if (version > SettingsService.localCallPointVersion) {
+        if (mounted) {
+          setState(() {
+            _serverVersion = version;
+            _hasUpdateAvailable = true;
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  Future<void> _downloadUpdate() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    final success = await CallPointSyncService.downloadAndUpdateMapData(_serverVersion);
+    if (success) {
+      await _loadData(); // Reload points from DB
+      setState(() => _hasUpdateAvailable = false);
+    }
+    setState(() => _loading = false);
   }
 
   Future<void> _loadData() async {
@@ -288,6 +317,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+          _buildUpdateBanner(),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                       child: Text('지도 마커 표시 설정', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -367,6 +397,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          _buildUpdateBanner(),
           Container(
             width: 40, height: 5,
             decoration: BoxDecoration(color: const Color(0xFF4A4D55), borderRadius: BorderRadius.circular(3)),
@@ -438,11 +469,14 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _buildUpdateBanner(),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+          _buildUpdateBanner(),
               Row(
                 children: [
+          _buildUpdateBanner(),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(4)),
@@ -464,8 +498,10 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+          _buildUpdateBanner(),
               Column(
                 children: [
+          _buildUpdateBanner(),
                   const SizedBox(height: 4),
                   Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
                   Container(width: 2, height: 24, color: const Color(0xFF4A4D55), margin: const EdgeInsets.symmetric(vertical: 4)),
@@ -477,6 +513,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+          _buildUpdateBanner(),
                     Text(startLoc.isNotEmpty ? startLoc : '출발지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: startLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
                     const SizedBox(height: 16),
                     Text(endLoc.isNotEmpty ? endLoc : '도착지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: endLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
@@ -601,9 +638,11 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       crossAxisAlignment: CrossAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
+          _buildUpdateBanner(),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+          _buildUpdateBanner(),
             Icon(Icons.location_on, color: Color(0xFFFF5252), size: 16),
             SizedBox(width: 4),
             Text(
@@ -621,6 +660,49 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           ),
         ),
       ],
+    );
+  }
+
+  @override
+    Widget _buildUpdateBanner() {
+    if (!_hasUpdateAvailable) return const SizedBox.shrink();
+    return Positioned(
+      top: 10,
+      left: 10,
+      right: 10,
+      child: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.blueAccent,
+        child: InkWell(
+          onTap: _downloadUpdate,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+          _buildUpdateBanner(),
+                const Icon(Icons.download_rounded, color: Colors.white),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '새로운 주변 핫스팟 좌표가 업데이트되었습니다!',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text('수동 갱신', style: TextStyle(color: Colors.blueAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -671,6 +753,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     return Stack(
       children: [
+          _buildUpdateBanner(),
         Positioned(
           top: 0,
           left: 0,
@@ -716,6 +799,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+          _buildUpdateBanner(),
             if (_visibleTypes.contains('log_mine'))
               _legendItem(const Color(0xFFEC4899), '내 좌표', '❤', borderColor: Colors.black, dy: 0.5),
             if (_visibleTypes.contains('shared')) ...[
@@ -744,6 +828,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+          _buildUpdateBanner(),
         Container(
           width: 18,
           height: 18,

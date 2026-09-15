@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -15,7 +15,7 @@ class GeminiOcrService {
   static const String _firestoreDoc = 'gemini_quota';
   static const String _firestoreDocId = 'daily';
   static const String _geminiEndpoint =
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
 
   /// OCR 원문 텍스트와 이미 파싱된 결과를 받아 Gemini에게 정제 요청.
   /// 한도 초과 또는 오류 시 null 반환.

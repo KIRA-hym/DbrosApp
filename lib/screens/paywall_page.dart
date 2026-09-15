@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:dbros_app/services/subscription_service.dart';
-import 'package:dbros_app/services/auth_service.dart';
-import '../services/font_size_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PaywallPage extends StatefulWidget {
@@ -115,6 +113,39 @@ class _PaywallPageState extends State<PaywallPage> {
                   ),
 
                 const SizedBox(height: 32),
+
+                // 구독 취소 안내
+                Center(
+                  child: Column(
+                    children: [
+                      const Text(
+                        '구독은 언제든지 취소할 수 있습니다.',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                      const SizedBox(height: 4),
+                      GestureDetector(
+                        onTap: () async {
+                          try {
+                            await launchUrl(
+                              Uri.parse('https://play.google.com/store/account/subscriptions'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          } catch (_) {}
+                        },
+                        child: const Text(
+                          'Google Play > 구독 관리에서 취소 가능',
+                          style: TextStyle(
+                            color: Color(0xFF6B9FFF),
+                            fontSize: 12,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Color(0xFF6B9FFF),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),

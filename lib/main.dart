@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/permission_onboarding_page.dart';
+import 'services/firestore_rule_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/map_data_sync_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
@@ -76,6 +77,7 @@ void main() async {
     }
     // RemoteConfigService는 네트워크 fetchAndActivate 포함 → 백그라운드 처리
     unawaited(RemoteConfigService().initialize());
+    unawaited(FirestoreRuleService.initialize()); // JSON 파싱 룰 다운로드
     // 맵 데이터(JSON) 백그라운드 동기화 (기존 구글 시트 대체)
     unawaited(MapDataSyncService.syncCommonPoints());
     // FCM init은 getToken() 등 네트워크 호출 포함 → 백그라운드 처리

@@ -1,0 +1,401 @@
+﻿00:00 +0: loading C:/dbros_app/test/ocr_regression_test.dart
+00:00 +0: Kakao custom OCR regression extracts labeled start/end and payment split
+00:00 +1: Kakao custom OCR regression extracts destination with emoji and card fare
+00:00 +2: Kakao custom OCR regression multiline labeled departure and destination
+00:00 +3: Kakao custom OCR regression handles map noise interleaved with addresses and alternative currency symbol
+00:00 +4: Kakao card OCR regression general type1 with waypoint and card fare
+00:00 +5: Kakao card OCR regression general type1 uses top datetime for drive time not departure
+00:00 +5 -1: Kakao card OCR regression general type1 uses top datetime for drive time not departure [E]
+  Expected: ''
+    Actual: <null>
+     Which: not an <Instance of 'String'>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 163:7                 main.<fn>.<fn>
+  
+00:00 +5 -1: Kakao card OCR regression general type1 ignores dotted OCR clock before addresses
+00:00 +5 -2: Kakao card OCR regression general type1 ignores dotted OCR clock before addresses [E]
+  Expected: ''
+    Actual: <null>
+     Which: not an <Instance of 'String'>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 182:7                 main.<fn>.<fn>
+  
+00:00 +5 -2: Kakao card OCR regression general type1 drops D1 parking label and merges two-line departure
+00:00 +6 -2: Kakao card OCR regression general type1 strips OCR-split ?꾩튂?뺣낫 footer from destination
+00:00 +7 -2: Kakao card OCR regression pro type2 with red banner and card fare
+00:00 +8 -2: Kakao card OCR regression general type2 cash fare with subsidy
+00:00 +9 -2: Kakao card OCR regression general type2 destination stops before cash confirmation
+00:00 +10 -2: Kakao card OCR regression general type2 strips fare suffix merged into destination line
+00:00 +11 -2: Kakao card OCR regression general type2 ignores datetime meta before addresses
+00:00 +11 -3: Kakao card OCR regression general type2 ignores datetime meta before addresses [E]
+  Expected: '?쒖슱 媛뺤꽌援?諛⑺솕???쒖슱 諛⑺솕??
+    Actual: '?쒖슱 媛뺤꽌援?諛⑺솕??
+     Which: is different. Both strings start the same, but the actual value is missing the following trailing characters:  ?쒖슱 諛⑺솕??  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 322:7                 main.<fn>.<fn>
+  
+00:00 +11 -3: Kakao card OCR regression general type2 keeps POI-only departure line
+00:00 +12 -3: Kakao card OCR regression detects general type2 when situation room OCR is split
+00:00 +13 -3: Kakao card OCR regression detects general type2 without situation room when assignment header remains
+00:00 +14 -3: Kakao card OCR regression detects pro type2 with corporate insurance
+00:00 +15 -3: Kakao card OCR regression alliance heuristic: score line keeps general
+00:00 +16 -3: Kakao card OCR regression alliance heuristic: no score marker becomes alliance
+00:00 +17 -3: Kakao card OCR regression alliance heuristic: pro unchanged
+00:00 +18 -3: Kakao card OCR regression general type1 basic two-line addresses and card fare
+00:00 +19 -3: Kakao card OCR regression card fare without P suffix after confirmation
+00:00 +20 -3: Kakao card OCR regression card fare from noisy amount line
+00:00 +21 -3: Logi/Colmanner OCR regression colmanner consecutive empty headers and tabular headers (泥쒖쿇??531)
+00:00 +21 -4: Logi/Colmanner OCR regression colmanner consecutive empty headers and tabular headers (泥쒖쿇??531) [E]
+  Expected: '寃쎄린 ?섏썝?쒖옣?덇뎄 泥쒖쿇??
+    Actual: '鍮꾨떒留덉쓣?꾨??곕갑?꾪뙆?멸린15??703?? 鍮꾨떒留덉쓣?꾨??곕갑?꾪뙆??15??103??'
+     Which: is different.
+            Expected: 寃쎄린 ?섏썝?쒖옣?덇뎄  ...
+              Actual: 鍮꾨떒留덉쓣?꾨??곕갑?꾪뙆 ...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 553:7                 main.<fn>.<fn>
+  
+Failed to log OCR error: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:00 +21 -4: Logi/Colmanner OCR regression colmanner tabular address headers with middle noise (1000054393.png)
+00:00 +21 -5: Logi/Colmanner OCR regression colmanner tabular address headers with middle noise (1000054393.png) [E]
+  Expected: '?쒖슱 媛뺤꽌援??붽끝???붽끝?붿씠?몃쭏?ъ?'
+    Actual: '?쒖슱 留덊룷援??⑹젙?숈궪?꾨퉴???쒖슱 媛뺤꽌援??붽끝???붽끝?붿씠?몃쭏?ъ?'
+     Which: is different.
+            Expected: ?쒖슱 媛뺤꽌援??붽끝???붽끝 ...
+              Actual: ?쒖슱 留덊룷援??⑹젙?숈궪?꾨퉴 ...
+                         ^
+             Differ at offset 3
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 595:7                 main.<fn>.<fn>
+  
+Failed to log OCR error: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:00 +21 -5: Logi/Colmanner OCR regression logi multiline address with detail
+00:00 +21 -6: Logi/Colmanner OCR regression logi multiline address with detail [E]
+  Expected: '野껋럡由????폒??疫뀀뜆???425-0 ??뽮퍕嚥?240 ?⑥쥒而???곗뺘'
+    Actual: '寃쎄린 ?뚯＜??湲덉큿??425-0 ?쒖껌濡?240 怨좉컼 ?쇰컲'
+     Which: is different.
+            Expected: 野껋럡由????폒??疫?...
+              Actual: 寃쎄린 ?뚯＜??湲덉큿??...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 610:7                 main.<fn>.<fn>
+  
+00:00 +21 -6: Logi/Colmanner OCR regression colmanner with waypoint label
+00:00 +21 -7: Logi/Colmanner OCR regression colmanner with waypoint label [E]
+  Expected: '??뽰뒻 ?紐꾩뜚???⑤벉已????덉뵬嚥?1000'
+    Actual: '?쒖슱 ?몄썝援?怨듬쫱???숈씪濡?1000'
+     Which: is different.
+            Expected: ??뽰뒻 ?紐꾩뜚????...
+              Actual: ?쒖슱 ?몄썝援?怨듬쫱??...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 630:7                 main.<fn>.<fn>
+  
+00:00 +21 -7: Logi/Colmanner OCR regression logi legal call with special markers
+00:00 +21 -8: Logi/Colmanner OCR regression logi legal call with special markers [E]
+  Expected: '?紐꾩퓝 ??볥럡 ?怨좎뵕??763-4 筌띾뜄???蹂μ씩 $筌????뉗춳?諭곸깈??2'
+    Actual: '?몄쿇 ?쒓뎄 ?고씗??763-4 留덈떦 ?볥쾿 $泥?씪?숇쭏?뱁샇??2'
+     Which: is different.
+            Expected: ?紐꾩퓝 ??볥럡 ?怨?...
+              Actual: ?몄쿇 ?쒓뎄 ?고씗?? ...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 654:7                 main.<fn>.<fn>
+  
+00:00 +21 -8: Logi/Colmanner OCR regression logi destination ignores customer id and keeps address lines
+00:00 +22 -8: Logi/Colmanner OCR regression logi fare from noisy amount line
+OCR Error Log skipped due to sampling
+00:00 +23 -8: Logi/Colmanner OCR regression logi three-line departure with one-line destination after label
+00:00 +24 -8: Logi/Colmanner OCR regression logi two-line departure with destination before label
+00:00 +25 -8: Logi/Colmanner OCR regression logi departure only after labels with trailing destination line
+00:00 +26 -8: Logi/Colmanner OCR regression colmanner two-line departure with three-line destination
+00:00 +26 -9: Logi/Colmanner OCR regression colmanner two-line departure with three-line destination [E]
+  Expected: '寃쎄린 遺泥쒖떆?ㅼ젙援??ъ썡??7-50 ?ъ썡?숆꼍湲곕?泥쒖떆?ㅼ젙援ъ뿬?붾룞7-50 遺泥쒖뿬???ъ썡??-'
+    Actual: '寃쎄린 遺泥쒖떆?ㅼ젙援??ъ썡??7-50 ?ъ썡??寃쎄린 遺泥쒖뿬??
+     Which: is different.
+            Expected: ... ??7-50 ?ъ썡?숆꼍湲곕?泥쒖떆?ㅼ젙援ъ뿬??...
+              Actual: ... ??7-50 ?ъ썡??寃쎄린 遺泥쒖뿬??                                    ^
+             Differ at offset 22
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 754:7                 main.<fn>.<fn>
+  
+00:00 +26 -9: Logi/Colmanner OCR regression colmanner three-line departure with two-line destination
+00:00 +26 -10: Logi/Colmanner OCR regression colmanner three-line departure with two-line destination [E]
+  Expected: '寃쎄린 愿묐챸???뚰븯?숉쑕癒쇱떆??04??愿묐챸?뚰븯.?대㉫?쒖븘304??
+    Actual: '寃쎄린 愿묐챸???뚰븯??1289 愿묐챸?뚰븯 ?대㉫?쒖븘304??
+     Which: is different.
+            Expected: 寃쎄린 愿묐챸???뚰븯?숉쑕癒쇱떆??04??愿?...
+              Actual: 寃쎄린 愿묐챸???뚰븯??1289 愿묐챸?뚰븯 ...
+                                ^
+             Differ at offset 10
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 778:7                 main.<fn>.<fn>
+  
+00:00 +26 -10: Logi/Colmanner OCR regression colmanner long multiline with special symbols
+00:00 +26 -11: Logi/Colmanner OCR regression colmanner long multiline with special symbols [E]
+  Expected: '??뽰뒻 揶쏅벡苑뚧뤃?筌띾뜃???LG????紐꾨뮞??곌쾿 ISC ??덈뮞??'
+    Actual: '?쒖슱 媛뺤꽌援?留덇끝??LG?ъ씠?몄뒪?뚰겕 ISC ?숈뒪?'
+     Which: is different.
+            Expected: ??뽰뒻 揶쏅벡苑뚧뤃?筌?...
+              Actual: ?쒖슱 媛뺤꽌援?留덇끝??...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 800:7                 main.<fn>.<fn>
+  
+00:00 +26 -11: Logi/Colmanner OCR regression colmanner cash call keeps fare from ?붽툑 line
+00:00 +26 -12: Logi/Colmanner OCR regression colmanner cash call keeps fare from ?붽툑 line [E]
+  Expected: '寃쎄린 遺泥쒖떆?ㅼ젙援??ъ썡??7-50 ?ъ썡?숆꼍湲곕?泥쒖떆?ㅼ젙援ъ뿬?붾룞7-'
+    Actual: '寃쎄린 遺泥쒖떆?ㅼ젙援??ъ썡??7-50 ?ъ썡??寃쎄린'
+     Which: is different.
+            Expected: ... ??7-50 ?ъ썡?숆꼍湲곕?泥쒖떆?ㅼ젙援ъ뿬??...
+              Actual: ... ??7-50 ?ъ썡??寃쎄린
+                                    ^
+             Differ at offset 22
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 823:7                 main.<fn>.<fn>
+  
+00:00 +26 -12: Logi/Colmanner OCR regression colmanner multiline with emoji and special symbols
+00:00 +26 -13: Logi/Colmanner OCR regression colmanner multiline with emoji and special symbols [E]
+  Expected: '?쒖슱 ?곷벑?ш뎄 ?ъ쓽?꾨룞 CCMM鍮뚮뵫 ?뙚泥쒖궗 鍮꾪씉???ъ쓽??CCMM 吏??痢?
+    Actual: '?쒖슱 ?곷벑?ш뎄 ?ъ쓽?꾨룞 CCMM鍮뚮뵫 ?뙚泥쒖궗 鍮꾪씉???ъ쓽??CCMM'
+     Which: is different.
+            Expected: ... ???뙚泥쒖궗 鍮꾪씉???ъ쓽??CCMM  ...
+              Actual: ... ???뙚泥쒖궗 鍮꾪씉???ъ쓽??CCMM
+                                    ^
+             Differ at offset 28
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 844:7                 main.<fn>.<fn>
+  
+00:00 +26 -13: Logi/Colmanner OCR regression colmanner destination ignores customer meta and keeps address lines
+00:00 +27 -13: Logi/Colmanner OCR regression logi ignores ?곸슂 寃쎌쑀 and strips ui tokens
+00:00 +27 -14: Logi/Colmanner OCR regression logi ignores ?곸슂 寃쎌쑀 and strips ui tokens [E]
+  Expected: '?몄쿇 ?곗닔援??〓룄???몄쿇?〓룄???붿꺏留덉뒪?곕럭1?⑥?'
+    Actual: '?몄쿇 ?곗닔援??〓룄???붿꺏留덉뒪?곕럭1?⑥?'
+     Which: is different.
+            Expected: ?몄쿇 ?곗닔援??〓룄???몄쿇?〓룄???붿꺏留?...
+              Actual: ?몄쿇 ?곗닔援??〓룄???붿꺏留덉뒪?곕럭1?⑥? ...
+                                ^
+             Differ at offset 10
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 883:7                 main.<fn>.<fn>
+  
+00:00 +27 -14: Logi/Colmanner OCR regression logi ignores 異쒕컻吏 ?꾩갑 pickup banner between ?몄쿇 and trailing ?〓룄
+00:00 +28 -14: Logi/Colmanner OCR regression logi splits detail departure and destination before ui
+00:00 +28 -15: Logi/Colmanner OCR regression logi splits detail departure and destination before ui [E]
+  Expected: '?몄쿇 ?쒓뎄 泥?씪???몄쿇泥?씪??泥?씪?쒖뼇?섏옄 ?몃젅?댄겕釉붾（A'
+    Actual: '?몄쿇 ?쒓뎄 ?몄쿇泥?씪??泥?씪?쒖뼇?섏옄 ?몃젅?댄겕釉붾（A'
+     Which: is different.
+            Expected: ?몄쿇 ?쒓뎄 泥?씪???몄쿇泥?씪?? ...
+              Actual: ?몄쿇 ?쒓뎄 ?몄쿇泥?씪??泥?씪?쒖뼇 ...
+                            ^
+             Differ at offset 6
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 923:7                 main.<fn>.<fn>
+  
+00:00 +28 -15: Logi/Colmanner OCR regression logi menu header ?꾩갑吏 + trailing block (user repro 愿묐챸?믩?泥?
+DEBUG_CLEANADDR_IN: 寃쎄린 遺泥쒖떆 以묐룞)遺泥쒖떊以묐룞??뫖瑜댁??ㅼ떆??tl34
+DEBUG_CLEANADDR_OUT: 寃쎄린 遺泥쒖떆 遺泥쒖떊以묐룞??뫖瑜댁??ㅼ떆??00:00 +29 -15: Logi/Colmanner OCR regression logi gross fare ignores ?낃툑??stack order (6000 before 30000)
+Failed to log OCR error: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:00 +30 -15: Logi/Colmanner OCR regression logi gross fare inferred from fee-only OCR (6000 -> 30000)
+OCR Error Log skipped due to sampling
+00:00 +31 -15: Logi/Colmanner OCR regression logi gross fare inferred from fee-only OCR (5000 -> 25000)
+OCR Error Log skipped due to sampling
+00:00 +32 -15: Logi/Colmanner OCR regression logi lone gross amount is not multiplied (25000 stays)
+Failed to log OCR error: Binding has not yet been initialized.
+The "instance" getter on the ServicesBinding binding mixin is only available once that binding has been initialized.
+Typically, this is done by calling "WidgetsFlutterBinding.ensureInitialized()" or "runApp()" (the latter calls the former). Typically this call is done in the "void main()" method. The "ensureInitialized" method is idempotent; calling it multiple times is not harmful. After calling that method, the "instance" getter will return the binding.
+In a test, one can call "TestWidgetsFlutterBinding.ensureInitialized()" as the first line in the test's "main()" method to initialize the binding.
+If ServicesBinding is a custom binding mixin, there must also be a custom binding class, like WidgetsFlutterBinding, but that mixes in the selected binding, and that is the class that must be constructed before using the "instance" getter.
+00:00 +33 -15: Logi/Colmanner OCR regression logi trims won misread on deposit (140002 -> 14000)
+00:00 +34 -15: Logi/Colmanner OCR regression logi fare I0000 OCR reads as 70000
+00:00 +35 -15: Logi/Colmanner OCR regression logi ?쒕┛鍮뚮뵫 card: fare, departure ?곸꽭, destination ?몃Ⅴ吏??00:00 +35 -16: Logi/Colmanner OCR regression logi ?쒕┛鍮뚮뵫 card: fare, departure ?곸꽭, destination ?몃Ⅴ吏??[E]
+  Expected: not contains '?좊┝??
+    Actual: '?몄쿇 ?곗닔援??〓룄???좊┝???몄쿇?〓룄???몃Ⅴ吏?ㅼ썡?쒕쭏???⑥?A202??
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1070:7                main.<fn>.<fn>
+  
+00:00 +35 -16: Logi/Colmanner OCR regression logi collects address after mid-card 異쒕컻吏 and 吏??labels
+00:00 +36 -16: Logi/Colmanner OCR regression logi ?곸꽭+紐⑸룞 ??留덊룷 ?꾩갑 (user repro ?깆큿?믩쭏??
+00:00 +37 -16: Logi/Colmanner OCR regression colmanner keeps first admin departure line after label
+00:00 +37 -17: Logi/Colmanner OCR regression colmanner keeps first admin departure line after label [E]
+  Expected: '泥쒖궗 寃쎄린 ?섏썝?쒗뙏?ш뎄 ?멸퀎??寃쎄린?꾪듃?쇳꽣 ?섏썝?멸퀎.寃쎄린?꾪듃?쇳꽣寃뚯씠??'
+    Actual: '寃쎄린 ?섏썝?쒗뙏?ш뎄 ?멸퀎??
+     Which: is different.
+            Expected: 泥쒖궗 寃쎄린 ?섏썝?쒗뙏 ...
+              Actual: 寃쎄린 ?섏썝?쒗뙏?ш뎄  ...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1156:7                main.<fn>.<fn>
+  
+00:00 +37 -17: Logi/Colmanner OCR regression colmanner strips route distance from destination
+00:00 +37 -18: Logi/Colmanner OCR regression colmanner strips route distance from destination [E]
+  Expected: '寃쎄린 ?붿꽦??蹂묒젏???붿꽦??蹂묒젏??105-1'
+    Actual: '寃쎄린 ?붿꽦??蹂묒젏??105-1'
+     Which: is different.
+            Expected: ... 湲??붿꽦??蹂묒젏???붿꽦??蹂묒젏??10 ...
+              Actual: ... 湲??붿꽦??蹂묒젏??105-1
+                                    ^
+             Differ at offset 11
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1176:7                main.<fn>.<fn>
+  
+00:00 +37 -18: Logi/Colmanner OCR regression colmanner 異쒕룄 only row after ?꾩갑吏 label still collects 二쇱냼 釉붾줉
+OCR Error Log skipped due to sampling
+00:00 +37 -19: Logi/Colmanner OCR regression colmanner 異쒕룄 only row after ?꾩갑吏 label still collects 二쇱냼 釉붾줉 [E]
+  Expected: contains '援용え??
+    Actual: ''
+     Which: does not contain '援용え??
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1198:7                main.<fn>.<fn>
+  
+00:00 +37 -19: Logi/Colmanner OCR regression colmanner Case 12: ?꾪솕??009 removes memo lines and processes correctly
+OCR Error Log skipped due to sampling
+00:00 +37 -20: Logi/Colmanner OCR regression colmanner Case 12: ?꾪솕??009 removes memo lines and processes correctly [E]
+  Expected: '?몄쿇 ?꾪솕??009 2-2'
+    Actual: '?몄쿇 誘몄텛?援??꾪솕??
+     Which: is different.
+            Expected: ?몄쿇 ?꾪솕??009 2- ...
+              Actual: ?몄쿇 誘몄텛?援??꾪솕??                         ^
+             Differ at offset 3
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1225:7                main.<fn>.<fn>
+  
+00:00 +37 -20: Logi/Colmanner OCR regression colmanner Case 3: 蹂묒젏??705-1 filters 5OK payment text and preserves address
+00:00 +37 -21: Logi/Colmanner OCR regression colmanner Case 3: 蹂묒젏??705-1 filters 5OK payment text and preserves address [E]
+  Expected: '寃쎄린 ?붿꽦??蹂묒젏???붿꽦??蹂묒젏??705-1'
+    Actual: '寃쎄린 ?붿꽦??蹂묒젏??705-1'
+     Which: is different.
+            Expected: ... 湲??붿꽦??蹂묒젏???붿꽦??蹂묒젏??70 ...
+              Actual: ... 湲??붿꽦??蹂묒젏??705-1
+                                    ^
+             Differ at offset 11
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1254:7                main.<fn>.<fn>
+  
+00:00 +37 -21: Logi/Colmanner OCR regression colmanner tolerates OCR spacing on 異쒕룄寃쎈줈嫄곕━ stop line
+00:00 +38 -21: Logi/Colmanner OCR regression colmanner 硫뷀듃由?뒪?꾩옄?대같: no 異쒕컻吏 label, keep ?먮?援?head and full ?ъ썡 destination
+00:00 +39 -21: Logi/Colmanner OCR regression colmanner 湲덉젙?? no ?꾩갑吏 label, second 寃쎄린+援고룷??splits after ?λ낫??noise
+00:00 +40 -21: Kakao pro OCR regression pro keeps second departure line with destination
+00:00 +41 -21: Kakao pro OCR regression pro fare ignores embedded address digits
+00:00 +42 -21: Kakao general OCR regression strips customer call guidance from destination
+00:00 +43 -21: Logi export regression keeps detail block after customer meta between empty labels
+DEBUG_CLEANADDR_IN: 寃쎄린 遺泥쒖떆 以묐룞)遺泥쒖떊以묐룞??뫖瑜댁??ㅼ떆??DEBUG_CLEANADDR_OUT: 寃쎄린 遺泥쒖떆 遺泥쒖떊以묐룞??뫖瑜댁??ㅼ떆??00:00 +43 -22: Logi export regression keeps detail block after customer meta between empty labels [E]
+  Expected: '寃쎄린 愿묐챸???쇱쭅??276-8 愿묐챸??15447788)'
+    Actual: '寃쎄린 愿묐챸???쇱쭅??276-8 愿묐챸??1 8'
+     Which: is different.
+            Expected: ... 76-8 愿묐챸??15447788)
+              Actual: ... 76-8 愿묐챸??1 8
+                                    ^
+             Differ at offset 22
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1382:7                main.<fn>.<fn>
+  
+00:00 +43 -22: Tmap OCR regression in-progress card screen parsing
+00:00 +44 -22: Tmap OCR regression in-progress card screen with multiline start, end, waypoint and user real ocr
+00:00 +44 -23: Tmap OCR regression in-progress card screen with multiline start, end, waypoint and user real ocr [E]
+  Expected: ''
+    Actual: <null>
+     Which: not an <Instance of 'String'>
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1427:7                main.<fn>.<fn>
+  
+00:00 +44 -23: Tmap OCR regression in-progress card screen with multiline start, waypoint, end and fare
+00:00 +45 -23: Tmap OCR regression tmap driving start time fallback from first 3 lines
+00:00 +46 -23: New OCR improvements regression tests Kakao rating score 96l100/96/100/96% ignored, fare correctly parsed as 11,600
+00:00 +47 -23: New OCR improvements regression tests Kakao waypoint cleans standalone Q noise
+00:01 +48 -23: New OCR improvements regression tests Kakao waypoint: OO??寃쎌쑀 Q after 移대뱶 ?뺤젙 still parsed (not cut by payment index)
+00:01 +49 -23: New OCR improvements regression tests Colmanner full OCR: ?⑹젙 ?쇱븘鍮뚮뵫?믫솕怨? ?섎떒 ?⑷퀎쨌?덉긽 ?섏닔猷?以꾩씠 ?꾩갑吏??遺숈? ?딆쓬
+OCR Error Log skipped due to sampling
+00:01 +49 -24: New OCR improvements regression tests Colmanner full OCR: ?⑹젙 ?쇱븘鍮뚮뵫?믫솕怨? ?섎떒 ?⑷퀎쨌?덉긽 ?섏닔猷?以꾩씠 ?꾩갑吏??遺숈? ?딆쓬 [E]
+  Expected: contains '?쇱븘鍮뚮뵫'
+    Actual: ''
+     Which: does not contain '?쇱븘鍮뚮뵫'
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1563:7                main.<fn>.<fn>
+  
+00:01 +49 -24: New OCR improvements regression tests Colmanner: ?꾩갑 POI 以꾩뿉 ?⑷퀎쨌?덉긽 ?섏닔猷뚭? 遺숈뼱???꾩갑吏留??④?
+OCR Error Log skipped due to sampling
+00:01 +50 -24: New OCR improvements regression tests Colmanner starting point strips "移? payment abbreviation
+00:01 +50 -25: New OCR improvements regression tests Colmanner starting point strips "移? payment abbreviation [E]
+  Expected: '諛깆꽍???쇱궛諛깆꽍?숈뼇泥쒕━?묎섕移?
+    Actual: '?쇱궛諛깆꽍?숈뼇泥쒕━?묎섕移?
+     Which: is different.
+            Expected: 諛깆꽍???쇱궛諛깆꽍?숈뼇 ...
+              Actual: ?쇱궛諛깆꽍?숈뼇泥쒕━?묎섕 ...
+                      ^
+             Differ at offset 0
+  
+  package:matcher                                     expect
+  package:flutter_test/src/widget_tester.dart 473:18  expect
+  test\ocr_regression_test.dart 1600:7                main.<fn>.<fn>
+  
+00:01 +50 -25: New OCR improvements regression tests Colmanner waypoint resolves "洹?7-7" to "747-7"
+00:01 +51 -25: New OCR improvements regression tests Colmanner start point strips "??n??, "n?? prefix and removes situation room noise
+00:01 +52 -25: New OCR improvements regression tests Colmanner waypoint correctly parses "?μ??? and ignores situation room variable warning
+00:01 +53 -25: New OCR improvements regression tests Logi waypoint strips "怨좉컼怨쇱쓽" distance metadata to keep "?깆큿珥덇탳"
+00:01 +54 -25: Some tests failed.

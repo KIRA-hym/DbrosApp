@@ -3127,19 +3127,36 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Flexible(
-                            child: Text(
-                              log['program']?.toString() ?? '',
-                              style: TextStyle(
-                                color:
-                                    (Theme.of(
-                                              context,
-                                            ).textTheme.bodyLarge?.color ??
-                                            Colors.white)
-                                        .withOpacity(0.7),
-                                fontSize: lay.programFontSize,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: Builder(
+                              builder: (context) {
+                                final isAuto = log['registration_source']?.toString() == DriveLogRegistrationSource.screenshotAuto;
+                                final textWidget = Text(
+                                  log['program']?.toString() ?? '',
+                                  style: TextStyle(
+                                    color: isAuto
+                                        ? const Color(0xFFFFB74D)
+                                        : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
+                                    fontSize: lay.programFontSize,
+                                    fontWeight: isAuto ? FontWeight.w600 : FontWeight.normal,
+                                    height: isAuto ? 1.1 : null,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                );
+                                
+                                return Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isAuto ? 8.0 : 0.0, 
+                                    vertical: 3.0
+                                  ),
+                                  decoration: isAuto ? BoxDecoration(
+                                    color: const Color(0xFF2E323C),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF6E717C).withValues(alpha: 0.6)),
+                                  ) : const BoxDecoration(color: Colors.transparent),
+                                  child: textWidget,
+                                );
+                              }
                             ),
                           ),
                           if (_hasLogError(log)) ...[
@@ -3152,11 +3169,6 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                           ],
                         ],
                       ),
-                    ),
-                    SizedBox(width: lay.innerSpacing),
-                    DriveLogSourceChip(
-                      registrationSource: log['registration_source']
-                          ?.toString(),
                     ),
                   ],
                 ),

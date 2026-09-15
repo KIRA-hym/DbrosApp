@@ -1,127 +1,197 @@
-/**
- * Firebase Cloud Functions — Admin Push Notification
- *
- * 트리거: admin_push_requests/{docId} 문서 생성 (onCreate)
- * 동작:
- *   1. fcm_tokens 에서 is_active == true 인 토큰을 모두 조회
- *   2. sendEachForMulticast 로 FCM 발송
- *   3. 원본 문서 status → 'completed' 업데이트 + 실패 토큰 기록
- *   4. 만료/미등록 토큰은 is_active: false 처리
- *
- * 배포: firebase deploy --only functions
- * 요구 패키지: firebase-admin, firebase-functions (functions/ 내 package.json 에 명시)
- */
-
-const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+﻿const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
+const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
-admin.initializeApp();
-
+if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
-const BATCH_SIZE = 500; // sendEachForMulticast 최대 500건
+const BATCH_SIZE = 500;
 
-/**
- * admin_push_requests 문서 생성 시 실행.
- */
-exports.sendAdminPush = onDocumentCreated(
-  'admin_push_requests/{docId}',
-  async (event) => {
-    const snap = event.data;
-    if (!snap) return;
-
-    const docId = event.params.docId;
-    const { title, body } = snap.data();
-
-    if (!title || !body) {
-      await snap.ref.update({ status: 'error', error: 'title or body missing' });
-      return;
-    }
-
-    // ── 1. 유효 토큰 목록 조회 ──────────────────────────────────────────
-    let tokens = [];
-    try {
-      const snapshot = await db
-        .collection('fcm_tokens')
-        .where('is_active', '==', true)
+async function doGenerate() {
+      console.log('Start generating call points JSON for App Sync...');
+      
+      const snapshot = await db.collection('shared_call_points')
+        .orderBy('timestamp', 'desc')
+        .limit(20000)
         .get();
-      tokens = snapshot.docs.map((d) => d.data().token).filter(Boolean);
-    } catch (err) {
-      console.error(`[${docId}] fcm_tokens fetch error:`, err);
-      await snap.ref.update({ status: 'error', error: String(err) });
-      return;
-    }
+        
+      const points = [];
+      const stats = { kakao: 0, logi: 0, colmaner: 0, tmap: 0, total: 0 };
 
-    if (tokens.length === 0) {
-      await snap.ref.update({ status: 'completed', sent: 0, failed_tokens: [] });
-      console.log(`[${docId}] no active tokens — skipping`);
-      return;
-    }
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.start_lat && data.start_lng) {
+          const type = data.program || 'other';
+          points.push({
+            start_lat: data.start_lat,
+            start_lng: data.start_lng,
+            type: type,
+            start_location: data.start_location || '출발지 정보 없음',
+            end_location: data.end_location || '도착지 정보 없음',
+            gross_fare: data.gross_fare || 0,
+            created_at: data.timestamp ? data.timestamp.toDate().toISOString() : new Date().toISOString()
+          });
+          
+          if (type.includes('카카오')) stats.kakao++;
+          else if (type.includes('로지')) stats.logi++;
+          else if (type.includes('콜마너')) stats.colmaner++;
+          else if (type.includes('티맵')) stats.tmap++;
+          stats.total++;
+        }
+      });
+      
+      const bucket = admin.storage().bucket();
+      
+      const dataFile = bucket.file('shared_coordinates.json');
+      await dataFile.save(JSON.stringify(points), {
+        metadata: { contentType: 'application/json', cacheControl: 'public, max-age=3600' }
+      });
+      
+      const version = new Date().getTime(); 
+      const metaFile = bucket.file('shared_coordinates_metadata.json');
+      await metaFile.save(JSON.stringify({ version: version }), {
+        metadata: { contentType: 'application/json', cacheControl: 'public, max-age=60' }
+      });
 
-    console.log(`[${docId}] sending to ${tokens.length} tokens`);
-
-    // ── 2. 배치 발송 (500건 제한 처리) ───────────────────────────────────
-    const failedTokens = [];
-    let successCount = 0;
-
-    for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
-      const chunk = tokens.slice(i, i + BATCH_SIZE);
-
-      const message = {
-        notification: { title, body },
-        android: {
-          priority: 'high',
-          notification: {
-            channelId: 'fcm_default_channel',
-            defaultSound: true,
-            defaultVibrateTimings: true,
-          }
-        },
-        tokens: chunk,
+      const adminPayload = {
+        updatedAtISO: new Date().toISOString(),
+        stats: stats,
+        points: points.map(p => ({
+          lat: p.start_lat, 
+          lng: p.start_lng, 
+          t: p.type,
+          sl: p.start_location,
+          el: p.end_location,
+          f: p.gross_fare,
+          time: p.created_at
+        }))
       };
+      const adminFile = bucket.file('public/call_points_map.json');
+      await adminFile.save(JSON.stringify(adminPayload), {
+        metadata: { contentType: 'application/json', cacheControl: 'public, max-age=3600' }
+      });
+      console.log('Successfully generated JSON files.');
+      return adminPayload;
+}
 
-      try {
-        const response = await admin.messaging().sendEachForMulticast(message);
-        successCount += response.successCount;
+exports.testGenerate = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const payload = await doGenerate();
+    res.json(payload);
+  } catch (err) {
+    res.status(500).send(err.toString());
+  }
+});
 
-        // ── 3. 실패 토큰 처리 ────────────────────────────────────────────
-        response.responses.forEach((resp, idx) => {
-          if (!resp.success) {
-            const token = chunk[idx];
-            const code = resp.error?.code ?? '';
-            console.warn(`[${docId}] failed token [${code}]:`, token.substring(0, 16));
-
-            failedTokens.push({ token: token.substring(0, 20), code });
-
-            // 만료·미등록 토큰은 비활성화
-            const invalidCodes = [
-              'messaging/registration-token-not-registered',
-              'messaging/invalid-registration-token',
-              'messaging/invalid-argument',
-            ];
-            if (invalidCodes.includes(code)) {
-              const docRef = db.collection('fcm_tokens').doc(
-                token.length > 50 ? token.substring(0, 50) : token,
-              );
-              docRef.update({ is_active: false, last_updated: admin.firestore.FieldValue.serverTimestamp() })
-                .catch((e) => console.error('deactivate token error:', e));
-            }
-          }
-        });
-      } catch (err) {
-        console.error(`[${docId}] sendEachForMulticast error:`, err);
-        failedTokens.push({ chunk_start: i, error: String(err) });
+exports.sendAdminPush = onDocumentCreated('admin_push_requests/{docId}', async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    console.log("No data associated with the event");
+    return;
+  }
+  const data = snapshot.data();
+  if (data.status !== 'pending') return;
+  
+  const title = data.title;
+  const body = data.body;
+  
+  try {
+    const tokensSnapshot = await db.collection('fcm_tokens').get();
+    const tokens = [];
+    tokensSnapshot.forEach(doc => {
+      const tokenData = doc.data();
+      if (tokenData.token) {
+        tokens.push(tokenData.token);
       }
+    });
+    
+    if (tokens.length === 0) {
+      console.log("No FCM tokens found.");
+      await snapshot.ref.update({ status: 'completed', result: 'no_tokens' });
+      return;
+    }
+    
+    const message = {
+      notification: { title: title, body: body },
+      tokens: tokens
+    };
+    
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(response.successCount + " messages were sent successfully");
+    
+    await snapshot.ref.update({
+      status: 'completed',
+      successCount: response.successCount,
+      failureCount: response.failureCount
+    });
+  } catch (error) {
+    console.error("Error sending push notification:", error);
+    await snapshot.ref.update({
+      status: 'error',
+      error: error.toString()
+    });
+  }
+});
+
+exports.generateCallPointsJson = onSchedule(
+  { schedule: '0 6 * * *', timeZone: 'Asia/Seoul', timeoutSeconds: 300, memory: '512MiB' },
+  async (event) => { await doGenerate(); }
+);
+
+exports.getCallPointsMap = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const bucket = admin.storage().bucket();
+    const file = bucket.file('public/call_points_map.json');
+    const [exists] = await file.exists();
+    if (!exists) {
+      res.status(404).send('Not Found');
+      return;
+    }
+    const [data] = await file.download();
+    res.set('Cache-Control', 'public, max-age=3600');
+    res.json(JSON.parse(data.toString('utf8')));
+  } catch (err) {
+    res.status(500).send(err.toString());
+  }
+});
+
+exports.revenuecatWebhook = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const event = req.body.event;
+    if (!event) {
+      res.status(400).send('No event');
+      return;
     }
 
-    // ── 4. 원본 문서 status 업데이트 ─────────────────────────────────────
-    await snap.ref.update({
-      status: 'completed',
-      sent: successCount,
-      total: tokens.length,
-      failed_tokens: failedTokens,
-      completed_at: admin.firestore.FieldValue.serverTimestamp(),
-    });
+    const uid = event.app_user_id;
+    const type = event.type;
 
-    console.log(`[${docId}] done — sent: ${successCount}/${tokens.length}, failed: ${failedTokens.length}`);
-  },
-);
+    if (!uid) {
+      res.status(400).send('No app_user_id');
+      return;
+    }
+
+    let isPremium = false;
+    const activeEvents = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'NON_RENEWING_PURCHASE'];
+    const inactiveEvents = ['CANCELLATION', 'EXPIRATION', 'BILLING_ISSUE', 'REFUND'];
+
+    const updateData = {
+      rcLastEventType: type,
+      rcLastEventTime: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    if (activeEvents.includes(type)) {
+      updateData.isRevenueCatPremium = true;
+    } else if (inactiveEvents.includes(type)) {
+      updateData.isRevenueCatPremium = false;
+    }
+
+    await db.collection('users').doc(uid).set(updateData, { merge: true });
+    
+    console.log('Updated ' + uid + ' premium status via RevenueCat Webhook (' + type + ')');
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('RevenueCat Webhook Error:', err);
+    res.status(500).send(err.toString());
+  }
+});

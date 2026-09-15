@@ -275,9 +275,10 @@ class BackupService {
       _maybeShowSnackBar(context, '단말기 백업 중 오류: $e');
       return false;
     } finally {
-      if (backupFile != null && await backupFile.exists()) {
+      final file = backupFile;
+      if (file != null && await file.exists()) {
         try {
-          await backupFile!.delete();
+          await file.delete();
         } catch (_) {}
       }
     }
@@ -293,8 +294,6 @@ class BackupService {
         subject: p.basename(backupFile.path),
       );
 
-      if (!context.mounted) return true;
-      _maybeShowSnackBar(context, '백업 파일을 공유/드라이브에 저장할 수 있습니다.');
       return true;
     } catch (e) {
       if (!context.mounted) return false;
@@ -303,8 +302,9 @@ class BackupService {
     } finally {
       Future.delayed(const Duration(seconds: 15), () async {
         try {
-          if (backupFile != null && await backupFile.exists()) {
-            await backupFile!.delete();
+          final file = backupFile;
+          if (file != null && await file.exists()) {
+            await file.delete();
           }
         } catch (_) {}
       });
@@ -512,7 +512,7 @@ class BackupService {
         if (path != null && path.isNotEmpty) {
           await SettingsService.setLastAutoBackupDate(now.toIso8601String());
           try {
-            await backupFile!.delete();
+            await backupFile.delete();
           } catch (_) {}
           return true;
         }

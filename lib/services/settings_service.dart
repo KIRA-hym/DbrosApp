@@ -436,4 +436,6 @@ class SettingsService {
   // 퀵등록 배경 투명도를 사용자가 직접 조절하는 기능을 추가했으나,
   // Opacity 위젯이 Scaffold 전체를 감싸면서 배경 블러 + 터치 이벤트 흡수 버그 발생.
   // 투명도는 write_log_page.dart의 backgroundColor(0xCC000000)로 하드코딩 유지.
+  static int get localCallPointVersion => _prefs.getInt('localCallPointVersion') ?? 0;
+  static Future<void> setLocalCallPointVersion(int value) async => await _prefs.setInt('localCallPointVersion', value);
 }

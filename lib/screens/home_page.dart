@@ -17,6 +17,7 @@ import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
 import '../services/font_size_service.dart';
 import '../services/settings_service.dart';
+import '../services/call_point_sync_service.dart';
 import '../services/weather_service.dart';
 import '../services/db_helper.dart';
 import '../services/expense_repository.dart';
@@ -60,6 +61,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
+  bool _hasMapUpdate = false;
   final bool _isLoading = false;
   Timer? _workDateTick;
 
@@ -106,6 +108,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (mounted) setState(() {});
     });
     _loadWeather();
+      _checkMapUpdate();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         // 권한 요청 로직은 PermissionOnboardingPage로 이관됨
@@ -290,6 +293,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _activeNotices = notices;
       });
     }
+  }
+
+    Future<void> _checkMapUpdate() async {
+    try {
+      bool hasUpdate = await CallPointSyncService.isUpdateAvailable();
+      if (mounted) setState(() { _hasMapUpdate = hasUpdate; });
+    } catch (e) {}
   }
 
   void _loadWeather() async {
@@ -1491,7 +1501,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.map, color: Color(0xFFFFC700), size: 20),
+                  Stack(clipBehavior: Clip.none, children: [const Icon(Icons.map, color: Color(0xFFFFC700), size: 20), if (_hasMapUpdate) Positioned(right: -2, top: -2, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Text('N', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))))]),
                   SizedBox(width: 6),
                   Text(
                     '주변 콜맵',
