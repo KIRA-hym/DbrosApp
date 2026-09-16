@@ -702,8 +702,8 @@ Extract the following 3 pieces of information from the image and return ONLY a v
 
 Keys to return:
 - "gross_fare": integer (extract the total fare amount. Remove any commas or '원')
-- "start_location": string (extract the departure location as concisely as possible)
-- "end_location": string (extract the destination location as concisely as possible)
+- "start_location": string (Extract the FULL departure address including all detailed building names and street numbers exactly. However, you MUST ensure that the correct administrative divisions '시/도, 시/군/구, 읍/면/동' are explicitly prepended. If the receipt only shows a detailed location or omits the city/district, logically infer and add the correct '시/도 시/군/구 읍/면/동' in front of the detailed address.)
+- "end_location": string (Extract the FULL destination address using the exact same rule as above. Keep the detailed address but ensure full administrative divisions are prepended.)
 
 If you cannot find a value, return null for that key.
 ''');
@@ -729,6 +729,35 @@ If you cannot find a value, return null for that key.
               _endLocCon.text = data['end_location'].toString();
             }
           });
+
+          // [새로운 기능] 주소가 변경되었으므로 백그라운드에서 즉시 지오코딩 수행 (좌표 업데이트)
+          if (data['start_location'] != null) {
+            try {
+              final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
+              if (startLocs.isNotEmpty && mounted) {
+                setState(() {
+                  _startLat = startLocs.first.latitude;
+                  _startLng = startLocs.first.longitude;
+                });
+              }
+            } catch (e) {
+              debugPrint("AI Start Geocode error: $e");
+            }
+          }
+
+          if (data['end_location'] != null) {
+            try {
+              final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
+              if (endLocs.isNotEmpty && mounted) {
+                setState(() {
+                  _endLat = endLocs.first.latitude;
+                  _endLng = endLocs.first.longitude;
+                });
+              }
+            } catch (e) {
+              debugPrint("AI End Geocode error: $e");
+            }
+          }
           
           _captureGrossAndApplyDeductions();
           _applyDeductions();
