@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Terminal, Copy, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -27,13 +27,7 @@ export default function OcrLogs() {
 
   const handleCopyPrompt = (log: any) => {
     const rawText = log.raw_text || "내용 없음";
-    const promptText = `[OCR 파싱 정규식 수정 요청]
-- 발생 일시: ${log.timestamp?.toDate ? log.timestamp.toDate().toLocaleString() : '알 수 없음'}
-
-[원본 텍스트 (Raw Text)]
-${rawText}
-
-요청사항: 위 텍스트에서 파싱 에러가 발생했습니다. 원본 텍스트를 분석하여 \`tmap_trip_detail_ocr.dart\` 등 관련 정규식을 수정하고 패치를 준비해 줘.`;
+    const promptText = rawText;
 
     navigator.clipboard.writeText(promptText).then(() => {
       setCopiedId(log.id);
@@ -60,8 +54,8 @@ ${rawText}
       <div className="bg-red-500/10 border-l-4 border-l-red-500 p-4 rounded-r-lg shadow-sm mb-6">
         <h4 className="font-bold text-red-400 mb-1 flex items-center gap-2"><AlertTriangle size={16} /> 에러 추적 메커니즘</h4>
         <p className="text-gray-300 text-sm leading-relaxed">
-          특정 대리 앱이 업데이트되어 형식이 바뀌면 에러가 발생합니다. 관리자는 <strong>[🤖 AI 지시용 복사]</strong> 버튼을 눌러 채팅창에 붙여넣기만 하면,<br />
-          AI가 즉각 소스코드를 분석해 정규식을 고치고 <strong>Shorebird 패치</strong>를 준비하는 초고속 파이프라인으로 동작합니다.
+          특정 대리 앱이 업데이트되어 형식이 바뀌면 에러가 발생합니다. 관리자는 <strong>[클립보드에 원본 복사]</strong> 버튼을 눌러 채팅창에 붙여넣기만 하면,<br />
+          개발자에게 전달하여 정규식을 고치고 업데이트를 준비합니다.
         </p>
       </div>
 
@@ -80,7 +74,7 @@ ${rawText}
               
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-5 relative">
-                  <div className="text-red-400 text-xs font-bold uppercase bg-red-500/10 px-2 py-1 rounded inline-block mb-3">AI 파싱 실패 원본 (raw_text)</div>
+                  <div className="text-red-400 text-xs font-bold uppercase bg-red-500/10 px-2 py-1 rounded inline-block mb-3">파싱 실패 원본 (raw_text)</div>
                   <p className="text-gray-400 text-sm font-mono break-all leading-loose bg-black/40 p-4 rounded-lg border border-black/50 shadow-inner min-h-[100px]">
                     {log.raw_text || "텍스트 없음"}
                   </p>
@@ -88,7 +82,7 @@ ${rawText}
 
                 <div className="bg-gray-800/20 border border-gray-700/50 rounded-xl p-5 relative flex items-center justify-center flex-col gap-3 min-h-[150px]">
                   <p className="text-gray-400 text-sm text-center">
-                    이 원본 데이터를 분석하여 정규식을 수정하려면<br/>아래 버튼을 눌러 AI에게 전달하세요.
+                    이 원본 데이터를 분석하여 정규식을 수정하려면<br/>아래 버튼을 눌러 개발자에게 전달하세요.
                   </p>
                   
                   <button 
@@ -97,7 +91,7 @@ ${rawText}
                       ${copiedId === log.id ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500'}`}
                   >
                     {copiedId === log.id ? <CheckCircle2 size={16} /> : <Copy size={16} />}
-                    {copiedId === log.id ? '복사 완료!' : '🤖 AI 지시용 템플릿 복사'}
+                    {copiedId === log.id ? '복사 완료!' : '원본 텍스트 복사'}
                   </button>
                 </div>
               </div>
@@ -108,3 +102,4 @@ ${rawText}
     </div>
   );
 }
+

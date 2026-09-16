@@ -1,0 +1,1 @@
+import { GoogleGenerativeAI } from '@google/generative-ai'; const genAI = new GoogleGenerativeAI('AIzaSyBUj35nhPjFGD0ex95PyD5f5mCgpDCXmrU'); const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' }); model.generateContent('hi').then(console.log).catch(e => console.log('ERROR:', e.message));

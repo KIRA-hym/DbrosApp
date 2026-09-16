@@ -1,0 +1,1 @@
+import { initializeApp } from 'firebase/app'; import { getFirestore, doc, getDoc } from 'firebase/firestore'; const app = initializeApp({ apiKey: 'AIzaSyBwvJv36w1G8_C7ztk73E5S30gFaAZZPFM', projectId: 'dbros-apps-7bbmw4' }); const db = getFirestore(app); getDoc(doc(db, 'gemini_quota', 'daily')).then(s => console.log(s.data())).catch(console.error);
