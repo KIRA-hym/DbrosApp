@@ -730,44 +730,46 @@ If you cannot find a value, return null for that key.
             }
           });
 
-          // [새로운 기능] 주소가 변경되었으므로 백그라운드에서 즉시 지오코딩 수행 (좌표 업데이트)
-          if (data['start_location'] != null) {
-            try {
-              final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
-              if (startLocs.isNotEmpty && mounted) {
-                setState(() {
-                  _startLat = startLocs.first.latitude;
-                  _startLng = startLocs.first.longitude;
-                });
-              }
-            } catch (e) {
-              debugPrint("AI Start Geocode error: $e");
-            }
-          }
-
-          if (data['end_location'] != null) {
-            try {
-              final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
-              if (endLocs.isNotEmpty && mounted) {
-                setState(() {
-                  _endLat = endLocs.first.latitude;
-                  _endLng = endLocs.first.longitude;
-                });
-              }
-            } catch (e) {
-              debugPrint("AI End Geocode error: $e");
-            }
-          }
-          
           _captureGrossAndApplyDeductions();
           _applyDeductions();
 
           success = true;
-          if (mounted) Navigator.of(context).pop();
+          if (mounted) Navigator.of(context).pop(); // AI 로딩창 즉시 닫기 (지오코딩 대기 안 함)
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('✨ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
           );
+
+          // [새로운 기능] 주소가 변경되었으므로 완전히 백그라운드에서 지오코딩 수행 (로딩창 없이)
+          Future.microtask(() async {
+            if (data['start_location'] != null) {
+              try {
+                final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
+                if (startLocs.isNotEmpty && mounted) {
+                  setState(() {
+                    _startLat = startLocs.first.latitude;
+                    _startLng = startLocs.first.longitude;
+                  });
+                }
+              } catch (e) {
+                debugPrint("AI Start Geocode error: $e");
+              }
+            }
+
+            if (data['end_location'] != null) {
+              try {
+                final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
+                if (endLocs.isNotEmpty && mounted) {
+                  setState(() {
+                    _endLat = endLocs.first.latitude;
+                    _endLng = endLocs.first.longitude;
+                  });
+                }
+              } catch (e) {
+                debugPrint("AI End Geocode error: $e");
+              }
+            }
+          });
         }
       } catch (e) {
         final errorString = e.toString().toLowerCase();
