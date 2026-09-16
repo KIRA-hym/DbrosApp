@@ -692,7 +692,7 @@ class _DriveLogFormState extends State<DriveLogForm>
     while (retryCount < 3 && !success) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-flash-latest',
+          model: 'gemini-3.6-flash',
           apiKey: apiKey,
         );
 
