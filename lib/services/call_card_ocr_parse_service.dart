@@ -14,7 +14,6 @@ import 'image_storage_service.dart';
 import 'ocr_parse_log_service.dart';
 import 'ocr_rule_engine.dart'; // 신규 룰 엔진
 import 'settings_service.dart';
-import 'smart_ocr_service.dart'; // 신규 추가
 
 /// 콜카드 이미지 OCR → 운행일지 row 파싱·저장 (멀티 콜카드·스크린샷 자동등록 공용).
 class CallCardOcrParseService {
@@ -113,7 +112,7 @@ class CallCardOcrParseService {
     }
 
     // SmartOcrService: 신뢰도 검사 후 필요 시 Gemini로 주소 정제 (기존 동작 보장)
-    return await SmartOcrService.enhance(logData, recognizedText.text);
+    return logData;
   }
 
   /// 자동등록: 프로그램 인식 + [write_log] 수동 등록과 동일 필수값(요금·출발지·도착지).

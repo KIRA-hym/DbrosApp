@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,7 +12,9 @@ class FirestoreRuleService {
   static const String _rulesDoc = 'rules';
 
   static const String _prefVersionKey = 'ocr_rules_version';
-  static const String _prefRulesKey = 'ocr_rules_json';
+  static const String _prefRulesKey = 'ocr_rules_data';
+  static const String _prefLastCheckTime = 'ocr_rules_last_check_ms';
+  static const int _cooldownMs = 3600000; // 1 hour cooldown
 
   static Map<String, dynamic>? _memoryCache;
 
@@ -37,10 +39,22 @@ class FirestoreRuleService {
     }
   }
 
-  /// Firestore 버전 확인 후 필요 시 룰 다운로드
-  static Future<void> checkAndUpdate() async {
+  /// Firestore 버전 확인 후 필요 시 룰 다운로드 (쿨타임 적용)
+  static Future<void> checkAndUpdate({bool force = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      
+      // 1시간 쿨타임 체크
+      final lastCheckTime = prefs.getInt(_prefLastCheckTime) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      if (!force && (now - lastCheckTime < _cooldownMs)) {
+        if (kDebugMode) print('[FirestoreRule] Update skipped due to 1h cooldown.');
+        return;
+      }
+      
+      // 체크 시간 갱신 (네트워크 요청 전 미리 갱신하여 동시 호출 방지)
+      await prefs.setInt(_prefLastCheckTime, now);
+
       final localVersion = prefs.getInt(_prefVersionKey) ?? 0;
 
       final versionSnap = await FirebaseFirestore.instance

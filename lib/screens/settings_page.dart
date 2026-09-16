@@ -39,6 +39,7 @@ import '../widgets/list_manage_dialog.dart';
 import '../widgets/bordered_section.dart';
 import '../widgets/responsive_body.dart';
 import '../widgets/settings/theme_settings_section.dart';
+import '../widgets/settings/ai_premium_section.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
 import '../services/db_helper.dart';
@@ -202,6 +203,7 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ),
+      const AiPremiumSection(),
       _buildNoticeSection(),
       Container(key: _keyThemeSettings, child: const ThemeSettingsSection()),
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),

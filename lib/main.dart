@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/permission_onboarding_page.dart';
 import 'services/firestore_rule_service.dart';
+import 'services/feature_usage_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/map_data_sync_service.dart';
 import 'features/push_notification/services/fcm_service.dart';
@@ -375,6 +376,12 @@ class _DbrosAppState extends State<DbrosApp> with WidgetsBindingObserver {
       // 앱이 백그라운드에서 포그라운드로 올라올 때 DB 동기화 강제 실행
       // (OS가 백그라운드 앱을 잠시 멈춤 상태로 두어 오버레이의 통신 신호가 유실된 경우를 복구)
       DriveLogDatabase.afterLogsChanged?.call();
+      
+      // Phase 2: 정규식 갱신 최적화 (1시간 쿨타임이 지났을 때만 실제 통신 발생)
+      FirestoreRuleService.checkAndUpdate();
+
+      // Phase 3: 24시간 프리미엄 상태 갱신 (만료 시 즉시 비활성화 처리)
+      FeatureUsageService.refreshPremiumState();
     }
   }
 

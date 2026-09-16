@@ -1,4 +1,4 @@
-﻿const { onDocumentCreated } = require('firebase-functions/v2/firestore');
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
@@ -199,57 +199,3 @@ exports.revenuecatWebhook = onRequest({ cors: true }, async (req, res) => {
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 
-exports.proposeNewOcrRule = onCall({ cors: true }, async (request) => {
-  const { platform, failedText, geminiApiKey } = request.data;
-  if (!platform || !failedText || !geminiApiKey) {
-    throw new HttpsError('invalid-argument', 'Missing parameters.');
-  }
-  try {
-    const rulesSnap = await db.collection('parsing_rules').doc('rules').get();
-    const rules = rulesSnap.data() || { platforms: {} };
-    const platformRule = rules.platforms[platform];
-    if (!platformRule) throw new HttpsError('not-found', 'Platform rule not found.');
-
-    const prompt = `You are a Regex expert.
-Current JSON rule for platform '${platform}':
-${JSON.stringify(platformRule, null, 2)}
-
-This rule failed to parse the following text:
-"""
-${failedText}
-"""
-
-Provide an updated JSON rule (same structure) that extracts gross_fare, start_location, and end_location successfully from the failed text while keeping existing compatibility. Output ONLY valid JSON without markdown.`;
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${geminiApiKey}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    if (!response.ok) throw new Error(`Gemini API Error: ${response.status}`);
-    const result = await response.json();
-    const textResponse = result.candidates[0].content.parts[0].text;
-    const newRule = JSON.parse(textResponse.trim().replace(/```json/g, '').replace(/```/g, ''));
-
-    const samplesSnap = await db.collection('ocr_golden_samples').where('is_verified', '==', true).get();
-    let passed = 0; let failed = 0;
-    try {
-      new RegExp(newRule.field_patterns.gross_fare);
-      new RegExp(newRule.field_patterns.start_location);
-      new RegExp(newRule.field_patterns.end_location);
-      passed = samplesSnap.size;
-    } catch (e) { failed = samplesSnap.size; }
-
-    if (failed > 0) return { success: false, message: 'Regex compile failed.' };
-
-    const draftId = `proposal_${platform}_${Date.now()}`;
-    await db.collection('parsing_rules_drafts').doc(draftId).set({
-      platform, original_rule: platformRule, proposed_rule: newRule, failed_text: failedText, test_score: { passed, failed, total: passed + failed }, status: 'pending_approval', created_at: admin.firestore.FieldValue.serverTimestamp()
-    });
-    return { success: true, draftId, score: passed };
-  } catch (err) {
-    console.error('proposeNewOcrRule error:', err);
-    throw new HttpsError('internal', err.message);
-  }
-});

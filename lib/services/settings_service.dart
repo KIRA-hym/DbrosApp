@@ -21,6 +21,15 @@ class SettingsService {
   
   static final ValueNotifier<bool> isFeatureUnlockedNotifier = ValueNotifier(false);
   static Timer? _adRewardTimer;
+  
+  static final ValueNotifier<String> _geminiApiKeyNotifier = ValueNotifier('');
+  static ValueNotifier<String> get geminiApiKeyNotifier => _geminiApiKeyNotifier;
+
+  static String get geminiApiKey => _prefs.getString('gemini_api_key') ?? '';
+  static Future<void> setGeminiApiKey(String key) async {
+    await _prefs.setString('gemini_api_key', key);
+    _geminiApiKeyNotifier.value = key;
+  }
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
@@ -60,6 +69,7 @@ class SettingsService {
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _geminiApiKeyNotifier.value = geminiApiKey;
     // 월/년 일할 보험은 UI·로직에서 제거됨. 기존 'monthly' 선택은 'none'으로 이전.
     if (_prefs.getString('insuranceType') == 'monthly') {
       await _prefs.setString('insuranceType', 'none');

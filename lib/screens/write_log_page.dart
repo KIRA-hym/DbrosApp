@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 import 'package:android_intent_plus/android_intent.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -44,6 +46,7 @@ import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
+import '../widgets/ai_scanner_dialog.dart';
 import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
@@ -139,6 +142,7 @@ class _DriveLogFormState extends State<DriveLogForm>
       ? SettingsService.programList.first
       : "카카오(일반)";
   File? _capturedImage;
+  bool _isAiParsing = false;
   bool _showWaypointField = false;
 
   bool _manualWorkDateRoll = false;
@@ -648,6 +652,79 @@ class _DriveLogFormState extends State<DriveLogForm>
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('공유 이미지 처리 중 오류: $e')));
+      }
+    }
+  }
+
+  // Phase 5: AI 정밀분석 로직 (Gemini Vision)
+  Future<void> _runAiPrecisionAnalysis() async {
+    if (_capturedImage == null) return;
+    final apiKey = SettingsService.geminiApiKey;
+    if (apiKey.isEmpty) return;
+
+    // 삼성 갤럭시 AI 스타일 스캔 애니메이션 다이얼로그 노출
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black87,
+      builder: (_) => AiScannerDialog(imageFile: _capturedImage!),
+    );
+
+    try {
+      final model = GenerativeModel(
+        model: 'gemini-1.5-flash',
+        apiKey: apiKey,
+      );
+
+      final imageBytes = await _capturedImage!.readAsBytes();
+      final prompt = TextPart('''
+You are an expert OCR parser for Korean designated driver (대리운전) receipts.
+Extract the following 3 pieces of information from the image and return ONLY a valid JSON object without any markdown wrapping (no ```json).
+
+Keys to return:
+- "gross_fare": integer (extract the total fare amount. Remove any commas or '원')
+- "start_location": string (extract the departure location as concisely as possible)
+- "end_location": string (extract the destination location as concisely as possible)
+
+If you cannot find a value, return null for that key.
+''');
+      final imagePart = DataPart('image/jpeg', imageBytes);
+
+      final response = await model.generateContent([
+        Content.multi([prompt, imagePart])
+      ]);
+
+      if (response.text != null && mounted) {
+        final rawText = response.text!.trim().replaceAll('```json', '').replaceAll('```', '').trim();
+        final Map<String, dynamic> data = jsonDecode(rawText);
+
+        setState(() {
+          if (data['gross_fare'] != null) {
+            _incomeCon.text = data['gross_fare'].toString();
+          }
+          if (data['start_location'] != null) {
+            _startLocCon.text = data['start_location'].toString();
+          }
+          if (data['end_location'] != null) {
+            _endLocCon.text = data['end_location'].toString();
+          }
+        });
+        
+        _captureGrossAndApplyDeductions();
+        _applyDeductions();
+
+        if (mounted) Navigator.of(context).pop(); // 다이얼로그 닫기
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.of(context).pop(); // 다이얼로그 닫기
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('AI 분석 실패: $e')),
+        );
       }
     }
   }
@@ -2302,6 +2379,22 @@ class _DriveLogFormState extends State<DriveLogForm>
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (SettingsService.geminiApiKey.isNotEmpty)
+                  ValueListenableBuilder<bool>(
+                    valueListenable: FeatureUsageService.globalPremiumNotifier,
+                    builder: (context, isActive, _) {
+                      if (!isActive) return const SizedBox.shrink();
+                      return TextButton.icon(
+                        onPressed: _runAiPrecisionAnalysis,
+                        icon: const Text('✨', style: TextStyle(fontSize: 14)),
+                        label: const Text('AI 정밀분석 (무료)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      );
+                    },
+                  ),
                 if (_capturedImage != null)
                   IconButton(
                     padding: EdgeInsets.zero,
@@ -2537,6 +2630,22 @@ class _DriveLogFormState extends State<DriveLogForm>
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (SettingsService.geminiApiKey.isNotEmpty)
+              ValueListenableBuilder<bool>(
+                valueListenable: FeatureUsageService.globalPremiumNotifier,
+                builder: (context, isActive, _) {
+                  if (!isActive) return const SizedBox.shrink();
+                  return TextButton.icon(
+                    onPressed: _runAiPrecisionAnalysis,
+                    icon: const Text('✨', style: TextStyle(fontSize: 14)),
+                    label: const Text('AI 정밀분석 (무료)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                  );
+                },
+              ),
             if (_capturedImage != null)
               IconButton(
                 padding: EdgeInsets.zero,

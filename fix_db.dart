@@ -1,0 +1,1 @@
+﻿import 'dart:io'; void main() { var file = File('lib/services/db_helper.dart'); var content = file.readAsStringSync(); content = content.replaceAll(' - COALESCE(fee, 0) - COALESCE(transport_cost, 0) - COALESCE(insurance_fee, 0)', ' - COALESCE(fee, 0) - COALESCE(transport_cost, 0)'); file.writeAsStringSync(content); }

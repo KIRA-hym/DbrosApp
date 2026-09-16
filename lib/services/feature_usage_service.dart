@@ -1,13 +1,46 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/work_date_utils.dart';
 
 class FeatureUsageService {
   static late SharedPreferences _prefs;
+  
+  // Phase 3: 전역 24시간 프리미엄 마스터 스위치
+  static const String _globalPremiumExpiryKey = 'global_premium_expiry_ms';
+  static final ValueNotifier<bool> globalPremiumNotifier = ValueNotifier<bool>(false);
 
   static Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+    _updateGlobalPremiumState();
   }
 
+  /// 현재 시간에 맞춰 전역 프리미엄 스위치를 업데이트합니다 (AppLifecycleState.resumed 등에서 호출)
+  static void _updateGlobalPremiumState() {
+    final expiry = _prefs.getInt(_globalPremiumExpiryKey) ?? 0;
+    final isActive = DateTime.now().millisecondsSinceEpoch < expiry;
+    if (globalPremiumNotifier.value != isActive) {
+      globalPremiumNotifier.value = isActive;
+    }
+  }
+
+  /// 백그라운드 복귀 시 통제탑 역할 (main.dart 에서 호출)
+  static void refreshPremiumState() {
+    _updateGlobalPremiumState();
+  }
+
+  /// 광고 시청 완료 시 24시간 프리미엄 권한 부여
+  static Future<void> grantGlobalPremium24h() async {
+    final expiry = DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;
+    await _prefs.setInt(_globalPremiumExpiryKey, expiry);
+    _updateGlobalPremiumState();
+  }
+
+  static bool get isGlobalPremiumActiveSync {
+    _updateGlobalPremiumState();
+    return globalPremiumNotifier.value;
+  }
+  
   static String get _todayKey => WorkDateUtils.effectiveWorkDateYmd();
 
   static Future<void> _checkAndResetDailyCounter(String featureKey) async {
