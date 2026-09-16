@@ -1,10 +1,29 @@
-﻿import 'dart:io';
+
+import 'dart:io';
+
 void main() {
-  final file = File('lib/services/settings_service.dart');
+  final file = File('lib/screens/settings_page.dart');
   var content = file.readAsStringSync();
-  content = content.replaceFirst(
-    "}\n",
-    "  static int get localCallPointVersion => _prefs.getInt('localCallPointVersion') ?? 0;\n  static Future<void> setLocalCallPointVersion(int value) async => await _prefs.setInt('localCallPointVersion', value);\n}\n"
-  );
+  content = content.replaceFirst('      const AiPremiumSection(),\n', '');
+  
+  final target = '''          ValueListenableBuilder<String>(
+            valueListenable: SettingsService.addressSearchModeNotifier,
+            builder: (context, currentMode, _) {''';
+            
+  final endTarget = '''                  onChanged: (val) {
+                    if (val != null) SettingsService.setAddressSearchMode(val);
+                  },
+                ),
+              );
+            },
+          ),''';
+          
+  if (content.contains(endTarget)) {
+    content = content.replaceFirst(endTarget, endTarget + '\n          const AiPremiumSection(),');
+  } else {
+    print('Target not found!');
+  }
+  
   file.writeAsStringSync(content);
 }
+

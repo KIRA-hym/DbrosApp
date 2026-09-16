@@ -2384,14 +2384,13 @@ If you cannot find a value, return null for that key.
                     valueListenable: FeatureUsageService.globalPremiumNotifier,
                     builder: (context, isActive, _) {
                       if (!isActive) return const SizedBox.shrink();
-                      return TextButton.icon(
+                      return IconButton(
                         onPressed: _runAiPrecisionAnalysis,
-                        icon: const Text('✨', style: TextStyle(fontSize: 14)),
-                        label: const Text('AI 정밀분석 (무료)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          visualDensity: VisualDensity.compact,
-                        ),
+                        icon: const Text('✨', style: TextStyle(fontSize: 16)),
+                        tooltip: 'AI 정밀분석',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                        splashRadius: 18,
                       );
                     },
                   ),
@@ -2635,14 +2634,13 @@ If you cannot find a value, return null for that key.
                 valueListenable: FeatureUsageService.globalPremiumNotifier,
                 builder: (context, isActive, _) {
                   if (!isActive) return const SizedBox.shrink();
-                  return TextButton.icon(
+                  return IconButton(
                     onPressed: _runAiPrecisionAnalysis,
-                    icon: const Text('✨', style: TextStyle(fontSize: 14)),
-                    label: const Text('AI 정밀분석 (무료)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purpleAccent)),
-                    style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      visualDensity: VisualDensity.compact,
-                    ),
+                    icon: const Text('✨', style: TextStyle(fontSize: 16)),
+                    tooltip: 'AI 정밀분석',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                    splashRadius: 18,
                   );
                 },
               ),

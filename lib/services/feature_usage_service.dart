@@ -36,6 +36,12 @@ class FeatureUsageService {
     _updateGlobalPremiumState();
   }
 
+  /// 사용자가 수동으로 프리미엄을 비활성화할 때 호출
+  static Future<void> clearGlobalPremium() async {
+    await _prefs.setInt(_globalPremiumExpiryKey, 0);
+    _updateGlobalPremiumState();
+  }
+
   static bool get isGlobalPremiumActiveSync {
     _updateGlobalPremiumState();
     return globalPremiumNotifier.value;

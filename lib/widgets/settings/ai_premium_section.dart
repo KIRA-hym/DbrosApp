@@ -1,9 +1,10 @@
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/feature_usage_service.dart';
 import '../../services/rewarded_ad_service.dart';
 import '../../services/settings_service.dart';
-import '../bordered_section.dart';
 
 class AiPremiumSection extends StatefulWidget {
   const AiPremiumSection({Key? key}) : super(key: key);
@@ -14,7 +15,6 @@ class AiPremiumSection extends StatefulWidget {
 
 class _AiPremiumSectionState extends State<AiPremiumSection> {
   final TextEditingController _apiKeyCon = TextEditingController();
-  bool _isEditingKey = false;
   bool _isLoadingAd = false;
 
   @override
@@ -29,15 +29,23 @@ class _AiPremiumSectionState extends State<AiPremiumSection> {
     super.dispose();
   }
 
-  Future<void> _saveKey() async {
+  Future<void> _saveApiKey() async {
     final key = _apiKeyCon.text.trim();
     await SettingsService.setGeminiApiKey(key);
-    setState(() {
-      _isEditingKey = false;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('API 키가 저장되었습니다.')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ API Key가 저장되었습니다!')),
+      );
+    }
+  }
+
+  Future<void> _pasteApiKey() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (data != null && data.text != null) {
+      setState(() {
+        _apiKeyCon.text = data.text!;
+      });
+    }
   }
 
   Future<void> _watchAdForPremium() async {
@@ -48,7 +56,7 @@ class _AiPremiumSectionState extends State<AiPremiumSection> {
           await FeatureUsageService.grantGlobalPremium24h();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('✅ 24시간 프리미엄이 활성화되었습니다!')),
+              const SnackBar(content: Text('✅ 24시간 동안 AI 정밀분석이 활성화됩니다!')),
             );
           }
         },
@@ -71,136 +79,143 @@ class _AiPremiumSectionState extends State<AiPremiumSection> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BorderedSection.decoration(context, borderRadius: 12),
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    return ValueListenableBuilder<bool>(
+      valueListenable: FeatureUsageService.globalPremiumNotifier,
+      builder: (context, isPremium, child) {
+        return Container(
+          color: Colors.white,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('✨', style: TextStyle(fontSize: 18)),
-              const SizedBox(width: 8),
-              Text(
-                "AI 정밀분석 기능",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white),
-                      fontWeight: FontWeight.bold,
+              // 타이틀 및 토글 영역
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                        const SizedBox(width: 8),
+                        const Text('AI 정밀분석 (프리미엄)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      ],
                     ),
+                    _isLoadingAd
+                        ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                        : CupertinoSwitch(
+                            activeColor: Colors.amber,
+                            value: isPremium,
+                            onChanged: (val) {
+                              if (val) {
+                                if (SettingsService.geminiApiKey.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Gemini API Key를 먼저 입력해야 기능을 사용할 수 있습니다.')),
+                                  );
+                                  return;
+                                }
+                                _watchAdForPremium();
+                              } else {
+                                FeatureUsageService.clearGlobalPremium();
+                              }
+                            },
+                          ),
+                  ],
+                ),
               ),
-              const Spacer(),
-              ValueListenableBuilder<bool>(
-                valueListenable: FeatureUsageService.globalPremiumNotifier,
-                builder: (context, isActive, _) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isActive ? Colors.purple.withOpacity(0.2) : Colors.grey.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: isActive ? Colors.purple : Colors.grey),
-                    ),
-                    child: Text(
-                      isActive ? '프리미엄 활성' : '비활성',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isActive ? Colors.purpleAccent : Colors.grey,
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  '오류가 잦은 복잡한 요금이나 주소를 AI가 완벽하게 파싱합니다.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 12),
+              
+              // API Key 입력 영역
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey[300]!),
+                        ),
+                        child: TextField(
+                          controller: _apiKeyCon,
+                          style: const TextStyle(fontSize: 14),
+                          decoration: const InputDecoration(
+                            hintText: '등록된 Key가 없습니다',
+                            hintStyle: TextStyle(color: Colors.grey, fontSize: 13),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            isDense: true,
+                          ),
+                        ),
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: IconButton(
+                        icon: const Icon(Icons.paste, size: 20, color: Colors.black54),
+                        onPressed: _pasteApiKey,
+                        tooltip: '붙여넣기',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 40),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SizedBox(
+                      height: 40,
+                      child: ElevatedButton(
+                        onPressed: _saveApiKey,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blueAccent,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        child: const Text('저장', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+
+              // 가이드 링크 영역
+              Padding(
+                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16, top: 4),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => launchUrl(Uri.parse('https://aistudio.google.com/app/apikey')),
+                      icon: const Icon(Icons.open_in_new, size: 14, color: Colors.blue),
+                      label: const Text('무료 발급받기', style: TextStyle(fontSize: 12, color: Colors.blue)),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    ),
+                    const SizedBox(width: 16),
+                    TextButton.icon(
+                      onPressed: () => launchUrl(Uri.parse('https://blog.naver.com/dbros/guide')), // 임시 링크
+                      icon: const Icon(Icons.help_outline, size: 14, color: Colors.grey),
+                      label: const Text('발급 가이드', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
             ],
           ),
-          const SizedBox(height: 16),
-          
-          // API Key Input
-          const Text('Gemini API Key (무료)', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _apiKeyCon,
-                  obscureText: !_isEditingKey,
-                  readOnly: !_isEditingKey,
-                  decoration: InputDecoration(
-                    hintText: 'AI Studio에서 발급받은 키 입력',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    filled: true,
-                    fillColor: Theme.of(context).cardColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (!_isEditingKey)
-                ElevatedButton(
-                  onPressed: () => setState(() => _isEditingKey = true),
-                  child: const Text('수정'),
-                )
-              else
-                ElevatedButton(
-                  onPressed: _saveKey,
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-                  child: const Text('저장', style: TextStyle(color: Colors.white)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: () => launchUrl(Uri.parse('https://aistudio.google.com/app/apikey')),
-                  icon: const Icon(Icons.key, size: 16),
-                  label: const Text('무료 발급받기', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-                ),
-              ),
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: () => launchUrl(Uri.parse('https://youtu.be/dummy')), // Placeholder
-                  icon: const Icon(Icons.help_outline, size: 16),
-                  label: const Text('발급 가이드', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-                ),
-              ),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
-          const Divider(),
-          const SizedBox(height: 12),
-          
-          // AdMob Button
-          ValueListenableBuilder<bool>(
-            valueListenable: FeatureUsageService.globalPremiumNotifier,
-            builder: (context, isActive, _) {
-              if (isActive) {
-                return const Center(
-                  child: Text('✅ 24시간 동안 AI 정밀분석을 무제한 사용할 수 있습니다.', 
-                    style: TextStyle(fontSize: 13, color: Colors.green),
-                    textAlign: TextAlign.center,
-                  ),
-                );
-              }
-              return ElevatedButton.icon(
-                onPressed: _isLoadingAd ? null : _watchAdForPremium,
-                icon: _isLoadingAd 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.play_circle_outline, color: Colors.white),
-                label: const Text('📺 광고 보고 24시간 프리미엄 열기', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+        );
+      }
     );
   }
 }

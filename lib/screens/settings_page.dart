@@ -203,7 +203,6 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ),
-      const AiPremiumSection(),
       _buildNoticeSection(),
       Container(key: _keyThemeSettings, child: const ThemeSettingsSection()),
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
@@ -1017,6 +1016,8 @@ class _SettingsPageState extends State<SettingsPage> {
               );
             },
           ),
+          const SizedBox(height: 8),
+          const AiPremiumSection(),
         ],
       ),
     );
