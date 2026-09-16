@@ -662,7 +662,6 @@ class _DriveLogFormState extends State<DriveLogForm>
     final apiKey = SettingsService.geminiApiKey;
     if (apiKey.isEmpty) return;
 
-    // 삼성 갤럭시 AI 스타일 스캔 애니메이션 다이얼로그 노출
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -670,14 +669,22 @@ class _DriveLogFormState extends State<DriveLogForm>
       builder: (_) => AiScannerDialog(imageFile: _capturedImage!),
     );
 
-    try {
-      final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: apiKey,
-      );
+    int retryCount = 0;
+    bool success = false;
 
-      final imageBytes = await _capturedImage!.readAsBytes();
-      final prompt = TextPart('''
+    while (retryCount < 2 && !success) {
+      try {
+        final model = GenerativeModel(
+          model: 'gemini-flash-latest',
+          apiKey: apiKey,
+        );
+
+        // 초압축 로직 주입
+        final compressedPath = await ImageStorageService.compressAndPersistForDisplay(_capturedImage!.path, prefix: 'ai');
+        final compressedFile = File(compressedPath ?? _capturedImage!.path);
+        final imageBytes = await compressedFile.readAsBytes();
+
+        final prompt = TextPart('''
 You are an expert OCR parser for Korean designated driver (대리운전) receipts.
 Extract the following 3 pieces of information from the image and return ONLY a valid JSON object without any markdown wrapping (no ```json).
 
@@ -688,43 +695,64 @@ Keys to return:
 
 If you cannot find a value, return null for that key.
 ''');
-      final imagePart = DataPart('image/jpeg', imageBytes);
+        final imagePart = DataPart('image/jpeg', imageBytes);
 
-      final response = await model.generateContent([
-        Content.multi([prompt, imagePart])
-      ]);
+        final response = await model.generateContent([
+          Content.multi([prompt, imagePart])
+        ]);
 
-      if (response.text != null && mounted) {
-        final rawText = response.text!.trim().replaceAll('```json', '').replaceAll('```', '').trim();
-        final Map<String, dynamic> data = jsonDecode(rawText);
+        if (response.text != null && mounted) {
+          final rawText = response.text!.trim().replaceAll('```json', '').replaceAll('```', '').trim();
+          final Map<String, dynamic> data = jsonDecode(rawText);
 
-        setState(() {
-          if (data['gross_fare'] != null) {
-            _incomeCon.text = data['gross_fare'].toString();
+          setState(() {
+            if (data['gross_fare'] != null) {
+              _incomeCon.text = data['gross_fare'].toString();
+            }
+            if (data['start_location'] != null) {
+              _startLocCon.text = data['start_location'].toString();
+            }
+            if (data['end_location'] != null) {
+              _endLocCon.text = data['end_location'].toString();
+            }
+          });
+          
+          _captureGrossAndApplyDeductions();
+          _applyDeductions();
+
+          success = true;
+          if (mounted) Navigator.of(context).pop();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✨ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
+          );
+        }
+      } catch (e) {
+        final errorString = e.toString().toLowerCase();
+        if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand')) {
+          retryCount++;
+          if (retryCount < 2) {
+            await Future.delayed(const Duration(seconds: 2));
+            continue; // 1회 재시도
           }
-          if (data['start_location'] != null) {
-            _startLocCon.text = data['start_location'].toString();
-          }
-          if (data['end_location'] != null) {
-            _endLocCon.text = data['end_location'].toString();
-          }
-        });
+        }
         
-        _captureGrossAndApplyDeductions();
-        _applyDeductions();
-
-        if (mounted) Navigator.of(context).pop(); // 다이얼로그 닫기
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // 다이얼로그 닫기
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('AI 분석 실패: $e')),
-        );
+        if (mounted) {
+          Navigator.of(context).pop();
+          String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
+          if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand')) {
+            errorMessage = '현재 구글 AI 서버 접속량이 많아 지연되고 있습니다. 잠시 후 다시 시도해주세요.';
+          } else if (errorString.contains('not found')) {
+            errorMessage = '해당 API Key로 AI 모델에 접근할 수 없습니다.';
+          } else {
+            errorMessage = 'AI 분석 실패: ' + e.toString();
+          }
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+        break;
       }
     }
   }
@@ -2379,7 +2407,7 @@ If you cannot find a value, return null for that key.
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (SettingsService.geminiApiKey.isNotEmpty)
+                if (_capturedImage != null && SettingsService.geminiApiKey.isNotEmpty)
                   ValueListenableBuilder<bool>(
                     valueListenable: FeatureUsageService.globalPremiumNotifier,
                     builder: (context, isActive, _) {
@@ -2629,7 +2657,7 @@ If you cannot find a value, return null for that key.
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (SettingsService.geminiApiKey.isNotEmpty)
+            if (_capturedImage != null && SettingsService.geminiApiKey.isNotEmpty)
               ValueListenableBuilder<bool>(
                 valueListenable: FeatureUsageService.globalPremiumNotifier,
                 builder: (context, isActive, _) {
