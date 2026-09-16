@@ -1,3 +1,4 @@
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -671,18 +672,29 @@ class _DriveLogFormState extends State<DriveLogForm>
 
     int retryCount = 0;
     bool success = false;
+    
+    Uint8List? imageBytes;
+    try {
+      // flutter_image_compress를 사용하여 네이티브 레벨에서 0.1초만에 초고속 압축
+      imageBytes = await FlutterImageCompress.compressWithFile(
+        _capturedImage!.path,
+        minWidth: 1024,
+        minHeight: 1024,
+        quality: 80,
+      );
+    } catch (e) {
+      debugPrint('Image compress failed: $e');
+    }
+    
+    // 압축 실패 시 원본 사용
+    imageBytes ??= await _capturedImage!.readAsBytes();
 
-    while (retryCount < 2 && !success) {
+    while (retryCount < 3 && !success) {
       try {
         final model = GenerativeModel(
           model: 'gemini-flash-latest',
           apiKey: apiKey,
         );
-
-        // 초압축 로직 주입
-        final compressedPath = await ImageStorageService.compressAndPersistForDisplay(_capturedImage!.path, prefix: 'ai');
-        final compressedFile = File(compressedPath ?? _capturedImage!.path);
-        final imageBytes = await compressedFile.readAsBytes();
 
         final prompt = TextPart('''
 You are an expert OCR parser for Korean designated driver (대리운전) receipts.
@@ -697,6 +709,7 @@ If you cannot find a value, return null for that key.
 ''');
         final imagePart = DataPart('image/jpeg', imageBytes);
 
+        // 타임아웃을 방지하기 위해 구글 서버에 전송
         final response = await model.generateContent([
           Content.multi([prompt, imagePart])
         ]);
@@ -729,11 +742,14 @@ If you cannot find a value, return null for that key.
         }
       } catch (e) {
         final errorString = e.toString().toLowerCase();
-        if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand')) {
+        
+        // 503이나 Timeout, demand 등 서버 과부하 에러일 경우
+        if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand') || errorString.contains('timeout')) {
           retryCount++;
-          if (retryCount < 2) {
-            await Future.delayed(const Duration(seconds: 2));
-            continue; // 1회 재시도
+          if (retryCount < 3) {
+            // 점진적 백오프: 1초, 2초 대기
+            await Future.delayed(Duration(seconds: retryCount));
+            continue; 
           }
         }
         
@@ -741,7 +757,7 @@ If you cannot find a value, return null for that key.
           Navigator.of(context).pop();
           String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
           if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand')) {
-            errorMessage = '현재 구글 AI 서버 접속량이 많아 지연되고 있습니다. 잠시 후 다시 시도해주세요.';
+            errorMessage = '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
           } else if (errorString.contains('not found')) {
             errorMessage = '해당 API Key로 AI 모델에 접근할 수 없습니다.';
           } else {
