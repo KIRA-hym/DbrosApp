@@ -663,7 +663,7 @@ class _DriveLogFormState extends State<DriveLogForm>
     if (apiKey.isEmpty) return;
 
     // ML Kit Fallback if _currentRawText is empty but we have an image
-    String textToAnalyze = _currentRawText;
+    String textToAnalyze = _currentRawText ?? '';
     if (textToAnalyze.isEmpty && _capturedImage != null) {
       try {
         final inputImage = InputImage.fromFilePath(_capturedImage!.path);
