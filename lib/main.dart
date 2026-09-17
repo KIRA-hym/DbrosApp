@@ -15,6 +15,9 @@ import 'providers/work_timer_provider.dart';
 import 'providers/form_state_provider.dart';
 import 'widgets/app_glass_dialog.dart';
 
+import 'package:google_maps_flutter_android/google_maps_flutter_android.dart';
+import 'package:google_maps_flutter_platform_interface/google_maps_flutter_platform_interface.dart';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
@@ -58,6 +61,16 @@ import 'providers/notice_badge_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // [FIX] Google Maps 블랙스크린 버그 우회 (Android 릴리즈 빌드)
+  // Flutter 최신 엔진의 TLHC 렌더러가 일부 기기에서 지도를 마운트 못하는 이슈 해결
+  if (!kIsWeb && Platform.isAndroid) {
+    final GoogleMapsFlutterPlatform mapsImpl = GoogleMapsFlutterPlatform.instance;
+    if (mapsImpl is GoogleMapsFlutterAndroid) {
+      mapsImpl.useAndroidViewSurface = true;
+    }
+  }
+
   try {
     if (kIsWeb) {
       await Firebase.initializeApp(
