@@ -39,7 +39,6 @@ import 'screens/banned_page.dart';
 import 'services/auth_service.dart';
 import 'services/db_helper.dart';
 import 'services/expense_repository.dart';
-import 'services/feature_usage_service.dart';
 import 'services/rewarded_ad_service.dart';
 import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';

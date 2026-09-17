@@ -1,4 +1,3 @@
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,13 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:photo_manager/photo_manager.dart' hide LatLng;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
@@ -47,7 +44,6 @@ import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
-import '../widgets/ai_scanner_dialog.dart';
 import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
 import '../config/feature_flags.dart';
@@ -138,12 +134,10 @@ class _DriveLogFormState extends State<DriveLogForm>
   String? _persistedRegistrationSource;
 
   int _grossIncome = 0;
-  String _deductionHint = "";
   String _selectedProgram = SettingsService.programList.isNotEmpty
       ? SettingsService.programList.first
       : "카카오(일반)";
   File? _capturedImage;
-  bool _isAiParsing = false;
   bool _showWaypointField = false;
 
   bool _manualWorkDateRoll = false;
@@ -151,7 +145,6 @@ class _DriveLogFormState extends State<DriveLogForm>
   Timer? _workDateRollTimer;
   bool _autoWorkDateRollActive = false;
   bool _overlayAutoOcrHandled = false;
-  int _driveTimeDefaultGen = 0;
 
   // FocusNodes for transport and waypoint tip to detect focus loss (focus out)
   final FocusNode _transportFocusNode = FocusNode();
@@ -696,120 +689,182 @@ class _DriveLogFormState extends State<DriveLogForm>
 
     int retryCount = 0;
     bool success = false;
+    bool dialogClosed = false; // [FIX] 다이얼로그 중복 닫힘 방지 플래그
 
-    while (retryCount < 3 && !success) {
-      try {
-        final model = GenerativeModel(
-          model: 'gemini-1.5-flash',
-          apiKey: apiKey,
-        );
+    // [FIX] 다이얼로그가 어떤 경로로 종료되더라도 반드시 닫히도록 finally로 보장
+    try {
+      while (retryCount < 3 && !success) {
+        try {
+          final model = GenerativeModel(
+            model: 'gemini-2.0-flash', // [FIX] 1.5-flash → 2.0-flash (더 빠르고 안정적)
+            apiKey: apiKey,
+          );
 
-        final prompt = TextPart('''
-You are an expert OCR parser for Korean designated driver (대리운전) receipts.
-Extract the following 3 pieces of information from the OCR text and return ONLY a valid JSON object without any markdown wrapping (no ```json).
+          final prompt = TextPart('''
+You are a precise OCR data extractor for Korean designated driver (대리운전) call receipts.
+Your task: extract exactly 3 fields from the OCR text below and return ONLY a JSON object.
 
-Keys to return:
-- "gross_fare": integer (extract the total fare amount. Remove any commas or '원')
-- "start_location": string (Extract the FULL departure address including all detailed building names and street numbers exactly. However, you MUST ensure that the correct administrative divisions '시/도, 시/군/구, 읍/면/동' are explicitly prepended. If the receipt only shows a detailed location or omits the city/district, logically infer and add the correct '시/도 시/군/구 읍/면/동' in front of the detailed address. 지번 주소와 도로명 주소가 혼재된 경우, 둘 중 하나만 선택하여 가장 완전한 주소를 반환하되 도로명 주소를 우선적으로 선택하세요.)
-- "end_location": string (Extract the FULL destination address using the exact same rule as above. Keep the detailed address but ensure full administrative divisions are prepended. 도로명 주소를 우선적으로 선택하세요.)
+CRITICAL OUTPUT RULES:
+- Return ONLY raw JSON. No markdown, no ```json, no explanation, no extra text.
+- JSON must start with { and end with }
+- Use null (not empty string "") for any field you cannot find.
 
-If you cannot find a value, return null for that key.
+FIELD EXTRACTION RULES:
+
+"gross_fare": integer
+- Find the total fare/payment amount.
+- Labels to look for: 총요금, 요금, 수익, 입금액, 결제금액, P (포인트), 현금, 카드
+- If "수익 N,NNN P + 지원금 M,MMM P" pattern exists, return their sum.
+- Remove all commas, '원', 'P' symbols. Return only the integer number.
+- If amount is clearly less than 5,000 (likely OCR error), multiply by 10.
+- If not found, return null.
+
+"start_location": string
+- Find the DEPARTURE address (출발지, 출발, 출도의 "출").
+- Prefer 도로명주소 (road-name address with 로/길) over 지번주소 (lot number).
+- If only 지번주소 is available, return it as-is.
+- Always prepend the full administrative division: 시/도 + 시/군/구 + 읍/면/동.
+- If city/district is missing from OCR, infer from context (e.g. nearby city names).
+- Remove noise like "배정완료", "고객과 통화", "밀어서", point scores, time stamps.
+- If not found, return null.
+
+"end_location": string
+- Find the DESTINATION address (도착지, 도착, 출도의 "도").
+- Apply the exact same rules as start_location.
+- If not found, return null.
 
 OCR Text:
 $textToAnalyze
 ''');
 
-        // 타임아웃을 방지하기 위해 구글 서버에 전송 (텍스트만)
-        final response = await model.generateContent([
-          Content.text(prompt.text)
-        ]);
+          // 타임아웃을 방지하기 위해 구글 서버에 전송 (텍스트만)
+          final response = await model.generateContent([
+            Content.text(prompt.text)
+          ]);
 
-        if (response.text != null && mounted) {
-          final rawText = response.text!.trim().replaceAll('```json', '').replaceAll('```', '').trim();
-          final Map<String, dynamic> data = jsonDecode(rawText);
-
-          setState(() {
-            if (data['gross_fare'] != null) {
-              _incomeCon.text = data['gross_fare'].toString();
-            }
-            if (data['start_location'] != null) {
-              _startLocCon.text = data['start_location'].toString();
-            }
-            if (data['end_location'] != null) {
-              _endLocCon.text = data['end_location'].toString();
-            }
-          });
-
-          _captureGrossAndApplyDeductions();
-          _applyDeductions();
-
-          success = true;
-          if (mounted) Navigator.of(context).pop(); // AI 로딩창 즉시 닫기 (지오코딩 대기 안 함)
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✨ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
-          );
-
-          // [새로운 기능] 주소가 변경되었으므로 완전히 백그라운드에서 지오코딩 수행 (로딩창 없이)
-          Future.microtask(() async {
-            if (data['start_location'] != null) {
-              try {
-                final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
-                if (startLocs.isNotEmpty && mounted) {
-                  setState(() {
-                    _startLat = startLocs.first.latitude;
-                    _startLng = startLocs.first.longitude;
-                  });
-                }
-              } catch (e) {
-                debugPrint("AI Start Geocode error: $e");
+          if (response.text != null && mounted) {
+            // [FIX] JSON 파싱 실패에 대한 명확한 예외처리
+            Map<String, dynamic>? data;
+            try {
+              final rawText = response.text!
+                  .trim()
+                  .replaceAll('```json', '')
+                  .replaceAll('```', '')
+                  .trim();
+              data = jsonDecode(rawText) as Map<String, dynamic>;
+            } on FormatException {
+              // AI가 JSON이 아닌 응답을 보낸 경우 → 재시도
+              retryCount++;
+              if (retryCount < 3) {
+                await Future.delayed(Duration(seconds: retryCount));
+                continue;
               }
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('AI가 올바른 형식으로 응답하지 않았습니다. 다시 시도해주세요.')),
+                );
+              }
+              break;
             }
 
-            if (data['end_location'] != null) {
-              try {
-                final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
-                if (endLocs.isNotEmpty && mounted) {
-                  setState(() {
-                    _endLat = endLocs.first.latitude;
-                    _endLng = endLocs.first.longitude;
-                  });
-                }
-              } catch (e) {
-                debugPrint("AI End Geocode error: $e");
+            setState(() {
+              if (data!['gross_fare'] != null) {
+                _incomeCon.text = data['gross_fare'].toString();
               }
+              if (data['start_location'] != null) {
+                _startLocCon.text = data['start_location'].toString();
+              }
+              if (data['end_location'] != null) {
+                _endLocCon.text = data['end_location'].toString();
+              }
+            });
+
+            _captureGrossAndApplyDeductions();
+            _applyDeductions();
+
+            success = true;
+            // [FIX] 성공 시 다이얼로그 닫기
+            if (mounted && !dialogClosed) {
+              dialogClosed = true;
+              Navigator.of(context).pop();
             }
-          });
-        }
-      } catch (e) {
-        final errorString = e.toString().toLowerCase();
-        
-        // 503이나 Timeout, demand 등 서버 과부하 에러일 경우
-        if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand') || errorString.contains('timeout')) {
-          retryCount++;
-          if (retryCount < 3) {
-            // 점진적 백오프: 1초, 2초 대기
-            await Future.delayed(Duration(seconds: retryCount));
-            continue; 
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('✨ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
+              );
+            }
+
+            // [새로운 기능] 주소가 변경되었으므로 완전히 백그라운드에서 지오코딩 수행 (로딩창 없이)
+            Future.microtask(() async {
+              if (data!['start_location'] != null) {
+                try {
+                  final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
+                  if (startLocs.isNotEmpty && mounted) {
+                    setState(() {
+                      _startLat = startLocs.first.latitude;
+                      _startLng = startLocs.first.longitude;
+                    });
+                  }
+                } catch (e) {
+                  debugPrint("AI Start Geocode error: $e");
+                  // [FIX] 지오코딩 실패는 조용히 처리 (좌표만 없을 뿐, 주소는 정상 입력됨)
+                }
+              }
+
+              if (data['end_location'] != null) {
+                try {
+                  final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
+                  if (endLocs.isNotEmpty && mounted) {
+                    setState(() {
+                      _endLat = endLocs.first.latitude;
+                      _endLng = endLocs.first.longitude;
+                    });
+                  }
+                } catch (e) {
+                  debugPrint("AI End Geocode error: $e");
+                }
+              }
+            });
           }
-        }
-        
-        if (mounted) {
-          Navigator.of(context).pop();
-          String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
-          if (errorString.contains('503') || errorString.contains('unavailable') || errorString.contains('demand')) {
-            errorMessage = '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
-          } else if (errorString.contains('not found')) {
-            errorMessage = '해당 API Key로 AI 모델에 접근할 수 없습니다.';
-          } else {
-            errorMessage = 'AI 분석 실패: ' + e.toString();
+        } catch (e) {
+          final errorString = e.toString().toLowerCase();
+
+          // 503이나 Timeout, demand 등 서버 과부하 에러일 경우
+          if (errorString.contains('503') || errorString.contains('unavailable') ||
+              errorString.contains('demand') || errorString.contains('timeout')) {
+            retryCount++;
+            if (retryCount < 3) {
+              // 점진적 백오프: 1초, 2초 대기
+              await Future.delayed(Duration(seconds: retryCount));
+              continue;
+            }
           }
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(errorMessage)),
-          );
+
+          if (mounted) {
+            String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
+            if (errorString.contains('503') || errorString.contains('unavailable') ||
+                errorString.contains('demand')) {
+              errorMessage = '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
+            } else if (errorString.contains('not found') || errorString.contains('404')) {
+              errorMessage = '해당 API Key로 AI 모델에 접근할 수 없습니다. 설정에서 API Key를 확인해주세요.';
+            } else if (errorString.contains('invalid') || errorString.contains('api key')) {
+              errorMessage = 'API Key가 유효하지 않습니다. 설정에서 확인해주세요.';
+            } else {
+              errorMessage = 'AI 분석 실패: ${e.toString()}';
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(errorMessage)),
+            );
+          }
+          break;
         }
-        break;
+      }
+    } finally {
+      // [FIX] while 루프가 어떤 이유로 종료되어도 다이얼로그 반드시 닫기
+      if (mounted && !dialogClosed) {
+        dialogClosed = true;
+        Navigator.of(context).pop();
       }
     }
   }
@@ -1662,13 +1717,12 @@ $textToAnalyze
     final int waypointTip = _parseMoney(_waypointTipCon.text);
     final int fee = _currentFeeFromGross();
     final int insurance = _currentInsuranceFee();
+    // 순익·차감 계산 (UI 표시용 로컬 변수 - 향후 표시 기능 확장 시 활용)
     final int net = (_grossIncome - fee - insurance - transport + waypointTip)
         .clamp(0, 999999999);
-    final int deductOnly = fee + insurance + transport;
+    debugPrint('[ApplyDeductions] 순익: ${_formatMoney(net)}원, 차감: ${_formatMoney(fee + insurance + transport)}원');
     setState(() {
-      _deductionHint = _grossIncome > 0
-          ? "순익 ${_formatMoney(net)}원 (차감 ${_formatMoney(deductOnly)}원)"
-          : "";
+      // _grossIncome 업데이트됨
     });
   }
 
