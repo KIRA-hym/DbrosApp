@@ -659,59 +659,69 @@ class _DriveLogFormState extends State<DriveLogForm>
 
   // Phase 5: AI 정밀분석 로직 (Gemini Vision)
   Future<void> _runAiPrecisionAnalysis() async {
-    if (_capturedImage == null) return;
     final apiKey = SettingsService.geminiApiKey;
     if (apiKey.isEmpty) return;
+
+    // ML Kit Fallback if _currentRawText is empty but we have an image
+    String textToAnalyze = _currentRawText;
+    if (textToAnalyze.isEmpty && _capturedImage != null) {
+      try {
+        final inputImage = InputImage.fromFilePath(_capturedImage!.path);
+        final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
+        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+        await textRecognizer.close();
+        textToAnalyze = recognizedText.text;
+        _currentRawText = textToAnalyze; // Cache it
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('이미지 텍스트 추출 중 오류가 발생했습니다: $e')));
+        }
+        return;
+      }
+    }
+
+    if (textToAnalyze.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('분석할 텍스트가 없습니다. 이미지를 먼저 첨부해주세요.')));
+      }
+      return;
+    }
 
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder: (_) => AiScannerDialog(imageFile: _capturedImage!),
+      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
     );
 
     int retryCount = 0;
     bool success = false;
-    
-    Uint8List? imageBytes;
-    try {
-      // flutter_image_compress를 사용하여 네이티브 레벨에서 0.1초만에 초고속 압축
-      imageBytes = await FlutterImageCompress.compressWithFile(
-        _capturedImage!.path,
-        minWidth: 1024,
-        minHeight: 1024,
-        quality: 80,
-      );
-    } catch (e) {
-      debugPrint('Image compress failed: $e');
-    }
-    
-    // 압축 실패 시 원본 사용
-    imageBytes ??= await _capturedImage!.readAsBytes();
 
     while (retryCount < 3 && !success) {
       try {
         final model = GenerativeModel(
-          model: 'gemini-3.6-flash',
+          model: 'gemini-1.5-flash',
           apiKey: apiKey,
         );
 
         final prompt = TextPart('''
 You are an expert OCR parser for Korean designated driver (대리운전) receipts.
-Extract the following 3 pieces of information from the image and return ONLY a valid JSON object without any markdown wrapping (no ```json).
+Extract the following 3 pieces of information from the OCR text and return ONLY a valid JSON object without any markdown wrapping (no ```json).
 
 Keys to return:
 - "gross_fare": integer (extract the total fare amount. Remove any commas or '원')
-- "start_location": string (Extract the FULL departure address including all detailed building names and street numbers exactly. However, you MUST ensure that the correct administrative divisions '시/도, 시/군/구, 읍/면/동' are explicitly prepended. If the receipt only shows a detailed location or omits the city/district, logically infer and add the correct '시/도 시/군/구 읍/면/동' in front of the detailed address.)
-- "end_location": string (Extract the FULL destination address using the exact same rule as above. Keep the detailed address but ensure full administrative divisions are prepended.)
+- "start_location": string (Extract the FULL departure address including all detailed building names and street numbers exactly. However, you MUST ensure that the correct administrative divisions '시/도, 시/군/구, 읍/면/동' are explicitly prepended. If the receipt only shows a detailed location or omits the city/district, logically infer and add the correct '시/도 시/군/구 읍/면/동' in front of the detailed address. 지번 주소와 도로명 주소가 혼재된 경우, 둘 중 하나만 선택하여 가장 완전한 주소를 반환하되 도로명 주소를 우선적으로 선택하세요.)
+- "end_location": string (Extract the FULL destination address using the exact same rule as above. Keep the detailed address but ensure full administrative divisions are prepended. 도로명 주소를 우선적으로 선택하세요.)
 
 If you cannot find a value, return null for that key.
-''');
-        final imagePart = DataPart('image/jpeg', imageBytes);
 
-        // 타임아웃을 방지하기 위해 구글 서버에 전송
+OCR Text:
+$textToAnalyze
+''');
+
+        // 타임아웃을 방지하기 위해 구글 서버에 전송 (텍스트만)
         final response = await model.generateContent([
-          Content.multi([prompt, imagePart])
+          Content.text(prompt.text)
         ]);
 
         if (response.text != null && mounted) {
@@ -2454,7 +2464,7 @@ If you cannot find a value, return null for that key.
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (_capturedImage != null && SettingsService.geminiApiKey.isNotEmpty)
+                if (SettingsService.geminiApiKey.isNotEmpty)
                   ValueListenableBuilder<bool>(
                     valueListenable: FeatureUsageService.globalPremiumNotifier,
                     builder: (context, isActive, _) {
@@ -2704,7 +2714,7 @@ If you cannot find a value, return null for that key.
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_capturedImage != null && SettingsService.geminiApiKey.isNotEmpty)
+            if (SettingsService.geminiApiKey.isNotEmpty)
               ValueListenableBuilder<bool>(
                 valueListenable: FeatureUsageService.globalPremiumNotifier,
                 builder: (context, isActive, _) {

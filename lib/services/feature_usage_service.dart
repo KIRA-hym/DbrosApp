@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/work_date_utils.dart';
+import 'settings_service.dart';
 
 class FeatureUsageService {
   static late SharedPreferences _prefs;
@@ -17,6 +18,13 @@ class FeatureUsageService {
 
   /// 현재 시간에 맞춰 전역 프리미엄 스위치를 업데이트합니다 (AppLifecycleState.resumed 등에서 호출)
   static void _updateGlobalPremiumState() {
+    if (SettingsService.isRevenueCatPremium && SettingsService.geminiApiKey.isNotEmpty) {
+      if (globalPremiumNotifier.value != true) {
+        globalPremiumNotifier.value = true;
+      }
+      return;
+    }
+
     final expiry = _prefs.getInt(_globalPremiumExpiryKey) ?? 0;
     final isActive = DateTime.now().millisecondsSinceEpoch < expiry;
     if (globalPremiumNotifier.value != isActive) {
