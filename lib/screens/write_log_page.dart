@@ -718,7 +718,7 @@ class _DriveLogFormState extends State<DriveLogForm>
   Future<Map<String, dynamic>> _callGeminiWithRetry(String ocrText) async {
     final apiKey = SettingsService.geminiApiKey;
     // 모델명: Firebase Remote Config 없이 코드에서 직접 관리
-    const modelName = 'gemini-flash-latest';
+    const modelName = 'gemini-3.8-flash';
     final uri = Uri.parse(
       'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
     );
@@ -3805,6 +3805,7 @@ RULES:
     return options.first;
   }
 }
+
 
 
 
