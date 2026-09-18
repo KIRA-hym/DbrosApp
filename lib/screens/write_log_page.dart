@@ -1,4 +1,4 @@
-import '../widgets/ai_scanner_dialog.dart';
+﻿import '../widgets/ai_scanner_dialog.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:firebase_ai/firebase_ai.dart' hide LatLng;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -616,7 +616,7 @@ class _DriveLogFormState extends State<DriveLogForm>
           inputImage,
         );
         await textRecognizer.close();
-
+        _currentRawText = recognizedText.text; // [FIX] ✨ 클릭 시 중복 OCR 방지
         _detectProgramAndParse(
           recognizedText,
           originalDate: result.creationDate,
@@ -669,29 +669,125 @@ class _DriveLogFormState extends State<DriveLogForm>
     }
   }
 
-  // Phase 5: AI 정밀분석 로직 (Gemini Vision)
-  Future<void> _runAiPrecisionAnalysis() async {
-    final apiKey = SettingsService.geminiApiKey;
-    if (apiKey.isEmpty) return;
+    // ──────────────────────────────────────────────────────────────
+  // Phase 5: AI 정밀분석 로직 (firebase_ai / gemini-3.8-flash)
+  // ──────────────────────────────────────────────────────────────
 
-    // ML Kit Fallback if _currentRawText is empty but we have an image
+  /// 서버 에러 여부 판별
+  bool _isRetryableError(String err) =>
+      err.contains('503') ||
+      err.contains('429') ||
+      err.contains('unavailable') ||
+      err.contains('resource exhausted') ||
+      err.contains('quota') ||
+      err.contains('rate');
+
+  /// 사용자용 에러 메시지 변환
+  String _geminiErrorMessage(Object e) {
+    final err = e.toString().toLowerCase();
+    if (_isRetryableError(err)) return '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
+    if (err.contains('404') || err.contains('not found')) return '해당 API Key로 AI 모델에 접근할 수 없습니다. 설정에서 API Key를 확인해주세요.';
+    if (err.contains('invalid') || err.contains('api key')) return 'API Key가 유효하지 않습니다. 설정에서 확인해주세요.';
+    return 'AI 분석 실패: ${e.toString()}';
+  }
+
+  /// Exponential Backoff: 5초 → 10초 → 20초 + 최대 2초 Jitter
+  Future<void> _geminiBackoff(int attempt) async {
+    final ms = (5000 * (1 << attempt)) + (DateTime.now().millisecond % 2000);
+    await Future.delayed(Duration(milliseconds: ms));
+  }
+
+  /// JSON 안전 파싱: 앞뒤 잡문자 제거 후 { } 범위만 추출
+  Map<String, dynamic> _parseGeminiJson(String raw) {
+    final cleaned = raw
+        .trim()
+        .replaceAll('`json', '')
+        .replaceAll('`', '')
+        .trim();
+    final start = cleaned.indexOf('{');
+    final end = cleaned.lastIndexOf('}');
+    if (start == -1 || end == -1 || start > end) {
+      throw const FormatException('JSON 블록을 찾을 수 없습니다.');
+    }
+    return jsonDecode(cleaned.substring(start, end + 1)) as Map<String, dynamic>;
+  }
+
+  /// Gemini API 호출 + Retry (최대 3회, Exponential Backoff)
+  Future<Map<String, dynamic>> _callGeminiWithRetry(String ocrText) async {
+    // firebase_ai 사용 — Firebase는 main.dart에서 이미 초기화됨
+    final model = FirebaseAI.googleAI().generativeModel(
+      model: 'gemini-3.8-flash',
+      generationConfig: GenerationConfig(
+        temperature: 0.0,     // 결정적 응답 (JSON 추출용)
+        maxOutputTokens: 150, // 3필드 JSON은 100토큰 이내
+      ),
+    );
+
+    const prompt = '''
+You are a precise OCR data extractor for Korean designated driver (대리운전) call receipts.
+Return ONLY a raw JSON object with exactly these 3 fields. No markdown, no explanation.
+
+{"gross_fare": integer|null, "start_location": string|null, "end_location": string|null}
+
+RULES:
+- gross_fare: 총요금/요금/수익/입금액/결제금액. 콤마·원·P 제거 후 정수. 5000 미만이면 ×10. 없으면 null.
+- start_location: 출발지 주소. 도로명 우선. 시/도+구/군+읍/면/동 반드시 포함. 없으면 null.
+- end_location: 도착지 주소. start_location과 동일 규칙. 없으면 null.
+- 노이즈 제거: 배정완료, 고객과 통화, 밀어서, 타임스탬프, 포인트 점수.
+''';
+
+    const maxRetries = 3;
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        final response = await model
+            .generateContent([Content.text('${prompt}\nOCR Text:\n${ocrText}')])
+            .timeout(const Duration(seconds: 20));
+
+        final text = response.text;
+        if (text == null || text.trim().isEmpty) {
+          throw const FormatException('빈 응답');
+        }
+        return _parseGeminiJson(text);
+
+      } on TimeoutException {
+        if (attempt == maxRetries - 1) rethrow;
+        await _geminiBackoff(attempt);
+
+      } on FormatException {
+        // JSON 파싱 실패 → 재시도
+        if (attempt == maxRetries - 1) rethrow;
+        await _geminiBackoff(attempt);
+
+      } catch (e) {
+        final err = e.toString().toLowerCase();
+        if (_isRetryableError(err) && attempt < maxRetries - 1) {
+          await _geminiBackoff(attempt);
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw Exception('최대 재시도 횟수를 초과했습니다.');
+  }
+
+  // Phase 5: AI 정밀분석 진입점
+  Future<void> _runAiPrecisionAnalysis() async {
+    if (SettingsService.geminiApiKey.isEmpty) return;
+
+    // ── ML Kit Fallback: _currentRawText 없으면 이미지에서 재추출 ──
     String textToAnalyze = _currentRawText ?? '';
     if (textToAnalyze.isEmpty && _capturedImage != null) {
       try {
         final inputImage = InputImage.fromFilePath(_capturedImage!.path);
-        final textRecognizer = TextRecognizer(
-          script: TextRecognitionScript.korean,
-        );
-        final RecognizedText recognizedText = await textRecognizer.processImage(
-          inputImage,
-        );
+        final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
+        final RecognizedText recognized = await textRecognizer.processImage(inputImage);
         await textRecognizer.close();
-        textToAnalyze = recognizedText.text;
-        _currentRawText = textToAnalyze; // Cache it
+        textToAnalyze = recognized.text;
+        _currentRawText = textToAnalyze;
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('이미지 텍스트 추출 중 오류가 발생했습니다: $e')),
+            SnackBar(content: Text('이미지 텍스트 추출 중 오류가 발생했습니다: ${e}')),
           );
         }
         return;
@@ -707,6 +803,8 @@ class _DriveLogFormState extends State<DriveLogForm>
       return;
     }
 
+    // ── 로딩 다이얼로그 표시 ──────────────────────────────────────
+    bool dialogClosed = false;
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -714,204 +812,95 @@ class _DriveLogFormState extends State<DriveLogForm>
       builder: (_) => AiScannerDialog(imageFile: _capturedImage!),
     );
 
-    int retryCount = 0;
-    bool success = false;
-    bool dialogClosed = false; // [FIX] 다이얼로그 중복 닫힘 방지 플래그
-
-    // [FIX] 다이얼로그가 어떤 경로로 종료되더라도 반드시 닫히도록 finally로 보장
     try {
-      while (retryCount < 3 && !success) {
-        try {
-          final model = GenerativeModel(
-            model: 'gemini-3.6-flash', // 검증된 안정 모델 (503 무한대기 이슈 해결 버전)
-            apiKey: apiKey,
-          );
+      // ── Gemini API 호출 (Retry 내장) ─────────────────────────────
+      final data = await _callGeminiWithRetry(textToAnalyze);
 
-          final prompt = TextPart('''
-You are a precise OCR data extractor for Korean designated driver (대리운전) call receipts.
-Your task: extract exactly 3 fields from the OCR text below and return ONLY a JSON object.
+      if (!mounted) return;
 
-CRITICAL OUTPUT RULES:
-- Return ONLY raw JSON. No markdown, no ```json, no explanation, no extra text.
-- JSON must start with { and end with }
-- Use null (not empty string "") for any field you cannot find.
-
-FIELD EXTRACTION RULES:
-
-"gross_fare": integer
-- Find the total fare/payment amount.
-- Labels to look for: 총요금, 요금, 수익, 입금액, 결제금액, P (포인트), 현금, 카드
-- If "수익 N,NNN P + 지원금 M,MMM P" pattern exists, return their sum.
-- Remove all commas, '원', 'P' symbols. Return only the integer number.
-- If amount is clearly less than 5,000 (likely OCR error), multiply by 10.
-- If not found, return null.
-
-"start_location": string
-- Find the DEPARTURE address (출발지, 출발, 출도의 "출").
-- Prefer 도로명주소 (road-name address with 로/길) over 지번주소 (lot number).
-- If only 지번주소 is available, return it as-is.
-- Always prepend the full administrative division: 시/도 + 시/군/구 + 읍/면/동.
-- If city/district is missing from OCR, infer from context (e.g. nearby city names).
-- Remove noise like "배정완료", "고객과 통화", "밀어서", point scores, time stamps.
-- If not found, return null.
-
-"end_location": string
-- Find the DESTINATION address (도착지, 도착, 출도의 "도").
-- Apply the exact same rules as start_location.
-- If not found, return null.
-
-OCR Text:
-$textToAnalyze
-''');
-
-          // 타임아웃을 방지하기 위해 구글 서버에 전송 (텍스트만)
-          final response = await model.generateContent([
-            Content.text(prompt.text),
-          ]);
-
-          if (response.text != null && mounted) {
-            // [FIX] JSON 파싱 실패에 대한 명확한 예외처리
-            Map<String, dynamic>? data;
-            try {
-              final rawText = response.text!
-                  .trim()
-                  .replaceAll('```json', '')
-                  .replaceAll('```', '')
-                  .trim();
-              data = jsonDecode(rawText) as Map<String, dynamic>;
-            } on FormatException {
-              // AI가 JSON이 아닌 응답을 보낸 경우 → 재시도
-              retryCount++;
-              if (retryCount < 3) {
-                await Future.delayed(Duration(seconds: retryCount));
-                continue;
-              }
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('AI가 올바른 형식으로 응답하지 않았습니다. 다시 시도해주세요.'),
-                  ),
-                );
-              }
-              break;
-            }
-
-            setState(() {
-              if (data!['gross_fare'] != null) {
-                _incomeCon.text = data['gross_fare'].toString();
-              }
-              if (data['start_location'] != null) {
-                _startLocCon.text = data['start_location'].toString();
-              }
-              if (data['end_location'] != null) {
-                _endLocCon.text = data['end_location'].toString();
-              }
-            });
-
-            _captureGrossAndApplyDeductions();
-            _applyDeductions();
-
-            success = true;
-            // [FIX] 성공 시 다이얼로그 닫기
-            if (mounted && !dialogClosed) {
-              dialogClosed = true;
-              Navigator.of(context).pop();
-            }
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    '✨ AI 분석으로 데이터가 수정되었습니다.',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              );
-            }
-
-            // [새로운 기능] 주소가 변경되었으므로 완전히 백그라운드에서 지오코딩 수행 (로딩창 없이)
-            Future.microtask(() async {
-              if (data!['start_location'] != null) {
-                try {
-                  final startLocs = await locationFromAddress(
-                    normalizeAddressForGeocode(_startLocCon.text),
-                  );
-                  if (startLocs.isNotEmpty && mounted) {
-                    setState(() {
-                      _startLat = startLocs.first.latitude;
-                      _startLng = startLocs.first.longitude;
-                    });
-                  }
-                } catch (e) {
-                  debugPrint("AI Start Geocode error: $e");
-                  // [FIX] 지오코딩 실패는 조용히 처리 (좌표만 없을 뿐, 주소는 정상 입력됨)
-                }
-              }
-
-              if (data!['end_location'] != null) {
-                try {
-                  final endLocs = await locationFromAddress(
-                    normalizeAddressForGeocode(_endLocCon.text),
-                  );
-                  if (endLocs.isNotEmpty && mounted) {
-                    setState(() {
-                      _endLat = endLocs.first.latitude;
-                      _endLng = endLocs.first.longitude;
-                    });
-                  }
-                } catch (e) {
-                  debugPrint("AI End Geocode error: $e");
-                }
-              }
-            });
-          }
-        } catch (e) {
-          final errorString = e.toString().toLowerCase();
-
-          // 503이나 Timeout, demand 등 서버 과부하 에러일 경우
-          if (errorString.contains('503') ||
-              errorString.contains('unavailable') ||
-              errorString.contains('demand') ||
-              errorString.contains('timeout')) {
-            retryCount++;
-            if (retryCount < 3) {
-              // 점진적 백오프: 1초, 2초 대기
-              await Future.delayed(Duration(seconds: retryCount));
-              continue;
-            }
-          }
-
-          if (mounted) {
-            String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
-            if (errorString.contains('503') ||
-                errorString.contains('unavailable') ||
-                errorString.contains('demand')) {
-              errorMessage = '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
-            } else if (errorString.contains('not found') ||
-                errorString.contains('404')) {
-              errorMessage =
-                  '해당 API Key로 AI 모델에 접근할 수 없습니다. 설정에서 API Key를 확인해주세요.';
-            } else if (errorString.contains('invalid') ||
-                errorString.contains('api key')) {
-              errorMessage = 'API Key가 유효하지 않습니다. 설정에서 확인해주세요.';
-            } else {
-              errorMessage = 'AI 분석 실패: ${e.toString()}';
-            }
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(errorMessage)));
-          }
-          break;
+      // ── 폼 필드 반영 ─────────────────────────────────────────────
+      setState(() {
+        if (data['gross_fare'] != null) {
+          _incomeCon.text = data['gross_fare'].toString();
         }
+        if (data['start_location'] != null) {
+          _startLocCon.text = data['start_location'].toString();
+        }
+        if (data['end_location'] != null) {
+          _endLocCon.text = data['end_location'].toString();
+        }
+      });
+
+      _captureGrossAndApplyDeductions();
+      _applyDeductions();
+
+      // ── 성공 다이얼로그 닫기 ─────────────────────────────────────
+      if (mounted && !dialogClosed) {
+        dialogClosed = true;
+        Navigator.of(context).pop();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '✨ AI 분석으로 데이터가 수정되었습니다.',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+      }
+
+      // ── 백그라운드 지오코딩 (주소 변경 시 좌표 갱신) ────────────
+      Future.microtask(() async {
+        if (data['start_location'] != null) {
+          try {
+            final locs = await locationFromAddress(
+              normalizeAddressForGeocode(_startLocCon.text),
+            );
+            if (locs.isNotEmpty && mounted) {
+              setState(() {
+                _startLat = locs.first.latitude;
+                _startLng = locs.first.longitude;
+              });
+            }
+          } catch (e) {
+            debugPrint('AI Start Geocode error: ${e}');
+          }
+        }
+        if (data['end_location'] != null) {
+          try {
+            final locs = await locationFromAddress(
+              normalizeAddressForGeocode(_endLocCon.text),
+            );
+            if (locs.isNotEmpty && mounted) {
+              setState(() {
+                _endLat = locs.first.latitude;
+                _endLng = locs.first.longitude;
+              });
+            }
+          } catch (e) {
+            debugPrint('AI End Geocode error: ${e}');
+          }
+        }
+      });
+
+    } catch (e) {
+      // ── 에러 처리 ─────────────────────────────────────────────────
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(_geminiErrorMessage(e))),
+        );
       }
     } finally {
-      // [FIX] while 루프가 어떤 이유로 종료되어도 다이얼로그 반드시 닫기
+      // ── 다이얼로그 반드시 닫기 ───────────────────────────────────
       if (mounted && !dialogClosed) {
         dialogClosed = true;
         Navigator.of(context).pop();
       }
     }
   }
+
 
   String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) {
     final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
@@ -3782,3 +3771,10 @@ $textToAnalyze
     return options.first;
   }
 }
+
+
+
+
+
+
+
