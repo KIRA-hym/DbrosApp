@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:firebase_ai/firebase_ai.dart' hide LatLng;
+import 'package:http/http.dart' as http;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:intl/intl.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
@@ -713,14 +713,14 @@ class _DriveLogFormState extends State<DriveLogForm>
   }
 
   /// Gemini API 호출 + Retry (최대 3회, Exponential Backoff)
+    /// Gemini REST API 직접 호출 + Retry (최대 3회, Exponential Backoff)
+  /// 사용자 개인 API Key 사용 → 개발자 비용 없음
   Future<Map<String, dynamic>> _callGeminiWithRetry(String ocrText) async {
-    // firebase_ai 사용 — Firebase는 main.dart에서 이미 초기화됨
-    final model = FirebaseAI.googleAI().generativeModel(
-      model: 'gemini-3.8-flash',
-      generationConfig: GenerationConfig(
-        temperature: 0.0,     // 결정적 응답 (JSON 추출용)
-        maxOutputTokens: 150, // 3필드 JSON은 100토큰 이내
-      ),
+    final apiKey = SettingsService.geminiApiKey;
+    // 모델명: Firebase Remote Config 없이 코드에서 직접 관리
+    const modelName = 'gemini-flash-latest';
+    final uri = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1beta/models/$modelName:generateContent?key=$apiKey',
     );
 
     const prompt = '''
@@ -736,25 +736,59 @@ RULES:
 - 노이즈 제거: 배정완료, 고객과 통화, 밀어서, 타임스탬프, 포인트 점수.
 ''';
 
+    final requestBody = jsonEncode({
+      'contents': [
+        {
+          'parts': [
+            {'text': '$prompt\nOCR Text:\n$ocrText'},
+          ],
+        },
+      ],
+      'generationConfig': {
+        'temperature': 0.0,
+        'maxOutputTokens': 150,
+      },
+    });
+
     const maxRetries = 3;
     for (int attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        final response = await model
-            .generateContent([Content.text('${prompt}\nOCR Text:\n${ocrText}')])
+        final response = await http
+            .post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: requestBody,
+            )
             .timeout(const Duration(seconds: 20));
 
-        final text = response.text;
-        if (text == null || text.trim().isEmpty) {
-          throw const FormatException('빈 응답');
+        if (response.statusCode == 200) {
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          final text =
+              (((json['candidates'] as List).first)['content']['parts']
+                  as List)
+              .first['text'] as String;
+          return _parseGeminiJson(text);
         }
-        return _parseGeminiJson(text);
+
+        // 서버 과부하 에러 → 재시도
+        if ((response.statusCode == 503 || response.statusCode == 429) &&
+            attempt < maxRetries - 1) {
+          await _geminiBackoff(attempt);
+          continue;
+        }
+
+        // 그 외 에러 → 에러 메시지 추출 후 즉시 실패
+        final errorBody = jsonDecode(response.body) as Map<String, dynamic>;
+        final message =
+            (errorBody['error'] as Map<String, dynamic>?)?['message']
+            ?? '알 수 없는 오류 (${response.statusCode})';
+        throw Exception(message);
 
       } on TimeoutException {
         if (attempt == maxRetries - 1) rethrow;
         await _geminiBackoff(attempt);
 
       } on FormatException {
-        // JSON 파싱 실패 → 재시도
         if (attempt == maxRetries - 1) rethrow;
         await _geminiBackoff(attempt);
 
@@ -3771,6 +3805,9 @@ RULES:
     return options.first;
   }
 }
+
+
+
 
 
 
