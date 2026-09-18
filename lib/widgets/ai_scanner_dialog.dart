@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 
 class AiScannerDialog extends StatefulWidget {
@@ -69,7 +69,7 @@ class _AiScannerDialogState extends State<AiScannerDialog> with SingleTickerProv
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.7),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5)),
+                border: Border.all(color: const Color(0xFFFFC700).withOpacity(0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -105,7 +105,7 @@ class _ScannerPainter extends CustomPainter {
     
     // Glowing Line
     final linePaint = Paint()
-      ..color = Colors.purpleAccent
+      ..color = const Color(0xFFFFC700)
       ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 4.0);
@@ -118,8 +118,8 @@ class _ScannerPainter extends CustomPainter {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Colors.purpleAccent.withOpacity(0.0),
-        Colors.purpleAccent.withOpacity(0.3),
+        const Color(0xFFFFC700).withOpacity(0.0),
+        const Color(0xFFFFC700).withOpacity(0.3),
       ],
     );
     
