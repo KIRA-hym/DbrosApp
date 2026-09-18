@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:flutter/material.dart';
@@ -343,6 +343,7 @@ class BackupService {
       if (!context.mounted) return true;
       _maybeShowSnackBar(context, '데이터 복원이 완료되었습니다.');
       DriveLogDatabase.afterLogsChanged?.call();
+      DriveLogDatabase.onLogChangedStream.add(null);
       return true;
     } catch (e) {
       if (!context.mounted) return false;
@@ -521,3 +522,4 @@ class BackupService {
     return false;
   }
 }
+

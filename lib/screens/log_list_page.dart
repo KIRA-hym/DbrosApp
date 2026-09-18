@@ -1,3 +1,4 @@
+﻿import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -61,6 +62,8 @@ class LogListPage extends StatefulWidget {
 }
 
 class _LogListPageState extends State<LogListPage> {
+  StreamSubscription? _dbSub;
+  Timer? _debounce;
   DateTime _focusedMonth = DateTime.now();
   String _currentSort = 'date_asc';
   Map<String, List<Map<String, dynamic>>> _groupedLogs = {};
@@ -536,6 +539,12 @@ class _LogListPageState extends State<LogListPage> {
   @override
   void initState() {
     super.initState();
+    _dbSub = DriveLogDatabase.onLogChangedStream.stream.listen((_) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) _loadMonthData();
+      });
+    });
     _loadMonthData();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -691,6 +700,8 @@ class _LogListPageState extends State<LogListPage> {
 
   @override
   void dispose() {
+    _dbSub?.cancel();
+    _debounce?.cancel();
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.removeListener(_onGuideRequested);
     _scrollController.dispose();
@@ -2273,6 +2284,8 @@ class DailyLogListPage extends StatefulWidget {
 }
 
 class _DailyLogListPageState extends State<DailyLogListPage> {
+  StreamSubscription? _dbSub;
+  Timer? _debounce;
   List<Map<String, dynamic>> _dailyLogs = [];
   bool _isLoading = true;
   bool _poppingForExpandedLayout = false;
@@ -2302,6 +2315,12 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
   @override
   void initState() {
     super.initState();
+    _dbSub = DriveLogDatabase.onLogChangedStream.stream.listen((_) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) _loadData();
+      });
+    });
     _currentDateStr = widget.dateStr;
     _currentDateTitle = widget.dateTitle;
     _loadData();
@@ -2474,6 +2493,8 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
 
   @override
   void dispose() {
+    _dbSub?.cancel();
+    _debounce?.cancel();
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.removeListener(_onGuideRequested);
     super.dispose();
@@ -3129,34 +3150,53 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
                           Flexible(
                             child: Builder(
                               builder: (context) {
-                                final isAuto = log['registration_source']?.toString() == DriveLogRegistrationSource.screenshotAuto;
+                                final isAuto =
+                                    log['registration_source']?.toString() ==
+                                    DriveLogRegistrationSource.screenshotAuto;
                                 final textWidget = Text(
                                   log['program']?.toString() ?? '',
                                   style: TextStyle(
                                     color: isAuto
                                         ? const Color(0xFFFFB74D)
-                                        : (Theme.of(context).textTheme.bodyLarge?.color ?? Colors.white).withOpacity(0.7),
+                                        : (Theme.of(context)
+                                                      .textTheme
+                                                      .bodyLarge
+                                                      ?.color ??
+                                                  Colors.white)
+                                              .withOpacity(0.7),
                                     fontSize: lay.programFontSize,
-                                    fontWeight: isAuto ? FontWeight.w600 : FontWeight.normal,
+                                    fontWeight: isAuto
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
                                     height: isAuto ? 1.1 : null,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 );
-                                
+
                                 return Container(
                                   padding: EdgeInsets.symmetric(
-                                    horizontal: isAuto ? 8.0 : 0.0, 
-                                    vertical: 3.0
+                                    horizontal: isAuto ? 8.0 : 0.0,
+                                    vertical: 3.0,
                                   ),
-                                  decoration: isAuto ? BoxDecoration(
-                                    color: const Color(0xFF2E323C),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: const Color(0xFF6E717C).withValues(alpha: 0.6)),
-                                  ) : const BoxDecoration(color: Colors.transparent),
+                                  decoration: isAuto
+                                      ? BoxDecoration(
+                                          color: const Color(0xFF2E323C),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(
+                                              0xFF6E717C,
+                                            ).withValues(alpha: 0.6),
+                                          ),
+                                        )
+                                      : const BoxDecoration(
+                                          color: Colors.transparent,
+                                        ),
                                   child: textWidget,
                                 );
-                              }
+                              },
                             ),
                           ),
                           if (_hasLogError(log)) ...[
@@ -3757,3 +3797,4 @@ class _DailyLogListPageState extends State<DailyLogListPage> {
     }
   }
 }
+

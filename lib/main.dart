@@ -125,6 +125,7 @@ void main() async {
   DriveLogDatabase.afterLogsChanged = () {
     TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
     TodayStatsProvider.instance.refresh();
+    DriveLogDatabase.onLogChangedStream.add(null);
     WorkTimerProvider.instance?.autoClockInIfNeeded();
   };
   ExpenseRepository.afterExpensesChanged = () {

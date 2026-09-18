@@ -85,6 +85,31 @@ class _AiPremiumSectionState extends State<AiPremiumSection> {
   }
 
   Future<void> _watchAdForPremium() async {
+    // 공통 규칙: 광고 시청 전 안내 팝업 먼저 표시
+    final confirm = await AppGlassDialog.show<bool>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.play_circle_outline,
+        title: '기능 일시 잠금 해제',
+        content: '30초 광고를 시청하시면 24시간 동안 AI 정밀분석을 무료로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?',
+        actions: [
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, false),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogConfirmButton(
+              label: '시청하기',
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
     setState(() => _isLoadingAd = true);
     try {
       RewardedAdService.showAd(

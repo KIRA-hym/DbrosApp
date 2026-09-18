@@ -696,7 +696,7 @@ class _DriveLogFormState extends State<DriveLogForm>
       while (retryCount < 3 && !success) {
         try {
           final model = GenerativeModel(
-            model: 'gemini-2.0-flash', // [FIX] 1.5-flash → 2.0-flash (더 빠르고 안정적)
+            model: 'gemini-3.6-flash', // 검증된 안정 모델 (503 무한대기 이슈 해결 버전)
             apiKey: apiKey,
           );
 
@@ -812,7 +812,7 @@ $textToAnalyze
                 }
               }
 
-              if (data['end_location'] != null) {
+              if (data!['end_location'] != null) {
                 try {
                   final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
                   if (endLocs.isNotEmpty && mounted) {
@@ -2518,7 +2518,7 @@ $textToAnalyze
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (SettingsService.geminiApiKey.isNotEmpty)
+                if (SettingsService.geminiApiKey.isNotEmpty && _capturedImage != null)
                   ValueListenableBuilder<bool>(
                     valueListenable: FeatureUsageService.globalPremiumNotifier,
                     builder: (context, isActive, _) {
@@ -2768,7 +2768,7 @@ $textToAnalyze
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (SettingsService.geminiApiKey.isNotEmpty)
+            if (SettingsService.geminiApiKey.isNotEmpty && _capturedImage != null)
               ValueListenableBuilder<bool>(
                 valueListenable: FeatureUsageService.globalPremiumNotifier,
                 builder: (context, isActive, _) {

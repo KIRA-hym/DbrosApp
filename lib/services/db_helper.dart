@@ -1,3 +1,4 @@
+﻿import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -15,6 +16,9 @@ class DriveLogDatabase {
 
   /// 일지 저장·삭제 후 호출 (고정 알림 갱신 등).
   static void Function()? afterLogsChanged;
+
+  /// 전역 DB 변경 감지 스트림
+  static final StreamController<void> onLogChangedStream = StreamController<void>.broadcast();
 
   static List<Map<String, dynamic>> _mockLogsAllForWeb() {
     final now = DateTime.now();

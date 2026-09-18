@@ -1,3 +1,4 @@
+﻿import 'dart:async';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 import 'dart:convert';
@@ -87,6 +88,8 @@ class StatsPage extends StatefulWidget {
 }
 
 class _StatsPageState extends State<StatsPage> {
+  StreamSubscription? _dbSub;
+  Timer? _debounce;
   final ScreenshotController _summaryScreenshotController =
       ScreenshotController();
 
@@ -121,6 +124,12 @@ class _StatsPageState extends State<StatsPage> {
   @override
   void initState() {
     super.initState();
+    _dbSub = DriveLogDatabase.onLogChangedStream.stream.listen((_) {
+      if (_debounce?.isActive ?? false) _debounce!.cancel();
+      _debounce = Timer(const Duration(milliseconds: 300), () {
+        if (mounted) _loadStats();
+      });
+    });
     _loadStats();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -135,6 +144,8 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   void dispose() {
+    _dbSub?.cancel();
+    _debounce?.cancel();
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.removeListener(_onGuideRequested);
     super.dispose();
@@ -3060,6 +3071,7 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   @override
   void initState() {
     super.initState();
+
     _generateNumberedMarkers();
   }
 
@@ -3460,3 +3472,4 @@ class LineChartPainter extends CustomPainter {
   @override
   bool shouldRepaint(LineChartPainter oldDelegate) => true;
 }
+
