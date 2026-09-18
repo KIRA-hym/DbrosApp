@@ -1,3 +1,4 @@
+import '../widgets/ai_scanner_dialog.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -454,8 +455,14 @@ class _DriveLogFormState extends State<DriveLogForm>
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('마이크 권한 필요', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('음성 인식을 위해 마이크 권한이 필요합니다.\n설정에서 권한을 허용해주세요.', style: TextStyle(color: Colors.grey)),
+          title: const Text(
+            '마이크 권한 필요',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            '음성 인식을 위해 마이크 권한이 필요합니다.\n설정에서 권한을 허용해주세요.',
+            style: TextStyle(color: Colors.grey),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -466,7 +473,10 @@ class _DriveLogFormState extends State<DriveLogForm>
                 Navigator.pop(context);
                 openAppSettings();
               },
-              child: const Text('설정으로 이동', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text(
+                '설정으로 이동',
+                style: TextStyle(color: Color(0xFFFFC700)),
+              ),
             ),
           ],
         ),
@@ -521,12 +531,21 @@ class _DriveLogFormState extends State<DriveLogForm>
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('음성 인식 오류', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('기기에서 음성 인식(STT)을 초기화할 수 없습니다.\n구글 음성 인식 엔진이 켜져 있는지 확인해주세요.', style: TextStyle(color: Colors.grey)),
+          title: const Text(
+            '음성 인식 오류',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          content: const Text(
+            '기기에서 음성 인식(STT)을 초기화할 수 없습니다.\n구글 음성 인식 엔진이 켜져 있는지 확인해주세요.',
+            style: TextStyle(color: Colors.grey),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
+              child: const Text(
+                '확인',
+                style: TextStyle(color: Color(0xFFFFC700)),
+              ),
             ),
           ],
         ),
@@ -660,14 +679,20 @@ class _DriveLogFormState extends State<DriveLogForm>
     if (textToAnalyze.isEmpty && _capturedImage != null) {
       try {
         final inputImage = InputImage.fromFilePath(_capturedImage!.path);
-        final textRecognizer = TextRecognizer(script: TextRecognitionScript.korean);
-        final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
+        final textRecognizer = TextRecognizer(
+          script: TextRecognitionScript.korean,
+        );
+        final RecognizedText recognizedText = await textRecognizer.processImage(
+          inputImage,
+        );
         await textRecognizer.close();
         textToAnalyze = recognizedText.text;
         _currentRawText = textToAnalyze; // Cache it
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('이미지 텍스트 추출 중 오류가 발생했습니다: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('이미지 텍스트 추출 중 오류가 발생했습니다: $e')),
+          );
         }
         return;
       }
@@ -675,7 +700,9 @@ class _DriveLogFormState extends State<DriveLogForm>
 
     if (textToAnalyze.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('분석할 텍스트가 없습니다. 이미지를 먼저 첨부해주세요.')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('분석할 텍스트가 없습니다. 이미지를 먼저 첨부해주세요.')),
+        );
       }
       return;
     }
@@ -684,7 +711,7 @@ class _DriveLogFormState extends State<DriveLogForm>
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black87,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
+      builder: (_) => AiScannerDialog(imageFile: _capturedImage!),
     );
 
     int retryCount = 0;
@@ -739,7 +766,7 @@ $textToAnalyze
 
           // 타임아웃을 방지하기 위해 구글 서버에 전송 (텍스트만)
           final response = await model.generateContent([
-            Content.text(prompt.text)
+            Content.text(prompt.text),
           ]);
 
           if (response.text != null && mounted) {
@@ -761,7 +788,9 @@ $textToAnalyze
               }
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('AI가 올바른 형식으로 응답하지 않았습니다. 다시 시도해주세요.')),
+                  const SnackBar(
+                    content: Text('AI가 올바른 형식으로 응답하지 않았습니다. 다시 시도해주세요.'),
+                  ),
                 );
               }
               break;
@@ -791,7 +820,12 @@ $textToAnalyze
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✨ AI 분석으로 데이터가 수정되었습니다.', style: TextStyle(fontWeight: FontWeight.bold))),
+                const SnackBar(
+                  content: Text(
+                    '✨ AI 분석으로 데이터가 수정되었습니다.',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
               );
             }
 
@@ -799,7 +833,9 @@ $textToAnalyze
             Future.microtask(() async {
               if (data!['start_location'] != null) {
                 try {
-                  final startLocs = await locationFromAddress(normalizeAddressForGeocode(_startLocCon.text));
+                  final startLocs = await locationFromAddress(
+                    normalizeAddressForGeocode(_startLocCon.text),
+                  );
                   if (startLocs.isNotEmpty && mounted) {
                     setState(() {
                       _startLat = startLocs.first.latitude;
@@ -814,7 +850,9 @@ $textToAnalyze
 
               if (data!['end_location'] != null) {
                 try {
-                  final endLocs = await locationFromAddress(normalizeAddressForGeocode(_endLocCon.text));
+                  final endLocs = await locationFromAddress(
+                    normalizeAddressForGeocode(_endLocCon.text),
+                  );
                   if (endLocs.isNotEmpty && mounted) {
                     setState(() {
                       _endLat = endLocs.first.latitude;
@@ -831,8 +869,10 @@ $textToAnalyze
           final errorString = e.toString().toLowerCase();
 
           // 503이나 Timeout, demand 등 서버 과부하 에러일 경우
-          if (errorString.contains('503') || errorString.contains('unavailable') ||
-              errorString.contains('demand') || errorString.contains('timeout')) {
+          if (errorString.contains('503') ||
+              errorString.contains('unavailable') ||
+              errorString.contains('demand') ||
+              errorString.contains('timeout')) {
             retryCount++;
             if (retryCount < 3) {
               // 점진적 백오프: 1초, 2초 대기
@@ -843,19 +883,23 @@ $textToAnalyze
 
           if (mounted) {
             String errorMessage = 'AI 분석 실패: 알 수 없는 오류';
-            if (errorString.contains('503') || errorString.contains('unavailable') ||
+            if (errorString.contains('503') ||
+                errorString.contains('unavailable') ||
                 errorString.contains('demand')) {
               errorMessage = '현재 구글 AI 서버 접속량이 너무 많습니다. 잠시 후 다시 시도해주세요.';
-            } else if (errorString.contains('not found') || errorString.contains('404')) {
-              errorMessage = '해당 API Key로 AI 모델에 접근할 수 없습니다. 설정에서 API Key를 확인해주세요.';
-            } else if (errorString.contains('invalid') || errorString.contains('api key')) {
+            } else if (errorString.contains('not found') ||
+                errorString.contains('404')) {
+              errorMessage =
+                  '해당 API Key로 AI 모델에 접근할 수 없습니다. 설정에서 API Key를 확인해주세요.';
+            } else if (errorString.contains('invalid') ||
+                errorString.contains('api key')) {
               errorMessage = 'API Key가 유효하지 않습니다. 설정에서 확인해주세요.';
             } else {
               errorMessage = 'AI 분석 실패: ${e.toString()}';
             }
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(errorMessage)),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(errorMessage)));
           }
           break;
         }
@@ -1720,7 +1764,9 @@ $textToAnalyze
     // 순익·차감 계산 (UI 표시용 로컬 변수 - 향후 표시 기능 확장 시 활용)
     final int net = (_grossIncome - fee - insurance - transport + waypointTip)
         .clamp(0, 999999999);
-    debugPrint('[ApplyDeductions] 순익: ${_formatMoney(net)}원, 차감: ${_formatMoney(fee + insurance + transport)}원');
+    debugPrint(
+      '[ApplyDeductions] 순익: ${_formatMoney(net)}원, 차감: ${_formatMoney(fee + insurance + transport)}원',
+    );
     setState(() {
       // _grossIncome 업데이트됨
     });
@@ -2239,7 +2285,9 @@ $textToAnalyze
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  _activeSttField == 'origin' ? '출발지를 말씀해 주세요...' : '도착지를 말씀해 주세요...',
+                  _activeSttField == 'origin'
+                      ? '출발지를 말씀해 주세요...'
+                      : '도착지를 말씀해 주세요...',
                   style: const TextStyle(color: Colors.white, fontSize: 16),
                 ),
               ),
@@ -2249,6 +2297,7 @@ $textToAnalyze
       ),
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
@@ -2356,35 +2405,40 @@ $textToAnalyze
       // 기존: return Opacity(opacity: quickUiOpacity, child: Scaffold(...))
       return Scaffold(
         backgroundColor: const Color(0xCC000000), // 80% 불투명 검정 — 기존 반투명 UI 유지
-        body: Stack(children: [ SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 36.0),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: math.min(formMaxW, size.width * 0.94),
-                  maxHeight: size.height * 0.88,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Material(
-                    // 오버레이 컨텍스트는 ThemeData가 단순하여 scaffoldBackgroundColor가
-                    // Colors.transparent일 수 있으므로, cardTheme.color 우선 사용
-                    color:
-                        Theme.of(context).cardTheme.color ??
-                        const Color(0xFF1F222A),
-                    child: Column(
-                      children: [
-                        Expanded(child: form),
-                        footer,
-                      ],
+        body: Stack(
+          children: [
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 36.0),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.min(formMaxW, size.width * 0.94),
+                      maxHeight: size.height * 0.88,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Material(
+                        // 오버레이 컨텍스트는 ThemeData가 단순하여 scaffoldBackgroundColor가
+                        // Colors.transparent일 수 있으므로, cardTheme.color 우선 사용
+                        color:
+                            Theme.of(context).cardTheme.color ??
+                            const Color(0xFF1F222A),
+                        child: Column(
+                          children: [
+                            Expanded(child: form),
+                            footer,
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ), if (_isListening) _buildListeningOverlay(), ], ),
+            if (_isListening) _buildListeningOverlay(),
+          ],
+        ),
       );
     }
 
@@ -2467,11 +2521,16 @@ $textToAnalyze
             ),
           ],
         ),
-        body: Stack(children: [ ResponsiveBody(
-          fullWidthWhenExpanded: true,
-          maxWidth: isExpanded ? size.width : formMaxW,
-          child: form,
-        ), if (_isListening) _buildListeningOverlay(), ], ),
+        body: Stack(
+          children: [
+            ResponsiveBody(
+              fullWidthWhenExpanded: true,
+              maxWidth: isExpanded ? size.width : formMaxW,
+              child: form,
+            ),
+            if (_isListening) _buildListeningOverlay(),
+          ],
+        ),
       ),
     );
   }
@@ -2518,7 +2577,8 @@ $textToAnalyze
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (SettingsService.geminiApiKey.isNotEmpty && _capturedImage != null)
+                if (SettingsService.geminiApiKey.isNotEmpty &&
+                    _capturedImage != null)
                   ValueListenableBuilder<bool>(
                     valueListenable: FeatureUsageService.globalPremiumNotifier,
                     builder: (context, isActive, _) {
@@ -2528,7 +2588,10 @@ $textToAnalyze
                         icon: const Text('✨', style: TextStyle(fontSize: 16)),
                         tooltip: 'AI 정밀분석',
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                        constraints: const BoxConstraints.tightFor(
+                          width: 36,
+                          height: 36,
+                        ),
                         splashRadius: 18,
                       );
                     },
@@ -2579,15 +2642,14 @@ $textToAnalyze
               children: [
                 Row(
                   children: [
-
-                      Text(
-                        "출발지",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color:
-                              (Theme.of(context).textTheme.bodySmall?.color ??
-                              Colors.grey),
-                        ),
+                    Text(
+                      "출발지",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color:
+                            (Theme.of(context).textTheme.bodySmall?.color ??
+                            Colors.grey),
                       ),
+                    ),
 
                     PulseAnimationWrapper(
                       isActive: _isListening && _activeSttField == 'origin',
@@ -2595,9 +2657,13 @@ $textToAnalyze
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         icon: Icon(
-                          (_isListening && _activeSttField == 'origin') ? Icons.mic : Icons.mic_none,
+                          (_isListening && _activeSttField == 'origin')
+                              ? Icons.mic
+                              : Icons.mic_none,
                           size: 20,
-                          color: (_isListening && _activeSttField == 'origin') ? Colors.redAccent : const Color(0xFF666666),
+                          color: (_isListening && _activeSttField == 'origin')
+                              ? Colors.redAccent
+                              : const Color(0xFF666666),
                         ),
                         onPressed: () => _startListeningWithGuard('origin'),
                       ),
@@ -2651,9 +2717,13 @@ $textToAnalyze
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                   icon: Icon(
-                    (_isListening && _activeSttField == 'dest') ? Icons.mic : Icons.mic_none,
+                    (_isListening && _activeSttField == 'dest')
+                        ? Icons.mic
+                        : Icons.mic_none,
                     size: 20,
-                    color: (_isListening && _activeSttField == 'dest') ? Colors.redAccent : const Color(0xFF666666),
+                    color: (_isListening && _activeSttField == 'dest')
+                        ? Colors.redAccent
+                        : const Color(0xFF666666),
                   ),
                   onPressed: () => _startListeningWithGuard('dest'),
                 ),
@@ -2768,7 +2838,8 @@ $textToAnalyze
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (SettingsService.geminiApiKey.isNotEmpty && _capturedImage != null)
+            if (SettingsService.geminiApiKey.isNotEmpty &&
+                _capturedImage != null)
               ValueListenableBuilder<bool>(
                 valueListenable: FeatureUsageService.globalPremiumNotifier,
                 builder: (context, isActive, _) {
@@ -2778,7 +2849,10 @@ $textToAnalyze
                     icon: const Text('✨', style: TextStyle(fontSize: 16)),
                     tooltip: 'AI 정밀분석',
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+                    constraints: const BoxConstraints.tightFor(
+                      width: 36,
+                      height: 36,
+                    ),
                     splashRadius: 18,
                   );
                 },
@@ -2835,15 +2909,14 @@ $textToAnalyze
             children: [
               Row(
                 children: [
-
-                    Text(
-                      "출발지",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color:
-                            (Theme.of(context).textTheme.bodySmall?.color ??
-                            Colors.grey),
-                      ),
+                  Text(
+                    "출발지",
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color:
+                          (Theme.of(context).textTheme.bodySmall?.color ??
+                          Colors.grey),
                     ),
+                  ),
 
                   PulseAnimationWrapper(
                     isActive: _isListening && _activeSttField == 'origin',
@@ -2851,9 +2924,13 @@ $textToAnalyze
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       icon: Icon(
-                        (_isListening && _activeSttField == 'origin') ? Icons.mic : Icons.mic_none,
+                        (_isListening && _activeSttField == 'origin')
+                            ? Icons.mic
+                            : Icons.mic_none,
                         size: 20,
-                        color: (_isListening && _activeSttField == 'origin') ? Colors.redAccent : const Color(0xFF666666),
+                        color: (_isListening && _activeSttField == 'origin')
+                            ? Colors.redAccent
+                            : const Color(0xFF666666),
                       ),
                       onPressed: () => _startListeningWithGuard('origin'),
                     ),
@@ -2936,9 +3013,13 @@ $textToAnalyze
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
                 icon: Icon(
-                  (_isListening && _activeSttField == 'dest') ? Icons.mic : Icons.mic_none,
+                  (_isListening && _activeSttField == 'dest')
+                      ? Icons.mic
+                      : Icons.mic_none,
                   size: 20,
-                  color: (_isListening && _activeSttField == 'dest') ? Colors.redAccent : const Color(0xFF666666),
+                  color: (_isListening && _activeSttField == 'dest')
+                      ? Colors.redAccent
+                      : const Color(0xFF666666),
                 ),
                 onPressed: () => _startListeningWithGuard('dest'),
               ),
@@ -3287,18 +3368,15 @@ $textToAnalyze
       children: [
         Row(
           children: [
-
             Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color:
-                      (Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
-
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color:
+                    (Theme.of(context).textTheme.bodySmall?.color ??
+                    Colors.grey),
               ),
             ),
-            if (labelAction != null) ...[
-              labelAction,
-            ],
+            if (labelAction != null) ...[labelAction],
             const Spacer(),
           ],
         ),
@@ -3346,7 +3424,9 @@ $textToAnalyze
           onTap: onTap,
           onChanged: onChanged,
           textAlign: isNumber ? TextAlign.right : TextAlign.left,
-          keyboardType: isNumber ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+          keyboardType: isNumber
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text,
           inputFormatters: isNumber ? [thousandSeparatorFormatter] : null,
           maxLines: maxLines,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
