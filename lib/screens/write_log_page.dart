@@ -1,4 +1,4 @@
-﻿import '../widgets/ai_scanner_dialog.dart';
+import '../widgets/ai_scanner_dialog.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -2600,6 +2600,7 @@ RULES:
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                /* 임시 주석 처리 (AI 정밀분석)
                 if (SettingsService.geminiApiKey.isNotEmpty &&
                     _capturedImage != null)
                   ValueListenableBuilder<bool>(
@@ -2619,6 +2620,7 @@ RULES:
                       );
                     },
                   ),
+                */
                 if (_capturedImage != null)
                   IconButton(
                     padding: EdgeInsets.zero,
@@ -2861,6 +2863,7 @@ RULES:
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            /* 임시 주석 처리 (AI 정밀분석)
             if (SettingsService.geminiApiKey.isNotEmpty &&
                 _capturedImage != null)
               ValueListenableBuilder<bool>(
@@ -2880,6 +2883,7 @@ RULES:
                   );
                 },
               ),
+            */
             if (_capturedImage != null)
               IconButton(
                 padding: EdgeInsets.zero,

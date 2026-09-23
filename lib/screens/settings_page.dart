@@ -1017,7 +1017,7 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
           const SizedBox(height: 8),
-          const AiPremiumSection(),
+          // const AiPremiumSection(), // 임시 주석 처리 (AI 정밀분석)
         ],
       ),
     );
