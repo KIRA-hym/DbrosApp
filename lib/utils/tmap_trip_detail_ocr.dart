@@ -95,6 +95,14 @@ class TmapTripDetailOcr {
     if (startAddress.contains('\uC6B4\uD589\uC77C\uC790') || startAddress.contains('\uC6B4\uD589\uBC88\uD638') || startAddress.contains('\uC694\uAE30\uC694')) startAddress = '';
     if (endAddress.contains('\uC6B4\uD589\uC77C\uC790') || endAddress.contains('\uC6B4\uD589\uBC88\uD638') || endAddress.contains('\uC694\uAE30\uC694')) endAddress = '';
 
+    // [보완] TALK 단독 도착지 방어 및 출발지-도착지 오분류(날짜/메타 정보 혼입) 방어 (폴백 트리거)
+    if (endAddress.trim().toUpperCase() == 'TALK') endAddress = '';
+    if (RegExp(r'^[\d\s\.\-~:]+$').hasMatch(startAddress.replaceAll(RegExp(r'[가-힣a-zA-Z]'), ''))) {
+      if (!RegExp(r'[가-힣]{2,}').hasMatch(startAddress)) {
+        startAddress = '';
+      }
+    }
+
     // --- ROBUST FALLBACK FOR ADDRESSES USING REGEX ---
     if (startAddress.isEmpty || endAddress.isEmpty) {
       final flat2 = normalized.replaceAll(RegExp(r'\s+'), ' ');
@@ -401,6 +409,7 @@ class TmapTripDetailOcr {
     if (t.contains('길찾기') || t.contains('위치정보') || t.contains('고객전화')) return true;
     if (RegExp(r'^\d+\s*[m|M]$').hasMatch(t)) return true;
     if (t.toUpperCase() == 'TALK') return true;
+    if (t.contains('운행상세정보') || t.contains('운행상세')) return true;
     return false;
   }
 }

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -196,7 +196,7 @@ class ShorebirdUpdateService {
       // 이미 적용된 패치와 같으면 알림 불필요
       if (current?.number == pendingNumber) {
         await prefs.remove(_prefPendingPatch);
-        if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
+        // error emit removed to avoid false alarms
         return;
       }
 
@@ -211,9 +211,10 @@ class ShorebirdUpdateService {
       if (kDebugMode) debugPrint('[Shorebird] ready 이벤트 #$pendingNumber');
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] emitReady 오류: $e');
-      if (forceEmit) _ctrl.add(const PatchEvent(PatchStage.error));
+      // error emit removed to avoid false alarms
     }
   }
 
   void dispose() => _ctrl.close();
 }
+

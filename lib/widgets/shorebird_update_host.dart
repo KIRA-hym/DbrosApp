@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -21,7 +21,6 @@ class ShorebirdUpdateHost extends StatefulWidget {
 
 class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
   StreamSubscription<PatchEvent>? _sub;
-  ValueNotifier<PatchStage>? _stageNotifier;
   bool _dialogShown = false;
 
   @override
@@ -45,7 +44,6 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
   @override
   void dispose() {
     _sub?.cancel();
-    _stageNotifier?.dispose();
     super.dispose();
   }
 
@@ -53,19 +51,29 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
     if (!mounted) return;
 
     if (event.stage == PatchStage.downloading) {
-      if (_dialogShown) return;
-      _dialogShown = true;
-      _stageNotifier = ShorebirdUpdateDialog.show(context, PatchStage.downloading);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('새로운 업데이트 패치를 다운로드하는 중입니다...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
       return;
     }
 
-    if (event.stage == PatchStage.ready || event.stage == PatchStage.error) {
-      if (_dialogShown && _stageNotifier != null) {
-        _stageNotifier!.value = event.stage;
-      } else if (!_dialogShown) {
-        _dialogShown = true;
-        _stageNotifier = ShorebirdUpdateDialog.show(context, event.stage);
-      }
+    if (event.stage == PatchStage.error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('업데이트 다운로드에 실패했습니다. 다음 실행 시 재시도합니다.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    if (event.stage == PatchStage.ready) {
+      if (_dialogShown) return;
+      _dialogShown = true;
+      ShorebirdUpdateDialog.show(context);
     }
   }
 

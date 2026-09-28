@@ -39,8 +39,19 @@ class KakaoCallCardOcr {
     String detected,
   ) {
     if (detected != programGeneral) return detected;
-    if (hasCallCardDriverScoreMarker(fullText, blocks)) return programGeneral;
-    return programAlliance;
+    
+    final flat = fullText.replaceAll(RegExp(r'[\r\n\s]+'), '');
+    // [보완] 점수제 폐지에 따라 UI 상의 텍스트(메세지 vs 메모)로 일반/제휴 구분
+    if (flat.contains('고객과메세지') || flat.contains('메세지')) {
+      return programGeneral;
+    }
+    // 일반 화면의 '고객과메세지'가 없고 '메모'만 있으면 제휴콜로 판단
+    if (flat.contains('메모')) {
+      return programAlliance;
+    }
+    
+    // 식별자가 명확하지 않은 경우 기본적으로 1차 분류 결과(일반) 유지
+    return programGeneral;
   }
 
   /// 공백 제거 후 부분 문자열 검사용.
@@ -312,6 +323,8 @@ class KakaoCallCardOcr {
   static bool _shouldSkipFareLine(String line) {
     final t = line.trim().replaceAll(',', '');
     if (_looksLikeAddressLine(line) && _looksLikeAddressFareTrap(line)) return true;
+    // [보완] 시계 오인식 '5위' 등 잔상
+    if (RegExp(r'^\d{1,3}\s*위$').hasMatch(t)) return true;
     // Skip rating/score patterns like "96/100", "96l100", "100점", "96점", "96%"
     // — 단, 콤마 요금(예: 58,400)이 함께 있으면 건너뛰지 않음 (법인 58,400 밀어서 200점 조합)
     if (RegExp(r'\b\d{1,3}\s*(?:점|%)\b').hasMatch(t)) {
@@ -578,6 +591,8 @@ class KakaoCallCardOcr {
     t = t.replaceAll(RegExp(r'출발지에\s*도착[^.]*'), ' ');
     t = t.replaceAll(RegExp(r'\s+경유\s+Q\s*', caseSensitive: false), ' ');
     t = t.replaceAll(RegExp(r'\s+Q\s*', caseSensitive: false), ' ');
+    // [보완] 상단 시계(예: 54분)가 5위 등으로 오인식된 잔상 제거
+    t = t.replaceAll(RegExp(r'(?:^|\s)([0-9]{1,3})\s*위(?:\s|$)'), ' ');
     
     // 어절 및 단어 중복 지명 제거
     t = t.replaceAllMapped(

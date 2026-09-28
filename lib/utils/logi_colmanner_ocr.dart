@@ -164,6 +164,17 @@ class LogiColmannerOcr {
     var start = _cleanAddr(loc.start, isLogi: false, isStart: true);
     var end = _cleanAddr(loc.end, isLogi: false, isStart: false);
 
+    // [보완] '경기 광주시' 오분리 교정
+    if (start == '경기' && end.contains('광주시')) {
+      final regionRx = RegExp(RemoteConfigService().regionPattern);
+      final matches = regionRx.allMatches(end).toList();
+      if (matches.any((m) => m.group(0) != '광주')) {
+        final realEndCut = matches.firstWhere((m) => m.group(0) != '광주').start;
+        start = '경기 ' + end.substring(0, realEndCut).trim();
+        end = end.substring(realEndCut).trim();
+      }
+    }
+
     // --- [보완 로직] 콜마너 카카오T대리 등 "(제휴)" 패턴 처리 및 누락된 하단 주소 복구 ---
     bool isKakaoT = lines.any((l) => l.replaceAll(' ', '').contains('카카오T대리'));
     
@@ -776,6 +787,7 @@ class LogiColmannerOcr {
     }
     if (RegExp(r'경유\s*[:：>지]').hasMatch(line) && !line.contains('상세:')) return true;
     if (line.contains('발생시') && line.contains('종료후')) return true;
+    if (line.contains('안전운행') || line.contains('친절') || line.contains('복장필수') || line.contains('변동사항') || line.contains('숙지')) return true;
     return false;
   }
 
@@ -1389,6 +1401,13 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'(?<=^|\s)\(?후불\s*[0-9,]+(?:[kK만]+)?.*$'), ' '); // Test 47: 후불 뒤에 숫자 있는 경우만 뒷부분 날림
     res = res.replaceAll(RegExp(r'(?<=^|\s)[oO0]\s*\d*[lI|%]*\s*\(\s*\d+.*$', caseSensitive: false), ' '); // Test 37: O 50l( 91
     res = res.replaceAll(RegExp(r'"?\s*\d{2}:\d{2}.*$'), ' ');
+
+    // [보완] 로지 메모/적요 지시문 및 콜마너 아이콘 잔상 제거
+    res = res.replaceAll(RegExp(r'R\s*[>▶\-]+[^\s]*'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)(?:안전운행|친절|깔끔한복장|복장필수|변동사항은\S*보고필|숙지)(?=\s|$)'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)깔끔한복장필수.*$'), ' ');
+    res = res.replaceAll(RegExp(r'\(?숙지\)?안전운행.*$'), ' ');
+    res = res.replaceAll(RegExp(r'(?<=^|\s)[A-Z](?=\s|$)'), ' ');
 
     // 전체 괄호 일괄 제거 (운남동)영종자이 등 대비)
     res = res.replaceAll(RegExp(r'[\]\}\)"]'), ' ');
