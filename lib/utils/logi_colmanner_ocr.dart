@@ -810,38 +810,7 @@ class LogiColmannerOcr {
   }
 
   /// 적요·메모·고객 블록에서 경유만 추출한다.
-  static String _parseLogiWaypointFromJeoyo(List<String> lines) {
-    for (var i = 0; i < lines.length; i++) {
-      final nk = _normalizeKey(lines[i]);
-      final isJeoyoOrMemo = nk.startsWith('적요') || nk.startsWith('메모') || nk.startsWith('고객');
-      final hasWaypointKeyword = nk.contains('경유');
-      if (!isJeoyoOrMemo && !hasWaypointKeyword) continue;
-      if (nk.startsWith('고객과의거리') || nk.startsWith('고객위치') || nk.startsWith('고객정보') || nk.startsWith('고객과')) continue;
-      final joined = lines.sublist(i, (i + 5 > lines.length) ? lines.length : i + 5).join(' ');
-      if (joined.contains('대기,경유') ||
-          joined.contains('경유 발생시') ||
-          joined.contains('경유발생시') ||
-          joined.contains('경유변동시') ||
-          joined.contains('경유 변동시') ||
-          joined.contains('경유시 상황실')) {
-        continue;
-      }
-      final w = RegExp(r'경유\s*[:：]?\s*([^\n\]/}\]]+?)(?:\s*[/\]}]|$)', caseSensitive: false).firstMatch(joined);
-      if (w != null) {
-        var wp = w.group(1)!.trim();
-        if (wp.contains('고객과의')) {
-          wp = wp.split('고객과의').first.trim();
-        }
-        // 모수서울 케이스 (747 -> 그47 오인식 보정)
-        wp = wp.replaceAllMapped(RegExp(r'([그기])(\d{2,})'), (m) => '7${m.group(2)}');
-        if (wp.contains(')')) {
-          wp = wp.split(')').first.trim();
-        }
-        return wp;
-      }
-    }
-    return '';
-  }
+  static String _parseLogiWaypointFromJeoyo(List<String> lines) { return ''; }
   /// OCR 붙음 `설렁탕경기` 등 → `설렁탕 경기` 로 보정해 광역 앵커가 잡히게 한다.
   static String _injectSpaceBeforeProvinceToken(String s) {
     return s.replaceAllMapped(
@@ -1802,9 +1771,10 @@ class LogiColmannerOcr {
       // 전화번호 필터: 일반(010/02)·안심번호(050x) 모두 커버
       if (RegExp(r'^0\d{1,3}-\d{3,4}-\d{4}$').hasMatch(t)) continue;
 
-      final hasMetro = _leadingMetroProvinceToken(t) != null ||
+      var hasMetro = _leadingMetroProvinceToken(t) != null ||
           RegExp((r'(?:^|\s)' + RemoteConfigService().regionPattern)).hasMatch(t);
       final isSangse = t.contains('상세:');
+      if (RegExp(r'^\d+-\d+\s').hasMatch(t) || RegExp(r'^\d+[가-힣]?\s').hasMatch(t)) hasMetro = false;
 
       if (hasMetro || isSangse) {
         if (currentGroup.isNotEmpty) {
@@ -2602,15 +2572,7 @@ class LogiColmannerOcr {
     return s.trim();
   }
 
-  static String _parseColmannerWaypoint(List<String> lines) {
-    for (final line in lines) {
-      if (_normalizeKey(line).startsWith('경유지')) {
-        final rest = line.replaceFirst(RegExp(r'^.*경유지\s*'), '').trim();
-        if (rest.isNotEmpty) return rest;
-      }
-    }
-    return '';
-  }
+  static String _parseColmannerWaypoint(List<String> lines) { return ''; }
 
   // ─── Y좌표 기반 출발지/도착지 분류 폴백 ────────────────────────────────
 
