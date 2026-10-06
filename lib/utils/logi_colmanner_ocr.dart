@@ -1202,6 +1202,11 @@ class LogiColmannerOcr {
     if (res.contains('신중동역')) print('DEBUG_CLEANADDR_IN: $s');
     if (res.isEmpty) return '';
 
+    // [보완] 끝에 잘린 괄호 (도로명 등) 및 파편 노이즈 제거
+    res = res.replaceAll(RegExp(r'\s+지$|\s+지도$'), '');
+    res = res.replaceAll(RegExp(r'\([^)]*$'), '');
+    res = res.replaceAll(RegExp(r'\s+지$|\s+지도$'), '');
+
     // Exclude noise like "동 n후", "n후", "n후)"
     res = res.replaceFirst(RegExp(r'^[가-힣\s]*n후\)?\s*'), '');
 

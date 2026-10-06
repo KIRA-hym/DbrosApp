@@ -110,8 +110,38 @@ class TmapTripDetailOcr {
       final matches = addrRegex.allMatches(flat2).toList();
       
       if (matches.isNotEmpty) {
-        if (startAddress.isEmpty) startAddress = matches.first.group(0)!.trim();
-        if (endAddress.isEmpty) endAddress = matches.last.group(0)!.trim();
+        var startCand = matches.first.group(0)!.trim();
+        var endCand = matches.last.group(0)!.trim();
+        if (matches.length >= 2) {
+          startCand = flat2.substring(matches[0].start, matches[1].start).trim();
+          endCand = flat2.substring(matches[1].start).trim();
+        }
+        
+        // Remove trailing fare or insurance noise from address
+        // Remove trailing fare or insurance noise from address
+                // [보완] 노이즈 제거: 요금, UI 버튼, 보험사 텍스트 등
+        String cleanNoise(String s) {
+          var res = s;
+          // UI Noise
+          res = res.replaceAll(RegExp(r'운행\s*상세\s*정보'), '');
+          res = res.replaceAll(RegExp(r'보험종류.*$'), '');
+          res = res.replaceAll(RegExp(r'TMAP 대리 보험.*$'), '');
+          res = res.replaceAll(RegExp(r'DB손해보험.*$'), '');
+          res = res.replaceAll(RegExp(r'현대해상.*$'), '');
+          res = res.replaceAll(RegExp(r'[A-Za-z0-9]+\s*사고\s*접수.*$'), '');
+          res = res.replaceAll(RegExp(r'DB손해.*$'), ''); // 잘린 경우
+          
+          // Fare cleanup at the end (e.g. " 28,000p")
+          res = res.replaceAll(RegExp(r'\s+[\d,]{4,}\s*[a-zA-Z원].*$'), '');
+          return res.replaceAll(RegExp(r'\s+'), ' ').trim();
+        }
+        startCand = cleanNoise(startCand);
+        endCand = cleanNoise(endCand);
+
+        print('DEBUG: After split endCand=\$endCand');
+
+        if (startAddress.isEmpty) startAddress = startCand;
+        if (endAddress.isEmpty) endAddress = endCand;
       }
     }
 
@@ -119,6 +149,14 @@ class TmapTripDetailOcr {
       final fareMatch = RegExp(r'([\d,]+)\s*P').firstMatch(normalized.replaceAll(RegExp(r'\s+'), ' '));
       if (fareMatch != null) {
         grossFare = int.tryParse(fareMatch.group(1)!.replaceAll(',', '')) ?? 0;
+      }
+    }
+    
+    // LOOSE FALLBACK: Sometimes layout grouping fails and '실수익' is not adjacent to the fare.
+    if (grossFare == 0) {
+      final looseFareMatch = RegExp(r'([\d,]{4,})\s*[Pp원]').firstMatch(normalized.replaceAll(RegExp(r'\s+'), ' '));
+      if (looseFareMatch != null) {
+        grossFare = int.tryParse(looseFareMatch.group(1)!.replaceAll(',', '')) ?? 0;
       }
     }
     // ---------------------------------------------------

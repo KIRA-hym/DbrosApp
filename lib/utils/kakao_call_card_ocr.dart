@@ -552,7 +552,7 @@ class KakaoCallCardOcr {
     if (t.contains('고객센터') || t.contains('사고신고') || t.contains('운행중')) return false;
     if (t.contains('경유')) return false;
     if (t.contains('차량 정보') || t.contains('운행시작')) return false;
-    if (RegExp(r'[a-zA-Z]{2,}\d+').hasMatch(t) || RegExp(r'\d+[a-zA-Z]{2,}').hasMatch(t)) return false;
+    // if (RegExp(r'[a-zA-Z]{2,}\\d+').hasMatch(t) || RegExp(r'\\d+[a-zA-Z]{2,}').hasMatch(t)) return false;
     if (RegExp(r'[a-zA-Z]\s*lI|lI\s*[a-zA-Z]').hasMatch(t)) return false;
     return true;
   }
@@ -645,7 +645,8 @@ class KakaoCallCardOcr {
     while (addrCandidates.isNotEmpty && _isKakaoParkingOrFloorNoiseLine(addrCandidates.first)) {
       addrCandidates.removeAt(0);
     }
-    if (addrCandidates.isEmpty) return ('', '');
+    print('DEBUG ADDR: $addrCandidates');
+      if (addrCandidates.isEmpty) return ('', '');
     if (addrCandidates.length == 1) return (addrCandidates.first, '');
 
     // 프콜/일반 1종(출발 2줄 + 도착 2줄) 대응 — 날짜 메타 줄은 후보에서 이미 제외됨
@@ -730,7 +731,7 @@ class KakaoCallCardOcr {
         if (_excludePaymentOrActionStrip(line)) continue;
         if (_shouldSkipFareLine(line)) continue;
         final m = RegExp(
-          r'([\d,\.]{4,})\s*(?:P|원)?\b',
+          r'([\d,\.]{4,})\s*(?:P|원|@|©)?(?:\b|$)',
           caseSensitive: false,
         ).firstMatch(line);
         if (m != null) {
@@ -741,7 +742,7 @@ class KakaoCallCardOcr {
         if (fromNoise != null && fromNoise % 100 == 0) return fromNoise;
         if (_isPaymentConfirmationLine(line)) continue;
         final plain = RegExp(
-          r'^([\d,\.]{4,})\s*(?:원|P)?\s*$',
+          r'^([\d,\.]{4,})\s*(?:원|P|@|©)?\s*$',
           caseSensitive: false,
         ).firstMatch(line.trim());
         if (plain != null) {
@@ -753,7 +754,7 @@ class KakaoCallCardOcr {
     for (final line in lines.reversed) {
       if (_shouldSkipFareLine(line)) continue;
       final m = RegExp(
-        r'([\d,\.]{4,})\s*(?:P|원)?\b',
+        r'([\d,\.]{4,})\s*(?:P|원|@|©)?(?:\b|$)',
         caseSensitive: false,
       ).firstMatch(line);
       if (m != null) {
