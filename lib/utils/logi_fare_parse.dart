@@ -42,12 +42,15 @@ int? parseLogiFareFromOcrText(String raw) {
   final timePattern = RegExp(r'\d{1,2}:\d{2}');
 
   if (memoBracketPattern.hasMatch(raw)) return null;
-  if (phonePattern1.hasMatch(raw)) return null;
-  if (phonePattern2.hasMatch(raw)) return null;
-  if (timePattern.hasMatch(raw) && !raw.contains('요금')) return null;
 
-  // [보완] 9자리 이상 연속된 숫자(오더번호, 전화번호 등)는 요금이 될 수 없으므로 공백 제거 전에 먼저 지워버림
-  var cleanedRaw = raw.replaceAll(RegExp(r'\d{9,15}'), '');
+  // [보완] 전화번호나 오더번호 등은 요금이 될 수 없으므로 미리 문자열에서 제거합니다.
+  // 여러 줄이 병합된 전체 텍스트가 들어올 때, 텍스트 어딘가에 전화번호가 있다고 통째로 파싱을 포기하면 안 되기 때문입니다.
+  var cleanedRaw = raw
+      .replaceAll(phonePattern1, '')
+      .replaceAll(phonePattern2, '')
+      .replaceAll(RegExp(r'\d{9,15}'), '');
+      
+  if (timePattern.hasMatch(cleanedRaw) && !cleanedRaw.contains('요금')) return null;
 
   String prepare(String r) {
     var s = r.replaceAll(',', '').replaceAll('.', '').replaceAll(RegExp(r'\s'), '');
