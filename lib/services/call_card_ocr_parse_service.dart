@@ -265,8 +265,8 @@ class CallCardOcrParseService {
   static String? _detectProgram(List<TextBlock> blocks, String fullText) {
     final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
     
-    // 로지 식별: 배차, 갱신, 닫기 3가지 단어가 모두 있어야 함
-    if (normalized.contains('배차') && normalized.contains('갱신') && normalized.contains('닫기')) {
+    // 로지 식별: 일지작성화면과 동일하게 '갱신' 단독 또는 '배차' 단독, 혹은 '접수운행' 포함 시 로지로 유연하게 인식 (통일성 확보)
+    if (normalized.contains('갱신') || normalized.contains('배차') || (normalized.contains('접수운행') && normalized.contains('닫기'))) {
       return '로지';
     }
     

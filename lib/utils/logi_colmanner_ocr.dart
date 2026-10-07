@@ -1,4 +1,4 @@
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+﻿import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/ocr_error_logger.dart';
 import '../services/remote_config_service.dart';
 import 'logi_fare_parse.dart';
@@ -344,7 +344,7 @@ class LogiColmannerOcr {
     final fromOcr = parseLogiFareFromOcrText(line);
     if (fromOcr != null) return fromOcr;
     if (!_isStrictStandaloneFareDigitsLine(line)) return null;
-    var t = line.trim().replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
+    var t = line.trim().replaceAll(',', '').replaceAll('.', '').replaceAll(RegExp(r'\s'), '');
     t = t.replaceAll(RegExp(r'[!]+'), '').replaceAll(RegExp(r'[원₩lL|I]+'), '');
     
     // 비정상적으로 큰 숫자(전화번호 등)는 요금 후보에서 원천 배제
@@ -1175,6 +1175,15 @@ class LogiColmannerOcr {
     res = res.replaceAll(RegExp(r'\s+지$|\s+지도$'), '');
     res = res.replaceAll(RegExp(r'\([^)]*$'), '');
     res = res.replaceAll(RegExp(r'\s+지$|\s+지도$'), '');
+    
+    if (isLogi) {
+      res = res.replaceAll(RegExp(r'\)\d+:\d+대기.*'), '');
+      res = res.replaceFirst(RegExp(r'특이사항입?$'), '');
+      res = res.replaceFirst(RegExp(r'서명$'), '');
+      res = res.replaceFirst(RegExp(r'력$'), '');
+      res = res.replaceFirst(RegExp(r'갱신$'), '');
+      res = res.replaceFirst(RegExp(r'닫기$'), '');
+    }
 
     // Exclude noise like "동 n후", "n후", "n후)"
     res = res.replaceFirst(RegExp(r'^[가-힣\s]*n후\)?\s*'), '');

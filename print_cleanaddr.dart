@@ -1,0 +1,1 @@
+﻿import 'dart:io'; void main() { var lines = File('lib/utils/logi_colmanner_ocr.dart').readAsLinesSync(); var start = lines.indexWhere((l) => l.contains('static String _cleanAddr(String s')); for (var i = start; i < start + 25; i++) print(lines[i]); }

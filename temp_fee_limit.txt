@@ -1,0 +1,7 @@
+﻿  static bool _isLikelyLogiPlatformFeeAmount(int amount) {
+    if (amount < 3000 || amount > 15000) return false;
+    if (amount % 1000 != 0) return false;
+    final gross = amount * 5;
+    return gross >= 10000 && gross <= 999_999;
+  }
+

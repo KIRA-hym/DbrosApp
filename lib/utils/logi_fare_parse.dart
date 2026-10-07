@@ -46,8 +46,11 @@ int? parseLogiFareFromOcrText(String raw) {
   if (phonePattern2.hasMatch(raw)) return null;
   if (timePattern.hasMatch(raw) && !raw.contains('요금')) return null;
 
+  // [보완] 9자리 이상 연속된 숫자(오더번호, 전화번호 등)는 요금이 될 수 없으므로 공백 제거 전에 먼저 지워버림
+  var cleanedRaw = raw.replaceAll(RegExp(r'\d{9,15}'), '');
+
   String prepare(String r) {
-    var s = r.replaceAll(',', '').replaceAll(RegExp(r'\s'), '');
+    var s = r.replaceAll(',', '').replaceAll('.', '').replaceAll(RegExp(r'\s'), '');
     
     // [보완] 숫자에 붙은 '2!' 나 '1!' 등은 '원'의 전형적인 오인식이므로 선제 제거
     s = s.replaceAll(RegExp(r'[12]!+$'), '');
@@ -83,7 +86,7 @@ int? parseLogiFareFromOcrText(String raw) {
     return null;
   }
 
-  return bestFrom(prepare(raw));
+  return bestFrom(prepare(cleanedRaw));
 }
 
 /// 전체 OCR 텍스트에서 **총요금(요금 라벨 기준)** 만 추출한다.
