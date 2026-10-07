@@ -265,22 +265,22 @@ class CallCardOcrParseService {
   static String? _detectProgram(List<TextBlock> blocks, String fullText) {
     final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
     
-    // 로지 식별: 일지작성화면과 동일하게 '갱신' 단독 또는 '배차' 단독, 혹은 '접수운행' 포함 시 로지로 유연하게 인식 (통일성 확보)
-    if (normalized.contains('갱신') || normalized.contains('배차') || (normalized.contains('접수운행') && normalized.contains('닫기'))) {
+    // 로지 식별: 일지작성화면과 완전 동일하게 통일 (블록 단위 '갱신' 확인 및 운행시작 등 폴백 포함)
+    for (final b in blocks) {
+      if (b.text.contains("갱신")) return "로지";
+      if (b.text.contains("출도")) return "콜마너";
+    }
+    if (normalized.contains('운행시작') &&
+        normalized.contains('출발지') &&
+        normalized.contains('도착지') &&
+        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
+      return "로지";
+    }
+    if (normalized.contains('배차') || (normalized.contains('접수운행') && normalized.contains('닫기'))) {
       return '로지';
     }
-    
-    // 콜마너 식별 (1차): 출도 + 길안내 동시 존재
-    // '길안내'가 OCR에서 'ㄱ→ㅋ' 오인식으로 '킬안내'로 나오는 케이스도 함께 대응.
-    // write_log_page.dart의 _detectProgramFromBlocks는 '출도' 단독 존재로만 판단하나
-    // 본 서비스는 오탐 방지를 위해 추가 조건을 유지하면서 폴백을 확장함.
-    if (normalized.contains('출도') &&
-        (normalized.contains('길안내') || normalized.contains('킬안내'))) {
-      return '콜마너';
-    }
-    // 콜마너 식별 (2차 폴백): 지사명 + 출도 + 출발지 + 도착지 동시 존재
-    // '길안내'/'킬안내' 모두 인식 실패 시 콜마너 화면의 구조적 특징으로 판단.
-    // 로지/카카오 화면에는 '지사명'+'출도'가 동시에 없으므로 오탐 위험 없음.
+
+    // 콜마너 식별 (기존 로직 유지)
     if (normalized.contains('지사명') &&
         normalized.contains('출도') &&
         normalized.contains('출발지') &&

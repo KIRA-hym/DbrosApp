@@ -1,4 +1,4 @@
-﻿import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/ocr_error_logger.dart';
 import '../services/remote_config_service.dart';
 import 'logi_fare_parse.dart';
@@ -360,7 +360,7 @@ class LogiColmannerOcr {
       if (trimmed.isEmpty) continue;
       if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
       if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
-      if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+      
       // [보완] 전화번호, 시간 등 대괄호 노이즈 배제
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) continue;
       if (RegExp(r'\d{2,4}-\d{3,4}-\d{4}').hasMatch(trimmed)) continue;
@@ -434,7 +434,7 @@ class LogiColmannerOcr {
       if (_isLogiCountdownRemainLine(trimmed) || _isLogiDepositOrSettlementAmountLine(trimmed)) {
         continue;
       }
-      if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+      
 
       final v = _strictFareDigitsFromLine(trimmed) ?? parseLogiFareFromOcrText(trimmed);
       if (v != null && v >= 1000 && v <= 999_999 && !amounts.contains(v)) {
@@ -551,15 +551,23 @@ class LogiColmannerOcr {
           if (v > maxFare) maxFare = v;
         }
       }
-      if (maxFare > 0) {
-        final inferred = _inferLogiGrossFareFromPlatformFee(maxFare);
-        if (inferred != null &&
-            inferred > maxFare &&
-            _indexOfLabel(lines, '입금액') >= 0) {
-          return inferred;
+        if (maxFare > 0) {
+          final inferred = _inferLogiGrossFareFromPlatformFee(maxFare);
+          if (inferred != null &&
+              inferred > maxFare &&
+              _indexOfLabel(lines, '입금액') >= 0) {
+            return inferred;
+          }
+          // [보완] 줄바꿈이나 기호 등으로 인해 155 000 처럼 요금 블록이 분리된 경우 (maxFare가 수수료로 오판된 경우)
+          // fullText를 공백으로 병합하여 진짜 요금을 추출해본다. (안전한 정규식 기반)
+          if (fullText != null) {
+            final mergedFare = parseLogiFareFromOcrText(fullText.replaceAll(RegExp(r'[\r\n]+'), ' '));
+            if (mergedFare != null && mergedFare > maxFare) {
+              return mergedFare;
+            }
+          }
+          return maxFare;
         }
-        return maxFare;
-      }
     }
     if (fullText != null && fullText.isNotEmpty) {
       final fromRx = parseGrossFareRegexFromFullText(fullText, colmanner: colmanner);
@@ -586,7 +594,7 @@ class LogiColmannerOcr {
         final trimmed = lines[j].trim();
         if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
         if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
-        if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+        
         window.add(lines[j]);
       }
       final best = _bestGrossFareFromAdjacentAmountLines(window);
@@ -623,7 +631,7 @@ class LogiColmannerOcr {
         final trimmed = lines[j].trim();
         if (_isLogiDepositOrSettlementAmountLine(trimmed)) continue;
         if (_isLogiCountdownRemainLine(trimmed) || _isLogiFareClassNoiseLine(trimmed)) continue;
-        if (RegExp(r'\d{9,}').hasMatch(trimmed)) continue;
+        
         window.add(lines[j]);
       }
       final best = _bestGrossFareFromAdjacentAmountLines(window);
