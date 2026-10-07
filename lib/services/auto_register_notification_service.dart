@@ -148,4 +148,27 @@ class AutoRegisterNotificationService {
       payload: logId?.toString(),
     );
   }
+  Future<void> showShorebirdPatchReady() async {
+    if (!_isAndroid) return;
+    await initialize();
+    if (!await ensureNotificationPermission()) return;
+    final details = const NotificationDetails(
+      android: AndroidNotificationDetails(
+        'shorebird_update_v1',
+        '업데이트 알림',
+        channelDescription: '새로운 기능 업데이트 알림',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@drawable/app_notification_icon',
+        timeoutAfter: 4000,
+      ),
+    );
+    await _plugin.show(
+      id: 9103,
+      title: '새로운 패치 준비 완료',
+      body: '새로운 업데이트 다운로드가 백그라운드에서 완료되었습니다. 앱 복귀 시 적용할 수 있습니다.',
+      notificationDetails: details,
+    );
+  }
 }
+

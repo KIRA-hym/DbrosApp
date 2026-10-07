@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -71,53 +71,40 @@ class ShorebirdUpdateService {
   }
 
   Future<bool> checkAndUpdate() async {
-    bool isDownloading = false;
     try {
-      if (!_updater.isAvailable) {
-        if (kDebugMode) debugPrint('[Shorebird] 업데이터 사용 불가');
-        return false;
-      }
-
+      if (!_updater.isAvailable) return false;
       await _syncAppliedPatchState();
-
       final status = await _updater.checkForUpdate();
-      if (kDebugMode) debugPrint('[Shorebird] 상태: $status');
-
-      switch (status) {
-        case UpdateStatus.outdated:
-          isDownloading = true;
-          _ctrl.add(const PatchEvent(PatchStage.downloading));
-          if (kDebugMode) debugPrint('[Shorebird] 다운로드 시작');
-          await _updater.update();
+      if (status == UpdateStatus.outdated) {
+        _ctrl.add(const PatchEvent(PatchStage.downloading));
+        
+        // 백그라운드 다운로드 (최대 5회 재시도, 각 3초 제한)
+        bool success = false;
+        for (int i = 0; i < 5; i++) {
+          try {
+            await _updater.update().timeout(const Duration(seconds: 3));
+            success = true;
+            break;
+          } catch (e) {
+            await Future.delayed(const Duration(seconds: 2));
+          }
+        }
+        
+        if (success) {
           await _storePendingPatchNumber();
-          if (kDebugMode) debugPrint('[Shorebird] 다운로드 완료');
           await _emitReadyIfNew(forceEmit: true);
-          return true;
-
-        case UpdateStatus.restartRequired:
-          await _emitReadyIfNew();
-          return true;
-
-        case UpdateStatus.upToDate:
-          await _clearPendingIfApplied();
-          return false;
-
-        case UpdateStatus.unavailable:
-          return false;
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('[Shorebird] 예외: $e');
-      if (isDownloading) {
-        // 이미 다운로드를 시작했다면 네트워크 오류(timeout 등)에도
-        // 패치가 로컬에 반영된 경우가 많으므로 '낙관적 성공(Ready)'으로 처리
-        if (kDebugMode) debugPrint('[Shorebird] 다운로드 중 예외 발생 -> 낙관적 성공으로 간주');
-        await _emitReadyIfNew(forceEmit: true);
+        } else {
+          // 조용히 실패 처리 (재시도 로직 끝)
+          // _ctrl.add(const PatchEvent(PatchStage.error));
+        }
         return true;
-      } else {
-        // 다운로드 전(체크 단계) 에러는 사용자에게 공포감을 주지 않도록 조용히 무시(실패 팝업 미노출)
-        // _ctrl.add(const PatchEvent(PatchStage.error)); // 기존 에러 이벤트 제거
+      } else if (status == UpdateStatus.restartRequired) {
+        await _emitReadyIfNew();
+        return true;
+      } else if (status == UpdateStatus.upToDate) {
+        await _clearPendingIfApplied();
       }
-    }
+    } catch (_) {}
     return false;
   }
 

@@ -4,30 +4,29 @@ import 'package:flutter/material.dart';
 
 import '../services/shorebird_update_service.dart';
 import '../services/apk_update_service.dart';
+import '../services/auto_register_notification_service.dart';
 import 'shorebird_update_dialog.dart';
 import 'apk_update_dialog.dart';
 
-/// 앱 루트에서 Shorebird 패치 이벤트를 구독하고 업데이트 다이얼로그를 표시한다.
-///
-/// [HomePage]가 아닌 [MainWrapper]에 두어 탭·화면과 무관하게 동작하게 한다.
 class ShorebirdUpdateHost extends StatefulWidget {
   const ShorebirdUpdateHost({super.key, required this.child});
-
   final Widget child;
 
   @override
   State<ShorebirdUpdateHost> createState() => _ShorebirdUpdateHostState();
 }
 
-class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
+class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsBindingObserver {
   StreamSubscription<PatchEvent>? _sub;
   bool _dialogShown = false;
+  bool _patchReady = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _sub = ShorebirdUpdateService.instance.patchEvents.listen(_onPatchEvent);
-    // 첫 프레임 이후 컨텍스트가 준비된 뒤 패치 확인
+    
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final hasApk = await ApkUpdateService.instance.checkForUpdate();
       if (hasApk && mounted) {
@@ -43,20 +42,32 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _sub?.cancel();
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _patchReady && !_dialogShown) {
+      _dialogShown = true;
+      ShorebirdUpdateDialog.show(context);
+    }
   }
 
   void _onPatchEvent(PatchEvent event) {
     if (!mounted) return;
 
-    if (event.stage == PatchStage.downloading || 
-        event.stage == PatchStage.error || 
-        event.stage == PatchStage.ready) {
-      if (!_dialogShown) {
-        _dialogShown = true;
-        ShorebirdUpdateDialog.show(context);
-      }
+    if (event.stage == PatchStage.ready) {
+      _patchReady = true;
+      AutoRegisterNotificationService.instance.showShorebirdPatchReady();
+      // 만약 이미 앱 화면을 보고 있다면 3초 뒤에 자연스럽게 팝업 표시
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted && !_dialogShown) {
+          _dialogShown = true;
+          ShorebirdUpdateDialog.show(context);
+        }
+      });
     }
   }
 
