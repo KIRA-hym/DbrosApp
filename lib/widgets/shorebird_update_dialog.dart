@@ -1,4 +1,5 @@
-﻿import 'dart:io';
+import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -8,7 +9,7 @@ import 'package:restart_app/restart_app.dart';
 
 import '../services/shorebird_update_service.dart';
 
-/// Shorebird 패치 업데이트 완료 시 띄우는 다이얼로그.
+/// Shorebird 패치 상태를 보여주는 다이얼로그.
 abstract final class ShorebirdUpdateDialog {
   static void show(BuildContext context) {
     showDialog<void>(
@@ -33,6 +34,9 @@ class _ShorebirdUpdateDialogBodyState
     with TickerProviderStateMixin {
   late AnimationController _checkController;
   late Animation<double> _checkScale;
+  
+  StreamSubscription<PatchEvent>? _sub;
+  PatchStage _currentStage = PatchStage.downloading;
 
   @override
   void initState() {
@@ -47,12 +51,22 @@ class _ShorebirdUpdateDialogBodyState
       curve: Curves.elasticOut,
     );
     
-    _checkController.forward();
+    // 현재 상태 가져오기
+    _sub = ShorebirdUpdateService.instance.patchEvents.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _currentStage = event.stage;
+      });
+      if (event.stage == PatchStage.ready || event.stage == PatchStage.error) {
+        _checkController.forward();
+      }
+    });
   }
 
   @override
   void dispose() {
     _checkController.dispose();
+    _sub?.cancel();
     super.dispose();
   }
 
@@ -66,7 +80,6 @@ class _ShorebirdUpdateDialogBodyState
         }
       } catch (_) {}
     }
-    // 부드러운 앱 재시작
     Restart.restartApp();
   }
 
@@ -105,7 +118,10 @@ class _ShorebirdUpdateDialogBodyState
                 const SizedBox(height: 20),
                 _buildTexts(),
                 const SizedBox(height: 24),
-                _buildBottom(),
+                if (_currentStage == PatchStage.downloading)
+                  const SizedBox(height: 96) // Reserve space for buttons so dialog doesn't jump
+                else
+                  _buildBottom(),
               ],
             ),
           ),
@@ -115,18 +131,38 @@ class _ShorebirdUpdateDialogBodyState
   }
 
   Widget _buildIcon() {
+    if (_currentStage == PatchStage.downloading) {
+      return Container(
+        width: 64,
+        height: 64,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+          shape: BoxShape.circle,
+        ),
+        child: const CircularProgressIndicator(
+          color: Color(0xFF3B82F6),
+          strokeWidth: 3,
+        ),
+      );
+    }
+    
+    final isError = _currentStage == PatchStage.error;
+    final color = isError ? const Color(0xFFEF4444) : const Color(0xFF4CAF50);
+    final icon = isError ? Icons.error_outline_rounded : Icons.check_circle_rounded;
+
     return ScaleTransition(
       scale: _checkScale,
       child: Container(
         width: 64,
         height: 64,
         decoration: BoxDecoration(
-          color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+          color: color.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
-        child: const Icon(
-          Icons.check_circle_rounded,
-          color: Color(0xFF4CAF50),
+        child: Icon(
+          icon,
+          color: color,
           size: 36,
         ),
       ),
@@ -134,11 +170,22 @@ class _ShorebirdUpdateDialogBodyState
   }
 
   Widget _buildTexts() {
-    return const Column(
+    String title = '업데이트 준비 완료';
+    String desc = '새로운 패치가 준비되었습니다.\\n지금 앱을 재시작하여 바로 적용하시겠습니까?';
+
+    if (_currentStage == PatchStage.downloading) {
+      title = '업데이트 다운로드 중';
+      desc = '새로운 패치를 다운로드하고 있습니다.\\n잠시만 기다려 주세요...';
+    } else if (_currentStage == PatchStage.error) {
+      title = '업데이트 실패';
+      desc = '패치 다운로드 중 오류가 발생했습니다.\\n나중에 다시 시도해주세요.';
+    }
+
+    return Column(
       children: [
         Text(
-          '업데이트 준비 완료',
-          style: TextStyle(
+          title,
+          style: const TextStyle(
             fontFamily: 'GmarketSans',
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -146,10 +193,10 @@ class _ShorebirdUpdateDialogBodyState
           ),
           textAlign: TextAlign.center,
         ),
-        SizedBox(height: 10),
+        const SizedBox(height: 10),
         Text(
-          '새로운 패치가 준비되었습니다.\n지금 앱을 재시작하여 바로 적용하시겠습니까?',
-          style: TextStyle(
+          desc.replaceAll('\\n', '\n'),
+          style: const TextStyle(
             color: Color(0xFFB0B3BB),
             fontSize: 13,
             height: 1.6,
@@ -161,6 +208,24 @@ class _ShorebirdUpdateDialogBodyState
   }
 
   Widget _buildBottom() {
+    if (_currentStage == PatchStage.error) {
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF4A4D55),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text('닫기', style: TextStyle(fontWeight: FontWeight.bold)),
+        ),
+      );
+    }
+
     return Column(
       children: [
         SizedBox(

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -50,30 +50,13 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> {
   void _onPatchEvent(PatchEvent event) {
     if (!mounted) return;
 
-    if (event.stage == PatchStage.downloading) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('새로운 업데이트 패치를 다운로드하는 중입니다...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      return;
-    }
-
-    if (event.stage == PatchStage.error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('업데이트 다운로드에 실패했습니다. 다음 실행 시 재시도합니다.'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    if (event.stage == PatchStage.ready) {
-      if (_dialogShown) return;
-      _dialogShown = true;
-      ShorebirdUpdateDialog.show(context);
+    if (event.stage == PatchStage.downloading || 
+        event.stage == PatchStage.error || 
+        event.stage == PatchStage.ready) {
+      if (!_dialogShown) {
+        _dialogShown = true;
+        ShorebirdUpdateDialog.show(context);
+      }
     }
   }
 
