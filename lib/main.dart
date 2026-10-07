@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
@@ -66,7 +66,7 @@ void main() async {
   if (!kIsWeb && Platform.isAndroid) {
     final GoogleMapsFlutterPlatform mapsImpl = GoogleMapsFlutterPlatform.instance;
     if (mapsImpl is GoogleMapsFlutterAndroid) {
-      mapsImpl.useAndroidViewSurface = true;
+      mapsImpl.initializeWithRenderer(AndroidMapRenderer.latest);
     }
   }
 
@@ -891,3 +891,4 @@ class _AppEntryPointState extends State<AppEntryPoint> {
     );
   }
 }
+
