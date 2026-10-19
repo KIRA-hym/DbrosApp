@@ -2472,7 +2472,12 @@ RULES:
         final shouldPop = await _handleBack();
         if (shouldPop) {
           if (!context.mounted) return;
-          Navigator.pop(context);
+          // 탭으로 진입한 경우(canPop == false): Navigator.pop 대신 홈 탭으로 안전 복귀
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            MainTabScope.maybeOf(context)?.selectTab(0);
+          }
         }
       },
       child: Scaffold(
@@ -2492,6 +2497,7 @@ RULES:
                   onPressed: () async {
                     final shouldPop = await _handleBack();
                     if (shouldPop && context.mounted) {
+                      // push로 진입한 경우는 항상 Navigator.pop 가능
                       Navigator.pop(context);
                     }
                   },
