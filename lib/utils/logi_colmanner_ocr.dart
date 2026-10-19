@@ -542,7 +542,7 @@ class LogiColmannerOcr {
       }
 
       final fromStack = _grossFareFromLogiFareDepositStack(lines);
-      if (fromStack != null && fromStack >= 1000) return fromStack;
+      int? currentMax = (fromStack != null && fromStack >= 1000) ? fromStack : null;
 
       int maxFare = 0;
       for (final line in lines) {
@@ -551,23 +551,26 @@ class LogiColmannerOcr {
           if (v > maxFare) maxFare = v;
         }
       }
-        if (maxFare > 0) {
-          final inferred = _inferLogiGrossFareFromPlatformFee(maxFare);
-          if (inferred != null &&
-              inferred > maxFare &&
-              _indexOfLabel(lines, '입금액') >= 0) {
-            return inferred;
-          }
-          // [보완] 줄바꿈이나 기호 등으로 인해 155 000 처럼 요금 블록이 분리된 경우 (maxFare가 수수료로 오판된 경우)
-          // fullText를 공백으로 병합하여 진짜 요금을 추출해본다. (안전한 정규식 기반)
-          if (fullText != null) {
-            final mergedFare = parseLogiFareFromOcrText(fullText.replaceAll(RegExp(r'[\r\n]+'), ' '));
-            if (mergedFare != null && mergedFare > maxFare) {
-              return mergedFare;
-            }
-          }
-          return maxFare;
+      if (maxFare > 0) {
+        final inferred = _inferLogiGrossFareFromPlatformFee(maxFare);
+        if (inferred != null &&
+            inferred > maxFare &&
+            _indexOfLabel(lines, '입금액') >= 0) {
+          maxFare = inferred;
         }
+      }
+      if (maxFare > (currentMax ?? 0)) currentMax = maxFare;
+
+      // [보완] 줄바꿈이나 기호 등으로 인해 155 000 처럼 요금 블록이 분리된 경우 (currentMax가 수수료로 오판된 경우)
+      // fullText를 공백으로 병합하여 진짜 요금을 추출해본다. (안전한 정규식 기반)
+      if (fullText != null) {
+        final mergedFare = parseLogiFareFromOcrText(fullText.replaceAll(RegExp(r'[\r\n]+'), ' '));
+        if (mergedFare != null && mergedFare > (currentMax ?? 0)) {
+          return mergedFare;
+        }
+      }
+
+      if (currentMax != null && currentMax >= 1000) return currentMax;
     }
     if (fullText != null && fullText.isNotEmpty) {
       final fromRx = parseGrossFareRegexFromFullText(fullText, colmanner: colmanner);
