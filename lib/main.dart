@@ -61,12 +61,15 @@ import 'providers/notice_badge_provider.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // [FIX] Google Maps 블랙스크린 버그 우회 (Android 릴리즈 빌드)
-  // Flutter 최신 엔진의 TLHC 렌더러가 일부 기기에서 지도를 마운트 못하는 이슈 해결
+  // [FIX] Google Maps 렌더러 안정 초기화 (Android 릴리즈 빌드)
   if (!kIsWeb && Platform.isAndroid) {
-    final GoogleMapsFlutterPlatform mapsImpl = GoogleMapsFlutterPlatform.instance;
-    if (mapsImpl is GoogleMapsFlutterAndroid) {
-      mapsImpl.initializeWithRenderer(AndroidMapRenderer.latest);
+    try {
+      final GoogleMapsFlutterPlatform mapsImpl = GoogleMapsFlutterPlatform.instance;
+      if (mapsImpl is GoogleMapsFlutterAndroid) {
+        await mapsImpl.initializeWithRenderer(AndroidMapRenderer.latest).timeout(const Duration(seconds: 2));
+      }
+    } catch (e) {
+      debugPrint('[main] Google Maps renderer init error: $e');
     }
   }
 

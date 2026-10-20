@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -51,7 +51,7 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _patchReady && !_dialogShown) {
       _dialogShown = true;
-      ShorebirdUpdateDialog.show(context);
+      ShorebirdUpdateDialog.show(context, initialStage: PatchStage.ready);
     }
   }
 
@@ -65,7 +65,7 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
       Future.delayed(const Duration(seconds: 3), () {
         if (mounted && !_dialogShown) {
           _dialogShown = true;
-          ShorebirdUpdateDialog.show(context);
+          ShorebirdUpdateDialog.show(context, initialStage: PatchStage.ready);
         }
       });
     }

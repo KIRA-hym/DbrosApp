@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -255,7 +255,9 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     final locationCounts = <String, int>{};
     
     int index = 0;
-    for (final point in filtered) {
+    // GPU 메모리 보호를 위해 최대 2000개 마커로 안전 제한
+    final targetList = filtered.length > 2000 ? filtered.take(2000) : filtered;
+    for (final point in targetList) {
       final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
       if (!_groupedPoints.containsKey(locKey)) { _groupedPoints[locKey] = []; }
       _groupedPoints[locKey]!.add(point);
@@ -537,22 +539,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     if (data['type'] == 'log' || data['type'] == 'shared') {
       if (data['is_mine'] == 1 || data['type'] == 'log') {
         if (data['is_mine'] == 1) {
-          icon = isSelected ? _logIconMineSelected! : _logIconMine!;
+          icon = isSelected ? (_logIconMineSelected ?? BitmapDescriptor.defaultMarker) : (_logIconMine ?? BitmapDescriptor.defaultMarker);
           if (!isSelected) zIndex = 5.0;
         } else {
-          icon = isSelected ? _logIconOtherSelected! : _logIconOther!;
+          icon = isSelected ? (_logIconOtherSelected ?? BitmapDescriptor.defaultMarker) : (_logIconOther ?? BitmapDescriptor.defaultMarker);
         }
       } else {
-        icon = isSelected ? _logIconOtherSelected! : _logIconOther!;
+        icon = isSelected ? (_logIconOtherSelected ?? BitmapDescriptor.defaultMarker) : (_logIconOther ?? BitmapDescriptor.defaultMarker);
       }
     } else if (data['type'] == 'restroom') {
-      icon = isSelected ? _restroomIconSelected! : _restroomIcon!;
+      icon = isSelected ? (_restroomIconSelected ?? BitmapDescriptor.defaultMarker) : (_restroomIcon ?? BitmapDescriptor.defaultMarker);
       if (!isSelected) zIndex = 10.0;
     } else if (data['type'] == 'shuttle') {
-      icon = isSelected ? _shuttleIconSelected! : _shuttleIcon!;
+      icon = isSelected ? (_shuttleIconSelected ?? BitmapDescriptor.defaultMarker) : (_shuttleIcon ?? BitmapDescriptor.defaultMarker);
       if (!isSelected) zIndex = 10.0;
     } else {
-      icon = isSelected ? _refIconSelected! : _refIcon!;
+      icon = isSelected ? (_refIconSelected ?? BitmapDescriptor.defaultMarker) : (_refIcon ?? BitmapDescriptor.defaultMarker);
     }
 
     return Marker(
@@ -741,32 +743,26 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
     return Stack(
       children: [
-        _buildUpdateBanner(),
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: navBarHeight, // OS 네비게이션바 위까지만 지도 렌더링
-          child: GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: initialPos,
-              zoom: _localDetailZoom,
-            ),
-            padding: EdgeInsets.only(bottom: 8), // 지도 내부 컨트롤 여백
-            onMapCreated: (GoogleMapController controller) async {
-              if (!_controller.isCompleted) {
-                _controller.complete(controller);
-              }
-              await _focusOnCurrentLocation();
-            },
-            markers: _markers,
-            myLocationEnabled: _permissionGranted,
-            myLocationButtonEnabled: _permissionGranted,
-            compassEnabled: true,
-            mapToolbarEnabled: false,
-            zoomControlsEnabled: false,
+        GoogleMap(
+          initialCameraPosition: CameraPosition(
+            target: initialPos,
+            zoom: _localDetailZoom,
           ),
+          padding: EdgeInsets.only(bottom: navBarHeight + 8),
+          onMapCreated: (GoogleMapController controller) async {
+            if (!_controller.isCompleted) {
+              _controller.complete(controller);
+            }
+            await _focusOnCurrentLocation();
+          },
+          markers: _markers,
+          myLocationEnabled: _permissionGranted,
+          myLocationButtonEnabled: _permissionGranted,
+          compassEnabled: true,
+          mapToolbarEnabled: false,
+          zoomControlsEnabled: false,
         ),
+        _buildUpdateBanner(),
         _buildLegend(),
       ],
     );

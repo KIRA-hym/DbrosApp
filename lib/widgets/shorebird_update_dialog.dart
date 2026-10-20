@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -11,18 +11,20 @@ import '../services/shorebird_update_service.dart';
 
 /// Shorebird 패치 상태를 보여주는 다이얼로그.
 abstract final class ShorebirdUpdateDialog {
-  static void show(BuildContext context) {
+  static void show(BuildContext context, {PatchStage? initialStage}) {
+    final stage = initialStage ?? ShorebirdUpdateService.instance.currentStage;
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (_) => const _ShorebirdUpdateDialogBody(),
+      builder: (_) => _ShorebirdUpdateDialogBody(initialStage: stage),
     );
   }
 }
 
 class _ShorebirdUpdateDialogBody extends StatefulWidget {
-  const _ShorebirdUpdateDialogBody();
+  final PatchStage initialStage;
+  const _ShorebirdUpdateDialogBody({this.initialStage = PatchStage.ready});
 
   @override
   State<_ShorebirdUpdateDialogBody> createState() =>
@@ -36,11 +38,12 @@ class _ShorebirdUpdateDialogBodyState
   late Animation<double> _checkScale;
   
   StreamSubscription<PatchEvent>? _sub;
-  PatchStage _currentStage = PatchStage.downloading;
+  late PatchStage _currentStage;
 
   @override
   void initState() {
     super.initState();
+    _currentStage = widget.initialStage;
 
     _checkController = AnimationController(
       vsync: this,
@@ -51,7 +54,12 @@ class _ShorebirdUpdateDialogBodyState
       curve: Curves.elasticOut,
     );
     
-    // 현재 상태 가져오기
+    // 이미 완료(ready) 또는 에러 상태인 경우 즉시 애니메이션 전진
+    if (_currentStage == PatchStage.ready || _currentStage == PatchStage.error) {
+      _checkController.forward();
+    }
+
+    // 이후 스트림 이벤트 수신 (다운로드 진행 중 상태에서 완료로 변경될 때 등)
     _sub = ShorebirdUpdateService.instance.patchEvents.listen((event) {
       if (!mounted) return;
       setState(() {

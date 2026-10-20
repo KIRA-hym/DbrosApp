@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +30,13 @@ class ShorebirdUpdateService {
 
   final _updater = ShorebirdUpdater();
   final _ctrl = StreamController<PatchEvent>.broadcast();
+  PatchStage _currentStage = PatchStage.ready;
+  PatchStage get currentStage => _currentStage;
+
+  void _emitEvent(PatchEvent event) {
+    _currentStage = event.stage;
+    _ctrl.add(event);
+  }
 
   static const String _prefNotifiedPatch = 'shorebird_notified_patch_number';
   static const String _prefPendingPatch = 'shorebird_pending_patch_number';
@@ -76,16 +83,17 @@ class ShorebirdUpdateService {
       await _syncAppliedPatchState();
       final status = await _updater.checkForUpdate();
       if (status == UpdateStatus.outdated) {
-        _ctrl.add(const PatchEvent(PatchStage.downloading));
+        _emitEvent(const PatchEvent(PatchStage.downloading));
         
-        // 백그라운드 다운로드 (최대 5회 재시도, 각 3초 제한)
+        // 백그라운드 다운로드 (최대 3회 재시도, 30초 안정 타임아웃)
         bool success = false;
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 3; i++) {
           try {
-            await _updater.update().timeout(const Duration(seconds: 3));
+            await _updater.update().timeout(const Duration(seconds: 30));
             success = true;
             break;
           } catch (e) {
+            if (kDebugMode) debugPrint('[Shorebird] patch download retry ${i + 1} failed: $e');
             await Future.delayed(const Duration(seconds: 2));
           }
         }
@@ -175,7 +183,7 @@ class ShorebirdUpdateService {
         if (forceEmit) {
           // update()가 예외 없이 성공했으나 플러그인이 아직 다음 패치 번호를 반환하지 못하는 경우
           // 업데이트 자체는 다운로드 완료된 상태이므로 성공(ready) 이벤트를 발생시킵니다.
-          _ctrl.add(const PatchEvent(PatchStage.ready));
+          _emitEvent(const PatchEvent(PatchStage.ready));
         }
         return;
       }
@@ -194,7 +202,7 @@ class ShorebirdUpdateService {
       }
 
       await prefs.setInt(_prefNotifiedPatch, pendingNumber);
-      _ctrl.add(PatchEvent(PatchStage.ready, patchNumber: pendingNumber));
+      _emitEvent(PatchEvent(PatchStage.ready, patchNumber: pendingNumber));
       if (kDebugMode) debugPrint('[Shorebird] ready 이벤트 #$pendingNumber');
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] emitReady 오류: $e');
