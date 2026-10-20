@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -33,11 +33,34 @@ class AuthService extends ChangeNotifier {
   StreamSubscription<DocumentSnapshot>? _userDocSubscription;
 
   AuthService._internal() {
+    // [FIX] 앱 시작 시 이미 로그인된 유저가 캐싱되어 있으면 즉시 authenticated로 초기화.
+    // authStateChanges()의 첫 번째 이벤트가 null을 방출하는 동안 로그인 화면이
+    // 잠깐 깜빡이는 현상(Flicker)과, 이후 spurious null 이벤트로 인해
+    // _user가 null이 되면서 홈화면에서 "로그인 정보 없음"이 표시되는 버그 방지.
+    final existingUser = _auth.currentUser;
+    if (existingUser != null) {
+      _user = existingUser;
+      _status = AuthStatus.authenticated;
+    }
     _auth.authStateChanges().listen(_onAuthStateChanged);
   }
 
   Future<void> _onAuthStateChanged(User? firebaseUser) async {
     if (firebaseUser == null) {
+      // [FIX] Spurious null 이벤트 방어:
+      // Firebase Auth SDK가 앱 업데이트/초기화 직후 null -> User -> null 순서로
+      // 이벤트를 재방출하는 경우가 있음. currentUser를 재확인하여
+      // 실제 로그아웃이 아닌 경우에는 상태 전환을 무시.
+      final recheck = _auth.currentUser;
+      if (recheck != null) {
+        // 실제로는 로그인 상태 -> spurious null 무시하고 안전하게 재동기화
+        debugPrint('[AuthService] Spurious null event ignored. currentUser: ${recheck.uid}');
+        _user = recheck;
+        _status = AuthStatus.authenticated;
+        notifyListeners();
+        return;
+      }
+      // currentUser도 null이면 진짜 로그아웃
       _status = AuthStatus.unauthenticated;
       _user = null;
       _userDoc = null;
@@ -179,10 +202,14 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     _cancelSubscription();
+    // [FIX] 즉시 상태 초기화 후 UI 반영 → _onAuthStateChanged 비동기 의존 제거
+    _user = null;
+    _userDoc = null;
+    _status = AuthStatus.unauthenticated;
+    notifyListeners();
     await _googleSignIn.signOut();
     await _auth.signOut();
     await SubscriptionService.logOut();
-    _userDoc = null;
   }
 
   Future<void> deleteAccount() async {
