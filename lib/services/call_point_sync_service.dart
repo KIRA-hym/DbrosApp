@@ -1,16 +1,20 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'settings_service.dart';
 import 'db_helper.dart';
 
 class CallPointSyncService {
-  static const String _jsonUrl = 'https://dbros-apps-7bbmw4.firebasestorage.app/o/shared_coordinates.json?alt=media';
-  static const String _versionUrl = 'https://dbros-apps-7bbmw4.firebasestorage.app/o/shared_coordinates_metadata.json?alt=media';
+  static const String _jsonUrl =
+      'https://firebasestorage.googleapis.com/v0/b/dbros-apps-7bbmw4.firebasestorage.app/o/shared_coordinates.json?alt=media';
+  static const String _versionUrl =
+      'https://firebasestorage.googleapis.com/v0/b/dbros-apps-7bbmw4.firebasestorage.app/o/shared_coordinates_metadata.json?alt=media';
 
   static Future<int> checkServerVersion() async {
     try {
-      final response = await http.get(Uri.parse('$_versionUrl&_t=${DateTime.now().millisecondsSinceEpoch}'));
+      final response = await http
+          .get(Uri.parse('$_versionUrl&_t=${DateTime.now().millisecondsSinceEpoch}'))
+          .timeout(const Duration(seconds: 4));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return data['version'] ?? 0;
@@ -29,20 +33,32 @@ class CallPointSyncService {
 
   static Future<bool> downloadAndUpdateMapData(int targetVersion) async {
     try {
-      final response = await http.get(Uri.parse('$_jsonUrl&_t=${DateTime.now().millisecondsSinceEpoch}'));
+      final response = await http
+          .get(Uri.parse('$_jsonUrl&_t=${DateTime.now().millisecondsSinceEpoch}'))
+          .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        final List<dynamic> points = jsonDecode(response.body);
+        final List<dynamic> points = jsonDecode(utf8.decode(response.bodyBytes));
         final db = await DriveLogDatabase.instance.database;
         
         await db.transaction((txn) async {
-          await txn.delete('call_points');
+          await txn.delete('call_points', where: "type != 'log'");
           final batch = txn.batch();
           for (var point in points) {
+            if (point is! Map<String, dynamic>) continue;
             batch.insert('call_points', {
+              'type': point['type'] ?? 'reference',
+              'is_mine': 0,
+              'start_location': point['start_location'],
               'start_lat': point['start_lat'],
               'start_lng': point['start_lng'],
-              'type': point['type'] ?? 'other',
+              'end_location': point['end_location'],
+              'drive_time': point['drive_time'],
+              'program': point['program'],
               'created_at': point['created_at'] ?? DateTime.now().toIso8601String(),
+              'user_id': point['user_id'] ?? 'admin',
+              'gross_fare': point['gross_fare'] ?? 0,
+              'waypoint': point['waypoint'],
+              'memo': point['memo'],
             });
           }
           await batch.commit(noResult: true);

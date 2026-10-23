@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, debugPrint;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -360,30 +360,6 @@ class DriveLogDatabase {
       
       // 기존에 존재하는 콜포인트의 user_id를 'admin'으로 초기화
       await db.execute("UPDATE call_points SET user_id = 'admin' WHERE type = 'reference' AND user_id IS NULL");
-    }
-    
-    // Seed reference data if none exists or if it's the old short list
-    final refCount = Sqflite.firstIntValue(await db.rawQuery("SELECT COUNT(*) FROM call_points WHERE type IN ('reference', 'restroom', 'shuttle')")) ?? 0;
-    if (refCount < 500) {
-      await db.execute("DELETE FROM call_points WHERE type IN ('reference', 'restroom', 'shuttle')");
-      try {
-        final batch = db.batch();
-        for (var r in []) {
-          batch.insert('call_points', {
-            'type': r['type'],
-            'is_mine': 0,
-            'start_location': r['start_location'],
-            'start_lat': r['start_lat'],
-            'start_lng': r['start_lng'],
-            'user_id': r['user_id'],
-            'memo': r['memo'],
-            'created_at': DateTime.now().toIso8601String(),
-          });
-        }
-        await batch.commit(noResult: true);
-      } catch (e) {
-        if (kDebugMode) print('[DB] call_points seeding error: $e');
-      }
     }
   }
 
@@ -1106,4 +1082,4 @@ class DriveLogDatabase {
     );
     return (r.first['s'] as num?)?.toInt() ?? 0;
   }
-}
+}

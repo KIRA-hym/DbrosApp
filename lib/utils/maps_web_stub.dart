@@ -100,6 +100,8 @@ class GoogleMapController {
   Future<void> animateCamera(CameraUpdate update) async {}
   Future<double> getZoomLevel() async => 15.0;
   Future<void> showMarkerInfoWindow(MarkerId markerId) async {}
+  Future<LatLngBounds> getVisibleRegion() async =>
+      const LatLngBounds(southwest: LatLng(0, 0), northeast: LatLng(0, 0));
 }
 
 class GoogleMap extends StatelessWidget {

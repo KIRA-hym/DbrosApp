@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -19,6 +19,7 @@ import '../utils/marker_utils.dart';
 
 import '../services/settings_service.dart';
 import '../services/call_point_sync_service.dart';
+import '../services/map_data_sync_service.dart';
 
 class CallPointData {
   final Map<String, dynamic> data;
@@ -48,24 +49,29 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   List<String> _visibleTypes = [];
   List<CallPointData> _allPoints = [];
 
-  // 캐싱된 마커 비트맵
-  BitmapDescriptor? _logIconMine;
-  BitmapDescriptor? _logIconOther;
-  BitmapDescriptor? _refIcon;
-  BitmapDescriptor? _restroomIcon;
-  BitmapDescriptor? _shuttleIcon;
-  BitmapDescriptor? _logIconMineSelected;
-  BitmapDescriptor? _logIconOtherSelected;
-  BitmapDescriptor? _refIconSelected;
-  BitmapDescriptor? _restroomIconSelected;
-  BitmapDescriptor? _shuttleIconSelected;
+  // 캐싱된 마커 비트맵 (앱 세션 동안 재사용하여 재진입 시 재생성 오버헤드 제거)
+  static BitmapDescriptor? _logIconMine;
+  static BitmapDescriptor? _logIconOther;
+  static BitmapDescriptor? _refIcon;
+  static BitmapDescriptor? _restroomIcon;
+  static BitmapDescriptor? _shuttleIcon;
+  static BitmapDescriptor? _logIconMineSelected;
+  static BitmapDescriptor? _logIconOtherSelected;
+  static BitmapDescriptor? _refIconSelected;
+  static BitmapDescriptor? _restroomIconSelected;
+  static BitmapDescriptor? _shuttleIconSelected;
   
   String? _selectedLocKey;
   final Map<String, List<CallPointData>> _groupedPoints = {};
-  final Map<String, BitmapDescriptor> _clusterIcons = {};
 
   /// 마커 식별이 가능한 근접 줌 (전국 bounds 맞춤 대신 현재 위치 중심).
   static const double _localDetailZoom = 16.0;
+  static const int _maxMarkersPerViewport = 250;
+
+  LatLng _cameraTarget = const LatLng(37.5665, 126.9780);
+  double _cameraZoom = _localDetailZoom;
+  LatLngBounds? _visibleBounds;
+  Timer? _cameraIdleDebounce;
 
   @override
   void initState() {
@@ -74,70 +80,124 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     _initMap();
   }
 
+  @override
+  void dispose() {
+    _cameraIdleDebounce?.cancel();
+    super.dispose();
+  }
+
   Future<void> _precacheIcons() async {
-    // 단순 동그라미 형태를 내돌리고, 요구사항(별모양 하트, 마커 테두리 검정색 적용)
-    _logIconMine ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.black, dy: 1.0);
-    _logIconOther ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.black, dy: 0.5);
-    _refIcon ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.black, textScale: 1.3, dy: -2.0);
-    _restroomIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
-    _shuttleIcon ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0);
-    
-    _logIconMineSelected ??= await MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 85, borderColor: Colors.white, dy: 1.0);
-    _logIconOtherSelected ??= await MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 85, borderColor: Colors.white, dy: 0.5);
-    _refIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 85, borderColor: Colors.white, textScale: 1.3, dy: -2.0);
-    _restroomIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0);
-    _shuttleIconSelected ??= await MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0);
+    if (_logIconMine != null &&
+        _logIconOther != null &&
+        _refIcon != null &&
+        _restroomIcon != null &&
+        _shuttleIcon != null &&
+        _logIconMineSelected != null &&
+        _logIconOtherSelected != null &&
+        _refIconSelected != null &&
+        _restroomIconSelected != null &&
+        _shuttleIconSelected != null) {
+      return;
+    }
+    final results = await Future.wait<BitmapDescriptor>([
+      MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 65, borderColor: Colors.black, dy: 1.0),
+      MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 65, borderColor: Colors.black, dy: 0.5),
+      MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 65, borderColor: Colors.black, textScale: 1.3, dy: -2.0),
+      MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0),
+      MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 65, borderColor: Colors.black, dy: 0.0),
+      MarkerUtils.createCustomMarkerBitmap('❤', bgColor: const Color(0xFFEC4899), size: 85, borderColor: Colors.white, dy: 1.0),
+      MarkerUtils.createCustomMarkerBitmap('@', bgColor: const Color(0xFF3B82F6), size: 85, borderColor: Colors.white, dy: 0.5),
+      MarkerUtils.createCustomMarkerBitmap('★', bgColor: const Color(0xFFFBBF24), size: 85, borderColor: Colors.white, textScale: 1.3, dy: -2.0),
+      MarkerUtils.createCustomMarkerBitmap('🚻', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0),
+      MarkerUtils.createCustomMarkerBitmap('🚌', bgColor: Colors.white, textColor: Colors.black87, size: 85, borderColor: Colors.yellowAccent, dy: 0.0),
+    ]);
+    _logIconMine = results[0];
+    _logIconOther = results[1];
+    _refIcon = results[2];
+    _restroomIcon = results[3];
+    _shuttleIcon = results[4];
+    _logIconMineSelected = results[5];
+    _logIconOtherSelected = results[6];
+    _refIconSelected = results[7];
+    _restroomIconSelected = results[8];
+    _shuttleIconSelected = results[9];
   }
 
   Future<void> _initMap() async {
     try {
-      await _precacheIcons();
-      _permissionGranted = await _handleLocationPermission();
-      
-      // 항상 DB 데이터 먼저 로드하여 마커를 표시할 수 있게 함
-      await _loadData();
-      await _checkForUpdate();
+      await Future.wait([
+        _precacheIcons(),
+        _handleLocationPermission().then((granted) => _permissionGranted = granted),
+      ]);
 
-      if (_permissionGranted) {
-        Position? pos;
+      // 1) 캐시된 마지막 위치가 있으면 즉시 초기 좌표로 반영 (블로킹 없음)
+      if (_permissionGranted && !kIsWeb) {
         try {
-          pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              timeLimit: Duration(seconds: 10),
-            ),
-          );
-        } catch (_) {
-          try {
-            pos = await Geolocator.getLastKnownPosition();
-          } catch (_) {}
-        }
+          final lastPos = await Geolocator.getLastKnownPosition()
+              .timeout(const Duration(milliseconds: 600));
+          if (lastPos != null) {
+            _currentPosition = lastPos;
+            _cameraTarget = LatLng(lastPos.latitude, lastPos.longitude);
+          }
+        } catch (_) {}
+      }
 
-        if (pos != null) {
-          setState(() {
-            _currentPosition = pos;
-          });
-          await _reverseGeocode(pos);
-          await _focusOnCurrentLocation();
+      // 2) 지도를 먼저 즉시 마운트하여 로딩 스피너 먹통 방지
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+
+      // 3) 로컬 DB 포인트 로드 (현재 뷰포트 주변 마커만 즉시 표시)
+      await _loadData();
+
+      // 4) 네트워크 버전 체크 및 정밀 GPS/역지오코딩은 백그라운드로 비동기 실행
+      unawaited(_checkForUpdate());
+      if (_permissionGranted && !kIsWeb) {
+        if (_currentPosition != null) {
+          unawaited(_reverseGeocode(_currentPosition!));
         }
+        unawaited(_fetchCurrentPositionInBackground());
       }
     } catch (e) {
-      debugPrint('위치 가져오기 오류: $e');
-    } finally {
+      debugPrint('지도 초기화 오류: $e');
       if (mounted) {
         setState(() => _loading = false);
       }
     }
   }
 
+  Future<void> _fetchCurrentPositionInBackground() async {
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 6),
+        ),
+      );
+      if (!mounted) return;
+      final hadInitialPos = _currentPosition != null;
+      setState(() {
+        _currentPosition = pos;
+        _cameraTarget = LatLng(pos.latitude, pos.longitude);
+      });
+      unawaited(_reverseGeocode(pos));
+      await _focusOnCurrentLocation();
+      if (!hadInitialPos) {
+        await _updateVisibleBoundsAndFilter();
+      }
+    } catch (e) {
+      debugPrint('정밀 위치 조회 타임아웃/오류: $e');
+    }
+  }
+
   Future<void> _reverseGeocode(Position pos) async {
     try {
-      await setLocaleIdentifier('ko_KR');
-      List<Placemark> placemarks = await placemarkFromCoordinates(
+      await setLocaleIdentifier('ko_KR').timeout(const Duration(seconds: 2));
+      final List<Placemark> placemarks = await placemarkFromCoordinates(
         pos.latitude, 
         pos.longitude,
-      );
-      if (placemarks.isNotEmpty) {
+      ).timeout(const Duration(seconds: 3));
+      if (placemarks.isNotEmpty && mounted) {
         final (line1, dong) = callMapTitlesFromPlacemark(placemarks.first);
         setState(() {
           _areaTitle = line1;
@@ -198,14 +258,23 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
 
   Future<void> _loadData() async {
     final db = await DriveLogDatabase.instance.database;
-    final List<Map<String, dynamic>> rows = await db.query(
+    List<Map<String, dynamic>> rows = await db.query(
       'call_points',
       orderBy: 'created_at DESC',
       limit: 20000,
     );
 
-    List<CallPointData> points = [];
-    for (var row in rows) {
+    if (rows.isEmpty && !kIsWeb) {
+      await MapDataSyncService.syncCommonPoints();
+      rows = await db.query(
+        'call_points',
+        orderBy: 'created_at DESC',
+        limit: 20000,
+      );
+    }
+
+    final List<CallPointData> points = [];
+    for (final row in rows) {
       final lat = row['start_lat'] as num?;
       final lng = row['start_lng'] as num?;
       if (lat != null && lng != null) {
@@ -217,7 +286,7 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     }
 
     _allPoints = points;
-    _applyFilter();
+    await _updateVisibleBoundsAndFilter();
     await _focusOnCurrentLocation();
   }
 
@@ -225,19 +294,59 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
     if (kIsWeb || _currentPosition == null || !_controller.isCompleted) return;
     try {
       final controller = await _controller.future;
+      final target = LatLng(_currentPosition!.latitude, _currentPosition!.longitude);
+      _cameraTarget = target;
       await controller.animateCamera(
-        CameraUpdate.newLatLngZoom(
-          LatLng(_currentPosition!.latitude, _currentPosition!.longitude),
-          _localDetailZoom,
-        ),
+        CameraUpdate.newLatLngZoom(target, _localDetailZoom),
       );
+      await _updateVisibleBoundsAndFilter();
     } catch (e) {
       debugPrint('현재 위치 카메라 이동 오류: $e');
     }
   }
 
+  Future<void> _updateVisibleBoundsAndFilter() async {
+    if (!kIsWeb && _controller.isCompleted) {
+      try {
+        final controller = await _controller.future;
+        final bounds = await controller
+            .getVisibleRegion()
+            .timeout(const Duration(milliseconds: 500));
+        if ((bounds.northeast.latitude - bounds.southwest.latitude).abs() > 0.0001) {
+          _visibleBounds = bounds;
+        }
+      } catch (_) {}
+    }
+    _applyFilter();
+  }
+
+  bool _isPointInViewport(LatLng pos) {
+    final bounds = _visibleBounds;
+    if (bounds != null) {
+      final minLat = math.min(bounds.southwest.latitude, bounds.northeast.latitude);
+      final maxLat = math.max(bounds.southwest.latitude, bounds.northeast.latitude);
+      final minLng = math.min(bounds.southwest.longitude, bounds.northeast.longitude);
+      final maxLng = math.max(bounds.southwest.longitude, bounds.northeast.longitude);
+
+      final latMargin = math.max(0.015, (maxLat - minLat) * 0.35);
+      final lngMargin = math.max(0.015, (maxLng - minLng) * 0.35);
+
+      return pos.latitude >= (minLat - latMargin) &&
+          pos.latitude <= (maxLat + latMargin) &&
+          pos.longitude >= (minLng - lngMargin) &&
+          pos.longitude <= (maxLng + lngMargin);
+    }
+
+    // visibleRegion 취득 전 초기 폴백 반경 (줌 16 기준 약 6~7km)
+    final double degRadius = math.max(0.06, 180.0 / math.pow(2, _cameraZoom - 1));
+    return (pos.latitude - _cameraTarget.latitude).abs() <= degRadius &&
+        (pos.longitude - _cameraTarget.longitude).abs() <= degRadius;
+  }
+
   void _applyFilter() {
     final List<CallPointData> filtered = _allPoints.where((p) {
+      if (!_isPointInViewport(p.position)) return false;
+
       final type = p.data['type'];
       final isMine = p.data['is_mine'] == 1;
       
@@ -249,14 +358,28 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       if (type == 'shuttle') return _visibleTypes.contains('shuttle');
       return false;
     }).toList();
+
+    // 줌 아웃 시에도 플랫폼 채널 및 GPU 프리즈가 발생하지 않도록 카메라 중심 거리순 최대 250개로 제한
+    if (filtered.length > _maxMarkersPerViewport) {
+      final centerLat = _cameraTarget.latitude;
+      final centerLng = _cameraTarget.longitude;
+      filtered.sort((a, b) {
+        final da = (a.position.latitude - centerLat) * (a.position.latitude - centerLat) +
+            (a.position.longitude - centerLng) * (a.position.longitude - centerLng);
+        final db = (b.position.latitude - centerLat) * (b.position.latitude - centerLat) +
+            (b.position.longitude - centerLng) * (b.position.longitude - centerLng);
+        return da.compareTo(db);
+      });
+    }
     
     final newMarkers = <Marker>{};
     _groupedPoints.clear();
     final locationCounts = <String, int>{};
     
     int index = 0;
-    // GPU 메모리 보호를 위해 최대 2000개 마커로 안전 제한
-    final targetList = filtered.length > 2000 ? filtered.take(2000) : filtered;
+    final targetList = filtered.length > _maxMarkersPerViewport
+        ? filtered.take(_maxMarkersPerViewport)
+        : filtered;
     for (final point in targetList) {
       final locKey = '${point.position.latitude.toStringAsFixed(5)},${point.position.longitude.toStringAsFixed(5)}';
       if (!_groupedPoints.containsKey(locKey)) { _groupedPoints[locKey] = []; }
@@ -753,7 +876,22 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
             if (!_controller.isCompleted) {
               _controller.complete(controller);
             }
-            await _focusOnCurrentLocation();
+            if (_currentPosition != null) {
+              await _focusOnCurrentLocation();
+            } else {
+              await _updateVisibleBoundsAndFilter();
+            }
+          },
+          onCameraMove: (CameraPosition position) {
+            _cameraTarget = position.target;
+            _cameraZoom = position.zoom;
+          },
+          onCameraIdle: () {
+            _cameraIdleDebounce?.cancel();
+            _cameraIdleDebounce = Timer(
+              const Duration(milliseconds: 120),
+              () => _updateVisibleBoundsAndFilter(),
+            );
           },
           markers: _markers,
           myLocationEnabled: _permissionGranted,

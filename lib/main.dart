@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:firebase_core/firebase_core.dart';
@@ -66,6 +66,7 @@ void main() async {
     try {
       final GoogleMapsFlutterPlatform mapsImpl = GoogleMapsFlutterPlatform.instance;
       if (mapsImpl is GoogleMapsFlutterAndroid) {
+        mapsImpl.useAndroidViewSurface = true;
         await mapsImpl.initializeWithRenderer(AndroidMapRenderer.latest).timeout(const Duration(seconds: 2));
       }
     } catch (e) {
