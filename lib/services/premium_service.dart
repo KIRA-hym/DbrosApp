@@ -15,11 +15,48 @@ class PremiumService {
         if (premiumUntil.toDate().isAfter(DateTime.now())) {
           return true;
         }
+      } else if (premiumUntil is DateTime) {
+        if (premiumUntil.isAfter(DateTime.now())) {
+          return true;
+        }
       }
     }
 
     // Fallback for settings cache if offline
     return SettingsService.isPromoPremium;
+  }
+
+  /// 무료 체험(또는 프로모션)의 만료 일시를 반환 (정식 결제 구독자인 경우 null)
+  static DateTime? get promoOrTrialExpireDate {
+    if (SettingsService.isRevenueCatPremium) return null;
+
+    final userDoc = AuthService.instance.userDoc;
+    if (userDoc != null && userDoc.containsKey('premiumUntil')) {
+      final premiumUntil = userDoc['premiumUntil'];
+      if (premiumUntil is Timestamp) {
+        final dt = premiumUntil.toDate();
+        if (dt.isAfter(DateTime.now())) return dt;
+      } else if (premiumUntil is DateTime) {
+        if (premiumUntil.isAfter(DateTime.now())) return premiumUntil;
+      }
+    }
+
+    final localMs = SettingsService.promoExpireMs;
+    if (localMs > 0) {
+      final dt = DateTime.fromMillisecondsSinceEpoch(localMs);
+      if (dt.isAfter(DateTime.now())) return dt;
+    }
+    return null;
+  }
+
+  /// 현재 무료 체험(또는 프로모션) 진행 중일 때 남은 일수(D-Day: 1~14 등) 반환
+  static int? get remainingTrialDays {
+    final expire = promoOrTrialExpireDate;
+    if (expire == null) return null;
+    final diffHours = expire.difference(DateTime.now()).inHours;
+    if (diffHours < 0) return null;
+    final days = (diffHours / 24.0).ceil();
+    return days < 1 ? 1 : days;
   }
 
   /// 14일 무료 체험을 이미 사용했는지 여부
@@ -36,6 +73,14 @@ class PremiumService {
   static bool get canStartLaunchTrial {
     return !isPremium &&
         !hasUsedLaunchTrial &&
+        AuthService.instance.user != null;
+  }
+
+  /// 14일 무료 체험이 만료된 후 아직 종료 안내 리포트 팝업을 보지 않았는지 여부
+  static bool get shouldShowTrialExpiredReport {
+    return !isPremium &&
+        hasUsedLaunchTrial &&
+        !SettingsService.hasShownTrialExpiredReportDialog &&
         AuthService.instance.user != null;
   }
 

@@ -479,6 +479,48 @@ class SettingsService {
   
   static int get adRewardExpireMs => _prefs.getInt('adRewardExpireMs') ?? 0;
 
+  static int get promoExpireMs => _prefs.getInt('promoExpireMs') ?? 0;
+
+  /// 광고 보상(2시간 패스)으로 잠금 해제된 기능의 남은 시간을 반환 (프리미엄이거나 만료된 경우 null)
+  static Duration? getRemainingUnlockDuration(String featureKey) {
+    if (isPremiumUser) return null;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final keyExpireMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
+    final globalExpireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
+    final targetMs = keyExpireMs > globalExpireMs ? keyExpireMs : globalExpireMs;
+    if (targetMs > nowMs) {
+      return Duration(milliseconds: targetMs - nowMs);
+    }
+    return null;
+  }
+
+  /// 오늘(근무일 기준) 화면 캡처 자동등록으로 저장된 건수
+  static int get todayAutoScreenshotSavedCount {
+    final todayYmd = WorkDateUtils.effectiveWorkDateYmd();
+    final savedDate = _prefs.getString('auto_screenshot_saved_date') ?? '';
+    if (savedDate != todayYmd) return 0;
+    return _prefs.getInt('auto_screenshot_saved_count') ?? 0;
+  }
+
+  static Future<void> incrementTodayAutoScreenshotCount() async {
+    final todayYmd = WorkDateUtils.effectiveWorkDateYmd();
+    final savedDate = _prefs.getString('auto_screenshot_saved_date') ?? '';
+    int current = 0;
+    if (savedDate == todayYmd) {
+      current = _prefs.getInt('auto_screenshot_saved_count') ?? 0;
+    } else {
+      await _prefs.setString('auto_screenshot_saved_date', todayYmd);
+    }
+    await _prefs.setInt('auto_screenshot_saved_count', current + 1);
+    featureUnlockVersionNotifier.value++;
+  }
+
+  static bool get hasShownTrialExpiredReportDialog =>
+      _prefs.getBool('hasShownTrialExpiredReportDialog') ?? false;
+
+  static Future<void> setHasShownTrialExpiredReportDialog(bool value) async =>
+      await _prefs.setBool('hasShownTrialExpiredReportDialog', value);
+
   static Future<void> addProgram(String program) async {
     final currentList = programList;
     if (!currentList.contains(program)) {

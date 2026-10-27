@@ -154,6 +154,7 @@ void main() async {
       ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
       if (!SettingsService.overlayQuickRegisterEnabled) {
+        unawaited(OverlayManager.closeOverlay());
         unawaited(TodayStatsNotificationService.instance.closeQuickRegisterOverlayIfActive());
       }
     }

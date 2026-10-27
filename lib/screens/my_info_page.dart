@@ -174,14 +174,11 @@ class MyInfoPage extends StatelessWidget {
               text = '$typeStr 구독 중';
             }
           } else {
-            final premiumUntil = userDoc?['premiumUntil'];
-            if (premiumUntil != null) {
-              try {
-                final date = (premiumUntil as dynamic).toDate();
-                if (date.isAfter(DateTime.now())) {
-                  text = '무료 체험 중 (${DateFormat('yyyy.MM.dd').format(date)} 까지)';
-                }
-              } catch (_) {}
+            final expireDate = PremiumService.promoOrTrialExpireDate;
+            final remainDays = PremiumService.remainingTrialDays;
+            if (expireDate != null && expireDate.isAfter(DateTime.now())) {
+              final ddaySuffix = remainDays != null ? ' · D-$remainDays' : '';
+              text = '무료 체험 중 (${DateFormat('yyyy.MM.dd').format(expireDate)} 까지$ddaySuffix)';
             }
           }
           

@@ -207,13 +207,87 @@ class _SettingsPageState extends State<SettingsPage> {
     return [
       Container(
         key: _keyMyInfo,
-        child: _buildListManageButton(
-          title: '내 정보',
-          icon: Icons.person,
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const MyInfoPage()),
+        child: ValueListenableBuilder<bool>(
+          valueListenable: SettingsService.isPremiumUserNotifier,
+          builder: (context, _, _) {
+            final canTrial = PremiumService.canStartLaunchTrial;
+            final remainDays = PremiumService.remainingTrialDays;
+            final isPremium = PremiumService.isPremium;
+
+            Widget? myInfoBadge;
+            if (canTrial) {
+              myInfoBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0x2600E676),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x8000E676)),
+                ),
+                child: const Text(
+                  '🎁 14일 무료체험 가능',
+                  style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            } else if (remainDays != null) {
+              final isUrgent = remainDays <= 3;
+              myInfoBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isUrgent
+                      ? const Color(0x33FF9100)
+                      : const Color(0x2600E676),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isUrgent
+                        ? const Color(0xFFFF9100)
+                        : const Color(0x8000E676),
+                  ),
+                ),
+                child: Text(
+                  isUrgent ? '⏳ 무료체험 D-$remainDays' : '🎁 무료체험 D-$remainDays',
+                  style: TextStyle(
+                    color: isUrgent
+                        ? const Color(0xFFFFAB40)
+                        : const Color(0xFF00E676),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            } else if (isPremium) {
+              myInfoBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0x26FFC700),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x80FFC700)),
+                ),
+                child: const Text(
+                  '👑 프리미엄 이용중',
+                  style: TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            }
+
+            return _buildListManageButton(
+              title: '내 정보',
+              icon: Icons.person,
+              trailingBadge: myInfoBadge,
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const MyInfoPage()),
+                );
+                if (mounted) setState(() {});
+              },
             );
           },
         ),
@@ -395,7 +469,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 return GuideContentWidget(
                   title: "고정 알림 상태바",
                   description:
-                      "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 활성화 시 다음 날 오전 9시까지 무료로 적용됩니다.",
+                      "스마트폰 상단 알림창에 오늘 순익을 항상 띄워둡니다. 프리미엄 및 14일 무료체험 시 무제한, 광고 시청 시 2시간 동안 적용됩니다.",
                   controller: controller,
                 );
               },
@@ -416,7 +490,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 return GuideContentWidget(
                   title: "스크린샷 일지 자동저장",
                   description:
-                      "콜카드를 캡처하면 일지가 자동 작성됩니다. 활성화 시 다음 날 오전 9시까지 무제한 자동 등록이 가능합니다.",
+                      "콜카드를 캡처하면 일지가 자동 작성됩니다. 프리미엄 및 14일 무료체험 시 무제한, 광고 시청 시 2시간 동안 자동 등록이 가능합니다.",
                   controller: controller,
                 );
               },
@@ -437,7 +511,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 return GuideContentWidget(
                   title: "퀵등록 플로팅버튼",
                   description:
-                      "화면 위에 항상 떠있는 간편 등록 버튼입니다. 활성화 시 오전 9시까지 횟수 제한 없이 띄울 수 있습니다.",
+                      "화면 위에 항상 떠있는 간편 등록 버튼입니다. 프리미엄 및 14일 무료체험 시 무제한, 광고 시청 시 2시간 동안 띄울 수 있습니다.",
                   controller: controller,
                 );
               },
@@ -1528,6 +1602,7 @@ class _SettingsPageState extends State<SettingsPage> {
     required IconData icon,
     required VoidCallback onTap,
     Color accentColor = const Color(0xFFFFC700),
+    Widget? trailingBadge,
   }) {
     return Container(
       decoration: BorderedSection.decoration(context, borderRadius: 12),
@@ -1542,10 +1617,22 @@ class _SettingsPageState extends State<SettingsPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: Theme.of(context).dividerColor,
-        ),
+        trailing: trailingBadge == null
+            ? Icon(
+                Icons.chevron_right,
+                color: Theme.of(context).dividerColor,
+              )
+            : Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  trailingBadge,
+                  const SizedBox(width: 6),
+                  Icon(
+                    Icons.chevron_right,
+                    color: Theme.of(context).dividerColor,
+                  ),
+                ],
+              ),
         onTap: onTap,
       ),
     );

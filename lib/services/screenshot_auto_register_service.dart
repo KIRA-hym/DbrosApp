@@ -193,6 +193,10 @@ class ScreenshotAutoRegisterService {
   }
 
   Future<void> _handleScreenshotEvent() async {
+    if (!SettingsService.screenshotAutoRegisterEnabled) {
+      stop();
+      return;
+    }
     if (_busy) {
       _pendingRetryAfterBusy = true;
       ScreenshotAutoDebugLog.add('건너뜀: 이전 처리가 아직 진행 중 (종료 후 1회 재예약)');
@@ -280,6 +284,8 @@ class ScreenshotAutoRegisterService {
         ScreenshotAutoDebugLog.add('결과: DB 저장 호출 후 실패 처리');
         return;
       }
+
+      await SettingsService.incrementTodayAutoScreenshotCount();
 
       final doneAt = DateTime.now();
       _lastProcessedKey = dedupeKey;

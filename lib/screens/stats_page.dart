@@ -3165,30 +3165,34 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
   }
 
   Future<_RouteFetchData> _fetchRoadPath(LatLng from, LatLng to) async {
-    final uri = Uri.parse(
-      'https://router.project-osrm.org/route/v1/driving/'
-      '${from.longitude},${from.latitude};${to.longitude},${to.latitude}'
-      '?overview=full&geometries=geojson',
-    );
-    final res = await http.get(uri).timeout(const Duration(seconds: 10));
-    if (res.statusCode != 200) {
-      throw Exception('OSRM route status ${res.statusCode}');
-    }
-    final map = jsonDecode(res.body) as Map<String, dynamic>;
-    final routes = map['routes'] as List<dynamic>? ?? [];
-    if (routes.isEmpty) return _RouteFetchData([from, to], 0.0);
-    final distance = (routes.first['distance'] as num?)?.toDouble() ?? 0.0;
-    final geometry = routes.first['geometry'] as Map<String, dynamic>?;
-    final coords = geometry?['coordinates'] as List<dynamic>? ?? [];
-    final points = <LatLng>[];
-    for (final c in coords) {
-      if (c is List && c.length >= 2) {
-        final lon = (c[0] as num?)?.toDouble();
-        final lat = (c[1] as num?)?.toDouble();
-        if (lat != null && lon != null) points.add(LatLng(lat, lon));
+    try {
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/'
+        '${from.longitude},${from.latitude};${to.longitude},${to.latitude}'
+        '?overview=full&geometries=geojson',
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        return _RouteFetchData([from, to], 0.0);
       }
+      final map = jsonDecode(res.body) as Map<String, dynamic>;
+      final routes = map['routes'] as List<dynamic>? ?? [];
+      if (routes.isEmpty) return _RouteFetchData([from, to], 0.0);
+      final distance = (routes.first['distance'] as num?)?.toDouble() ?? 0.0;
+      final geometry = routes.first['geometry'] as Map<String, dynamic>?;
+      final coords = geometry?['coordinates'] as List<dynamic>? ?? [];
+      final points = <LatLng>[];
+      for (final c in coords) {
+        if (c is List && c.length >= 2) {
+          final lon = (c[0] as num?)?.toDouble();
+          final lat = (c[1] as num?)?.toDouble();
+          if (lat != null && lon != null) points.add(LatLng(lat, lon));
+        }
+      }
+      return _RouteFetchData(points.isEmpty ? [from, to] : points, distance);
+    } catch (_) {
+      return _RouteFetchData([from, to], 0.0);
     }
-    return _RouteFetchData(points.isEmpty ? [from, to] : points, distance);
   }
 
   Future<void> _toggleRoadRoute() async {

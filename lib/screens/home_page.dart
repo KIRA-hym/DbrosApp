@@ -472,8 +472,166 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (guideProvider.pendingGuideTarget == 'home') {
           _showHomeGuide();
         }
+        _checkAndShowTrialExpiredReportIfNeeded();
       }
     });
+  }
+
+  Future<void> _checkAndShowTrialExpiredReportIfNeeded() async {
+    if (!mounted || !PremiumService.shouldShowTrialExpiredReport) return;
+    await SettingsService.setHasShownTrialExpiredReportDialog(true);
+
+    int totalLogsCount = 0;
+    try {
+      final db = await DriveLogDatabase.instance.database;
+      final res = await db.rawQuery('SELECT COUNT(*) AS cnt FROM drive_logs');
+      if (res.isNotEmpty) {
+        totalLogsCount = (res.first['cnt'] as num?)?.toInt() ?? 0;
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    final action = await AppGlassDialog.show<String>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.workspace_premium,
+        title: '14일 무료 체험이 종료되었습니다',
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (totalLogsCount > 0) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF151820),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF00E676).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    const Text(
+                      '그동안 기사님이 기록하신 운행일지',
+                      style: TextStyle(
+                        color: Color(0xFF9FA3AE),
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '총 $totalLogsCount건 기록 완료! 🎉',
+                      style: const TextStyle(
+                        color: Color(0xFF00E676),
+                        fontSize: 21,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard',
+                          color: Color(0xFFD1D2D4),
+                          fontSize: 11.5,
+                        ),
+                        children: [
+                          const TextSpan(text: '수기 입력 시간을 약 '),
+                          TextSpan(
+                            text: '$totalLogsCount분 이상',
+                            style: const TextStyle(
+                              color: Color(0xFFFFC700),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const TextSpan(text: ' 절약하셨습니다'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  color: Color(0xFFD1D2D4),
+                  fontSize: 13.5,
+                  height: 1.55,
+                ),
+                children: [
+                  TextSpan(text: '무료 체험이 종료되어 오늘부터 '),
+                  TextSpan(
+                    text: '[화면 캡처 자동등록]이 꺼지고 광고가 다시 표시',
+                    style: TextStyle(
+                      color: Color(0xFFFF6B6B),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(text: '됩니다.\n\n'),
+                  TextSpan(
+                    text: '하루 이용료 100원(월 3,000원)',
+                    style: TextStyle(
+                      color: Color(0xFFFFC700),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(text: '으로 오늘도 수기 입력과 광고 없이 편하게 운행하시겠습니까?'),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'subscribe'),
+              child: const Text(
+                '👑 하루 100원으로 계속 편하게 사용하기\n(프리미엄 구독 시작)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => TextButton(
+              onPressed: () => Navigator.pop(ctx, 'later'),
+              child: const Text(
+                '나중에 하기 (무료 모드로 전환)',
+                style: TextStyle(
+                  color: Color(0xFF9FA3AE),
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'subscribe' && mounted) {
+      await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallPage()),
+      );
+      if (mounted) setState(() {});
+    }
   }
 
   void _onGuideRequested() {
@@ -701,6 +859,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (cal != TodayStatsProvider.instance.currentWorkDateYmd) {
       TodayStatsProvider.instance.refresh();
     }
+    if (mounted &&
+        SettingsService.getRemainingUnlockDuration('auto_screenshot') != null) {
+      setState(() {});
+    }
   }
 
   void _restartRecentLogTicker() {
@@ -869,6 +1031,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       return ValueListenableBuilder<bool>(
                         valueListenable: SettingsService.isPremiumUserNotifier,
                         builder: (context, isPremium, _) {
+                          final remainTrialDays =
+                              PremiumService.remainingTrialDays;
                           return Stack(
                             clipBehavior: Clip.none,
                             children: [
@@ -902,6 +1066,48 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       Icons.workspace_premium,
                                       size: 11,
                                       color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              if (remainTrialDays != null)
+                                Positioned(
+                                  bottom: -4,
+                                  left: -6,
+                                  right: -6,
+                                  child: Center(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 1,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: remainTrialDays <= 3
+                                            ? const Color(0xFFFF9100)
+                                            : const Color(0xFF00E676),
+                                        borderRadius: BorderRadius.circular(99),
+                                        border: Border.all(
+                                          color: Theme.of(
+                                            context,
+                                          ).scaffoldBackgroundColor,
+                                          width: 1.5,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Colors.black54,
+                                            blurRadius: 4,
+                                            offset: Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Text(
+                                        'D-$remainTrialDays',
+                                        style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w900,
+                                          height: 1.15,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -2124,6 +2330,89 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final accentColor = isOn
                 ? const Color(0xFF00E676)
                 : const Color(0xFFFFC700);
+            final remainTrialDays = PremiumService.remainingTrialDays;
+            final canStartTrial = PremiumService.canStartLaunchTrial;
+            final remainAdDur = SettingsService.getRemainingUnlockDuration(
+              'auto_screenshot',
+            );
+            final todayAutoCount = SettingsService.todayAutoScreenshotSavedCount;
+
+            Widget? extraBadge;
+            if (remainTrialDays != null) {
+              final isUrgent = remainTrialDays <= 3;
+              extraBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isUrgent
+                      ? const Color(0x38FF9100)
+                      : const Color(0x2600E676),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isUrgent
+                        ? const Color(0xFFFF9100)
+                        : const Color(0x7300E676),
+                  ),
+                ),
+                child: Text(
+                  isUrgent
+                      ? '⏳ 무료체험 D-$remainTrialDays'
+                      : '🎁 무료체험 D-$remainTrialDays',
+                  style: TextStyle(
+                    color: isUrgent
+                        ? const Color(0xFFFFAB40)
+                        : const Color(0xFF00E676),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            } else if (!isOn && canStartTrial) {
+              extraBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0x2600E676),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x7300E676)),
+                ),
+                child: const Text(
+                  '🎁 14일 무료체험 가능',
+                  style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            } else if (isOn && remainAdDur != null) {
+              final hrs = remainAdDur.inHours;
+              final mins = remainAdDur.inMinutes.remainder(60);
+              final timeStr = hrs > 0
+                  ? '$hrs시간 $mins분 남음'
+                  : '${mins < 1 ? 1 : mins}분 남음';
+              extraBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0x29FFC700),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x73FFC700)),
+                ),
+                child: Text(
+                  '⏱️ $timeStr',
+                  style: const TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            }
+
+            final bool showAutoCountHighlight = isOn && todayAutoCount > 0;
+            final String subtitleText = showAutoCountHighlight
+                ? '⚡ 오늘 자동 캡처로 $todayAutoCount건 편하게 기록됨!'
+                : (isOn
+                      ? '콜 화면을 캡처하면 자동으로 일지가 저장됩니다'
+                      : '운전 중엔 캡처만 하세요! 저절로 기록됩니다');
 
             return InkWell(
               onTap: () {
@@ -2189,7 +2478,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              const SizedBox(width: 5),
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 6,
@@ -2217,19 +2506,25 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                   ),
                                 ),
                               ),
+                              if (extraBadge != null) ...[
+                                const SizedBox(width: 5),
+                                Flexible(child: extraBadge),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            isOn
-                                ? '콜 화면을 캡처하면 자동으로 일지가 저장됩니다'
-                                : '운전 중엔 캡처만 하세요! 저절로 기록됩니다',
+                            subtitleText,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Color(0xFF9FA3AE),
+                            style: TextStyle(
+                              color: showAutoCountHighlight
+                                  ? const Color(0xFF00E676)
+                                  : const Color(0xFF9FA3AE),
                               fontSize: 11,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: showAutoCountHighlight
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                         ],
