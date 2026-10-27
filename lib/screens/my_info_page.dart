@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'paywall_page.dart';
 import '../services/auth_service.dart';
 import '../services/premium_service.dart';
+import '../services/settings_service.dart';
 import '../services/font_size_service.dart';
 import 'cs_inquiry_page.dart';
 
@@ -17,8 +18,11 @@ class MyInfoPage extends StatelessWidget {
       appBar: AppBar(
         title: const Text('내 정보'),
       ),
-      body: Consumer<AuthService>(
-        builder: (context, auth, child) {
+      body: ValueListenableBuilder<bool>(
+        valueListenable: SettingsService.isPremiumUserNotifier,
+        builder: (context, isPremiumUser, _) {
+          return Consumer<AuthService>(
+            builder: (context, auth, child) {
           final user = auth.user;
           final userDoc = auth.userDoc;
 
@@ -123,6 +127,8 @@ class MyInfoPage extends StatelessWidget {
                 ),
               ),
             ],
+          );
+            },
           );
         },
       ),

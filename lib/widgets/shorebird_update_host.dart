@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -18,7 +18,7 @@ class ShorebirdUpdateHost extends StatefulWidget {
 
 class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsBindingObserver {
   StreamSubscription<PatchEvent>? _sub;
-  bool _dialogShown = false;
+  bool _isDialogOpen = false;
   bool _patchReady = false;
 
   @override
@@ -49,25 +49,37 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _patchReady && !_dialogShown) {
-      _dialogShown = true;
-      ShorebirdUpdateDialog.show(context, initialStage: PatchStage.ready);
+    if (state == AppLifecycleState.resumed && _patchReady && !_isDialogOpen) {
+      ShorebirdUpdateService.instance.hasPostponedUpdate().then((postponed) {
+        if (!postponed && mounted && !_isDialogOpen) {
+          _openDialog(PatchStage.ready);
+        }
+      });
     }
+  }
+
+  void _openDialog(PatchStage initialStage) {
+    if (!mounted || _isDialogOpen) return;
+    _isDialogOpen = true;
+    ShorebirdUpdateDialog.show(context, initialStage: initialStage).whenComplete(() {
+      _isDialogOpen = false;
+    });
   }
 
   void _onPatchEvent(PatchEvent event) {
     if (!mounted) return;
 
+    if (event.stage == PatchStage.downloading) {
+      _openDialog(PatchStage.downloading);
+      return;
+    }
+
     if (event.stage == PatchStage.ready) {
       _patchReady = true;
       AutoRegisterNotificationService.instance.showShorebirdPatchReady();
-      // 만약 이미 앱 화면을 보고 있다면 3초 뒤에 자연스럽게 팝업 표시
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted && !_dialogShown) {
-          _dialogShown = true;
-          ShorebirdUpdateDialog.show(context, initialStage: PatchStage.ready);
-        }
-      });
+      if (!_isDialogOpen) {
+        _openDialog(PatchStage.ready);
+      }
     }
   }
 

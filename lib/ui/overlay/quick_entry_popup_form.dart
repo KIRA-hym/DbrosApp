@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
-import 'package:dbros_app/services/premium_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_overlay_window/flutter_overlay_window.dart';
@@ -67,23 +66,6 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
 
   void _toggleListening(String field) async {
     await SettingsService.reload();
-    if (!PremiumService.isPremium) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF2A2D34),
-          title: const Text('프리미엄 기능', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text('음성 인식 퀵 등록은 프리미엄 기능입니다.\n앱 설정에서 프리미엄을 구독해주세요.', style: TextStyle(color: Colors.grey)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('확인', style: TextStyle(color: Color(0xFFFFC700))),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
 
     if (_isListening && _activeSttField == field) {
       _speechToText.stop();

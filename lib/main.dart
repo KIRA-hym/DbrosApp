@@ -149,11 +149,12 @@ void main() async {
     unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
   }
 
-  SettingsService.isFeatureUnlockedNotifier.addListener(() {
-    if (!SettingsService.isFeatureUnlockedNotifier.value) {
-      if (!kIsWeb && Platform.isAndroid) {
-        ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
-        TodayStatsNotificationService.instance.cancel();
+  SettingsService.featureUnlockVersionNotifier.addListener(() {
+    if (!kIsWeb && Platform.isAndroid) {
+      ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+      TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+      if (!SettingsService.overlayQuickRegisterEnabled) {
+        unawaited(TodayStatsNotificationService.instance.closeQuickRegisterOverlayIfActive());
       }
     }
   });
@@ -535,6 +536,14 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         setState(() => _selectedIndex = index);
       }
     });
+    SettingsService.featureUnlockVersionNotifier.addListener(_onUnlockStateChanged);
+  }
+
+  void _onUnlockStateChanged() {
+    if (!mounted) return;
+    if (_selectedIndex == 3 && !SettingsService.isFeatureUnlocked('stats')) {
+      setState(() => _selectedIndex = 0);
+    }
   }
 
   /// 스크린샷·갤러리 등에서 이미지 공유 시 일지 작성 화면으로 연결 (**Android 전용**).
@@ -588,7 +597,14 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     final next = WorkDateUtils.effectiveWorkDateYmd();
     if (next != _lastNotifiedWorkDateYmd) {
       _lastNotifiedWorkDateYmd = next;
+      SettingsService.syncFeatureUnlockStates();
       TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+      if (!kIsWeb && Platform.isAndroid) {
+        unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
+        if (!SettingsService.overlayQuickRegisterEnabled) {
+          unawaited(TodayStatsNotificationService.instance.closeQuickRegisterOverlayIfActive());
+        }
+      }
     }
   }
 
@@ -603,6 +619,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       if (next != _lastNotifiedWorkDateYmd) {
         _lastNotifiedWorkDateYmd = next;
       }
+      SettingsService.syncFeatureUnlockStates();
       RemoteConfigService().forceFetch().then((updated) {
         if (updated && mounted) {
           setState(() {});
@@ -615,10 +632,13 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       if (!kIsWeb && Platform.isAndroid) {
         unawaited(ScreenshotAutoRegisterService.instance.syncWithSettingsPreference());
         unawaited(ScreenshotAutoRegisterService.instance.checkRecentScreenshotOnResume());
+        if (!SettingsService.overlayQuickRegisterEnabled) {
+          unawaited(TodayStatsNotificationService.instance.closeQuickRegisterOverlayIfActive());
+        }
       }
       
       final now = DateTime.now();
-      if (_lastShorebirdCheckTime == null || now.difference(_lastShorebirdCheckTime!).inHours >= 1) {
+      if (_lastShorebirdCheckTime == null || now.difference(_lastShorebirdCheckTime!).inMinutes >= 2) {
         _lastShorebirdCheckTime = now;
         ShorebirdUpdateService.instance.checkAndUpdate();
       }
@@ -633,6 +653,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    SettingsService.featureUnlockVersionNotifier.removeListener(_onUnlockStateChanged);
     _shareIntentSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _workDateNotificationTick?.cancel();
@@ -885,12 +906,12 @@ class _AppEntryPointState extends State<AppEntryPoint> {
             backgroundColor: Color(0xFF121418),
             body: Center(child: CircularProgressIndicator(color: Color(0xFFFFC700))),
           );
-        } else if (auth.status == AuthStatus.unauthenticated) {
-          return const LoginPage();
+        } else if (auth.status == AuthStatus.authenticated && auth.user != null) {
+          return const MainWrapper();
         } else if (auth.status == AuthStatus.banned) {
           return const BannedPage();
         }
-        return const MainWrapper();
+        return const LoginPage();
       },
     );
   }

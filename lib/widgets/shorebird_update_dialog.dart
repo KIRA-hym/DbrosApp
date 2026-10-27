@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 
@@ -11,9 +11,9 @@ import '../services/shorebird_update_service.dart';
 
 /// Shorebird 패치 상태를 보여주는 다이얼로그.
 abstract final class ShorebirdUpdateDialog {
-  static void show(BuildContext context, {PatchStage? initialStage}) {
+  static Future<void> show(BuildContext context, {PatchStage? initialStage}) {
     final stage = initialStage ?? ShorebirdUpdateService.instance.currentStage;
-    showDialog<void>(
+    return showDialog<void>(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
@@ -38,6 +38,7 @@ class _ShorebirdUpdateDialogBodyState
   late Animation<double> _checkScale;
   
   StreamSubscription<PatchEvent>? _sub;
+  Timer? _safetyTimeoutTimer;
   late PatchStage _currentStage;
 
   @override
@@ -57,22 +58,41 @@ class _ShorebirdUpdateDialogBodyState
     // 이미 완료(ready) 또는 에러 상태인 경우 즉시 애니메이션 전진
     if (_currentStage == PatchStage.ready || _currentStage == PatchStage.error) {
       _checkController.forward();
+    } else if (_currentStage == PatchStage.downloading) {
+      _startSafetyTimeout();
     }
 
     // 이후 스트림 이벤트 수신 (다운로드 진행 중 상태에서 완료로 변경될 때 등)
     _sub = ShorebirdUpdateService.instance.patchEvents.listen((event) {
       if (!mounted) return;
+      _safetyTimeoutTimer?.cancel();
       setState(() {
         _currentStage = event.stage;
       });
       if (event.stage == PatchStage.ready || event.stage == PatchStage.error) {
         _checkController.forward();
+      } else if (event.stage == PatchStage.downloading) {
+        _startSafetyTimeout();
       }
+    });
+  }
+
+  void _startSafetyTimeout() {
+    _safetyTimeoutTimer?.cancel();
+    _safetyTimeoutTimer = Timer(const Duration(seconds: 18), () async {
+      if (!mounted || _currentStage != PatchStage.downloading) return;
+      final isReady = await ShorebirdUpdateService.instance.isPatchReadyToApply();
+      if (!mounted || _currentStage != PatchStage.downloading) return;
+      setState(() {
+        _currentStage = isReady ? PatchStage.ready : PatchStage.error;
+      });
+      _checkController.forward();
     });
   }
 
   @override
   void dispose() {
+    _safetyTimeoutTimer?.cancel();
     _checkController.dispose();
     _sub?.cancel();
     super.dispose();
@@ -126,10 +146,7 @@ class _ShorebirdUpdateDialogBodyState
                 const SizedBox(height: 20),
                 _buildTexts(),
                 const SizedBox(height: 24),
-                if (_currentStage == PatchStage.downloading)
-                  const SizedBox(height: 96) // Reserve space for buttons so dialog doesn't jump
-                else
-                  _buildBottom(),
+                _buildBottom(),
               ],
             ),
           ),
@@ -216,6 +233,30 @@ class _ShorebirdUpdateDialogBodyState
   }
 
   Widget _buildBottom() {
+    if (_currentStage == PatchStage.downloading) {
+      return SizedBox(
+        width: double.infinity,
+        child: TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFF7A7D8A),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: const Text(
+            '백그라운드에서 진행 (닫기)',
+            style: TextStyle(
+              fontFamily: 'GmarketSans',
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_currentStage == PatchStage.error) {
       return SizedBox(
         width: double.infinity,

@@ -67,23 +67,56 @@ class FeatureUsageService {
     }
   }
 
-  // --- Daily Pass Logic (오전 9시 일괄 초기화 무제한 패스) ---
+  // --- 시간제 패스(2시간/1시간) 및 일일 패스 통합 체크 ---
 
   static Future<bool> hasDailyPassAsync(String featureKey) async {
+    final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
+    if (unlockUntilMs > 0) {
+      if (DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+        return true;
+      } else {
+        await _prefs.setInt('${featureKey}_unlock_until_ms', 0);
+      }
+    }
     await _checkAndResetDailyCounter(featureKey);
     return _prefs.getBool('${featureKey}_daily_pass') ?? false;
   }
 
+  /// 시간제 패스 부여 (편의기능 2시간, 통계 1시간 등)
+  static Future<void> grantTimedPass(String featureKey, Duration duration) async {
+    await _checkAndResetDailyCounter(featureKey);
+    final expireMs = DateTime.now().add(duration).millisecondsSinceEpoch;
+    await _prefs.setInt('${featureKey}_unlock_until_ms', expireMs);
+    final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
+    await _prefs.setInt('${featureKey}_ad_count', count + 1);
+    SettingsService.scheduleUnlockTimer();
+  }
+
   static Future<void> grantDailyPass(String featureKey) async {
+    if (featureKey == 'status_bar' ||
+        featureKey == 'auto_screenshot' ||
+        featureKey == 'overlay_quick') {
+      await grantTimedPass(featureKey, const Duration(hours: 2));
+      return;
+    }
+    if (featureKey == 'stats') {
+      await grantTimedPass(featureKey, const Duration(hours: 1));
+      return;
+    }
     await _checkAndResetDailyCounter(featureKey);
     await _prefs.setBool('${featureKey}_daily_pass', true);
     // 통계/로깅용으로 카운트도 증가
     final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     await _prefs.setInt('${featureKey}_ad_count', count + 1);
+    SettingsService.syncFeatureUnlockStates();
   }
 
   // 동기(Synchronous) 읽기 - UI나 프로바이더에서 즉시 상태를 확인할 때 사용
   static bool hasDailyPassSync(String featureKey) {
+    final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
+    if (unlockUntilMs > 0 && DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+      return true;
+    }
     final lastDate = _prefs.getString('${featureKey}_date');
     if (lastDate != _todayKey) return false;
     return _prefs.getBool('${featureKey}_daily_pass') ?? false;
@@ -105,12 +138,17 @@ class FeatureUsageService {
   }
 
   static Future<void> incrementAdUsage(String feature) async {
-    if (feature == 'route_map') {
+    if (feature == 'stats') {
+      await grantTimedPass('stats', const Duration(hours: 1));
+    } else if (feature == 'status_bar' ||
+        feature == 'auto_screenshot' ||
+        feature == 'overlay_quick') {
+      await grantTimedPass(feature, const Duration(hours: 2));
+    } else {
+      // single_ocr, route_map, multi_ocr, call_map 등은 1회 충전/1회 사용권만 부여
       await _checkAndResetDailyCounter(feature);
       final count = _prefs.getInt('${feature}_ad_count') ?? 0;
       await _prefs.setInt('${feature}_ad_count', count + 1);
-    } else {
-      await grantDailyPass(feature); // 기존 adUsage 증가를 pass 발급으로 통일
     }
   }
 

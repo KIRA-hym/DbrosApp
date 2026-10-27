@@ -133,14 +133,24 @@ exports.sendAdminPush = onDocumentCreated('admin_push_requests/{docId}', async (
   const body = data.body;
 
   try {
-    const tokensSnapshot = await db.collection('fcm_tokens').get();
-    const tokens = [];
-    tokensSnapshot.forEach(doc => {
-      const tokenData = doc.data();
-      if (tokenData.token) {
-        tokens.push(tokenData.token);
-      }
-    });
+    let tokens = [];
+    if (data.targetUids && Array.isArray(data.targetUids) && data.targetUids.length > 0) {
+      const promises = data.targetUids.map(uid => db.collection('fcm_tokens').doc(uid).get());
+      const docs = await Promise.all(promises);
+      docs.forEach(doc => {
+        if (doc.exists && doc.data().token) {
+          tokens.push(doc.data().token);
+        }
+      });
+    } else {
+      const tokensSnapshot = await db.collection('fcm_tokens').get();
+      tokensSnapshot.forEach(doc => {
+        const tokenData = doc.data();
+        if (tokenData.token) {
+          tokens.push(tokenData.token);
+        }
+      });
+    }
 
     if (tokens.length === 0) {
       console.log("No FCM tokens found.");
@@ -208,18 +218,41 @@ exports.revenuecatWebhook = onRequest({ cors: true }, async (req, res) => {
       return;
     }
 
-    const activeEvents = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'NON_RENEWING_PURCHASE'];
-    const inactiveEvents = ['CANCELLATION', 'EXPIRATION', 'BILLING_ISSUE', 'REFUND'];
+    const activeEvents = ['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'NON_RENEWING_PURCHASE', 'PRODUCT_CHANGE'];
+    const nowMs = Date.now();
 
     const updateData = {
       rcLastEventType: type,
       rcLastEventTime: admin.firestore.FieldValue.serverTimestamp()
     };
 
+    if (event.product_id) {
+      updateData.rcProductId = event.product_id;
+    }
+    if (event.expiration_at_ms) {
+      updateData.rcExpiresAt = admin.firestore.Timestamp.fromMillis(event.expiration_at_ms);
+    }
+
     if (activeEvents.includes(type)) {
       updateData.isRevenueCatPremium = true;
-    } else if (inactiveEvents.includes(type)) {
+      updateData.rcWillRenew = true;
+    } else if (type === 'CANCELLATION') {
+      // 환불(CUSTOMER_SUPPORT)이거나 이미 만료시간이 지난 경우에만 즉시 비활성화,
+      // 일반 해지 예약(기간 남음)인 경우 만료일(EXPIRATION)까지 유료 구독 상태 유지
+      const isRefundOrExpired =
+        event.cancellation_reason === 'CUSTOMER_SUPPORT' ||
+        (event.expiration_at_ms && event.expiration_at_ms <= nowMs);
+      updateData.isRevenueCatPremium = !isRefundOrExpired;
+      updateData.rcWillRenew = false;
+    } else if (type === 'BILLING_ISSUE') {
+      const stillInGrace =
+        (event.grace_period_expiration_at_ms && event.grace_period_expiration_at_ms > nowMs) ||
+        (event.expiration_at_ms && event.expiration_at_ms > nowMs);
+      updateData.isRevenueCatPremium = !!stillInGrace;
+      updateData.rcWillRenew = false;
+    } else if (type === 'EXPIRATION' || type === 'REFUND') {
       updateData.isRevenueCatPremium = false;
+      updateData.rcWillRenew = false;
     }
 
     await db.collection('users').doc(uid).set(updateData, { merge: true });

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import '../config/feature_flags.dart';
+import '../utils/work_date_utils.dart';
 
 class SettingsService {
   static late SharedPreferences _prefs;
@@ -20,6 +21,7 @@ class SettingsService {
   static final ValueNotifier<List<String>> _insuranceProgramsNotifier = ValueNotifier([]);
   
   static final ValueNotifier<bool> isFeatureUnlockedNotifier = ValueNotifier(false);
+  static final ValueNotifier<int> featureUnlockVersionNotifier = ValueNotifier<int>(0);
   static Timer? _adRewardTimer;
   
   static final ValueNotifier<String> _geminiApiKeyNotifier = ValueNotifier('');
@@ -194,6 +196,9 @@ class SettingsService {
   }
 
   static Future<void> setPromoPremium(bool value, {int? durationDays}) async {
+    if (value) {
+      _isPremiumUserNotifier.value = true;
+    }
     await _prefs.setBool('isPromoPremium', value);
     if (value && durationDays != null) {
       final expireMs = DateTime.now().add(Duration(days: durationDays)).millisecondsSinceEpoch;
@@ -201,15 +206,16 @@ class SettingsService {
     } else {
       await _prefs.remove('promoExpireMs');
     }
-    _isPremiumUserNotifier.value = isPremiumUser;
-    isFeatureUnlockedNotifier.value = isFeatureUnlocked();
+    syncFeatureUnlockStates();
   }
 
   static bool get isRevenueCatPremium => _prefs.getBool('isRevenueCatPremium') ?? false;
   static Future<void> setRevenueCatPremium(bool value) async {
+    if (value) {
+      _isPremiumUserNotifier.value = true;
+    }
     await _prefs.setBool('isRevenueCatPremium', value);
-    _isPremiumUserNotifier.value = isPremiumUser;
-    isFeatureUnlockedNotifier.value = isFeatureUnlocked();
+    syncFeatureUnlockStates();
   }
 
   static double get baseFeeRate => _prefs.getDouble('baseFeeRate') ?? 20.0;
@@ -338,10 +344,13 @@ class SettingsService {
     _showFloatingButtonsNotifier.value = value;
   }
 
-  static bool get overlayQuickRegisterEnabled => _prefs.getBool('overlayQuickRegisterEnabled') ?? false;
+  static bool get overlayQuickRegisterEnabled {
+    if (!isFeatureUnlocked('overlay_quick')) return false;
+    return _prefs.getBool('overlayQuickRegisterEnabled') ?? false;
+  }
   static Future<void> setOverlayQuickRegisterEnabled(bool value) async {
     await _prefs.setBool('overlayQuickRegisterEnabled', value);
-    _overlayQuickRegisterNotifier.value = value;
+    _overlayQuickRegisterNotifier.value = overlayQuickRegisterEnabled;
   }
 
   static double get overlayButtonSize => _prefs.getDouble('overlayButtonSize') ?? 60.0;
@@ -354,25 +363,58 @@ class SettingsService {
   }
 
   static bool get statusBarQuickEnabled {
-    if (!isFeatureUnlocked()) return false;
+    if (!isFeatureUnlocked('status_bar')) return false;
     return _prefs.getBool('statusBarQuickEnabled') ?? false;
   }
   static Future<void> setStatusBarQuickEnabled(bool value) async =>
       await _prefs.setBool('statusBarQuickEnabled', value);
 
   static bool get screenshotAutoRegisterEnabled {
-    if (!isFeatureUnlocked()) return false;
+    if (!isFeatureUnlocked('auto_screenshot')) return false;
     return _prefs.getBool('screenshotAutoRegisterEnabled') ?? false;
   }
   static Future<void> setScreenshotAutoRegisterEnabled(bool value) async =>
       await _prefs.setBool('screenshotAutoRegisterEnabled', value);
 
-  static bool isFeatureUnlocked() {
+  static const List<String> _timedFeatureKeys = <String>[
+    'status_bar',
+    'auto_screenshot',
+    'overlay_quick',
+    'stats',
+  ];
+
+  static bool _hasDailyPass(String featureKey) {
+    final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
+    if (unlockUntilMs > 0) {
+      if (DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+        return true;
+      }
+    }
+    final lastDate = _prefs.getString('${featureKey}_date');
+    if (lastDate != WorkDateUtils.effectiveWorkDateYmd()) return false;
+    return _prefs.getBool('${featureKey}_daily_pass') ?? false;
+  }
+
+  static bool isFeatureUnlocked([String? featureKey]) {
     if (!kMonetizationEnabled) return true;
     if (isPremiumUser) return true;
     final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
-    if (expireMs == 0) return false;
-    return DateTime.now().millisecondsSinceEpoch <= expireMs;
+    if (expireMs > 0 && DateTime.now().millisecondsSinceEpoch <= expireMs) {
+      return true;
+    }
+    if (featureKey != null && featureKey.isNotEmpty) {
+      return _hasDailyPass(featureKey);
+    }
+    return _hasDailyPass('status_bar') ||
+        _hasDailyPass('auto_screenshot') ||
+        _hasDailyPass('overlay_quick');
+  }
+
+  static void syncFeatureUnlockStates() {
+    _isPremiumUserNotifier.value = isPremiumUser;
+    isFeatureUnlockedNotifier.value = isFeatureUnlocked();
+    _overlayQuickRegisterNotifier.value = overlayQuickRegisterEnabled;
+    featureUnlockVersionNotifier.value++;
   }
 
   static Future<void> unlockFeaturesByAd() async {
@@ -381,31 +423,50 @@ class SettingsService {
     _startAdRewardTimer();
   }
 
+  static void scheduleUnlockTimer() {
+    _startAdRewardTimer();
+  }
+
   static void _startAdRewardTimer() {
     _adRewardTimer?.cancel();
     if (!kMonetizationEnabled || isPremiumUser) {
-      isFeatureUnlockedNotifier.value = true;
-      return;
-    }
-    
-    final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
-    if (expireMs == 0) {
-      isFeatureUnlockedNotifier.value = false;
+      syncFeatureUnlockStates();
       return;
     }
 
-    final diffMs = expireMs - DateTime.now().millisecondsSinceEpoch;
-    if (diffMs <= 0) {
-      _onAdRewardExpired();
-    } else {
-      isFeatureUnlockedNotifier.value = true;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    int? earliestFutureExpireMs;
+
+    final globalExpireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
+    if (globalExpireMs > 0) {
+      if (globalExpireMs <= nowMs) {
+        _prefs.setInt('adRewardExpireMs', 0);
+      } else {
+        earliestFutureExpireMs = globalExpireMs;
+      }
+    }
+
+    for (final key in _timedFeatureKeys) {
+      final keyExpireMs = _prefs.getInt('${key}_unlock_until_ms') ?? 0;
+      if (keyExpireMs > 0) {
+        if (keyExpireMs <= nowMs) {
+          _prefs.setInt('${key}_unlock_until_ms', 0);
+        } else if (earliestFutureExpireMs == null || keyExpireMs < earliestFutureExpireMs) {
+          earliestFutureExpireMs = keyExpireMs;
+        }
+      }
+    }
+
+    syncFeatureUnlockStates();
+
+    if (earliestFutureExpireMs != null) {
+      final diffMs = (earliestFutureExpireMs - nowMs) + 50;
       _adRewardTimer = Timer(Duration(milliseconds: diffMs), _onAdRewardExpired);
     }
   }
 
   static void _onAdRewardExpired() {
-    _prefs.setInt('adRewardExpireMs', 0);
-    isFeatureUnlockedNotifier.value = false;
+    _startAdRewardTimer();
   }
   
   static int get adRewardExpireMs => _prefs.getInt('adRewardExpireMs') ?? 0;

@@ -27,11 +27,30 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
   @override
   void initState() {
     super.initState();
-    _loadAd();
+    SettingsService.isPremiumUserNotifier.addListener(_onPremiumStatusChanged);
+    if (!SettingsService.isPremiumUser) {
+      _loadAd();
+    }
+  }
+
+  void _onPremiumStatusChanged() {
+    if (SettingsService.isPremiumUser) {
+      _bannerAd?.dispose();
+      _bannerAd = null;
+      if (mounted) {
+        setState(() {
+          _isLoaded = false;
+        });
+      } else {
+        _isLoaded = false;
+      }
+    } else if (_bannerAd == null) {
+      _loadAd();
+    }
   }
 
   void _loadAd() {
-    if (kIsWeb) return; // Web 미지원 임시 방어코드
+    if (kIsWeb || SettingsService.isPremiumUser) return;
     
     _bannerAd = BannerAd(
       adUnitId: _adUnitId,
@@ -39,6 +58,10 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
       size: AdSize.banner, // 320x50
       listener: BannerAdListener(
         onAdLoaded: (ad) {
+          if (!mounted || SettingsService.isPremiumUser) {
+            ad.dispose();
+            return;
+          }
           debugPrint('$ad loaded.');
           setState(() {
             _isLoaded = true;
@@ -47,6 +70,9 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
         onAdFailedToLoad: (ad, err) {
           debugPrint('BannerAd failed to load: $err');
           ad.dispose();
+          if (_bannerAd == ad) {
+            _bannerAd = null;
+          }
         },
       ),
     )..load();
@@ -54,6 +80,7 @@ class _AdBannerWidgetState extends State<AdBannerWidget> {
 
   @override
   void dispose() {
+    SettingsService.isPremiumUserNotifier.removeListener(_onPremiumStatusChanged);
     _bannerAd?.dispose();
     super.dispose();
   }

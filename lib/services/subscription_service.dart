@@ -36,7 +36,7 @@ class SubscriptionService {
 
       // 초기 상태 확인
       final customerInfo = await Purchases.getCustomerInfo();
-      _updatePremiumStatus(customerInfo);
+      await _updatePremiumStatus(customerInfo);
     } catch (e) {
       debugPrint('SubscriptionService init error: $e');
     }
@@ -47,7 +47,7 @@ class SubscriptionService {
     if (!_isInitialized) return;
     try {
       final logInResult = await Purchases.logIn(uid);
-      _updatePremiumStatus(logInResult.customerInfo);
+      await _updatePremiumStatus(logInResult.customerInfo);
     } catch (e) {
       debugPrint('SubscriptionService logIn error: $e');
     }
@@ -58,7 +58,7 @@ class SubscriptionService {
     if (!_isInitialized) return;
     try {
       final customerInfo = await Purchases.logOut();
-      _updatePremiumStatus(customerInfo);
+      await _updatePremiumStatus(customerInfo);
     } catch (e) {
       debugPrint('SubscriptionService logOut error: $e');
     }
@@ -80,10 +80,10 @@ class SubscriptionService {
     if (!_isInitialized) return false;
     try {
       final result = await Purchases.purchasePackage(package);
-      _updatePremiumStatus(result.customerInfo);
+      await _updatePremiumStatus(result.customerInfo);
       
-      // 결제 성공 시 하나라도 활성화된 entitlement가 있다면 true
-      return result.customerInfo.entitlements.active.isNotEmpty;
+      // 결제 성공 시 활성화된 entitlement 또는 activeSubscriptions가 있다면 true
+      return _hasActiveSubscription(result.customerInfo);
     } catch (e) {
       debugPrint('SubscriptionService purchase error: $e');
       return false;
@@ -95,20 +95,22 @@ class SubscriptionService {
     if (!_isInitialized) return false;
     try {
       final customerInfo = await Purchases.restorePurchases();
-      _updatePremiumStatus(customerInfo);
-      return customerInfo.entitlements.active.isNotEmpty;
+      await _updatePremiumStatus(customerInfo);
+      return _hasActiveSubscription(customerInfo);
     } catch (e) {
       debugPrint('SubscriptionService restore error: $e');
       return false;
     }
   }
 
+  static bool _hasActiveSubscription(CustomerInfo customerInfo) {
+    return customerInfo.entitlements.active.isNotEmpty ||
+        customerInfo.activeSubscriptions.isNotEmpty;
+  }
+
   /// CustomerInfo를 기반으로 로컬 프리미엄 권한 동기화
-  static void _updatePremiumStatus(CustomerInfo customerInfo) {
-    // 어떤 권한이든 활성화되어 있다면 프리미엄으로 간주
-    final isPremium = customerInfo.entitlements.active.isNotEmpty;
-    if (isPremium != SettingsService.isRevenueCatPremium) {
-      SettingsService.setRevenueCatPremium(isPremium);
-    }
+  static Future<void> _updatePremiumStatus(CustomerInfo customerInfo) async {
+    final isPremium = _hasActiveSubscription(customerInfo);
+    await SettingsService.setRevenueCatPremium(isPremium);
   }
 }

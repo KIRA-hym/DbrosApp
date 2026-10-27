@@ -48,10 +48,20 @@ class _ExpenseMainWrapperState extends State<ExpenseMainWrapper> {
     if (kExpenseOwnerOnly) {
       ExpenseNavBus.register(_selectTab);
     }
+    SettingsService.featureUnlockVersionNotifier.addListener(_onUnlockStateChanged);
+  }
+
+  void _onUnlockStateChanged() {
+    if (!mounted) return;
+    if (_selectedIndex == 3 && !SettingsService.isFeatureUnlocked('stats')) {
+      setState(() => _selectedIndex = 0);
+      ExpenseHomePage.requestRefresh();
+    }
   }
 
   @override
   void dispose() {
+    SettingsService.featureUnlockVersionNotifier.removeListener(_onUnlockStateChanged);
     if (kExpenseOwnerOnly) {
       ExpenseNavBus.unregister(_selectTab);
     }

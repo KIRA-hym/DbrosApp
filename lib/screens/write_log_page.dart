@@ -53,6 +53,8 @@ import '../utils/app_image_picker.dart';
 import '../utils/call_card_recognition_disclaimer.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
+import '../app_navigator.dart' show rootNavigatorKey;
+import 'home_page.dart';
 import 'location_pick_map_page.dart';
 import 'log_list_page.dart';
 
@@ -427,15 +429,7 @@ class _DriveLogFormState extends State<DriveLogForm>
   }
 
   void _startListeningWithGuard(String field) {
-    ProFeatureGuard.checkAndRun(
-      context: context,
-      featureKey: 'voice_entry',
-      canUseFree: () async => false,
-      canUseWithAd: () async => true,
-      onGranted: (isFreeTicket) {
-        _toggleListening(field);
-      },
-    );
+    _toggleListening(field);
   }
 
   void _toggleListening(String field) async {
@@ -2048,18 +2042,64 @@ RULES:
       return;
     }
 
-    ScaffoldMessenger.of(context).clearSnackBars();
+    final bool isManualNewSave =
+        _logId == null &&
+        widget.existingLog == null &&
+        _capturedImage == null &&
+        (_persistedRegistrationSource == null ||
+            _persistedRegistrationSource!.trim().isEmpty);
+    final bool shouldShowAutoCaptureNudge =
+        isManualNewSave && !SettingsService.screenshotAutoRegisterEnabled;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.clearSnackBars();
     MainTabScope.maybeOf(context)?.selectTab(1);
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(
         builder: (_) => DailyLogListPage(
           dateStr: workStr,
           dateTitle: workStr,
-          snackMessage: savedMsg,
+          snackMessage: shouldShowAutoCaptureNudge ? null : savedMsg,
         ),
       ),
       (route) => route.isFirst,
     );
+
+    if (shouldShowAutoCaptureNudge) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        messenger.clearSnackBars();
+        messenger.showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF1F222A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFFFFC700), width: 1.2),
+            ),
+            duration: const Duration(seconds: 4),
+            content: const Text(
+              '💡 직접 입력하느라 수고하셨습니다!\n[자동 캡처]를 켜두면 다음 콜부터는 캡처 한 번으로 자동 등록됩니다.',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            action: SnackBarAction(
+              label: '켜기 >',
+              textColor: const Color(0xFFFFC700),
+              onPressed: () {
+                final navCtx = rootNavigatorKey.currentContext;
+                if (navCtx != null) {
+                  HomePage.showAutoCaptureGuideOrEnable(navCtx);
+                }
+              },
+            ),
+          ),
+        );
+      });
+    }
   }
 
   void _onGuideRequested() {

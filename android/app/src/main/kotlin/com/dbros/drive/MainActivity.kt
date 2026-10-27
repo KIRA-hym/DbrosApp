@@ -109,6 +109,7 @@ class MainActivity : FlutterActivity() {
 
     private fun dispatchPendingNotificationClick(intent: Intent?) {
         val action = intent?.getStringExtra("notification_action") ?: return
+        intent.removeExtra("notification_action")
         val ch = summaryChannel ?: return
         val args = mapOf("action" to action)
         ch.invokeMethod(

@@ -6,6 +6,12 @@ import '../config/feature_flags.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../screens/paywall_page.dart';
 
+enum _AdPromptAction {
+  subscribe,
+  watchAd,
+  cancel,
+}
+
 class ProFeatureGuard {
   static Future<void> checkAndRun({
     required BuildContext context,
@@ -25,7 +31,7 @@ class ProFeatureGuard {
       return;
     }
 
-    // 1. Check if Daily Pass is already active
+    // 1. Check if Timed/Daily Pass is already active (e.g. stats 1h pass)
     if (await FeatureUsageService.hasDailyPassAsync(featureKey)) {
       onGranted(true);
       return;
@@ -40,10 +46,22 @@ class ProFeatureGuard {
       return;
     }
 
-    // 3. Prompt for Ad
+    // 3. Prompt Hybrid Dialog (Premium Subscribe + Ad Option)
     if (await canUseWithAd()) {
-      final shouldWatchAd = await _showAdPromptDialog(context, featureKey);
-      if (shouldWatchAd == true) {
+      final action = await _showAdPromptDialog(context, featureKey);
+      if (action == _AdPromptAction.subscribe) {
+        if (!context.mounted) return;
+        final purchased = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (context) => const PaywallPage()),
+        );
+        if (purchased == true || SettingsService.isPremiumUser) {
+          onGranted(true);
+        }
+        return;
+      }
+
+      if (action == _AdPromptAction.watchAd) {
         if (!context.mounted) return;
         showDialog(
           context: context,
@@ -62,9 +80,7 @@ class ProFeatureGuard {
           onAdClosed: () async {
             if (context.mounted) Navigator.pop(context); // Close loading dialog
             if (rewardEarned) {
-              await FeatureUsageService.incrementAdUsage(
-                featureKey,
-              ); // This grants the Daily Pass!
+              await FeatureUsageService.incrementAdUsage(featureKey);
               onGranted(false);
             }
           },
@@ -81,50 +97,117 @@ class ProFeatureGuard {
       return;
     }
 
-    // No free uses, no ad uses left (Should rarely happen now since ad uses are infinite)
+    // Fallback if no ad uses available
     _showProUpgradeDialog(context);
   }
 
-  static Future<bool?> _showAdPromptDialog(
+  static Future<_AdPromptAction?> _showAdPromptDialog(
     BuildContext context,
     String featureKey,
   ) {
     final bool hasFreeUses =
         (featureKey == 'route_map' || featureKey == 'single_ocr');
-    final String title = hasFreeUses ? '무료 이용 횟수 소진' : '기능 일시 잠금 해제';
+    final bool isStats = (featureKey == 'stats');
 
-    String content;
-    if (featureKey == 'route_map') {
-      content =
-          '기본 제공 무료 횟수를 모두 사용했습니다.\n30초 광고를 시청하시면 지도를 1회 열람하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
-    } else if (hasFreeUses) {
-      content =
-          '기본 제공 무료 횟수를 모두 사용했습니다.\n30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
-    } else {
-      content =
-          '30초 광고를 시청하시면 내일 오전 9시까지 해당 기능을 무제한으로 이용하실 수 있습니다.\n\n광고를 시청하시겠습니까?';
-    }
+    final String title = hasFreeUses
+        ? '오늘 무료 이용 횟수를 모두 사용했어요'
+        : '프리미엄 편의기능 잠금 해제';
 
-    return AppGlassDialog.show<bool>(
+    final String highlightBenefit = isStats ? '1시간 동안만' : '사용 횟수 1회만';
+    final String suffixBenefit = isStats
+        ? ' 혜택이 적용되고 자동 종료되지만,'
+        : ' 충전되지만,';
+
+    final String adButtonLabel = isStats
+        ? '📺 30초 광고 보고 1시간만 사용하기'
+        : (hasFreeUses ? '📺 30초 광고 보고 1회 충전하기' : '📺 30초 광고 보고 1회 사용하기');
+
+    return AppGlassDialog.show<_AdPromptAction>(
       context: context,
       dialog: AppGlassDialog(
-        icon: Icons.play_circle_outline,
+        icon: Icons.workspace_premium,
         title: title,
-        content: content,
-        actions: [
-          Builder(
-            builder: (ctx) => GlassDialogCancelButton(
-              onPressed: () => Navigator.pop(ctx, false),
+        contentWidget: RichText(
+          text: TextSpan(
+            style: const TextStyle(
+              fontFamily: 'Pretendard',
+              color: Color(0xFFD1D2D4),
+              fontSize: 14,
+              height: 1.55,
             ),
+            children: [
+              const TextSpan(text: '30초 광고를 시청하면 '),
+              TextSpan(
+                text: highlightBenefit,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextSpan(text: '$suffixBenefit\n\n'),
+              const TextSpan(
+                text: '프리미엄을 구독',
+                style: TextStyle(
+                  color: Color(0xFFFFC700),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const TextSpan(
+                text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+              ),
+            ],
           ),
+        ),
+        actions: [
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFC700),
                 foregroundColor: Colors.black,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('시청하기'),
+              onPressed: () => Navigator.pop(ctx, _AdPromptAction.subscribe),
+              child: const Text(
+                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFF282C37),
+                foregroundColor: const Color(0xFFE5E7EB),
+                side: const BorderSide(color: Colors.white12),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, _AdPromptAction.watchAd),
+              child: Text(
+                adButtonLabel,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              label: '닫기',
+              onPressed: () => Navigator.pop(ctx, _AdPromptAction.cancel),
             ),
           ),
         ],

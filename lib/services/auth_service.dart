@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -41,12 +41,18 @@ class AuthService extends ChangeNotifier {
     if (existingUser != null) {
       _user = existingUser;
       _status = AuthStatus.authenticated;
+      unawaited(_syncUserToFirestoreBackground(existingUser));
     }
     _auth.authStateChanges().listen(_onAuthStateChanged);
   }
 
   Future<void> _onAuthStateChanged(User? firebaseUser) async {
     if (firebaseUser == null) {
+      if (_user != null) {
+        debugPrint('[AuthService] Transient null event received, keeping active user: ${_user?.uid}');
+        unawaited(_verifyUserStillValid());
+        return;
+      }
       // [FIX] Spurious null 이벤트 방어:
       // Firebase Auth SDK가 앱 업데이트/초기화 직후 null -> User -> null 순서로
       // 이벤트를 재방출하는 경우가 있음. currentUser를 재확인하여
@@ -58,6 +64,7 @@ class AuthService extends ChangeNotifier {
         _user = recheck;
         _status = AuthStatus.authenticated;
         notifyListeners();
+        unawaited(_syncUserToFirestoreBackground(recheck));
         return;
       }
       // currentUser도 null이면 진짜 로그아웃
@@ -75,6 +82,32 @@ class AuthService extends ChangeNotifier {
 
       // 백그라운드에서 Firestore 동기화 및 밴 여부 체크
       unawaited(_syncUserToFirestoreBackground(firebaseUser));
+    }
+  }
+
+  Future<void> _verifyUserStillValid() async {
+    try {
+      final current = _auth.currentUser;
+      if (current != null) {
+        await current.reload();
+        final refreshed = _auth.currentUser;
+        if (refreshed != null) {
+          _user = refreshed;
+          _status = AuthStatus.authenticated;
+          notifyListeners();
+          return;
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'user-disabled') {
+        _status = AuthStatus.unauthenticated;
+        _user = null;
+        _userDoc = null;
+        _cancelSubscription();
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[AuthService] User session reload error (offline/transient): $e');
     }
   }
 

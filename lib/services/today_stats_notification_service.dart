@@ -12,6 +12,7 @@ import '../main.dart' show MainWrapper;
 import 'db_helper.dart';
 import 'notification_permission_service.dart';
 import 'settings_service.dart';
+import 'auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// 알림 패널 고정 알림: 오늘 수입·지출.
@@ -116,6 +117,11 @@ class TodayStatsNotificationService {
 
   void _openHomeScreen() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (AuthService.instance.status != AuthStatus.authenticated ||
+          AuthService.instance.user == null) {
+        debugPrint('[TodayStatsNotificationService] Ignored _openHomeScreen: Not authenticated');
+        return;
+      }
       final nav = rootNavigatorKey.currentState;
       if (nav == null) return;
       nav.pushAndRemoveUntil(
@@ -129,6 +135,11 @@ class TodayStatsNotificationService {
 
   void _openFullWriteScreen() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (AuthService.instance.status != AuthStatus.authenticated ||
+          AuthService.instance.user == null) {
+        debugPrint('[TodayStatsNotificationService] Ignored _openFullWriteScreen: Not authenticated');
+        return;
+      }
       final nav = rootNavigatorKey.currentState;
       if (nav == null) return;
       nav.pushAndRemoveUntil(
@@ -142,7 +153,10 @@ class TodayStatsNotificationService {
 
   Future<void> refreshFromDbIfEnabled() async {
     if (!_isAndroid || !_initialized) return;
-    if (!SettingsService.statusBarQuickEnabled) return;
+    if (!SettingsService.statusBarQuickEnabled) {
+      await cancel();
+      return;
+    }
     if (!await NotificationPermissionService.isGranted()) {
       await NotificationPermissionService.requestIfNeeded();
       if (!await NotificationPermissionService.isGranted()) return;

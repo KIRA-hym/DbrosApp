@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -35,6 +36,7 @@ import 'log_list_page.dart';
 import 'single_call_card_page.dart';
 import 'multi_call_card_page.dart';
 import 'my_info_page.dart';
+import 'paywall_page.dart';
 import 'settings_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
@@ -44,6 +46,8 @@ import 'package:permission_handler/permission_handler.dart';
 import '../widgets/onboarding_dialog.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
+import '../services/rewarded_ad_service.dart';
+import '../services/screenshot_auto_register_service.dart';
 import '../services/auth_service.dart';
 import '../services/apk_update_service.dart';
 import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
@@ -55,6 +59,311 @@ bool _homeNoticeClosed = false;
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  /// 미디어 권한 확인 후 화면 캡처 자동등록 활성화
+  static Future<bool> enableScreenshotAutoWithPermission(
+    BuildContext context, {
+    VoidCallback? onEnabled,
+  }) async {
+    if (!kIsWeb && Platform.isAndroid) {
+      final storageStatus = await Permission.storage.request();
+      final photosStatus = await Permission.photos.request();
+
+      if (!storageStatus.isGranted && !photosStatus.isGranted) {
+        if (!context.mounted) return false;
+        AppGlassDialog.show<void>(
+          context: context,
+          dialog: AppGlassDialog(
+            icon: Icons.folder_off_outlined,
+            title: '권한 설정 필요',
+            content:
+                '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
+            actions: [
+              Builder(
+                builder: (ctx) => GlassDialogCancelButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  label: '취소',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Builder(
+                builder: (ctx) => Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      openAppSettings();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      foregroundColor: Colors.black,
+                    ),
+                    child: const Text('설정으로 이동'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        return false;
+      }
+    }
+
+    await SettingsService.setScreenshotAutoRegisterEnabled(true);
+    await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
+    SettingsService.featureUnlockVersionNotifier.value++;
+    onEnabled?.call();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('화면 캡처 자동등록이 켜졌습니다! 콜 화면을 캡처해 보세요.'),
+        ),
+      );
+    }
+    return true;
+  }
+
+  /// 광고 시청 후 2시간 패스 부여 및 화면 캡처 자동등록 활성화
+  static Future<void> watchAdAndEnableAutoCapture(
+    BuildContext context, {
+    VoidCallback? onEnabled,
+  }) async {
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+      ),
+    );
+
+    bool rewardEarned = false;
+
+    RewardedAdService.showAd(
+      onEarnedReward: () async {
+        rewardEarned = true;
+      },
+      onAdClosed: () async {
+        if (context.mounted) Navigator.pop(context);
+        if (rewardEarned) {
+          await FeatureUsageService.grantTimedPass(
+            'auto_screenshot',
+            const Duration(hours: 2),
+          );
+          if (context.mounted) {
+            await enableScreenshotAutoWithPermission(
+              context,
+              onEnabled: onEnabled,
+            );
+          }
+        }
+      },
+      onAdFailed: () {
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('광고 로드에 실패했습니다. 나중에 다시 시도해주세요.')),
+          );
+        }
+      },
+    );
+  }
+
+  /// 화면 캡처 자동등록 3단계 시각 가이드 및 활성화 팝업
+  static Future<void> showAutoCaptureGuideOrEnable(
+    BuildContext context, {
+    VoidCallback? onEnabled,
+  }) async {
+    if (SettingsService.isFeatureUnlocked('auto_screenshot')) {
+      await enableScreenshotAutoWithPermission(context, onEnabled: onEnabled);
+      return;
+    }
+
+    Widget buildStepRow(String stepLabel, String desc, {bool isLast = false}) {
+      return Container(
+        margin: EdgeInsets.only(bottom: isLast ? 0 : 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1F222A),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isLast
+                ? const Color(0x4D00E676)
+                : Colors.white.withValues(alpha: 0.05),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: isLast
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                stepLabel,
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                desc,
+                style: TextStyle(
+                  color: isLast ? const Color(0xFF00E676) : Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final action = await AppGlassDialog.show<String>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.workspace_premium,
+        title: '화면 캡처 자동등록 안내',
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16181E),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                children: [
+                  buildStepRow('STEP 1', '📸 콜 잡고 화면 캡처 (찰칵!)'),
+                  buildStepRow('STEP 2', '🔍 요금 · 출발지 · 도착지 자동 분석'),
+                  buildStepRow('STEP 3', '✅ 앱 안 켜도 운행일지 자동 저장!', isLast: true),
+                ],
+              ),
+            ),
+            RichText(
+              text: const TextSpan(
+                style: TextStyle(
+                  fontFamily: 'Pretendard',
+                  color: Color(0xFFD1D2D4),
+                  fontSize: 14,
+                  height: 1.55,
+                ),
+                children: [
+                  TextSpan(text: '30초 광고를 시청하면 '),
+                  TextSpan(
+                    text: '2시간 동안만',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+                  TextSpan(
+                    text: '프리미엄을 구독',
+                    style: TextStyle(
+                      color: Color(0xFFFFC700),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextSpan(
+                    text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'subscribe'),
+              child: const Text(
+                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFF282C37),
+                foregroundColor: const Color(0xFFE5E7EB),
+                side: const BorderSide(color: Colors.white12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+              child: const Text(
+                '📺 30초 광고 보고 2시간만 사용하기',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              label: '닫기',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'subscribe') {
+      if (!context.mounted) return;
+      final purchased = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (context) => const PaywallPage()),
+      );
+      if ((purchased == true || SettingsService.isPremiumUser) &&
+          context.mounted) {
+        await enableScreenshotAutoWithPermission(context, onEnabled: onEnabled);
+      }
+      return;
+    }
+
+    if (action == 'watch_ad') {
+      if (!context.mounted) return;
+      await watchAdAndEnableAutoCapture(context, onEnabled: onEnabled);
+    }
+  }
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -499,19 +808,65 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     key: _keyMyInfo,
                     builder: (context, auth, _) {
                       final photoUrl = auth.user?.photoURL;
-                      if (photoUrl != null && photoUrl.isNotEmpty) {
-                        return CircleAvatar(
-                          radius: 20,
-                          backgroundImage: NetworkImage(photoUrl),
-                          backgroundColor: Colors.transparent,
-                        );
-                      }
-                      return Icon(
-                        Icons.account_circle,
-                        color:
-                            (Theme.of(context).textTheme.bodyLarge?.color ??
-                            Colors.white),
-                        size: 40,
+                      final Widget avatarWidget =
+                          (photoUrl != null && photoUrl.isNotEmpty)
+                          ? CircleAvatar(
+                              radius: 20,
+                              backgroundImage: NetworkImage(photoUrl),
+                              backgroundColor: Colors.transparent,
+                            )
+                          : Icon(
+                              Icons.account_circle,
+                              color:
+                                  (Theme.of(
+                                    context,
+                                  ).textTheme.bodyLarge?.color ??
+                                  Colors.white),
+                              size: 40,
+                            );
+
+                      return ValueListenableBuilder<bool>(
+                        valueListenable: SettingsService.isPremiumUserNotifier,
+                        builder: (context, isPremium, _) {
+                          return Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              avatarWidget,
+                              if (isPremium)
+                                Positioned(
+                                  left: -2,
+                                  top: -2,
+                                  child: Container(
+                                    width: 18,
+                                    height: 18,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFFFFC700),
+                                      border: Border.all(
+                                        color:
+                                            Theme.of(
+                                              context,
+                                            ).scaffoldBackgroundColor,
+                                        width: 2,
+                                      ),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Colors.black54,
+                                          blurRadius: 4,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.workspace_premium,
+                                      size: 11,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       );
                     },
                   ),
@@ -622,6 +977,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                             child: _buildUtilsRow(),
                                           ),
                                           SizedBox(height: sectionGap),
+                                          _buildAutoCaptureStatusBar(),
+                                          SizedBox(height: sectionGap),
                                           SizedBox(
                                             height: 85,
                                             child: _buildRegisterRow(),
@@ -655,6 +1012,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                           height: 60,
                                           child: _buildUtilsRow(),
                                         ),
+                                        _buildAutoCaptureStatusBar(),
                                         SizedBox(
                                           height: 85,
                                           child: _buildRegisterRow(),
@@ -825,6 +1183,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     if (!mounted) return;
 
+    bool shouldReset = false;
     if (session != null && (session['total_seconds'] ?? 0) > 0) {
       final result = await AppGlassDialog.show<String>(
         context: context,
@@ -847,13 +1206,155 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
 
       if (result == 'reset') {
-        provider.clockIn(reset: true);
+        shouldReset = true;
       } else if (result == 'continue') {
-        provider.clockIn(reset: false);
+        shouldReset = false;
+      } else {
+        return;
       }
-    } else {
-      provider.clockIn(reset: false);
     }
+
+    if (!mounted) return;
+
+    // 화면 캡처 자동등록이 꺼져 있는 경우 출근 루틴 팝업 제안
+    if (!SettingsService.screenshotAutoRegisterEnabled &&
+        !SettingsService.isFeatureUnlocked('auto_screenshot')) {
+      final routineAction = await AppGlassDialog.show<String>(
+        context: context,
+        dialog: AppGlassDialog(
+          icon: Icons.workspace_premium,
+          title: '오늘 운행 출근 준비',
+          contentWidget: RichText(
+            text: const TextSpan(
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                color: Color(0xFFD1D2D4),
+                fontSize: 14,
+                height: 1.55,
+              ),
+              children: [
+                TextSpan(text: '오늘도 안전 운행하세요! 🚕\n운행 시작 전 '),
+                TextSpan(
+                  text: '[화면 캡처 자동등록]',
+                  style: TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextSpan(text: '을 켜두시겠습니까?\n\n30초 광고를 시청하면 '),
+                TextSpan(
+                  text: '2시간 동안만',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextSpan(text: ' 혜택이 적용되고 자동 종료되지만, '),
+                TextSpan(
+                  text: '프리미엄을 구독',
+                  style: TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextSpan(
+                  text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            Builder(
+              builder: (ctx) => ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFC700),
+                  foregroundColor: Colors.black,
+                  elevation: 2,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(ctx, 'subscribe'),
+                child: const Text(
+                  '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ),
+            Builder(
+              builder: (ctx) => OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFF282C37),
+                  foregroundColor: const Color(0xFFE5E7EB),
+                  side: const BorderSide(color: Colors.white12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+                child: const Text(
+                  '📺 30초 광고 보고 2시간만 사용하기',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
+                ),
+              ),
+            ),
+            Builder(
+              builder: (ctx) => GlassDialogCancelButton(
+                label: '그냥 출근만 하기',
+                onPressed: () => Navigator.pop(ctx, 'clock_in_only'),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      // 어떤 선택을 하든 출근 타이머는 즉시 시작되도록 보장
+      provider.clockIn(reset: shouldReset);
+
+      if (routineAction == 'subscribe') {
+        if (!mounted) return;
+        final purchased = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(builder: (context) => const PaywallPage()),
+        );
+        if ((purchased == true || SettingsService.isPremiumUser) && mounted) {
+          await HomePage.enableScreenshotAutoWithPermission(
+            context,
+            onEnabled: () {
+              if (mounted) setState(() {});
+            },
+          );
+        }
+      } else if (routineAction == 'watch_ad') {
+        if (!mounted) return;
+        await HomePage.watchAdAndEnableAutoCapture(
+          context,
+          onEnabled: () {
+            if (mounted) setState(() {});
+          },
+        );
+      }
+      return;
+    }
+
+    provider.clockIn(reset: shouldReset);
   }
 
   void _handleClockOut(WorkTimerProvider provider) async {
@@ -1519,6 +2020,162 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAutoCaptureStatusBar() {
+    return ValueListenableBuilder<int>(
+      valueListenable: SettingsService.featureUnlockVersionNotifier,
+      builder: (context, _, _) {
+        return ValueListenableBuilder<bool>(
+          valueListenable: SettingsService.isPremiumUserNotifier,
+          builder: (context, _, _) {
+            final isOn = SettingsService.screenshotAutoRegisterEnabled;
+            final accentColor = isOn
+                ? const Color(0xFF00E676)
+                : const Color(0xFFFFC700);
+
+            return InkWell(
+              onTap: () {
+                if (isOn) {
+                  mainTabEventController.add(4);
+                } else {
+                  HomePage.showAutoCaptureGuideOrEnable(
+                    context,
+                    onEnabled: () {
+                      if (mounted) setState(() {});
+                    },
+                  );
+                }
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardTheme.color!,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: accentColor, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: accentColor.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: Icon(
+                        Icons.document_scanner,
+                        color: accentColor,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  '화면 캡처 자동등록',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color:
+                                        (Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge?.color ??
+                                        Colors.white),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isOn
+                                      ? const Color(0x3300E676)
+                                      : const Color(0x33FF5252),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isOn
+                                        ? const Color(0x6600E676)
+                                        : const Color(0x66FF5252),
+                                  ),
+                                ),
+                                child: Text(
+                                  isOn ? '작동중' : '꺼짐',
+                                  style: TextStyle(
+                                    color: isOn
+                                        ? const Color(0xFF00E676)
+                                        : const Color(0xFFFF6B6B),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            isOn
+                                ? '콜 화면을 캡처하면 자동으로 일지가 저장됩니다'
+                                : '운전 중엔 캡처만 하세요! 저절로 기록됩니다',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF9FA3AE),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isOn
+                            ? const Color(0xFF282C37)
+                            : const Color(0xFFFFC700),
+                        borderRadius: BorderRadius.circular(8),
+                        border: isOn
+                            ? Border.all(color: Colors.white12)
+                            : null,
+                      ),
+                      child: Text(
+                        isOn ? '설정 >' : '켜기 >',
+                        style: TextStyle(
+                          color: isOn ? const Color(0xFF9FA3AE) : Colors.black,
+                          fontSize: 12,
+                          fontWeight: isOn ? FontWeight.w700 : FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

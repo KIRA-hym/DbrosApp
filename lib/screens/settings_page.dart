@@ -12,6 +12,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 
 import 'my_info_page.dart';
+import 'paywall_page.dart';
 import '../main_navigation.dart';
 import 'write_log_page.dart';
 import 'admin_user_list_page.dart';
@@ -118,6 +119,17 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final guideProvider = Provider.of<GuideProvider>(context, listen: false);
     guideProvider.addListener(_onGuideRequested);
+    SettingsService.isFeatureUnlockedNotifier.addListener(_onFeatureUnlockChanged);
+    SettingsService.featureUnlockVersionNotifier.addListener(_onFeatureUnlockChanged);
+  }
+
+  void _onFeatureUnlockChanged() {
+    if (!mounted) return;
+    setState(() {
+      _statusBarQuickEnabled = SettingsService.statusBarQuickEnabled;
+      _screenshotAutoRegisterEnabled =
+          SettingsService.screenshotAutoRegisterEnabled;
+    });
   }
 
   Future<void> _loadApkUpdateStatus() async {
@@ -177,6 +189,8 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
+    SettingsService.isFeatureUnlockedNotifier.removeListener(_onFeatureUnlockChanged);
+    SettingsService.featureUnlockVersionNotifier.removeListener(_onFeatureUnlockChanged);
     _scrollController.dispose();
     Provider.of<GuideProvider>(
       context,
@@ -734,7 +748,7 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _statusBarQuickEnabled,
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
-              if (value && !SettingsService.isFeatureUnlocked()) {
+              if (value && !SettingsService.isFeatureUnlocked('status_bar')) {
                 _showAdRewardDialog(context, 'status_bar', () async {
                   if (!await _requirePermission([Permission.notification], "알림")) return;
                   await SettingsService.setStatusBarQuickEnabled(true);
@@ -776,7 +790,7 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _screenshotAutoRegisterEnabled,
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
-              if (value && !SettingsService.isFeatureUnlocked()) {
+              if (value && !SettingsService.isFeatureUnlocked('auto_screenshot')) {
                 _showAdRewardDialog(context, 'auto_screenshot', () async {
                   if (!kIsWeb && Platform.isAndroid) {
                     final storageStatus = await Permission.storage.request();
@@ -917,7 +931,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     value: overlayEnabled,
                     activeColor: Theme.of(context).primaryColor,
                     onChanged: (value) async {
-                      if (value && !SettingsService.isFeatureUnlocked()) {
+                      if (value && !SettingsService.isFeatureUnlocked('overlay_quick')) {
                         _showAdRewardDialog(context, 'overlay_quick', () async {
                           if (!await _requestSystemAlertWindowPermission())
                             return;
@@ -2379,31 +2393,111 @@ class _SettingsPageState extends State<SettingsPage> {
     String featureKey,
     VoidCallback onSuccess,
   ) async {
-    final confirm = await AppGlassDialog.show<bool>(
+    final action = await AppGlassDialog.show<String>(
       context: context,
       dialog: AppGlassDialog(
-        icon: Icons.ondemand_video,
-        title: '기능 일시 잠금 해제',
-        content:
-            '30초 광고를 시청하시면 내일 오전 9시까지 꺼짐 없이 편의기능이 무료로 유지됩니다.\n\n광고를 시청하시겠습니까?',
+        icon: Icons.workspace_premium,
+        title: '프리미엄 편의기능 잠금 해제',
+        contentWidget: RichText(
+          text: const TextSpan(
+            style: TextStyle(
+              fontFamily: 'Pretendard',
+              color: Color(0xFFD1D2D4),
+              fontSize: 14,
+              height: 1.55,
+            ),
+            children: [
+              TextSpan(text: '30초 광고를 시청하면 '),
+              TextSpan(
+                text: '2시간 동안만',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+              TextSpan(
+                text: '프리미엄을 구독',
+                style: TextStyle(
+                  color: Color(0xFFFFC700),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextSpan(
+                text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+              ),
+            ],
+          ),
+        ),
         actions: [
           Builder(
-            builder: (ctx) => GlassDialogCancelButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              label: '취소',
+            builder: (ctx) => ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'subscribe'),
+              child: const Text(
+                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
+              ),
             ),
           ),
           Builder(
-            builder: (ctx) => GlassDialogConfirmButton(
-              label: '시청하기',
-              onPressed: () => Navigator.pop(ctx, true),
+            builder: (ctx) => OutlinedButton(
+              style: OutlinedButton.styleFrom(
+                backgroundColor: const Color(0xFF282C37),
+                foregroundColor: const Color(0xFFE5E7EB),
+                side: const BorderSide(color: Colors.white12),
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+              child: const Text(
+                '📺 30초 광고 보고 2시간만 사용하기',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13.5,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              label: '닫기',
             ),
           ),
         ],
       ),
     );
 
-    if (confirm == true) {
+    if (action == 'subscribe') {
+      if (!context.mounted) return;
+      final purchased = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (context) => const PaywallPage()),
+      );
+      if (purchased == true || SettingsService.isPremiumUser) {
+        onSuccess();
+      }
+      return;
+    }
+
+    if (action == 'watch_ad') {
       if (!context.mounted) return;
 
       showDialog(
@@ -2423,7 +2517,10 @@ class _SettingsPageState extends State<SettingsPage> {
         onAdClosed: () async {
           if (context.mounted) Navigator.pop(context); // Close loading dialog
           if (rewardEarned) {
-            await FeatureUsageService.grantDailyPass(featureKey);
+            await FeatureUsageService.grantTimedPass(
+              featureKey,
+              const Duration(hours: 2),
+            );
             onSuccess();
           }
         },

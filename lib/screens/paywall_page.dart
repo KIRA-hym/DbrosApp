@@ -79,8 +79,8 @@ class _PaywallPageState extends State<PaywallPage> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  '아래 기능이 무제한으로 제공됩니다.',
-                  style: TextStyle(color: Colors.grey, fontSize: 16),
+                  '커피 한 잔 값으로 매일 반복되는 광고와\n수기입력 스트레스를 끝내세요!',
+                  style: TextStyle(color: Color(0xFFD1D2D4), fontSize: 15, height: 1.45),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
@@ -90,7 +90,7 @@ class _PaywallPageState extends State<PaywallPage> {
                 _buildBenefitItem(Icons.bar_chart, '상세 수익 통계 대시보드', '일/주/월/년 단위 수익과 지출 통계와 프로그램별 그래프로 파악하세요.'),
                 _buildBenefitItem(Icons.map, '일자별 운행 동선 지도', '오늘 내가 이동한 전체 경로와 총 운행 거리를 지도로 꼼꼼히 확인하세요.'),
                 _buildBenefitItem(Icons.block, '광고 완벽 제거', '앱 내의 모든 광고가 제거되어 더욱 쾌적하게 이용하실 수 있습니다.'),
-                _buildBenefitItem(Icons.bolt, '팝업창 빠른 등록 & 음성 인식', '다른 앱 위에 팝업을 띄워 수기 입력이나 음성 인식으로 화면 전환 없이 빠르게 등록하세요.'),
+                _buildBenefitItem(Icons.bolt, '팝업창 빠른 등록 (플로팅 버튼)', '다른 앱 위에 팝업을 띄워 화면 전환 없이 어디서든 빠르게 일지를 등록하세요.'),
                 
                 const SizedBox(height: 32),
 
@@ -213,11 +213,17 @@ class _PaywallPageState extends State<PaywallPage> {
                     style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (isAnnual)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 4.0),
-                      child: Text('25% 특가 할인!', style: TextStyle(color: Color(0xFFFFC700), fontSize: 12, fontWeight: FontWeight.bold)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      isAnnual ? '25% 특가 할인! · 1년 내내 무제한' : '하루 이용료 100원 · 언제든 해지 가능',
+                      style: TextStyle(
+                        color: isAnnual ? const Color(0xFFFFC700) : const Color(0xFF9FA3AE),
+                        fontSize: 12,
+                        fontWeight: isAnnual ? FontWeight.bold : FontWeight.w500,
+                      ),
                     ),
+                  ),
                 ],
               ),
             ),
@@ -270,11 +276,17 @@ class _PaywallPageState extends State<PaywallPage> {
                   style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (isAnnual)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 4.0),
-                    child: Text('25% 특가 할인!', style: TextStyle(color: Color(0xFFFFC700), fontSize: 12, fontWeight: FontWeight.bold)),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4.0),
+                  child: Text(
+                    isAnnual ? '25% 특가 할인! · 1년 내내 무제한' : '하루 이용료 100원 · 언제든 해지 가능',
+                    style: TextStyle(
+                      color: isAnnual ? const Color(0xFFFFC700) : const Color(0xFF9FA3AE),
+                      fontSize: 12,
+                      fontWeight: isAnnual ? FontWeight.bold : FontWeight.w500,
+                    ),
                   ),
+                ),
               ],
             ),
           ),
