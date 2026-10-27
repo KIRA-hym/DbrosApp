@@ -28,6 +28,7 @@ import '../services/backup_service.dart';
 import '../services/screenshot_auto_debug_log.dart';
 import '../services/screenshot_auto_register_service.dart';
 import '../services/settings_service.dart';
+import '../services/premium_service.dart';
 import '../services/feature_usage_service.dart';
 import '../services/overlay_manager.dart';
 import '../services/shorebird_update_service.dart';
@@ -2393,39 +2394,61 @@ class _SettingsPageState extends State<SettingsPage> {
     String featureKey,
     VoidCallback onSuccess,
   ) async {
+    final bool canTrial = PremiumService.canStartLaunchTrial;
+
     final action = await AppGlassDialog.show<String>(
       context: context,
       dialog: AppGlassDialog(
         icon: Icons.workspace_premium,
         title: '프리미엄 편의기능 잠금 해제',
         contentWidget: RichText(
-          text: const TextSpan(
-            style: TextStyle(
+          text: TextSpan(
+            style: const TextStyle(
               fontFamily: 'Pretendard',
               color: Color(0xFFD1D2D4),
               fontSize: 14,
               height: 1.55,
             ),
             children: [
-              TextSpan(text: '30초 광고를 시청하면 '),
-              TextSpan(
+              const TextSpan(text: '30초 광고를 시청하면 '),
+              const TextSpan(
                 text: '2시간 동안만',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
-              TextSpan(
-                text: '프리미엄을 구독',
-                style: TextStyle(
-                  color: Color(0xFFFFC700),
-                  fontWeight: FontWeight.bold,
+              const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+              if (canTrial) ...[
+                const TextSpan(text: '아직 사용하지 않은 '),
+                const TextSpan(
+                  text: '출시기념 14일 무료 체험',
+                  style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              TextSpan(
-                text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
-              ),
+                const TextSpan(text: '을 시작하면 '),
+                const TextSpan(
+                  text: '결제 없이 14일 동안 광고 없이 모든 기능을 무제한',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(text: '으로 사용할 수 있습니다.'),
+              ] else ...[
+                const TextSpan(
+                  text: '프리미엄을 구독',
+                  style: TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(
+                  text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                ),
+              ],
             ],
           ),
         ),
@@ -2433,7 +2456,9 @@ class _SettingsPageState extends State<SettingsPage> {
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
+                backgroundColor: canTrial
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
                 foregroundColor: Colors.black,
                 elevation: 2,
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
@@ -2441,11 +2466,16 @@ class _SettingsPageState extends State<SettingsPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => Navigator.pop(ctx, 'subscribe'),
-              child: const Text(
-                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+              onPressed: () => Navigator.pop(
+                ctx,
+                canTrial ? 'start_trial' : 'subscribe',
+              ),
+              child: Text(
+                canTrial
+                    ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하기 (모든 기능 무제한)'
+                    : '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
                   height: 1.35,
@@ -2484,6 +2514,17 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       ),
     );
+
+    if (action == 'start_trial') {
+      if (!context.mounted) return;
+      final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+        context,
+      );
+      if (started || SettingsService.isPremiumUser) {
+        onSuccess();
+      }
+      return;
+    }
 
     if (action == 'subscribe') {
       if (!context.mounted) return;

@@ -18,6 +18,7 @@ import '../config/home_promo_config.dart';
 import '../services/notice_service.dart';
 import '../services/font_size_service.dart';
 import '../services/settings_service.dart';
+import '../services/premium_service.dart';
 import '../services/call_point_sync_service.dart';
 import '../services/weather_service.dart';
 import '../services/db_helper.dart';
@@ -226,6 +227,8 @@ class HomePage extends StatefulWidget {
       );
     }
 
+    final bool canTrial = PremiumService.canStartLaunchTrial;
+
     final action = await AppGlassDialog.show<String>(
       context: context,
       dialog: AppGlassDialog(
@@ -252,33 +255,53 @@ class HomePage extends StatefulWidget {
               ),
             ),
             RichText(
-              text: const TextSpan(
-                style: TextStyle(
+              text: TextSpan(
+                style: const TextStyle(
                   fontFamily: 'Pretendard',
                   color: Color(0xFFD1D2D4),
                   fontSize: 14,
                   height: 1.55,
                 ),
                 children: [
-                  TextSpan(text: '30초 광고를 시청하면 '),
-                  TextSpan(
+                  const TextSpan(text: '30초 광고를 시청하면 '),
+                  const TextSpan(
                     text: '2시간 동안만',
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
-                  TextSpan(
-                    text: '프리미엄을 구독',
-                    style: TextStyle(
-                      color: Color(0xFFFFC700),
-                      fontWeight: FontWeight.bold,
+                  const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+                  if (canTrial) ...[
+                    const TextSpan(text: '아직 사용하지 않은 '),
+                    const TextSpan(
+                      text: '출시기념 14일 무료 체험',
+                      style: TextStyle(
+                        color: Color(0xFF00E676),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  TextSpan(
-                    text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
-                  ),
+                    const TextSpan(text: '을 시작하면 '),
+                    const TextSpan(
+                      text: '결제 없이 14일 동안 광고 없이 모든 기능을 무제한',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const TextSpan(text: '으로 사용할 수 있습니다.'),
+                  ] else ...[
+                    const TextSpan(
+                      text: '프리미엄을 구독',
+                      style: TextStyle(
+                        color: Color(0xFFFFC700),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -288,7 +311,9 @@ class HomePage extends StatefulWidget {
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
+                backgroundColor: canTrial
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
                 foregroundColor: Colors.black,
                 elevation: 2,
                 padding: const EdgeInsets.symmetric(
@@ -299,11 +324,16 @@ class HomePage extends StatefulWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => Navigator.pop(ctx, 'subscribe'),
-              child: const Text(
-                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+              onPressed: () => Navigator.pop(
+                ctx,
+                canTrial ? 'start_trial' : 'subscribe',
+              ),
+              child: Text(
+                canTrial
+                    ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하기 (모든 기능 무제한)'
+                    : '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
                   height: 1.35,
@@ -345,6 +375,17 @@ class HomePage extends StatefulWidget {
         ],
       ),
     );
+
+    if (action == 'start_trial') {
+      if (!context.mounted) return;
+      final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+        context,
+      );
+      if ((started || SettingsService.isPremiumUser) && context.mounted) {
+        await enableScreenshotAutoWithPermission(context, onEnabled: onEnabled);
+      }
+      return;
+    }
 
     if (action == 'subscribe') {
       if (!context.mounted) return;
@@ -1219,47 +1260,69 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // 화면 캡처 자동등록이 꺼져 있는 경우 출근 루틴 팝업 제안
     if (!SettingsService.screenshotAutoRegisterEnabled &&
         !SettingsService.isFeatureUnlocked('auto_screenshot')) {
+      final bool canTrial = PremiumService.canStartLaunchTrial;
+
       final routineAction = await AppGlassDialog.show<String>(
         context: context,
         dialog: AppGlassDialog(
           icon: Icons.workspace_premium,
           title: '오늘 운행 출근 준비',
           contentWidget: RichText(
-            text: const TextSpan(
-              style: TextStyle(
+            text: TextSpan(
+              style: const TextStyle(
                 fontFamily: 'Pretendard',
                 color: Color(0xFFD1D2D4),
                 fontSize: 14,
                 height: 1.55,
               ),
               children: [
-                TextSpan(text: '오늘도 안전 운행하세요! 🚕\n운행 시작 전 '),
-                TextSpan(
+                const TextSpan(text: '오늘도 안전 운행하세요! 🚕\n운행 시작 전 '),
+                const TextSpan(
                   text: '[화면 캡처 자동등록]',
                   style: TextStyle(
                     color: Color(0xFFFFC700),
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextSpan(text: '을 켜두시겠습니까?\n\n30초 광고를 시청하면 '),
-                TextSpan(
+                const TextSpan(text: '을 켜두시겠습니까?\n\n30초 광고를 시청하면 '),
+                const TextSpan(
                   text: '2시간 동안만',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                TextSpan(text: ' 혜택이 적용되고 자동 종료되지만, '),
-                TextSpan(
-                  text: '프리미엄을 구독',
-                  style: TextStyle(
-                    color: Color(0xFFFFC700),
-                    fontWeight: FontWeight.bold,
+                const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만, '),
+                if (canTrial) ...[
+                  const TextSpan(text: '아직 사용하지 않은 '),
+                  const TextSpan(
+                    text: '출시기념 14일 무료 체험',
+                    style: TextStyle(
+                      color: Color(0xFF00E676),
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                TextSpan(
-                  text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
-                ),
+                  const TextSpan(text: '을 시작하면 '),
+                  const TextSpan(
+                    text: '결제 없이 14일 동안 광고 없이 모든 기능을 무제한',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(text: '으로 사용할 수 있습니다.'),
+                ] else ...[
+                  const TextSpan(
+                    text: '프리미엄을 구독',
+                    style: TextStyle(
+                      color: Color(0xFFFFC700),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(
+                    text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                  ),
+                ],
               ],
             ),
           ),
@@ -1267,7 +1330,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             Builder(
               builder: (ctx) => ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFFC700),
+                  backgroundColor: canTrial
+                      ? const Color(0xFF00E676)
+                      : const Color(0xFFFFC700),
                   foregroundColor: Colors.black,
                   elevation: 2,
                   padding: const EdgeInsets.symmetric(
@@ -1278,11 +1343,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => Navigator.pop(ctx, 'subscribe'),
-                child: const Text(
-                  '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+                onPressed: () => Navigator.pop(
+                  ctx,
+                  canTrial ? 'start_trial' : 'subscribe',
+                ),
+                child: Text(
+                  canTrial
+                      ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하기 (모든 기능 무제한)'
+                      : '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 14,
                     height: 1.35,
@@ -1328,7 +1398,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       // 어떤 선택을 하든 출근 타이머는 즉시 시작되도록 보장
       provider.clockIn(reset: shouldReset);
 
-      if (routineAction == 'subscribe') {
+      if (routineAction == 'start_trial') {
+        if (!mounted) return;
+        final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+          context,
+        );
+        if ((started || SettingsService.isPremiumUser) && mounted) {
+          await HomePage.enableScreenshotAutoWithPermission(
+            context,
+            onEnabled: () {
+              if (mounted) setState(() {});
+            },
+          );
+        }
+      } else if (routineAction == 'subscribe') {
         if (!mounted) return;
         final purchased = await Navigator.push<bool>(
           context,

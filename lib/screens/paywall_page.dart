@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:dbros_app/services/subscription_service.dart';
+import 'package:dbros_app/services/premium_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class PaywallPage extends StatefulWidget {
@@ -83,7 +84,105 @@ class _PaywallPageState extends State<PaywallPage> {
                   style: TextStyle(color: Color(0xFFD1D2D4), fontSize: 15, height: 1.45),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                if (PremiumService.canStartLaunchTrial) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 24),
+                    decoration: BoxDecoration(
+                      color: const Color(0x1F00E676),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFF00E676),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E676),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: const Text(
+                                '🎁 출시기념 1회 한정 혜택',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                            const Text(
+                              '자동결제 없음',
+                              style: TextStyle(
+                                color: Color(0xFF00E676),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          '아직 14일 무료 체험을 안 쓰셨네요!',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          '카드 등록이나 결제 없이 14일 동안 모든 프리미엄 기능을 먼저 무료로 경험해 보세요.',
+                          style: TextStyle(
+                            color: Color(0xFFD1D2D4),
+                            fontSize: 13,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00E676),
+                            foregroundColor: Colors.black,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final started =
+                                await PremiumService.tryStartLaunchTrialWithFeedback(
+                                  context,
+                                );
+                            if (started && context.mounted) {
+                              Navigator.of(context).pop(true);
+                            }
+                          },
+                          child: const Text(
+                            '🎁 결제 없이 14일 무료 체험 먼저 시작하기',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else
+                  const SizedBox(height: 8),
 
                 // Benefits
                 _buildBenefitItem(Icons.document_scanner, '스크린샷 자동 일지 등록', '화면 캡처 한 번으로 복잡한 운행일지가 자동으로 작성됩니다.'),

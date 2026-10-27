@@ -176,8 +176,9 @@ class AuthService extends ChangeNotifier {
         // 프리미엄 권한 동기화
         final premiumUntil = _userDoc?['premiumUntil'];
         if (premiumUntil != null && premiumUntil is Timestamp) {
-          if (premiumUntil.toDate().isAfter(DateTime.now())) {
-            SettingsService.setPromoPremium(true);
+          final expireDate = premiumUntil.toDate();
+          if (expireDate.isAfter(DateTime.now())) {
+            SettingsService.setPromoPremium(true, expireAt: expireDate);
           } else {
             if (!isAdmin) SettingsService.setPromoPremium(false);
           }
@@ -192,6 +193,19 @@ class AuthService extends ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  /// 14일 무료 체험 시작 직후 로컬 _userDoc 캐시에도 즉시 반영하여 UI 딜레이 방지
+  void markLaunchTrialUsedLocally(DateTime newPremiumUntil) {
+    final current = Map<String, dynamic>.from(_userDoc ?? {});
+    final usedList = List<String>.from(current['usedPromotionTypes'] ?? []);
+    if (!usedList.contains('launch_trial')) {
+      usedList.add('launch_trial');
+    }
+    current['usedPromotionTypes'] = usedList;
+    current['premiumUntil'] = Timestamp.fromDate(newPremiumUntil);
+    _userDoc = current;
+    notifyListeners();
   }
 
   void _cancelSubscription() {

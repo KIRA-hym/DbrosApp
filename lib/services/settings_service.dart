@@ -195,13 +195,21 @@ class SettingsService {
     return true;
   }
 
-  static Future<void> setPromoPremium(bool value, {int? durationDays}) async {
+  static Future<void> setPromoPremium(
+    bool value, {
+    int? durationDays,
+    DateTime? expireAt,
+  }) async {
     if (value) {
       _isPremiumUserNotifier.value = true;
     }
     await _prefs.setBool('isPromoPremium', value);
-    if (value && durationDays != null) {
-      final expireMs = DateTime.now().add(Duration(days: durationDays)).millisecondsSinceEpoch;
+    if (value && expireAt != null) {
+      await _prefs.setInt('promoExpireMs', expireAt.millisecondsSinceEpoch);
+    } else if (value && durationDays != null) {
+      final expireMs = DateTime.now()
+          .add(Duration(days: durationDays))
+          .millisecondsSinceEpoch;
       await _prefs.setInt('promoExpireMs', expireMs);
     } else {
       await _prefs.remove('promoExpireMs');

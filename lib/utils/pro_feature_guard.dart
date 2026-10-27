@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/settings_service.dart';
+import '../services/premium_service.dart';
 import '../services/feature_usage_service.dart';
 import '../services/rewarded_ad_service.dart';
 import '../config/feature_flags.dart';
@@ -7,6 +8,7 @@ import '../widgets/app_glass_dialog.dart';
 import '../screens/paywall_page.dart';
 
 enum _AdPromptAction {
+  startTrial,
   subscribe,
   watchAd,
   cancel,
@@ -46,9 +48,20 @@ class ProFeatureGuard {
       return;
     }
 
-    // 3. Prompt Hybrid Dialog (Premium Subscribe + Ad Option)
+    // 3. Prompt Hybrid Dialog (14-Day Free Trial or Premium Subscribe + Ad Option)
     if (await canUseWithAd()) {
       final action = await _showAdPromptDialog(context, featureKey);
+      if (action == _AdPromptAction.startTrial) {
+        if (!context.mounted) return;
+        final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+          context,
+        );
+        if (started || SettingsService.isPremiumUser) {
+          onGranted(true);
+        }
+        return;
+      }
+
       if (action == _AdPromptAction.subscribe) {
         if (!context.mounted) return;
         final purchased = await Navigator.push<bool>(
@@ -105,6 +118,7 @@ class ProFeatureGuard {
     BuildContext context,
     String featureKey,
   ) {
+    final bool canTrial = PremiumService.canStartLaunchTrial;
     final bool hasFreeUses =
         (featureKey == 'route_map' || featureKey == 'single_ocr');
     final bool isStats = (featureKey == 'stats');
@@ -145,16 +159,36 @@ class ProFeatureGuard {
                 ),
               ),
               TextSpan(text: '$suffixBenefit\n\n'),
-              const TextSpan(
-                text: '프리미엄을 구독',
-                style: TextStyle(
-                  color: Color(0xFFFFC700),
-                  fontWeight: FontWeight.bold,
+              if (canTrial) ...[
+                const TextSpan(text: '아직 사용하지 않은 '),
+                const TextSpan(
+                  text: '출시기념 14일 무료 체험',
+                  style: TextStyle(
+                    color: Color(0xFF00E676),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const TextSpan(
-                text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
-              ),
+                const TextSpan(text: '을 시작하면 '),
+                const TextSpan(
+                  text: '결제 없이 14일 동안 광고 없이 모든 기능을 무제한',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(text: '으로 사용할 수 있습니다.'),
+              ] else ...[
+                const TextSpan(
+                  text: '프리미엄을 구독',
+                  style: TextStyle(
+                    color: Color(0xFFFFC700),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(
+                  text: '하면 매일 광고 없이 모든 기능을 무제한으로 사용할 수 있습니다.',
+                ),
+              ],
             ],
           ),
         ),
@@ -162,7 +196,9 @@ class ProFeatureGuard {
           Builder(
             builder: (ctx) => ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFC700),
+                backgroundColor: canTrial
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
                 foregroundColor: Colors.black,
                 elevation: 2,
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
@@ -170,11 +206,18 @@ class ProFeatureGuard {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () => Navigator.pop(ctx, _AdPromptAction.subscribe),
-              child: const Text(
-                '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
+              onPressed: () => Navigator.pop(
+                ctx,
+                canTrial
+                    ? _AdPromptAction.startTrial
+                    : _AdPromptAction.subscribe,
+              ),
+              child: Text(
+                canTrial
+                    ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하기 (모든 기능 무제한)'
+                    : '👑 하루 이용료 100원! 광고 없이\n무제한 사용하기 (프리미엄 구독)',
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontWeight: FontWeight.w800,
                   fontSize: 14,
                   height: 1.35,
