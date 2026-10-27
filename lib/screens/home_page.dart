@@ -1049,15 +1049,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
                                         _buildTodaySummaryCard(),
+                                        const SizedBox(height: 8),
                                         SizedBox(
                                           height: 60,
                                           child: _buildUtilsRow(),
                                         ),
-                                        _buildAutoCaptureStatusBar(),
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 8.0,
+                                          ),
+                                          child: _buildAutoCaptureStatusBar(),
+                                        ),
                                         SizedBox(
                                           height: 85,
                                           child: _buildRegisterRow(),
                                         ),
+                                        const SizedBox(height: 8),
                                         AspectRatio(
                                           aspectRatio: 16 / 9,
                                           child: _buildYoutubeSection(),
