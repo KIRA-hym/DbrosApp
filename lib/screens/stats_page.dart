@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
 import 'dart:convert';
@@ -3068,11 +3068,18 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
     Color(0xFFEC4899), // Pink
   ];
 
+  // Shorebird 원격 패치 시 MaterialIcons-Regular.otf 트리쉐이킹 변경 방지를 위한 상수 참조 유지
+  static const List<IconData> _shorebirdKeepRouteIcons = [
+    Icons.route,
+    Icons.alt_route,
+  ];
+
   @override
   void initState() {
     super.initState();
 
     _generateNumberedMarkers();
+    _toggleRoadRoute();
   }
 
   Future<void> _generateNumberedMarkers() async {
@@ -3316,23 +3323,21 @@ class StatsRouteMapPageState extends State<StatsRouteMapPage> {
       appBar: AppBar(
         title: Text('${widget.periodLabel} 경로 지도'),
         actions: [
-          TextButton.icon(
-            onPressed: _roadRouteLoading ? null : _toggleRoadRoute,
-            icon: _roadRouteLoading
-                ? SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _roadRouteEnabled ? Icons.route : Icons.alt_route,
-                    color: Theme.of(context).primaryColor,
+          if (_shorebirdKeepRouteIcons.isEmpty) const SizedBox.shrink(),
+          if (_roadRouteLoading)
+            const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Color(0xFFFFC700),
                   ),
-            label: Text(
-              _roadRouteEnabled ? '직선보기' : '도로경로보기',
-              style: TextStyle(color: Color(0xFFFFC700)),
+                ),
+              ),
             ),
-          ),
         ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(24),
