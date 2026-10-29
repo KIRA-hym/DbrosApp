@@ -99,7 +99,13 @@ class _ShorebirdUpdateDialogBodyState
   }
 
   Future<void> _onConfirm() async {
-    Navigator.of(context).pop();
+    final info = await ShorebirdUpdateService.instance.getPatchInfo();
+    if (info.pending != null) {
+      await ShorebirdUpdateService.instance.postponeUpdate(info.pending!);
+    }
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
     // 재시작 전 오버레이(Foreground Service)를 먼저 정리한다.
     if (!kIsWeb && Platform.isAndroid) {
       try {
@@ -108,7 +114,10 @@ class _ShorebirdUpdateDialogBodyState
         }
       } catch (_) {}
     }
-    Restart.restartApp();
+    await Restart.restartApp(
+      mode: RestartMode.process,
+      forceKill: true,
+    );
   }
 
   Future<void> _onPostpone() async {

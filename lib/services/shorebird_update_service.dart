@@ -51,14 +51,19 @@ class ShorebirdUpdateService {
   Future<bool> hasPostponedUpdate() async {
     final prefs = await SharedPreferences.getInstance();
     final postponed = prefs.getInt(_prefPostponedPatch);
+    final notified = prefs.getInt(_prefNotifiedPatch);
     final pending = prefs.getInt(_prefPendingPatch);
-    return postponed != null && postponed == pending;
+    if (pending == null) return false;
+    return postponed == pending ||
+        notified == pending ||
+        _postponedInSessionPatch == pending;
   }
 
   Future<void> postponeUpdate(int patchNumber) async {
     _postponedInSessionPatch = patchNumber;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefPostponedPatch, patchNumber);
+    await prefs.setInt(_prefNotifiedPatch, patchNumber);
   }
 
   /// 디스크에 현재 실행 중인 패치와 다른 새 패치(nextPatch)가 실제로 준비되어 있는지 검증 (100% Ground Truth)
@@ -117,7 +122,7 @@ class ShorebirdUpdateService {
       final initialDisk = await checkDiskPatchState();
       if (initialDisk.ready) {
         await _storePendingPatchNumber(initialDisk.nextNumber);
-        await _emitReadyIfNew(forceEmit: true);
+        await _emitReadyIfNew(forceEmit: false);
         return true;
       }
 
@@ -134,7 +139,7 @@ class ShorebirdUpdateService {
         final retryDisk = await checkDiskPatchState();
         if (retryDisk.ready) {
           await _storePendingPatchNumber(retryDisk.nextNumber);
-          await _emitReadyIfNew(forceEmit: true);
+          await _emitReadyIfNew(forceEmit: false);
           return true;
         }
         return false;
@@ -196,14 +201,14 @@ class ShorebirdUpdateService {
       } else if (status == UpdateStatus.restartRequired) {
         final disk = await checkDiskPatchState();
         await _storePendingPatchNumber(disk.nextNumber);
-        await _emitReadyIfNew(forceEmit: true);
+        await _emitReadyIfNew(forceEmit: false);
         return true;
       } else if (status == UpdateStatus.upToDate) {
-        // 서버 기준 upToDate라도 로컬에 아직 재시작 안 한 nextPatch가 있으면 팝업 노출
+        // 서버 기준 upToDate라도 로컬에 아직 안내하지 않은 nextPatch가 있으면 1회 팝업 노출
         final disk = await checkDiskPatchState();
         if (disk.ready) {
           await _storePendingPatchNumber(disk.nextNumber);
-          await _emitReadyIfNew(forceEmit: true);
+          await _emitReadyIfNew(forceEmit: false);
           return true;
         }
         await _clearPendingIfApplied();
@@ -297,9 +302,6 @@ class ShorebirdUpdateService {
       }
 
       if (pendingNumber == null) {
-        if (forceEmit) {
-          _emitEvent(const PatchEvent(PatchStage.ready));
-        }
         return;
       }
 
@@ -309,8 +311,17 @@ class ShorebirdUpdateService {
         return;
       }
 
-      // 현재 앱 실행 세션에서 사용자가 명시적으로 '나중에 하기'를 누른 패치 번호면 중복 팝업 억제
-      if (!forceEmit && _postponedInSessionPatch == pendingNumber) {
+      final notified = prefs.getInt(_prefNotifiedPatch);
+      final postponed = prefs.getInt(_prefPostponedPatch);
+
+      // 이미 안내했거나 사용자가 '지금 재시작' 또는 '나중에 하기'를 누른 패치 번호면 중복 팝업 절대 금지
+      if (!forceEmit &&
+          (notified == pendingNumber ||
+              postponed == pendingNumber ||
+              _postponedInSessionPatch == pendingNumber)) {
+        if (kDebugMode) {
+          debugPrint('[Shorebird] 이미 안내/처리된 패치 #$pendingNumber — 중복 팝업 생략');
+        }
         return;
       }
 
@@ -319,9 +330,6 @@ class ShorebirdUpdateService {
       if (kDebugMode) debugPrint('[Shorebird] ready 이벤트 #$pendingNumber');
     } catch (e) {
       if (kDebugMode) debugPrint('[Shorebird] emitReady 오류: $e');
-      if (forceEmit) {
-        _emitEvent(const PatchEvent(PatchStage.ready));
-      }
     }
   }
 

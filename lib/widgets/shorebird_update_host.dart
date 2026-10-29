@@ -20,6 +20,7 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
   StreamSubscription<PatchEvent>? _sub;
   bool _isDialogOpen = false;
   bool _patchReady = false;
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
 
   @override
   void initState() {
@@ -49,9 +50,11 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
   
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
     if (state == AppLifecycleState.resumed && _patchReady && !_isDialogOpen) {
       ShorebirdUpdateService.instance.hasPostponedUpdate().then((postponed) {
         if (!postponed && mounted && !_isDialogOpen) {
+          _patchReady = false;
           _openDialog(PatchStage.ready);
         }
       });
@@ -75,10 +78,14 @@ class _ShorebirdUpdateHostState extends State<ShorebirdUpdateHost> with WidgetsB
     }
 
     if (event.stage == PatchStage.ready) {
-      _patchReady = true;
-      AutoRegisterNotificationService.instance.showShorebirdPatchReady();
-      if (!_isDialogOpen) {
-        _openDialog(PatchStage.ready);
+      if (_lifecycleState != AppLifecycleState.resumed) {
+        _patchReady = true;
+        AutoRegisterNotificationService.instance.showShorebirdPatchReady();
+      } else {
+        _patchReady = false;
+        if (!_isDialogOpen) {
+          _openDialog(PatchStage.ready);
+        }
       }
     }
   }

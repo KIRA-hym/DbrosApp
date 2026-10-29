@@ -90,8 +90,14 @@ class AutoRegisterNotificationService {
     await initialize();
     if (!await ensureNotificationPermission()) return;
 
+    final bool hasMissing = missingFields != null && missingFields.isNotEmpty;
+    final String title = hasMissing ? '⚠️ 자동등록 완료 (누락 항목 확인)' : '운행일지 자동등록 완료';
+    final String body = hasMissing
+        ? '누락: ${missingFields.join(', ')}\n터치하여 바로 수정해 주세요.'
+        : '캡처한 콜카드가 일지에 저장되었습니다.';
+
     // Importance.high + Priority.high → 카카오톡처럼 상단 Heads-up 팝업 표시
-    // vibrationPattern: [딜레이, 진동, 정지, 진동] 밀리초 — 카카오톡 유사 짧은 이중 진동
+    // BigTextStyleInformation 적용으로 한 줄 잘림 방지
     final details = NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -100,17 +106,15 @@ class AutoRegisterNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@drawable/app_notification_icon',
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+        ),
         vibrationPattern: Int64List.fromList([0, 200, 100, 200]),
         enableVibration: true,
-        timeoutAfter: 3000, // 3초 후 자동 소멸 (알림창 누적 방지)
+        timeoutAfter: hasMissing ? 5000 : 3000,
       ),
     );
-
-    final bool hasMissing = missingFields != null && missingFields.isNotEmpty;
-    final String title = hasMissing ? '콜카드 자동인식 정보 누락' : '운행일지';
-    final String body = hasMissing
-        ? '${missingFields.join(', ')} 정보가 비어있습니다. 터치하여 수정해 주세요.'
-        : '운행일지 자동등록이 완료되었습니다.';
 
     await _plugin.show(
       id: _notificationId,
@@ -126,6 +130,9 @@ class AutoRegisterNotificationService {
     await initialize();
     if (!await ensureNotificationPermission()) return;
 
+    const String title = '운행일지 퀵등록 완료';
+    const String body = '일지 퀵등록이 완료되었습니다.';
+
     final details = const NotificationDetails(
       android: AndroidNotificationDetails(
         _channelId,
@@ -134,24 +141,33 @@ class AutoRegisterNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@drawable/app_notification_icon',
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+        ),
         vibrationPattern: null,
         enableVibration: false,
-        timeoutAfter: 3000, // 3초 후 자동 소멸
+        timeoutAfter: 3000,
       ),
     );
 
     await _plugin.show(
       id: _notificationId + 1,
-      title: '운행일지',
-      body: '일지 퀵등록이 완료되었습니다.',
+      title: title,
+      body: body,
       notificationDetails: details,
       payload: logId?.toString(),
     );
   }
+
   Future<void> showShorebirdPatchReady() async {
     if (!_isAndroid) return;
     await initialize();
     if (!await ensureNotificationPermission()) return;
+
+    const String title = '업데이트 준비 완료';
+    const String body = '앱을 다시 열면 새 업데이트가 적용됩니다.';
+
     final details = const NotificationDetails(
       android: AndroidNotificationDetails(
         'shorebird_update_v1',
@@ -160,15 +176,18 @@ class AutoRegisterNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@drawable/app_notification_icon',
+        styleInformation: BigTextStyleInformation(
+          body,
+          contentTitle: title,
+        ),
         timeoutAfter: 4000,
       ),
     );
     await _plugin.show(
       id: 9103,
-      title: '새로운 패치 준비 완료',
-      body: '새로운 업데이트 다운로드가 백그라운드에서 완료되었습니다. 앱 복귀 시 적용할 수 있습니다.',
+      title: title,
+      body: body,
       notificationDetails: details,
     );
   }
 }
-
