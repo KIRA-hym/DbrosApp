@@ -820,16 +820,18 @@ class DriveLogDatabase {
     if (kIsWeb) {
       final logs = _mockLogsForWeb(workDateYmd: workDateYmd);
       int count = logs.length;
+      int autoCount = logs.where((e) => e['registration_source'] == 'screenshot_auto').length;
       int gross = logs.fold(0, (s, e) => s + (e['gross_fare'] as int));
       int net = logs.fold(0, (s, e) => s + (e['net_income'] as int));
       int expenses = logs.fold(0, (s, e) => s + (e['fee'] as int) + (e['transport_cost'] as int) + ((e['insurance_fee'] as int?) ?? 0));
       int extra_income = logs.fold(0, (s, e) => s + ((e['waypoint_tip'] as int?) ?? 0));
-      return {'count': count, 'gross': gross, 'net': net, 'expenses': expenses, 'extra_income': extra_income};
+      return {'count': count, 'auto_count': autoCount, 'gross': gross, 'net': net, 'expenses': expenses, 'extra_income': extra_income};
     }
     final db = await database;
     final result = await db.rawQuery(
       '''
       SELECT COUNT(*) as count,
+        COALESCE(SUM(CASE WHEN registration_source = 'screenshot_auto' THEN 1 ELSE 0 END), 0) as auto_count,
         COALESCE(SUM(gross_fare + COALESCE(waypoint_tip, 0)), 0) as gross,
         COALESCE(SUM(
           MAX(0,
@@ -843,7 +845,7 @@ class DriveLogDatabase {
       ''',
       [workDateYmd],
     );
-    return result.isNotEmpty ? result.first : {'count': 0, 'gross': 0, 'net': 0, 'expenses': 0};
+    return result.isNotEmpty ? result.first : {'count': 0, 'auto_count': 0, 'gross': 0, 'net': 0, 'expenses': 0};
   }
 
   /// 운행일이 [startYmd] ~ [endYmd] (포함, `yyyy-MM-dd`) 인 일지.

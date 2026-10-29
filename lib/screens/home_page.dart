@@ -2335,7 +2335,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             final remainAdDur = SettingsService.getRemainingUnlockDuration(
               'auto_screenshot',
             );
-            final todayAutoCount = SettingsService.todayAutoScreenshotSavedCount;
+            final todayAutoCount =
+                Provider.of<TodayStatsProvider>(context).todayAutoLogs;
 
             Widget? extraBadge;
             if (remainTrialDays != null) {

@@ -11,6 +11,7 @@ class TodayStatsProvider extends ChangeNotifier {
 
   int totalLogs = 0;
   int todayLogs = 0;
+  int todayAutoLogs = 0;
   int todayGross = 0;
   int todayNet = 0;
   int todayExpenses = 0;
@@ -26,10 +27,11 @@ class TodayStatsProvider extends ChangeNotifier {
       recentDateLogs = await DriveLogDatabase.instance.getLogsForMostRecentWorkDate();
       
       totalLogs = await DriveLogDatabase.instance.getTotalLogCount();
-      todayLogs = summary['count'] as int? ?? 0;
-      todayGross = summary['gross'] as int? ?? 0;
-      todayNet = summary['net'] as int? ?? 0;
-      todayExpenses = summary['expenses'] as int? ?? 0;
+      todayLogs = (summary['count'] as num?)?.toInt() ?? 0;
+      todayAutoLogs = (summary['auto_count'] as num?)?.toInt() ?? 0;
+      todayGross = (summary['gross'] as num?)?.toInt() ?? 0;
+      todayNet = (summary['net'] as num?)?.toInt() ?? 0;
+      todayExpenses = (summary['expenses'] as num?)?.toInt() ?? 0;
       notifyListeners();
     } catch (e) {
       if (kDebugMode) {
