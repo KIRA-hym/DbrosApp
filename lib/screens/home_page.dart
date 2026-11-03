@@ -804,10 +804,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
     Future<void> _checkMapUpdate() async {
-    try {
-      bool hasUpdate = await CallPointSyncService.isUpdateAvailable();
-      if (mounted) setState(() { _hasMapUpdate = hasUpdate; });
-    } catch (e) {}
+    // 콜포인트 맵 분리 전까지 주변 콜맵 N 배지 비활성화
+    return;
   }
 
   void _loadWeather() async {

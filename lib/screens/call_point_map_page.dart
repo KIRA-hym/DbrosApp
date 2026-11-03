@@ -232,17 +232,8 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
     Future<void> _checkForUpdate() async {
-    try {
-      final version = await CallPointSyncService.checkServerVersion();
-      if (version > SettingsService.localCallPointVersion) {
-        if (mounted) {
-          setState(() {
-            _serverVersion = version;
-            _hasUpdateAvailable = true;
-          });
-        }
-      }
-    } catch (e) {}
+    // 콜포인트 맵 분리 전까지 주변 콜맵에서는 업데이트 배너 비활성화
+    return;
   }
 
   Future<void> _downloadUpdate() async {
