@@ -510,6 +510,11 @@ class DriveLogDatabase {
           }
         } catch (_) {}
       }
+
+      row['start_lat'] = out['start_lat'];
+      row['start_lng'] = out['start_lng'];
+      row['end_lat'] = out['end_lat'];
+      row['end_lng'] = out['end_lng'];
     }
 
     final int result;

@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart'
     if (dart.library.html) '../utils/maps_web_stub.dart';
 
 import '../utils/address_normalize.dart';
+import '../utils/geocoding_utils.dart';
 
 /// 출발/도착 좌표를 지도에서 고르고 [LatLng]을 반환합니다. 취소 시 `null`.
 class LocationPickMapPage extends StatefulWidget {
@@ -35,6 +35,10 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
   @override
   void initState() {
     super.initState();
+    final initialQuery = normalizeAddressForGeocode(widget.addressQuery);
+    _searchCon.text = initialQuery.isNotEmpty
+        ? initialQuery
+        : widget.addressQuery.trim();
     _markerPosition = widget.initialLatLng ?? _fallbackSeoul;
     WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
@@ -53,15 +57,16 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
       return;
     }
 
-    final normalized = normalizeAddressForGeocode(widget.addressQuery);
+    final rawQuery = widget.addressQuery.trim();
     var placed = false;
 
-    if (normalized.isNotEmpty) {
+    if (rawQuery.isNotEmpty) {
       try {
-        final list = await locationFromAddress(normalized)
-            .timeout(const Duration(seconds: 12), onTimeout: () => <Location>[]);
-        if (list.isNotEmpty) {
-          _markerPosition = LatLng(list.first.latitude, list.first.longitude);
+        final loc = await GeocodingUtils.getCoordinateFromAddressFallback(
+          rawQuery,
+        );
+        if (loc != null) {
+          _markerPosition = LatLng(loc.latitude, loc.longitude);
           placed = true;
         }
       } catch (_) {}
@@ -72,7 +77,9 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
       if (ok) {
         try {
           final pos = await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.medium,
+            ),
           ).timeout(const Duration(seconds: 12));
           _markerPosition = LatLng(pos.latitude, pos.longitude);
           placed = true;
@@ -104,7 +111,8 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    return perm == LocationPermission.always || perm == LocationPermission.whileInUse;
+    return perm == LocationPermission.always ||
+        perm == LocationPermission.whileInUse;
   }
 
   void _moveCamera(LatLng target, {double zoom = 15}) {
@@ -114,8 +122,8 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
   }
 
   Future<void> _runSearch() async {
-    final q = normalizeAddressForGeocode(_searchCon.text);
-    if (q.isEmpty) {
+    final raw = _searchCon.text.trim();
+    if (raw.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('검색할 주소를 입력해 주세요.')),
@@ -123,15 +131,14 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
       return;
     }
     try {
-      final list = await locationFromAddress(q).timeout(const Duration(seconds: 15));
+      final loc = await GeocodingUtils.getCoordinateFromAddressFallback(raw);
       if (!mounted) return;
-      if (list.isEmpty) {
+      if (loc == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('검색 결과가 없습니다. 다른 표현으로 시도해 주세요.')),
         );
         return;
       }
-      final loc = list.first;
       setState(() {
         _markerPosition = LatLng(loc.latitude, loc.longitude);
       });
@@ -193,7 +200,9 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: '동·번지·건물명 검색',
-                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.45)),
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.45),
+                        ),
                         filled: true,
                         fillColor: Theme.of(context).cardTheme.color!,
                         border: OutlineInputBorder(
@@ -206,9 +215,14 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(color: Color(0xFFFFC700)),
+                          borderSide: const BorderSide(
+                            color: Color(0xFFFFC700),
+                          ),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         isDense: true,
                       ),
                       onSubmitted: (_) => _runSearch(),
@@ -219,7 +233,10 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                     onPressed: _runSearch,
                     style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFFFC700),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                     ),
                     child: const Text('검색'),
                   ),
@@ -252,7 +269,10 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                       top: 12,
                       left: 12,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0xFF16181D).withValues(alpha: 0.85),
                           borderRadius: BorderRadius.circular(8),
@@ -271,7 +291,9 @@ class _LocationPickMapPageState extends State<LocationPickMapPage> {
                     ),
                   ] else
                     const Center(
-                      child: CircularProgressIndicator(color: Color(0xFFFFC700)),
+                      child: CircularProgressIndicator(
+                        color: Color(0xFFFFC700),
+                      ),
                     ),
                 ],
               ),

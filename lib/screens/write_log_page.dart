@@ -174,6 +174,10 @@ class _DriveLogFormState extends State<DriveLogForm>
   double? _startLng;
   double? _endLat;
   double? _endLng;
+  String _coordBoundStartLoc = '';
+  String _coordBoundEndLoc = '';
+  bool _startCoordModifiedByUser = false;
+  bool _endCoordModifiedByUser = false;
 
   // Guide Keys
   final GlobalKey _keyOcrBtn = GlobalKey();
@@ -246,6 +250,8 @@ class _DriveLogFormState extends State<DriveLogForm>
       _startLng = (log['start_lng'] as num?)?.toDouble();
       _endLat = (log['end_lat'] as num?)?.toDouble();
       _endLng = (log['end_lng'] as num?)?.toDouble();
+      _coordBoundStartLoc = _startLocCon.text.trim();
+      _coordBoundEndLoc = _endLocCon.text.trim();
       final String? imagePath = log['image_path'] as String?;
       if (imagePath != null && imagePath.trim().isNotEmpty) {
         final file = File(imagePath);
@@ -307,10 +313,40 @@ class _DriveLogFormState extends State<DriveLogForm>
     FormStateProvider.isWriteFormDirtyNotifier.value = true;
   }
 
+  void _onStartLocTextChanged() {
+    _markDirty();
+    final cur = _startLocCon.text.trim();
+    if (cur != _coordBoundStartLoc) {
+      if (_startLat != null ||
+          _startLng != null ||
+          !_startCoordModifiedByUser) {
+        setState(() {
+          _startLat = null;
+          _startLng = null;
+          _startCoordModifiedByUser = true;
+        });
+      }
+    }
+  }
+
+  void _onEndLocTextChanged() {
+    _markDirty();
+    final cur = _endLocCon.text.trim();
+    if (cur != _coordBoundEndLoc) {
+      if (_endLat != null || _endLng != null || !_endCoordModifiedByUser) {
+        setState(() {
+          _endLat = null;
+          _endLng = null;
+          _endCoordModifiedByUser = true;
+        });
+      }
+    }
+  }
+
   void _initDirtyListeners() {
-    _startLocCon.addListener(_markDirty);
+    _startLocCon.addListener(_onStartLocTextChanged);
     _waypointCon.addListener(_markDirty);
-    _endLocCon.addListener(_markDirty);
+    _endLocCon.addListener(_onEndLocTextChanged);
     _incomeCon.addListener(_markDirty);
     _transportCon.addListener(_markDirty);
     _waypointTipCon.addListener(_markDirty);
@@ -1007,6 +1043,14 @@ RULES:
     _waypointCon.clear();
     _endLocCon.clear();
     _memoCon.clear();
+    _startLat = null;
+    _startLng = null;
+    _endLat = null;
+    _endLng = null;
+    _coordBoundStartLoc = '';
+    _coordBoundEndLoc = '';
+    _startCoordModifiedByUser = true;
+    _endCoordModifiedByUser = true;
 
     if (detected == KakaoCustomCallOcr.programCustom) {
       _parseKakaoCustom(blocks, fullText: recognizedText.text);
@@ -1593,6 +1637,10 @@ RULES:
 
   Future<void> _openStartMapPicker() async {
     if (!kMapFeaturesEnabled) return;
+    if (_startLocCon.text.trim() != _coordBoundStartLoc) {
+      _startLat = null;
+      _startLng = null;
+    }
     final LatLng? result = await Navigator.push<LatLng?>(
       context,
       MaterialPageRoute<LatLng?>(
@@ -1609,11 +1657,18 @@ RULES:
     setState(() {
       _startLat = result.latitude;
       _startLng = result.longitude;
+      _coordBoundStartLoc = _startLocCon.text.trim();
+      _startCoordModifiedByUser = false;
+      FormStateProvider.isWriteFormDirtyNotifier.value = true;
     });
   }
 
   Future<void> _openEndMapPicker() async {
     if (!kMapFeaturesEnabled) return;
+    if (_endLocCon.text.trim() != _coordBoundEndLoc) {
+      _endLat = null;
+      _endLng = null;
+    }
     final LatLng? result = await Navigator.push<LatLng?>(
       context,
       MaterialPageRoute<LatLng?>(
@@ -1630,6 +1685,9 @@ RULES:
     setState(() {
       _endLat = result.latitude;
       _endLng = result.longitude;
+      _coordBoundEndLoc = _endLocCon.text.trim();
+      _endCoordModifiedByUser = false;
+      FormStateProvider.isWriteFormDirtyNotifier.value = true;
     });
   }
 
@@ -1904,6 +1962,15 @@ RULES:
             _capturedImage?.path,
             prefix: 'manual',
           );
+
+      if (_startLocCon.text.trim() != _coordBoundStartLoc) {
+        _startLat = null;
+        _startLng = null;
+      }
+      if (_endLocCon.text.trim() != _coordBoundEndLoc) {
+        _endLat = null;
+        _endLng = null;
+      }
 
       final Map<String, dynamic> row = {
         if (_logId != null) "id": _logId,
@@ -3039,6 +3106,7 @@ RULES:
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (_logId != null &&
+                        !_startCoordModifiedByUser &&
                         !_isStartLocMissing &&
                         _startLat == null &&
                         _startLocCon.text.trim().isNotEmpty)
@@ -3055,6 +3123,7 @@ RULES:
                         ),
                       )
                     else if (_logId != null &&
+                        !_startCoordModifiedByUser &&
                         !_isStartLocMissing &&
                         _startLat == null)
                       const Icon(
@@ -3101,6 +3170,7 @@ RULES:
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (_logId != null &&
+                    !_endCoordModifiedByUser &&
                     !_isEndLocMissing &&
                     _endLat == null &&
                     _endLocCon.text.trim().isNotEmpty)
@@ -3116,7 +3186,10 @@ RULES:
                       ),
                     ),
                   )
-                else if (_logId != null && !_isEndLocMissing && _endLat == null)
+                else if (_logId != null &&
+                    !_endCoordModifiedByUser &&
+                    !_isEndLocMissing &&
+                    _endLat == null)
                   const Icon(
                     Icons.location_off,
                     color: Colors.orange,
