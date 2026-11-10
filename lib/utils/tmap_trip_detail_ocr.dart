@@ -124,6 +124,8 @@ class TmapTripDetailOcr {
           var res = s;
           // UI Noise
           res = res.replaceAll(RegExp(r'운행\s*상세\s*정보'), '');
+          res = res.replaceAll(RegExp(r'실수익.*$'), '');
+          res = res.replaceAll(RegExp(r'보험사.*$'), '');
           res = res.replaceAll(RegExp(r'보험종류.*$'), '');
           res = res.replaceAll(RegExp(r'TMAP 대리 보험.*$'), '');
           res = res.replaceAll(RegExp(r'DB손해보험.*$'), '');
@@ -140,6 +142,12 @@ class TmapTripDetailOcr {
 
         print('DEBUG: After split endCand=\$endCand');
 
+        if (matches.length >= 2 &&
+            (startAddress.isEmpty || endAddress.isEmpty) &&
+            (endAddress == startCand || startAddress == endCand)) {
+          startAddress = startCand;
+          endAddress = endCand;
+        }
         if (startAddress.isEmpty) startAddress = startCand;
         if (endAddress.isEmpty) endAddress = endCand;
       }
@@ -191,6 +199,8 @@ class TmapTripDetailOcr {
       var res = a;
       final fareMatch = RegExp(r'\d{1,3}(,\d{3})*\s*[P원]').firstMatch(res);
       if (fareMatch != null) res = res.substring(0, fareMatch.start);
+      final profitIdx = res.indexOf('실수익');
+      if (profitIdx != -1) res = res.substring(0, profitIdx);
       final insIdx = res.indexOf('보험');
       if (insIdx != -1) res = res.substring(0, insIdx);
       return res.trim();
@@ -239,6 +249,9 @@ class TmapTripDetailOcr {
     }
     if (iEnd >= 0 && iFare > iEnd) {
       endAddress = _cleanAddressChunk(normalized.substring(iEnd + endKw.length, iFare));
+    }
+    if (iStart >= 0 && iEnd > iStart && startAddress.isEmpty) {
+      return ('', '');
     }
     return (startAddress, endAddress);
   }
@@ -337,6 +350,11 @@ class TmapTripDetailOcr {
         }
       }
     } else {
+      if (source.contains('운행번호') ||
+          source.contains('운행일자') ||
+          source.contains('보험종류')) {
+        return ('', '', '');
+      }
       // 구분선을 찾지 못한 경우: 노이즈만 걸러내고 전체 사용
       for (final line in lines) {
         if (_isInProgressNoiseLine(line)) continue;

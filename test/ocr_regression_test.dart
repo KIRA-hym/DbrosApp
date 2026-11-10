@@ -1448,6 +1448,31 @@ T 티맵으로 길안내
       expect(parsed.grossFare, 24000);
     });
 
+    test('tmap trip detail vertical label split (방배동 니나노 분식 -> 평촌동 부림로 34)', () {
+      const rawText = '''
+23:01
+운행번호
+44963373
+운행일자 2026.11.6 (금) 22:26 ~ 23:07
+출발
+도착
+서울 서초구 방배동 니나노 분식
+실수익 25,600P
+보험사
+운행 상세 정보
+경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34
+보험종류 TMAP 대리 보험
+DB손해보험
+A 사고 접수
+93
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '서울 서초구 방배동 니나노 분식');
+      expect(parsed.endAddress, '경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34');
+      expect(parsed.grossFare, 25600);
+    });
+
     test('tmap driving start time fallback from first 3 lines', () {
       const rawText = '''
 15:35
