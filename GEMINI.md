@@ -39,8 +39,13 @@
 - 커밋·푸시 완료 후 **변경 파일, 변경 내용, 이유**를 한글로 정리하여 보고할 것.
 
 ### 🛡️ 파싱 로직 절대 보호 규칙
-- **현재 시점 완전성 유지**: OCR 및 텍스트 파싱 로직(`lib/utils/logi_colmanner_ocr.dart` 등)은 현재가 **가장 완벽한 시점**임.
+- **현재 시점 완전성 유지**: OCR 및 텍스트 파싱 로직(`lib/utils/logi_colmanner_ocr.dart`, `lib/utils/tmap_trip_detail_ocr.dart`, `lib/utils/kakao_call_card_ocr.dart` 등)은 현재가 **가장 완벽한 시점**임.
 - 추후 파싱 로직을 보완해야 할 일이 생기더라도 기존 로직 흐름을 절대 깨뜨리지 않도록 각별히 유념하고 보완 작업을 수행할 것.
+- **Additive-Only(조건 추가) 원칙**: 기존 1차 파싱 분기를 통째로 바꾸지 말고, 기존 파싱이 정상 성공한 경우 그대로 반환하며 실패/오분류된 명확한 조건에서만 폴백(Fallback)이 동작하도록 작성할 것.
+- **실기기 인자(`blocks` 등) 동일 재현 및 전수 회귀 테스트 의무화**:
+  1. 사용자가 제보한 모든 OCR RAW 텍스트는 반드시 `test/ocr_test_data/` 및 `test/ocr_regression_test.dart`에 영구 등록할 것.
+  2. 실기기에서 전달되는 인자(예: `blocks`의 Y좌표 정렬 결과 등)가 파싱에 영향을 미치는지 반드시 함께 검증할 것.
+  3. OCR 파서 수정 후 커밋 전 반드시 `flutter test test/ocr_regression_test.dart`와 `flutter test test/historical_ocr_verify_test.dart`를 실행하여 **기존 케이스 파싱 결과가 단 1건도 달라지지 않았음(Diff 0건)**을 확인하고 보고할 것.
 
 ---
 

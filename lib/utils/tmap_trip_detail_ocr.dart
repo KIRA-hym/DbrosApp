@@ -82,7 +82,10 @@ class TmapTripDetailOcr {
 
     apply(normalized);
 
-    if ((startAddress.isEmpty || endAddress.isEmpty) && blocks != null && blocks.isNotEmpty) {
+    final isReceiptDetail = normalized.contains('운행번호') ||
+        normalized.contains('운행일자') ||
+        normalized.contains('보험종류');
+    if (!isReceiptDetail && (startAddress.isEmpty || endAddress.isEmpty) && blocks != null && blocks.isNotEmpty) {
       final sorted = List<TextBlock>.from(blocks)
         ..sort((a, b) => a.boundingBox.top.compareTo(b.boundingBox.top));
       final joined = sorted.map((b) => b.text.trim()).where((t) => t.isNotEmpty).join('\n');
@@ -113,8 +116,20 @@ class TmapTripDetailOcr {
         var startCand = matches.first.group(0)!.trim();
         var endCand = matches.last.group(0)!.trim();
         if (matches.length >= 2) {
-          startCand = flat2.substring(matches[0].start, matches[1].start).trim();
-          endCand = flat2.substring(matches[1].start).trim();
+          int splitIdx = matches[1].start;
+          if (matches.length >= 3) {
+            final firstSeg = flat2.substring(matches[0].start, matches[1].start).trim();
+            final prefixRe = RegExp(r'^(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)\s+[가-힣]+\s*(?:시|군|구)(?:\s+[가-힣]+\s*구)?');
+            final p0 = prefixRe.firstMatch(flat2.substring(matches[0].start))?.group(0)?.replaceAll(RegExp(r'\s+'), ' ');
+            final p1 = prefixRe.firstMatch(flat2.substring(matches[1].start))?.group(0)?.replaceAll(RegExp(r'\s+'), ' ');
+            if (p0 != null && p0 == p1 &&
+                !RegExp(r'실수익|보험|운행\s*상세|[\d,]+\s*P').hasMatch(firstSeg) &&
+                RegExp(r'(?:동|읍|면|가)\d*가?$').hasMatch(firstSeg)) {
+              splitIdx = matches[2].start;
+            }
+          }
+          startCand = flat2.substring(matches[0].start, splitIdx).trim();
+          endCand = flat2.substring(splitIdx).trim();
         }
         
         // Remove trailing fare or insurance noise from address
@@ -125,12 +140,15 @@ class TmapTripDetailOcr {
           // UI Noise
           res = res.replaceAll(RegExp(r'운행\s*상세\s*정보'), '');
           res = res.replaceAll(RegExp(r'실수익.*$'), '');
+          res = res.replaceAll(RegExp(r'\s*[Ll└ㄴ]?\s*보너스\s*[\d,]+\s*[Pp원]?.*$'), '');
+          res = res.replaceAll(RegExp(r'\s*\(?\s*원천세.*$'), '');
+          res = res.replaceAll(RegExp(r'\s*고객에게\s*받은.*$'), '');
           res = res.replaceAll(RegExp(r'보험사.*$'), '');
           res = res.replaceAll(RegExp(r'보험종류.*$'), '');
           res = res.replaceAll(RegExp(r'TMAP 대리 보험.*$'), '');
           res = res.replaceAll(RegExp(r'DB손해보험.*$'), '');
           res = res.replaceAll(RegExp(r'현대해상.*$'), '');
-          res = res.replaceAll(RegExp(r'[A-Za-z0-9]+\s*사고\s*접수.*$'), '');
+          res = res.replaceAll(RegExp(r'[A-Za-z0-9]*\s*사고\s*접수.*$'), '');
           res = res.replaceAll(RegExp(r'DB손해.*$'), ''); // 잘린 경우
           
           // Fare cleanup at the end (e.g. " 28,000p")
@@ -203,6 +221,14 @@ class TmapTripDetailOcr {
       if (profitIdx != -1) res = res.substring(0, profitIdx);
       final insIdx = res.indexOf('보험');
       if (insIdx != -1) res = res.substring(0, insIdx);
+      final taxIdx = res.indexOf('(원천세');
+      if (taxIdx != -1) res = res.substring(0, taxIdx);
+      final taxIdx2 = res.indexOf('원천세');
+      if (taxIdx2 != -1) res = res.substring(0, taxIdx2);
+      final cashIdx = res.indexOf('고객에게 받은');
+      if (cashIdx != -1) res = res.substring(0, cashIdx);
+      final bonusMatch = RegExp(r'[Ll└ㄴ]?\s*보너스\s*[\d,]+').firstMatch(res);
+      if (bonusMatch != null) res = res.substring(0, bonusMatch.start);
       return res.trim();
     }
     startAddress = cleanAddr(startAddress);
@@ -250,7 +276,18 @@ class TmapTripDetailOcr {
     if (iEnd >= 0 && iFare > iEnd) {
       endAddress = _cleanAddressChunk(normalized.substring(iEnd + endKw.length, iFare));
     }
-    if (iStart >= 0 && iEnd > iStart && startAddress.isEmpty) {
+    if (iStart >= 0 && iEnd > iStart && (startAddress.isEmpty || endAddress.isEmpty)) {
+      return ('', '');
+    }
+    bool isInvalidChunk(String a) {
+      if (a.isEmpty) return true;
+      final c = a.replaceAll(RegExp(r'(?:실수익|보험사|보험종류|운행\s*상세\s*정보).*$'), '').trim();
+      if (c.isEmpty) return true;
+      if (c.contains('운행일자') || c.contains('운행번호') || c.contains('요기요')) return true;
+      if (!RegExp(r'[가-힣]{2,}').hasMatch(c)) return true;
+      return false;
+    }
+    if (isInvalidChunk(startAddress) || isInvalidChunk(endAddress)) {
       return ('', '');
     }
     return (startAddress, endAddress);

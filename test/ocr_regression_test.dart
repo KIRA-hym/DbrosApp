@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
@@ -1470,6 +1471,128 @@ A 사고 접수
       expect(parsed, isNotNull);
       expect(parsed!.startAddress, '서울 서초구 방배동 니나노 분식');
       expect(parsed.endAddress, '경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34');
+      expect(parsed.grossFare, 25600);
+
+      // 실기기처럼 blocks의 Y좌표가 어긋나 출발~도착 사이에 두 주소가 모두 들어가는 경우도 방어 검증
+      TextBlock blk(String text, double top) => TextBlock(
+            text: text,
+            lines: const [],
+            boundingBox: Rect.fromLTWH(0, top, 100, 20),
+            recognizedLanguages: const [],
+            cornerPoints: const [],
+          );
+      final parsedWithBlocks = TmapTripDetailOcr.tryParse(
+        rawText,
+        blocks: [
+          blk('운행번호\n44963373', 10),
+          blk('운행일자 2026.11.6 (금) 22:26 ~ 23:07', 30),
+          blk('출발', 50),
+          blk('서울 서초구 방배동 니나노 분식', 52),
+          blk('경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34', 68),
+          blk('도착', 70),
+          blk('실수익 25,600P', 90),
+          blk('보험사', 110),
+        ],
+      );
+      expect(parsedWithBlocks, isNotNull);
+      expect(parsedWithBlocks!.startAddress, '서울 서초구 방배동 니나노 분식');
+      expect(parsedWithBlocks.endAddress, '경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34');
+      expect(parsedWithBlocks.grossFare, 25600);
+    });
+
+    test('tmap trip detail strips withholding tax and cash guidance from destination (마곡동 -> 본오동 963-9)', () {
+      const rawText = '''
+01:55 T
+운행번호
+44520721
+출발
+ZEUS
+운행일자 2026.10.25 (일) 00:47 ~ 01:33
+도착
+서울 강서구 마곡동 902탭하우스 마곡발산점
+실수익 36,000P
+L 보너스 4,000P 포함
+보험사
+운행 상세 정보
+경기 안산시 상록구 본오동 경기 안산시 상록구 본오동 963-9
+(원천세 3.3% 제외 후 지급)
+고객에게 받은 현금은 40,000원 입니다.
+보험종류 TMAP 대리 보험
+DB손해보험
+B 93
+A 사고 접수
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '서울 강서구 마곡동 902탭하우스 마곡발산점');
+      expect(parsed.endAddress, '경기 안산시 상록구 본오동 경기 안양시'.isEmpty ? '' : '경기 안산시 상록구 본오동 경기 안산시 상록구 본오동 963-9');
+      expect(parsed.grossFare, 36000);
+    });
+
+    test('tmap trip detail all labels stacked at top with blocks scrambling (관양동 안양시의회 -> 백석동 동문굿모닝)', () {
+      const rawText = '''
+01:27 T.
+운행번호
+44978374
+운행일자 2026.11.7 (토) 00:44 ~ 01:27
+출발
+도착
+실수익
+보험사
+경기 안양시 동안구 관양동 안양시의회
+운행 상세 정보
+28,800P
+보험종류 TMAP 대리 보험
+경기 고양시 일산동구 백석동 동문굿모닝 힐2차 202동주차장
+DB손해보험
+505 92
+A사고 접수
+''';
+      TextBlock blk(String text, double top) => TextBlock(
+            text: text,
+            lines: const [],
+            boundingBox: Rect.fromLTWH(0, top, 100, 20),
+            recognizedLanguages: const [],
+            cornerPoints: const [],
+          );
+      final parsed = TmapTripDetailOcr.tryParse(
+        rawText,
+        blocks: [
+          blk('출발', 50),
+          blk('경기 고양시 일산동구 백석동 동문굿모닝 힐2차 202동주차장', 55),
+          blk('도착', 60),
+          blk('보험사', 65),
+          blk('실수익', 70),
+          blk('28,800P', 75),
+        ],
+      );
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '경기 안양시 동안구 관양동 안양시의회');
+      expect(parsed.endAddress, '경기 고양시 일산동구 백석동 동문굿모닝 힐2차 202동주차장');
+      expect(parsed.grossFare, 28800);
+    });
+
+    test('tmap trip detail 3-match guard when departure has jibun+road double address', () {
+      const rawText = '''
+23:01
+운행번호
+44963399
+운행일자 2026.11.6 (금) 22:26 ~ 23:07
+출발
+도착
+경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34
+실수익 25,600P
+보험사
+운행 상세 정보
+서울 서초구 방배동 니나노 분식
+보험종류 TMAP 대리 보험
+DB손해보험
+A 사고 접수
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '경기 안양시 동안구 평촌동 경기 안양시 동안구 부림로 34');
+      expect(parsed.endAddress, '서울 서초구 방배동 니나노 분식');
       expect(parsed.grossFare, 25600);
     });
 
