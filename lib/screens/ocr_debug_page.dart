@@ -11,6 +11,7 @@ import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import 'package:http/http.dart' as http;
+import '../services/call_card_ocr_parse_service.dart';
 import '../services/settings_service.dart';
 import '../services/ocr_parse_log_service.dart';
 
@@ -193,25 +194,8 @@ class _OcrDebugPageState extends State<OcrDebugPage> {
     }
   }
 
-  String? _detectProgram(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final block in blocks) {
-      if (block.text.contains('갱신')) return '로지';
-      if (block.text.contains('출도')) return '콜마너';
-    }
-    if (normalized.contains('운행시작') && normalized.contains('출발지') && normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) return '로지';
-    if (normalized.contains('지사명') && normalized.contains('출도') &&
-        normalized.contains('출발지') && normalized.contains('도착지')) return '콜마너';
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return '카카오(커스텀)';
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-    for (final block in blocks) {
-      if (block.text.contains('고객과 통화')) return '카카오(일반)';
-    }
-    return null;
-  }
+  String? _detectProgram(List<TextBlock> blocks, String fullText) =>
+      CallCardOcrParseService.detectProgramFromBlocks(blocks, fullText);
 
   String _buildLogText() {
     final sb = StringBuffer();

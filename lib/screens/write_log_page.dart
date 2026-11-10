@@ -25,6 +25,7 @@ import '../services/db_helper.dart';
 import '../services/image_storage_service.dart';
 import '../services/settings_service.dart';
 import '../services/today_stats_notification_service.dart';
+import '../services/call_card_ocr_parse_service.dart';
 import '../services/ocr_parse_log_service.dart';
 import '../services/ocr_error_logger.dart';
 import '../data/repositories/address_repository.dart';
@@ -966,46 +967,8 @@ RULES:
   }
 
 
-  String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final b in blocks) {
-      if (b.text.contains("갱신")) return "로지";
-      if (b.text.contains("출도")) return "콜마너";
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return "로지";
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return "콜마너";
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return "티맵";
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText))
-      return KakaoCustomCallOcr.programCustom;
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-        fullText,
-        blocks,
-        kakao,
-      );
-    }
-    for (final b in blocks) {
-      if (b.text.contains("고객과 통화")) {
-        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-      }
-    }
-    return null;
-  }
+  String? _detectProgramFromBlocks(List<TextBlock> blocks, String fullText) =>
+      CallCardOcrParseService.detectProgramFromBlocks(blocks, fullText);
 
   bool _detectProgramAndParse(
     RecognizedText recognizedText, {

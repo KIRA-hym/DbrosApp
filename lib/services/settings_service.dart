@@ -35,7 +35,6 @@ class SettingsService {
 
   static const List<String> _defaultProgramList = <String>[
     '카카오(일반)',
-    '카카오(맞춤)',
     '카카오(프콜)',
     '카카오(제휴)',
     '로지',
@@ -99,20 +98,20 @@ class SettingsService {
     _startAdRewardTimer();
   }
 
-  /// 기존 저장 목록에 `카카오(제휴)`가 없으면 카카오 항목 근처에 삽입.
+  /// 기존 저장 목록에서 폐지된 `카카오(맞춤)`은 제거하고, `카카오(제휴)`가 없으면 삽입.
   static Future<void> _ensureAllianceProgramInList() async {
     const alliance = '카카오(제휴)';
     final raw = _prefs.getStringList('programList');
     if (raw == null) return;
     final list = List<String>.from(raw);
-    if (list.contains(alliance)) return;
-    final pro = list.indexOf('카카오(프콜)');
-    if (pro >= 0) {
-      list.insert(pro + 1, alliance);
-    } else {
-      final custom = list.indexOf('카카오(맞춤)');
-      if (custom >= 0) {
-        list.insert(custom + 1, alliance);
+    var changed = false;
+    if (list.remove('카카오(맞춤)')) {
+      changed = true;
+    }
+    if (!list.contains(alliance)) {
+      final pro = list.indexOf('카카오(프콜)');
+      if (pro >= 0) {
+        list.insert(pro + 1, alliance);
       } else {
         final gen = list.indexOf('카카오(일반)');
         if (gen >= 0) {
@@ -121,8 +120,11 @@ class SettingsService {
           list.insert(0, alliance);
         }
       }
+      changed = true;
     }
-    await _prefs.setStringList('programList', list);
+    if (changed) {
+      await _prefs.setStringList('programList', list);
+    }
   }
 
   /// 기존 지출 목록에 [item]이 없으면 [before] 항목 앞(없으면 맨 끝)에 삽입.

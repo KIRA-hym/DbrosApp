@@ -67,29 +67,34 @@ class KakaoCallCardOcr {
   static bool _hasForm2UiMarkers(String n) {
     if (n.contains('상황실')) return true;
     if (n.contains('고객') && n.contains('메모')) return true;
-    if (n.contains('배정취소') && n.contains('잔여') && n.contains('시간')) return true;
+    if (n.contains('배정취소')) return true;
     if (n.contains('취소불가')) return true;
     if (n.contains('고객과만날장소') || n.contains('만날장소길찾기')) return true;
     if (n.contains('밀어서고객에게') || n.contains('도착알림')) return true;
     if (n.contains('출발지에도착')) return true;
+    if (n.contains('고객과메시지') || n.contains('고객과메세지')) return true;
     return false;
   }
 
   static bool _hasCorporateInsurance(String n) =>
       n.contains('법인무료보험') || (n.contains('법인') && n.contains('무료보험'));
 
-  /// 인식 순서: 일반 1종 → 프콜 1종 → 프콜 2종 → 일반 2종 → `고객과 통화` 단독.
-  /// 해당 없으면 `null` (카카오 아님).
+  /// 인식 순서: 일반 1종 → 프콜 1종 → 프콜 2종 → 일반 2종 → `고객과 통화` + 보조 신호.
+  /// 단독 1개 단어만으로 비콜카드 화면이 오인식되는 것을 방지한다.
   static String? detectKakaoProgram(String fullText) {
+    if (looksLikeInternalOcrReviewDump(fullText)) return null;
     final n = _compact(fullText);
     if (n.isEmpty) return null;
 
     final hasCallCustomer = n.contains('고객과통화');
     final assignment = _assignmentComplete(n);
     final tPhone = _tPhone(n);
+    final beforeStart = n.contains('운행시작전') || n.contains('밀어서운행시작');
     final hasOpsCenter = n.contains('운영센터');
     final form2Ui = _hasForm2UiMarkers(n);
     final corporateInsurance = _hasCorporateInsurance(n);
+    final cardOrCashConfirm = (n.contains('카드') && n.contains('확정')) ||
+        (n.contains('현금') && n.contains('확정'));
 
     // 1. 카카오(일반) 1종: 배정 완료 + 고객과 통화
     if (hasCallCustomer && assignment) {
@@ -111,19 +116,40 @@ class KakaoCallCardOcr {
       return programGeneral;
     }
 
-    // 5. T 전화 헤더 OCR 누락 — 2종 UI + 배정 완료만으로 일반 2종
-    if (!hasOpsCenter && !corporateInsurance && form2Ui && assignment) {
+    // 5. T 전화 헤더 또는 하단 고객과통화 OCR 누락 — (2종 UI 또는 카드/현금 확정) + (배정 완료 또는 운행시작전)
+    if (!hasOpsCenter &&
+        !corporateInsurance &&
+        (form2Ui || cardOrCashConfirm) &&
+        (assignment || beforeStart)) {
       return programGeneral;
     }
 
-    // 6. 배정 완료 OCR 누락 등 — 고객과 통화만으로 일반
+    // 6. 배정 완료 OCR 누락 등 — '고객과 통화'가 있을 때 단독 매칭은 차단하고,
+    // 요금 숫자 패턴이나 카드/현금 확정, 2종 UI, 운영센터, 법인무료보험 등 보조 신호가 1개 이상 함께 있을 때만 인정
     if (hasCallCustomer) {
-      return programGeneral;
+      final hasFareShape = RegExp(r'\d{1,3},\d{3}').hasMatch(fullText);
+      final totalFareWord = n.contains('총요금');
+      if (hasFareShape ||
+          cardOrCashConfirm ||
+          form2Ui ||
+          hasOpsCenter ||
+          corporateInsurance ||
+          beforeStart ||
+          tPhone ||
+          totalFareWord) {
+        return (hasOpsCenter || corporateInsurance) ? programPro : programGeneral;
+      }
     }
 
-    // 7. 카카오 T 브랜드·콜카드 공통 문구
+    // 7. 운영센터 또는 법인무료보험 + 다른 카카오 보조 신호
+    if ((hasOpsCenter || corporateInsurance) &&
+        (form2Ui || cardOrCashConfirm || beforeStart || tPhone)) {
+      return programPro;
+    }
+
+    // 8. 카카오 T 브랜드·콜카드 공통 문구
     if ((n.contains('카카오T') || n.contains('카카오')) &&
-        (assignment || form2Ui || hasCallCustomer)) {
+        (assignment || form2Ui || hasCallCustomer || cardOrCashConfirm)) {
       return programGeneral;
     }
 

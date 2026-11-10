@@ -7,6 +7,7 @@ import '../utils/drive_time_format.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/logi_colmanner_ocr.dart';
+import '../utils/ocr_program_detector.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 import '../utils/work_date_utils.dart';
 import 'db_helper.dart';
@@ -18,6 +19,9 @@ import 'settings_service.dart';
 /// 콜카드 이미지 OCR → 운행일지 row 파싱·저장 (멀티 콜카드·스크린샷 자동등록 공용).
 class CallCardOcrParseService {
   CallCardOcrParseService._();
+
+  static const String internalProgramDetectPathKey = '_program_detect_path';
+  static const String internalOcrSnapshotKey = '_ocr_snapshot';
 
   static Future<Map<String, dynamic>> parseImageFile(
     File imageFile, {
@@ -128,6 +132,19 @@ class CallCardOcrParseService {
     // 출발지, 도착지, 요금 중 하나라도 있으면 자동저장 허용
     if (!hasStart && !hasEnd && !hasFare) return false;
 
+    return true;
+  }
+
+  static bool isValidForScreenshotAutoSave(Map<String, dynamic> logData) {
+    if (!isValidForAutoSave(logData)) return false;
+    final program = logData['program']?.toString() ?? '';
+    final pathTag = logData[internalProgramDetectPathKey]?.toString() ?? '';
+    final snapshot =
+        (logData[internalOcrSnapshotKey] ?? logData['raw_text'])?.toString() ?? '';
+    if (pathTag == 'kakao_block_fallback') return false;
+    if (program.startsWith('카카오') && snapshot.isNotEmpty) {
+      return KakaoCallCardOcr.screenshotAutoEligibleContext(snapshot);
+    }
     return true;
   }
 
@@ -262,49 +279,12 @@ class CallCardOcrParseService {
     return insertedId;
   }
 
-  static String? _detectProgram(List<TextBlock> blocks, String fullText) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    
-    // 로지 식별: 일지작성화면과 완전 동일하게 통일 (블록 단위 '갱신' 확인 및 운행시작 등 폴백 포함)
-    for (final b in blocks) {
-      if (b.text.contains("갱신")) return "로지";
-      if (b.text.contains("출도")) return "콜마너";
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return "로지";
-    }
-    if (normalized.contains('배차') || (normalized.contains('접수운행') && normalized.contains('닫기'))) {
-      return '로지';
-    }
+  /// 프로그램 판별 공통 진입점 (자동 스샷·수동 일지·디버그 화면 공용).
+  static String? detectProgramFromBlocks(List<TextBlock> blocks, String fullText) =>
+      OcrProgramDetector.detect(blocks, fullText);
 
-    // 콜마너 식별 (기존 로직 유지)
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return '콜마너';
-    }
-
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) return '티맵';
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) return KakaoCustomCallOcr.programCustom;
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      return KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-    }
-    for (final block in blocks) {
-      if (block.text.contains('고객과 통화')) {
-        return KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-      }
-    }
-    return null;
-  }
+  static String? _detectProgram(List<TextBlock> blocks, String fullText) =>
+      detectProgramFromBlocks(blocks, fullText);
 
   static String _normalizeProgramForSave(String program) {
     if (program == '카카오') return '카카오(일반)';

@@ -6,6 +6,7 @@ import '../services/settings_service.dart';
 import '../utils/kakao_call_card_ocr.dart';
 import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/logi_colmanner_ocr.dart';
+import '../utils/ocr_program_detector.dart';
 import '../utils/tmap_trip_detail_ocr.dart';
 
 /// PC 웹 실험실: 앱에서 복사한 OCR 원문 → 앱과 동일 파서로 결과만 산출(DB·이미지 없음).
@@ -68,45 +69,8 @@ class PlainOcrParseLab {
     List<TextBlock> blocks,
     String fullText,
   ) {
-    final normalized = fullText.replaceAll(RegExp(r'\s+'), '');
-    for (final block in blocks) {
-      if (block.text.contains('갱신')) return (program: '로지', pathTag: 'logi_block');
-      if (block.text.contains('출도')) return (program: '콜마너', pathTag: 'colmanner_block');
-    }
-    if (normalized.contains('운행시작') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지') &&
-        (normalized.contains('입금액') || normalized.contains('고객과의거리'))) {
-      return (program: '로지', pathTag: 'logi_fulltext');
-    }
-    if (normalized.contains('지사명') &&
-        normalized.contains('출도') &&
-        normalized.contains('출발지') &&
-        normalized.contains('도착지')) {
-      return (program: '콜마너', pathTag: 'colmanner_fulltext');
-    }
-    if (TmapTripDetailOcr.isTripDetailScreen(fullText)) {
-      return (program: '티맵', pathTag: 'tmap');
-    }
-    if (KakaoCustomCallOcr.isCustomCallScreen(fullText)) {
-      return (program: KakaoCustomCallOcr.programCustom, pathTag: 'kakao_custom');
-    }
-    final kakao = KakaoCallCardOcr.detectKakaoProgram(fullText);
-    if (kakao != null) {
-      final p = KakaoCallCardOcr.refineProgramByAllianceHeuristic(fullText, blocks, kakao);
-      return (program: p, pathTag: 'kakao_fulltext');
-    }
-    for (final block in blocks) {
-      if (block.text.contains('고객과 통화')) {
-        final p = KakaoCallCardOcr.refineProgramByAllianceHeuristic(
-          fullText,
-          blocks,
-          KakaoCallCardOcr.programGeneral,
-        );
-        return (program: p, pathTag: 'kakao_block_fallback');
-      }
-    }
-    return (program: null, pathTag: 'none');
+    // 앱(자동 스샷·수동 일지)과 동일한 공통 판별 로직 사용
+    return OcrProgramDetector.detectWithPath(blocks, fullText);
   }
 
   static String normalizeProgramForSave(String program) {
