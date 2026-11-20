@@ -31,6 +31,65 @@ class CallPointData {
 class CallPointMapPage extends StatefulWidget {
   const CallPointMapPage({super.key});
 
+  /// 주변콜맵 바텀시트 상단 시간 표기 (`YY.MM.DD HH:mm`, 예: `26.11.20 13:15`)
+  static String formatCallPointDateTime(Map<String, dynamic> data) {
+    final logDriveDate = data['log_drive_date']?.toString().trim() ?? '';
+    final driveTimeRaw = data['drive_time']?.toString().trim() ?? '';
+    final createdAtStr = data['created_at']?.toString().trim() ?? '';
+
+    String? normalizedTime;
+    final timeMatch = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(driveTimeRaw);
+    if (timeMatch != null) {
+      final hh = timeMatch.group(1)!.padLeft(2, '0');
+      final mm = timeMatch.group(2)!;
+      normalizedTime = '$hh:$mm';
+    }
+
+    // 1) 내 일지의 실제 운행일(drive_date: YYYY-MM-DD)이 있는 경우 우선 사용
+    final dateMatch = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(logDriveDate);
+    if (dateMatch != null) {
+      final yy = dateMatch.group(1)!.substring(2);
+      final mo = dateMatch.group(2)!;
+      final dd = dateMatch.group(3)!;
+      if (normalizedTime != null) {
+        return '$yy.$mo.$dd $normalizedTime';
+      }
+      final dt = DateTime.tryParse(createdAtStr)?.toLocal();
+      if (dt != null) {
+        final hh = dt.hour.toString().padLeft(2, '0');
+        final min = dt.minute.toString().padLeft(2, '0');
+        return '$yy.$mo.$dd $hh:$min';
+      }
+      return '$yy.$mo.$dd';
+    }
+
+    // 2) created_at (ISO8601, UTC 'Z' 포함 시 로컬 변환)
+    if (createdAtStr.isNotEmpty) {
+      final dt = DateTime.tryParse(createdAtStr)?.toLocal();
+      if (dt != null) {
+        final yy = (dt.year % 100).toString().padLeft(2, '0');
+        final mo = dt.month.toString().padLeft(2, '0');
+        final dd = dt.day.toString().padLeft(2, '0');
+        final timePart = normalizedTime ??
+            '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+        return '$yy.$mo.$dd $timePart';
+      }
+      final fallbackDate =
+          RegExp(r'^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}:\d{2}))?')
+              .firstMatch(createdAtStr);
+      if (fallbackDate != null) {
+        final yy = fallbackDate.group(1)!.substring(2);
+        final mo = fallbackDate.group(2)!;
+        final dd = fallbackDate.group(3)!;
+        final timePart = normalizedTime ?? fallbackDate.group(4);
+        return timePart != null ? '$yy.$mo.$dd $timePart' : '$yy.$mo.$dd';
+      }
+      return createdAtStr.replaceAll('T', ' ');
+    }
+
+    return normalizedTime ?? '';
+  }
+
   @override
   State<CallPointMapPage> createState() => _CallPointMapPageState();
 }
@@ -248,18 +307,12 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
   }
 
   Future<void> _loadData() async {
-    final db = await DriveLogDatabase.instance.database;
-    List<Map<String, dynamic>> rows = await db.query(
-      'call_points',
-      orderBy: 'created_at DESC',
-      limit: 20000,
-    );
+    List<Map<String, dynamic>> rows =
+        await DriveLogDatabase.instance.getCallPointsWithLogInfo(limit: 20000);
 
     if (rows.isEmpty && !kIsWeb) {
       await MapDataSyncService.syncCommonPoints();
-      rows = await db.query(
-        'call_points',
-        orderBy: 'created_at DESC',
+      rows = await DriveLogDatabase.instance.getCallPointsWithLogInfo(
         limit: 20000,
       );
     }
@@ -558,21 +611,20 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
       badgeBg = Colors.white24;
     }
 
-    final createdAtStr = data['created_at']?.toString().trim() ?? '';
-    String displayDateTime = '';
-    if (createdAtStr.length >= 16) {
-      displayDateTime = createdAtStr.substring(0, 16).replaceAll('T', ' ');
-    } else {
-      displayDateTime = createdAtStr.isNotEmpty ? createdAtStr.replaceAll('T', ' ') : '';
-    }
+    final bool isSingleLocation =
+        type == 'reference' || type == 'restroom' || type == 'shuttle';
+    final displayDateTime =
+        isSingleLocation ? '' : CallPointMapPage.formatCallPointDateTime(data);
 
     final program = data['program']?.toString().trim() ?? '';
     final grossFareRaw = data['gross_fare'];
-    final int grossFare = (grossFareRaw is int) ? grossFareRaw : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
-    
+    final int grossFare = (grossFareRaw is int)
+        ? grossFareRaw
+        : int.tryParse(grossFareRaw?.toString() ?? '0') ?? 0;
+
     final startLoc = data['start_location']?.toString().trim() ?? '';
     final endLoc = data['end_location']?.toString().trim() ?? '';
-    
+
     return Container(
       decoration: BoxDecoration(
         color: const Color(0xFF282B33),
@@ -584,61 +636,168 @@ class _CallPointMapPageState extends State<CallPointMapPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(4)),
-                    child: Text(badgeText, style: TextStyle(color: badgeColor, fontSize: 12, fontWeight: FontWeight.bold)),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(displayDateTime, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 14)),
-                ],
-              ),
-              if (program.isNotEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFF60A5FA).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                  child: Text(program, style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 14, fontWeight: FontWeight.w600)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                children: [
-                  const SizedBox(height: 4),
-                  Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFF3B82F6), shape: BoxShape.circle)),
-                  Container(width: 2, height: 24, color: const Color(0xFF4A4D55), margin: const EdgeInsets.symmetric(vertical: 4)),
-                  Container(width: 10, height: 10, decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle)),
-                ],
-              ),
-              const SizedBox(width: 12),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Text(startLoc.isNotEmpty ? startLoc : '출발지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: startLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
-                    const SizedBox(height: 16),
-                    Text(endLoc.isNotEmpty ? endLoc : '도착지 정보 없음', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: endLoc.isNotEmpty ? const Color(0xFFF3F4F6) : const Color(0xFF6B7280))),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: badgeBg,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        badgeText,
+                        style: TextStyle(
+                          color: badgeColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    if (displayDateTime.isNotEmpty)
+                      Text(
+                        displayDateTime,
+                        style: const TextStyle(
+                          color: Color(0xFF9CA3AF),
+                          fontSize: 13,
+                        ),
+                      ),
+                    if (!isSingleLocation && grossFare > 0)
+                      Text(
+                        '${NumberFormat('#,###').format(grossFare)}원',
+                        style: const TextStyle(
+                          color: Color(0xFFFBBF24),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                   ],
                 ),
               ),
+              if (program.isNotEmpty) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF60A5FA).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    program,
+                    style: const TextStyle(
+                      color: Color(0xFF60A5FA),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
-          if (grossFare > 0) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.only(top: 12),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFF4A4D55), style: BorderStyle.solid))),
-              alignment: Alignment.centerRight,
-              child: Text('${NumberFormat('#,###').format(grossFare)} 원', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Color(0xFFFBBF24))),
+          const SizedBox(height: 12),
+          if (isSingleLocation)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    startLoc.isNotEmpty ? startLoc : '주소 정보 없음',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: startLoc.isNotEmpty
+                          ? const Color(0xFFF3F4F6)
+                          : const Color(0xFF6B7280),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3B82F6),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    Container(
+                      width: 2,
+                      height: 24,
+                      color: const Color(0xFF4A4D55),
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                    ),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEF4444),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        startLoc.isNotEmpty ? startLoc : '출발지 정보 없음',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: startLoc.isNotEmpty
+                              ? const Color(0xFFF3F4F6)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        endLoc.isNotEmpty ? endLoc : '도착지 정보 없음',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: endLoc.isNotEmpty
+                              ? const Color(0xFFF3F4F6)
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ]
         ],
       ),
     );

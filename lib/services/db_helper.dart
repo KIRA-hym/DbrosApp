@@ -179,8 +179,8 @@ class DriveLogDatabase {
         if (oldVersion < 8) {
           await _ensureCallPointsTable(db);
           await db.execute('''
-            INSERT INTO call_points (type, is_mine, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, log_id)
-            SELECT 'log', 1, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, id 
+            INSERT INTO call_points (type, is_mine, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, log_id, gross_fare)
+            SELECT 'log', 1, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, id, COALESCE(gross_fare, 0)
             FROM drive_logs 
             WHERE start_lat IS NOT NULL AND start_lng IS NOT NULL
           ''');
@@ -310,11 +310,44 @@ class DriveLogDatabase {
     final db = await database;
     await db.delete('call_points', where: 'type = ?', whereArgs: ['log']);
     await db.execute('''
-      INSERT INTO call_points (type, is_mine, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, log_id)
-      SELECT 'log', 1, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, id
+      INSERT INTO call_points (type, is_mine, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, log_id, gross_fare)
+      SELECT 'log', 1, start_location, start_lat, start_lng, end_location, drive_time, program, created_at, id, COALESCE(gross_fare, 0)
       FROM drive_logs
       WHERE start_lat IS NOT NULL AND start_lng IS NOT NULL
     ''');
+  }
+
+  /// 주변콜맵 조회용: `call_points`와 내 일지(`drive_logs`)를 LEFT JOIN하여
+  /// 과거 `call_points.gross_fare == 0` 레코드에도 실제 금액·운행일시를 즉시 반영합니다.
+  Future<List<Map<String, dynamic>>> getCallPointsWithLogInfo({
+    int limit = 20000,
+  }) async {
+    if (kIsWeb) return [];
+    final db = await database;
+    return db.rawQuery('''
+      SELECT
+        cp.id,
+        cp.type,
+        cp.is_mine,
+        cp.start_location,
+        cp.start_lat,
+        cp.start_lng,
+        cp.end_location,
+        COALESCE(NULLIF(cp.drive_time, ''), dl.drive_time) AS drive_time,
+        cp.program,
+        cp.created_at,
+        cp.log_id,
+        cp.user_id,
+        COALESCE(NULLIF(cp.gross_fare, 0), dl.gross_fare, 0) AS gross_fare,
+        cp.waypoint,
+        cp.memo,
+        dl.drive_date AS log_drive_date
+      FROM call_points cp
+      LEFT JOIN drive_logs dl
+        ON cp.type = 'log' AND cp.log_id = dl.id
+      ORDER BY cp.created_at DESC
+      LIMIT ?
+    ''', [limit]);
   }
 
   Future<void> _ensureCallPointsTable(Database db) async {
@@ -544,6 +577,7 @@ class DriveLogDatabase {
             'end_location': out['end_location'],
             'drive_time': out['drive_time'],
             'program': out['program'],
+            'gross_fare': out['gross_fare'] ?? 0,
           }, where: 'log_id = ? AND type = ?', whereArgs: [out['id'], 'log']);
         } else {
           await db.insert('call_points', {
@@ -556,6 +590,7 @@ class DriveLogDatabase {
             'end_location': out['end_location'],
             'drive_time': out['drive_time'],
             'program': out['program'],
+            'gross_fare': out['gross_fare'] ?? 0,
             'created_at': DateTime.now().toIso8601String(),
           });
         }
@@ -577,6 +612,7 @@ class DriveLogDatabase {
           'end_location': out['end_location'],
           'drive_time': out['drive_time'],
           'program': out['program'],
+          'gross_fare': out['gross_fare'] ?? 0,
           'created_at': out['created_at'] ?? DateTime.now().toIso8601String(),
         });
       }
