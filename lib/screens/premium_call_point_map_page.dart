@@ -56,7 +56,21 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
   int _sheetTabIndex = 0; // 0: 핫스팟 TOP, 1: 시간·플랫폼, 2: 콜 목록
 
   AnalyticsCallPoint? _selectedPoint;
+  String? _selectedCoordKey;
+  ScrollController? _activeSheetScrollController;
   Set<Marker> _markers = const {};
+
+  static String _coordKeyOf(AnalyticsCallPoint pt) =>
+      '${pt.lat.toStringAsFixed(4)}_${pt.lng.toStringAsFixed(4)}';
+
+  void _scrollSheetToTop() {
+    final ctrl = _activeSheetScrollController;
+    if (ctrl != null && ctrl.hasClients && ctrl.offset > 0) {
+      try {
+        ctrl.jumpTo(0);
+      } catch (_) {}
+    }
+  }
   LatLng _cameraTarget = const LatLng(37.5665, 126.9780);
   LatLngBounds? _visibleBounds;
   Timer? _cameraDebounce;
@@ -161,7 +175,7 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       if (last != null) {
         _userPos = last;
         _cameraTarget = LatLng(last.latitude, last.longitude);
-        _radiusFilter = CallRadiusFilter.km10; // GPS 확보 시 기본 10km
+        _radiusFilter = CallRadiusFilter.km3; // GPS 확보 시 기본 3km
       }
       // 정밀 위치는 백그라운드로 보강
       unawaited(_refreshPreciseLocation());
@@ -181,9 +195,9 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       _userPos = pos;
       if (!hadPos) {
         _cameraTarget = LatLng(pos.latitude, pos.longitude);
-        _radiusFilter = CallRadiusFilter.km10;
+        _radiusFilter = CallRadiusFilter.km3; // GPS 확보 시 기본 3km
         _recompute();
-        await _moveCamera(LatLng(pos.latitude, pos.longitude), zoom: 12.2);
+        await _moveCamera(LatLng(pos.latitude, pos.longitude), zoom: 13.8);
       }
     } catch (_) {}
   }
@@ -284,7 +298,8 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     final Set<Marker> built = {};
     for (int i = 0; i < candidates.length; i++) {
       final pt = candidates[i];
-      final isSel = identical(_selectedPoint, pt);
+      final isSel = identical(_selectedPoint, pt) ||
+          (_selectedCoordKey != null && _coordKeyOf(pt) == _selectedCoordKey);
       final icon = _iconForPoint(pt, isSel);
       final z = isSel
           ? 100.0
@@ -298,10 +313,17 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
           icon: icon,
           zIndexInt: z.toInt(),
           onTap: () {
+            final key = _coordKeyOf(pt);
             setState(() {
               _selectedPoint = pt;
+              _selectedCoordKey = key;
+              _sheetTabIndex = 2; // 📋 콜 목록 탭으로 자동 포커스
               _rebuildMarkers();
             });
+            _scrollSheetToTop();
+            if (_sheetController.isAttached && _sheetController.size < 0.36) {
+              _animateSheetTo(0.44);
+            }
           },
         ),
       );
@@ -380,6 +402,7 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     setState(() {
       _radiusFilter = _radiusFilter.next;
       _selectedPoint = null;
+      _selectedCoordKey = null;
       _recompute();
     });
     if (_userPos != null) {
@@ -402,10 +425,17 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       _platformFilter = 'all';
       _selectedRegion = null;
       _selectedPoint = null;
+      _selectedCoordKey = null;
       _radiusFilter =
-          _userPos != null ? CallRadiusFilter.km10 : CallRadiusFilter.all;
+          _userPos != null ? CallRadiusFilter.km3 : CallRadiusFilter.all;
       _recompute();
     });
+    if (_userPos != null) {
+      _moveCamera(
+        LatLng(_userPos!.latitude, _userPos!.longitude),
+        zoom: 13.8,
+      );
+    }
   }
 
   bool get _hasActiveFilter =>
@@ -414,6 +444,7 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       _fareFilter != CallFareFilter.all ||
       _platformFilter != 'all' ||
       _selectedRegion != null ||
+      _selectedCoordKey != null ||
       _searchCon.text.trim().isNotEmpty;
 
   String _buildFilterSummaryText() {
@@ -608,49 +639,58 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
                             res,
                             scrollController: null,
                             showGrabBar: false,
+                            sheetViewportHeight: 0,
                           ),
                         ),
                       ],
                     )
-                  : Stack(
-                      children: [
-                        Positioned.fill(child: _buildMapArea()),
-                        DraggableScrollableSheet(
-                          controller: _sheetController,
-                          initialChildSize: 0.44,
-                          minChildSize: 0.22,
-                          maxChildSize: 0.86,
-                          snap: true,
-                          snapSizes: const [0.22, 0.44, 0.86],
-                          builder: (ctx, scrollController) {
-                            return Container(
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).scaffoldBackgroundColor,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(20),
-                                ),
-                                border: Border(
-                                  top: BorderSide(
-                                    color: Theme.of(context).dividerColor,
+                  : LayoutBuilder(
+                      builder: (stackCtx, stackConstraints) {
+                        final viewportH = stackConstraints.maxHeight;
+                        return Stack(
+                          children: [
+                            Positioned.fill(child: _buildMapArea()),
+                            DraggableScrollableSheet(
+                              controller: _sheetController,
+                              initialChildSize: 0.44,
+                              minChildSize: 0.22,
+                              maxChildSize: 0.86,
+                              snap: true,
+                              snapSizes: const [0.22, 0.44, 0.86],
+                              builder: (ctx, scrollController) {
+                                _activeSheetScrollController = scrollController;
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .scaffoldBackgroundColor,
+                                    borderRadius: const BorderRadius.vertical(
+                                      top: Radius.circular(20),
+                                    ),
+                                    border: Border(
+                                      top: BorderSide(
+                                        color: Theme.of(context).dividerColor,
+                                      ),
+                                    ),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Colors.black54,
+                                        blurRadius: 14,
+                                        offset: Offset(0, -4),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black54,
-                                    blurRadius: 14,
-                                    offset: Offset(0, -4),
+                                  child: _buildAnalyticsPanel(
+                                    res,
+                                    scrollController: scrollController,
+                                    showGrabBar: true,
+                                    sheetViewportHeight: viewportH,
                                   ),
-                                ],
-                              ),
-                              child: _buildAnalyticsPanel(
-                                res,
-                                scrollController: scrollController,
-                                showGrabBar: true,
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
                     ),
             ),
           ],
@@ -1091,7 +1131,7 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     final initialTarget = _userPos != null
         ? LatLng(_userPos!.latitude, _userPos!.longitude)
         : const LatLng(37.5665, 126.9780);
-    final initialZoom = _userPos != null ? 12.0 : 10.8;
+    final initialZoom = _userPos != null ? 13.8 : 10.8;
 
     return Stack(
       children: [
@@ -1117,9 +1157,10 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
             );
           },
           onTap: (_) {
-            if (_selectedPoint != null) {
+            if (_selectedPoint != null || _selectedCoordKey != null) {
               setState(() {
                 _selectedPoint = null;
+                _selectedCoordKey = null;
                 _rebuildMarkers();
               });
             }
@@ -1215,10 +1256,10 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
           ),
         ),
 
-        // 좌측 하단(또는 팝업 위) 마커 범례
+        // 좌측 상단(모드 토글 아래) 마커 범례 — 하단 시트에 가려지지 않음
         Positioned(
           left: 10,
-          bottom: _selectedPoint != null ? 116 : 12,
+          top: 52,
           child: MediaQuery.withClampedTextScaling(
             minScaleFactor: 0.9,
             maxScaleFactor: 1.15,
@@ -1255,15 +1296,6 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
             ),
           ),
         ),
-
-        // 선택된 마커 팝업 카드
-        if (_selectedPoint != null)
-          Positioned(
-            left: 10,
-            right: 10,
-            bottom: 10,
-            child: _buildSelectedPointPopup(_selectedPoint!),
-          ),
       ],
     );
   }
@@ -1308,130 +1340,34 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     );
   }
 
-  Widget _buildSelectedPointPopup(AnalyticsCallPoint pt) {
-    final pColor = Color(
-      CallPointAnalyticsService.platformColorValue(pt.programName),
-    );
-    return Container(
-      padding: const EdgeInsets.all(11),
-      decoration: BoxDecoration(
-        color: const Color(0xF51F222A),
-        borderRadius: BorderRadius.circular(13),
-        border: Border(
-          left: BorderSide(color: pColor, width: 4),
-          top: const BorderSide(color: Color(0x55FFC700)),
-          right: const BorderSide(color: Color(0x55FFC700)),
-          bottom: const BorderSide(color: Color(0x55FFC700)),
-        ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 12),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: pColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Text(
-                        pt.programName,
-                        style: TextStyle(
-                          color: pColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    if (pt.displayDateTime.isNotEmpty)
-                      Text(
-                        pt.displayDateTime,
-                        style: const TextStyle(
-                          color: Color(0xFF9CA3AF),
-                          fontSize: 11.5,
-                        ),
-                      ),
-                    if (pt.fare > 0)
-                      Text(
-                        '${NumberFormat('#,###').format(pt.fare)}원',
-                        style: const TextStyle(
-                          color: Color(0xFFFFC700),
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              InkWell(
-                onTap: () => setState(() {
-                  _selectedPoint = null;
-                  _rebuildMarkers();
-                }),
-                child: const Icon(
-                  Icons.close,
-                  size: 18,
-                  color: Color(0xFF9CA3AF),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '● ${pt.startLocation}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFF3F4F6),
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '● ${pt.endLocation}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFD1D5DB),
-              fontSize: 12.5,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
+  List<AnalyticsCallPoint> _activeCallListPoints(CallPointAnalyticsResult res) {
+    if (_selectedCoordKey == null) return res.filteredPoints;
+    final matched = res.filteredPoints
+        .where((p) => _coordKeyOf(p) == _selectedCoordKey)
+        .toList();
+    if (matched.isNotEmpty) return matched;
+    if (_selectedPoint != null) return <AnalyticsCallPoint>[_selectedPoint!];
+    return res.filteredPoints;
   }
 
   Widget _buildAnalyticsPanel(
     CallPointAnalyticsResult res, {
     required ScrollController? scrollController,
     required bool showGrabBar,
+    required double sheetViewportHeight,
   }) {
     final cardColor = Theme.of(context).cardTheme.color ?? const Color(0xFF1F222A);
     final dividerColor = Theme.of(context).dividerColor;
     final primary = Theme.of(context).primaryColor;
     final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final callListCount = _activeCallListPoints(res).length;
 
-    return Column(
+    Widget headerWidget = Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (showGrabBar)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               color: cardColor,
               borderRadius: const BorderRadius.vertical(
@@ -1481,15 +1417,51 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
             children: [
               _sheetTabBtn(0, '🔥 핫스팟 TOP', primary),
               _sheetTabBtn(1, '⏰ 시간·플랫폼', primary),
-              _sheetTabBtn(2, '📋 콜 목록', primary),
+              _sheetTabBtn(2, '📋 콜 목록 ($callListCount)', primary),
             ],
           ),
         ),
+      ],
+    );
 
-        // 탭 콘텐츠
+    if (showGrabBar) {
+      headerWidget = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onVerticalDragUpdate: (details) {
+          if (!_sheetController.isAttached || sheetViewportHeight <= 0) return;
+          final delta = -(details.primaryDelta ?? 0) / sheetViewportHeight;
+          final next = (_sheetController.size + delta).clamp(0.22, 0.86);
+          _sheetController.jumpTo(next);
+        },
+        onVerticalDragEnd: (details) {
+          if (!_sheetController.isAttached) return;
+          final v = details.primaryVelocity ?? 0;
+          final cur = _sheetController.size;
+          if (v < -300) {
+            _animateSheetTo(cur < 0.44 ? 0.44 : 0.86);
+          } else if (v > 300) {
+            _animateSheetTo(cur > 0.44 ? 0.44 : 0.22);
+          } else {
+            const snaps = <double>[0.22, 0.44, 0.86];
+            double best = snaps.first;
+            for (final s in snaps) {
+              if ((cur - s).abs() < (cur - best).abs()) best = s;
+            }
+            _animateSheetTo(best);
+          }
+        },
+        child: headerWidget,
+      );
+    }
+
+    return Column(
+      children: [
+        headerWidget,
+        // 탭 콘텐츠: AlwaysScrollableScrollPhysics로 항목 수가 적어도 시트 드래그 100% 보장
         Expanded(
           child: ListView(
             controller: scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(12, 10, 12, 18 + bottomInset),
             children: [
               if (_sheetTabIndex == 0) ..._buildHotspotItems(res),
@@ -1531,7 +1503,10 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     final active = _sheetTabIndex == index;
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _sheetTabIndex = index),
+        onTap: () {
+          setState(() => _sheetTabIndex = index);
+          _scrollSheetToTop();
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
@@ -1648,17 +1623,21 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           setState(() {
             if (isSelected) {
               _selectedRegion = null;
             } else {
               _selectedRegion = r.region;
-              _moveCamera(LatLng(r.centerLat, r.centerLng), zoom: 14.0);
             }
             _selectedPoint = null;
+            _selectedCoordKey = null;
             _recompute();
           });
+          if (!isSelected) {
+            await _moveCamera(LatLng(r.centerLat, r.centerLng), zoom: 14.2);
+            await _updateVisibleBounds();
+          }
         },
         borderRadius: BorderRadius.circular(12),
         child: Container(
@@ -1806,13 +1785,31 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       else
         for (final b in buckets) _buildHourBar(b, maxCnt),
       const SizedBox(height: 14),
-      const Text(
-        '📊 플랫폼별 콜 비중 & 평균 단가',
-        style: TextStyle(
-          color: Color(0xFF4DABF7),
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            '📊 플랫폼별 콜 비중 & 평균 단가 (탭 시 필터)',
+            style: TextStyle(
+              color: Color(0xFF4DABF7),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (_platformFilter != 'all')
+            InkWell(
+              onTap: () => setState(() {
+                _platformFilter = 'all';
+                _selectedPoint = null;
+                _selectedCoordKey = null;
+                _recompute();
+              }),
+              child: const Text(
+                '전체보기',
+                style: TextStyle(color: Color(0xFF60A5FA), fontSize: 11),
+              ),
+            ),
+        ],
       ),
       const SizedBox(height: 8),
       if (res.platformBreakdown.isEmpty)
@@ -1842,6 +1839,8 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
       child: InkWell(
         onTap: () => setState(() {
           _exactHour = isSelected ? null : b.hour;
+          _selectedPoint = null;
+          _selectedCoordKey = null;
           _recompute();
         }),
         borderRadius: BorderRadius.circular(10),
@@ -1932,48 +1931,119 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
 
   Widget _buildPlatformBar(PlatformBreakdownStat p) {
     final c = Color(p.colorValue);
+    final isSelected = _platformFilter == p.key;
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F222A),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFF2C2F38)),
-        ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${p.name} (${p.count}건 · ${p.ratio}%)',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '평균 ${NumberFormat('#,###').format(p.avgFare)}원',
-                  style: const TextStyle(
-                    color: Color(0xFFFFC700),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
+      child: InkWell(
+        onTap: () => setState(() {
+          _platformFilter = isSelected ? 'all' : p.key;
+          _selectedPoint = null;
+          _selectedCoordKey = null;
+          _recompute();
+        }),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? c.withValues(alpha: 0.16)
+                : const Color(0xFF1F222A),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? c : const Color(0xFF2C2F38),
+              width: isSelected ? 1.4 : 1.0,
             ),
-            const SizedBox(height: 6),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(99),
-              child: LinearProgressIndicator(
-                value: (p.ratio / 100.0).clamp(0.05, 1.0),
-                minHeight: 6,
-                backgroundColor: const Color(0xFF121418),
-                valueColor: AlwaysStoppedAnimation<Color>(c),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '${p.name} (${p.count}건 · ${p.ratio}%)',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: c.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '선택됨',
+                            style: TextStyle(
+                              color: c,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  Text(
+                    '평균 ${NumberFormat('#,###').format(p.avgFare)}원',
+                    style: const TextStyle(
+                      color: Color(0xFFFFC700),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  value: (p.ratio / 100.0).clamp(0.05, 1.0),
+                  minHeight: 6,
+                  backgroundColor: const Color(0xFF121418),
+                  valueColor: AlwaysStoppedAnimation<Color>(c),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _activeFilterBadge(String label, VoidCallback onRemove) {
+    return InkWell(
+      onTap: onRemove,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: const Color(0x26FFC700),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0x88FFC700)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFFFC700),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(width: 4),
+            const Icon(Icons.close, size: 13, color: Color(0xFFFFC700)),
           ],
         ),
       ),
@@ -1981,11 +2051,58 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
   }
 
   List<Widget> _buildCallListItems(CallPointAnalyticsResult res) {
-    final list = res.filteredPoints;
+    final list = _activeCallListPoints(res);
     final displayCount = math.min(list.length, 200);
+
+    final List<Widget> activeChips = [
+      if (_selectedCoordKey != null)
+        _activeFilterBadge(
+          '📌 선택 좌표 ${list.length}건 · 전체보기',
+          () => setState(() {
+            _selectedCoordKey = null;
+            _selectedPoint = null;
+            _rebuildMarkers();
+          }),
+        ),
+      if (_selectedRegion != null)
+        _activeFilterBadge(
+          '📍 $_selectedRegion',
+          () => setState(() {
+            _selectedRegion = null;
+            _selectedCoordKey = null;
+            _selectedPoint = null;
+            _recompute();
+          }),
+        ),
+      if (_exactHour != null)
+        _activeFilterBadge(
+          '⏰ ${_exactHour.toString().padLeft(2, '0')}시',
+          () => setState(() {
+            _exactHour = null;
+            _selectedCoordKey = null;
+            _selectedPoint = null;
+            _recompute();
+          }),
+        ),
+      if (_platformFilter != 'all')
+        _activeFilterBadge(
+          '플랫폼: $_platformFilter',
+          () => setState(() {
+            _platformFilter = 'all';
+            _selectedCoordKey = null;
+            _selectedPoint = null;
+            _recompute();
+          }),
+        ),
+    ];
+
     if (displayCount == 0) {
-      return const [
-        Padding(
+      return [
+        if (activeChips.isNotEmpty) ...[
+          Wrap(spacing: 6, runSpacing: 6, children: activeChips),
+          const SizedBox(height: 10),
+        ],
+        const Padding(
           padding: EdgeInsets.symmetric(vertical: 28),
           child: Center(
             child: Text(
@@ -1998,10 +2115,16 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     }
 
     return [
+      if (activeChips.isNotEmpty) ...[
+        Wrap(spacing: 6, runSpacing: 6, children: activeChips),
+        const SizedBox(height: 8),
+      ],
       Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Text(
-          '표시 $displayCount건 / 총 ${NumberFormat('#,###').format(list.length)}건 (탭 시 지도 이동)',
+          _selectedCoordKey != null
+              ? '선택한 좌표의 콜 $displayCount건 (탭 시 지도 이동)'
+              : '표시 $displayCount건 / 필터 결과 ${NumberFormat('#,###').format(list.length)}건 (탭 시 지도 이동)',
           style: const TextStyle(color: Color(0xFF9FA3AE), fontSize: 11.5),
         ),
       ),
@@ -2013,15 +2136,19 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
     final pColor = Color(
       CallPointAnalyticsService.platformColorValue(pt.programName),
     );
+    final isHighlighted = _selectedCoordKey != null &&
+        _coordKeyOf(pt) == _selectedCoordKey;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           setState(() {
             _selectedPoint = pt;
+            _selectedCoordKey = _coordKeyOf(pt);
             _rebuildMarkers();
           });
-          _moveCamera(LatLng(pt.lat, pt.lng), zoom: 15.0);
+          await _moveCamera(LatLng(pt.lat, pt.lng), zoom: 15.2);
+          await _updateVisibleBounds();
           _animateSheetTo(0.22);
         },
         borderRadius: BorderRadius.circular(13),
@@ -2030,7 +2157,14 @@ class _PremiumCallPointMapPageState extends State<PremiumCallPointMapPage> {
           decoration: BoxDecoration(
             color: const Color(0xFF282B33),
             borderRadius: BorderRadius.circular(13),
-            border: Border(left: BorderSide(color: pColor, width: 4)),
+            border: isHighlighted
+                ? Border(
+                    left: BorderSide(color: pColor, width: 4),
+                    top: const BorderSide(color: Color(0x88FFC700)),
+                    right: const BorderSide(color: Color(0x88FFC700)),
+                    bottom: const BorderSide(color: Color(0x88FFC700)),
+                  )
+                : Border(left: BorderSide(color: pColor, width: 4)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
