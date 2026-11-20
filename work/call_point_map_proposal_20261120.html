@@ -1,0 +1,1665 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DBROS 콜포인트맵 (프리미엄 전용) 기획·반응형 UI/UX 제안서 & 실물 프로토타입</title>
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+  @import url('https://webfontworld.github.io/gmarket/GmarketSans.css');
+
+  :root {
+    /* DbrosApp AppTheme.darkTheme 정확한 컬러 토큰 */
+    --app-bg: #121418;
+    --app-card: #1F222A;
+    --app-card-deep: #16181E;
+    --app-card-elev: #282B33;
+    --app-border: #2C2F38;
+    --app-gold: #FFC700;
+    --app-gold-soft: rgba(255, 199, 0, 0.14);
+    --app-gold-border: rgba(255, 199, 0, 0.45);
+    --app-green: #00E676;
+    --app-blue: #4DABF7;
+    --app-blue-deep: #3B82F6;
+    --app-red: #FF5252;
+    --app-rose: #EF4444;
+    --app-amber: #F59E0B;
+    --app-purple: #A855F7;
+    --app-text: #FFFFFF;
+    --app-text-sub: #9FA3AE;
+    --app-text-muted: #6E717C;
+
+    --page-bg: #0B0D11;
+    --panel-bg: #151820;
+    --panel-border: #242834;
+    --sim-font-scale: 1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'GmarketSans', 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--page-bg);
+    color: var(--app-text);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── 상단 보고서 헤더 ── */
+  .doc-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(11, 13, 17, 0.94);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--panel-border);
+    padding: 14px 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .doc-brand { display: flex; align-items: center; gap: 12px; }
+  .doc-logo {
+    width: 38px; height: 38px; border-radius: 11px;
+    background: linear-gradient(135deg, #FFC700, #F59E0B);
+    color: #000; display: grid; place-items: center;
+    font-weight: 900; font-size: 18px;
+    box-shadow: 0 4px 16px rgba(255, 199, 0, 0.28);
+  }
+  .doc-title h1 { font-size: 16.5px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
+  .doc-title p { font-size: 12px; color: var(--app-text-sub); font-family: 'Pretendard', sans-serif; margin-top: 2px; }
+  .header-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pill {
+    font-family: 'Pretendard', sans-serif; font-size: 11.5px; font-weight: 700;
+    padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--panel-border); background: #181C25; color: var(--app-text-sub);
+  }
+  .pill.gold { background: rgba(255, 199, 0, 0.14); border-color: rgba(255, 199, 0, 0.45); color: var(--app-gold); }
+  .pill.green { background: rgba(0, 230, 118, 0.12); border-color: rgba(0, 230, 118, 0.4); color: var(--app-green); }
+  .pill.blue { background: rgba(59, 130, 246, 0.14); border-color: rgba(59, 130, 246, 0.45); color: #60A5FA; }
+
+  /* ── 메인 레이아웃 (폴드 모드 시 자동 상하 전환) ── */
+  .main-grid {
+    max-width: 1520px;
+    margin: 0 auto;
+    padding: 24px 24px 68px;
+    display: grid;
+    grid-template-columns: 440px 1fr;
+    gap: 28px;
+    align-items: start;
+    transition: all 0.25s;
+  }
+  .main-grid.wide-preview {
+    grid-template-columns: 760px 1fr;
+  }
+  @media (max-width: 1260px) {
+    .main-grid, .main-grid.wide-preview {
+      grid-template-columns: 1fr;
+    }
+    .phone-stage { position: static !important; }
+  }
+
+  /* ── 좌측: 인터랙티브 실물 앱 시뮬레이터 ── */
+  .phone-stage {
+    position: sticky;
+    top: 82px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .sim-controls {
+    width: 100%;
+    max-width: 720px;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 16px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .sim-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .sim-label {
+    font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 700;
+    color: var(--app-text-sub); min-width: 68px;
+  }
+  .seg-group {
+    display: flex; background: #0F1117; border: 1px solid var(--app-border);
+    border-radius: 10px; padding: 3px; gap: 3px; flex: 1;
+  }
+  .seg-btn {
+    flex: 1; border: none; background: transparent; color: var(--app-text-sub);
+    font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 700;
+    padding: 6px 6px; border-radius: 7px; cursor: pointer; transition: all 0.16s;
+    white-space: nowrap;
+  }
+  .seg-btn.active { background: var(--app-gold); color: #000; box-shadow: 0 2px 8px rgba(255, 199, 0, 0.24); }
+  .seg-btn.active.green { background: var(--app-green); color: #000; }
+  .seg-btn.active.blue { background: #3B82F6; color: #fff; }
+
+  /* ── 반응형 디바이스 프레임 (소형 340 / 일반 390 / 폴드 펼침 720) ── */
+  .phone-frame {
+    width: 390px;
+    height: 780px;
+    background: var(--app-bg);
+    border-radius: 36px;
+    border: 7px solid #222630;
+    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.72), 0 0 0 1px rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: width 0.28s ease, height 0.28s ease, border-radius 0.28s ease;
+  }
+  .phone-frame.dev-compact {
+    width: 340px;
+    height: 690px;
+    border-radius: 30px;
+  }
+  .phone-frame.dev-standard {
+    width: 390px;
+    height: 780px;
+    border-radius: 36px;
+  }
+  .phone-frame.dev-fold {
+    width: 720px;
+    height: 690px;
+    border-radius: 26px;
+  }
+
+  /* 큰 글꼴 시뮬레이션 배율 */
+  .phone-frame.font-large { --sim-font-scale: 1.18; }
+  .phone-frame.font-normal { --sim-font-scale: 1; }
+
+  .device-spec-pill {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: #93C5FD;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 999px;
+    padding: 4px 12px;
+  }
+
+  /* 상태바 */
+  .status-bar {
+    height: 26px; background: var(--app-card); padding: 0 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 600; color: #D1D5DB; flex-shrink: 0;
+  }
+
+  .app-screen { flex: 1; display: none; flex-direction: column; overflow: hidden; background: var(--app-bg); position: relative; }
+  .app-screen.active { display: flex; }
+
+  .app-bar {
+    height: 46px; background: var(--app-card); border-bottom: 1px solid var(--app-border);
+    padding: 0 12px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  .app-bar-title { font-size: 15.5px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+  .app-bar-btn {
+    background: transparent; border: none; color: #D1D5DB; cursor: pointer;
+    padding: 6px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .app-bar-btn:hover { background: rgba(255,255,255,0.06); }
+
+  /* ── 홈 화면 바디 (모바일 1열 ↔ 폴드 펼침 2열 실제 home_page.dart 구조 재현) ── */
+  .home-scroll {
+    flex: 1; overflow-y: auto; padding: 12px 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .dev-fold .home-scroll {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    align-content: start;
+  }
+  .home-col-left, .home-col-right {
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .home-scroll::-webkit-scrollbar, .sheet-scroll::-webkit-scrollbar { width: 4px; }
+  .home-scroll::-webkit-scrollbar-thumb, .sheet-scroll::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
+
+  /* 폴드 좌측 전용 일간 차트 플레이스홀더 (실제 home_page.dart HomeDailyChartsPanel) */
+  .fold-chart-card {
+    display: none;
+    background: var(--app-card); border: 1px solid var(--app-border);
+    border-radius: 16px; padding: 16px;
+    flex-direction: column; gap: 10px;
+  }
+  .dev-fold .fold-chart-card { display: flex; }
+
+  /* 오늘 순익 요약 카드 */
+  .summary-card { background: var(--app-card); border: 1px solid var(--app-border); border-radius: 16px; overflow: hidden; }
+  .summary-top { padding: 14px 15px 12px; }
+  .summary-date-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .summary-date-left { display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .summary-date { font-size: calc(15.5px * var(--sim-font-scale)); font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .weather-chip {
+    font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 600;
+    padding: 2px 6px; border-radius: 14px;
+    background: rgba(255, 199, 0, 0.10); border: 1px solid rgba(255, 199, 0, 0.30); color: #F3F4F6; white-space: nowrap;
+  }
+  .summary-mid { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 12px; gap: 8px; }
+  .work-timer-box { display: flex; flex-direction: column; gap: 4px; }
+  .work-timer-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0, 230, 118, 0.14); border: 1px solid rgba(0, 230, 118, 0.45);
+    color: var(--app-green); font-family: 'Pretendard', sans-serif; font-size: 10.5px; font-weight: 700;
+    padding: 3px 8px; border-radius: 10px; width: fit-content;
+  }
+  .work-timer-time { font-size: 14px; font-weight: 700; color: #E5E7EB; }
+  .net-income-box { text-align: right; }
+  .net-label { font-family: 'Pretendard', sans-serif; font-size: calc(11.5px * var(--sim-font-scale)); color: #D1D5DB; margin-bottom: 3px; }
+  .net-amount { font-size: calc(27px * var(--sim-font-scale)); font-weight: 700; color: var(--app-gold); line-height: 1.05; }
+  .dev-compact .net-amount { font-size: calc(23px * var(--sim-font-scale)); }
+  .net-amount span { font-size: 13px; color: #fff; font-weight: 500; margin-left: 2px; }
+  .summary-subbar {
+    margin: 0 14px 12px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; display: flex; align-items: center;
+  }
+  .subbar-cell {
+    flex: 1; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between;
+    font-family: 'Pretendard', sans-serif; font-size: calc(12px * var(--sim-font-scale));
+  }
+  .subbar-div { width: 1px; height: 18px; background: rgba(255, 255, 255, 0.10); }
+  .val-blue { color: var(--app-blue); font-weight: 700; font-size: calc(13.5px * var(--sim-font-scale)); }
+  .val-red { color: var(--app-red); font-weight: 700; font-size: calc(13.5px * var(--sim-font-scale)); }
+
+  /* ── 유틸리티 버튼 라인 (_buildUtilsRow) — 반응형 3분할 ── */
+  .utils-row { display: grid; gap: 8px; }
+  .utils-row.cols-2 { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .utils-row.cols-3 { grid-template-columns: 1fr 1fr 1.12fr; gap: 8px; }
+  .dev-compact .utils-row.cols-3 { gap: 6px; }
+
+  .util-btn {
+    position: relative;
+    min-height: 60px;
+    background: var(--app-card);
+    border: 1px solid var(--app-gold);
+    border-radius: 14px;
+    color: var(--app-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    cursor: pointer;
+    font-family: 'GmarketSans', 'Pretendard', sans-serif;
+    font-size: calc(12px * var(--sim-font-scale));
+    font-weight: 700;
+    padding: 8px 5px;
+    transition: transform 0.12s, background 0.18s;
+  }
+  .util-btn:active { transform: scale(0.97); }
+  .utils-row.cols-3 .util-btn {
+    min-height: 64px;
+    flex-direction: column;
+    gap: 4px;
+    font-size: calc(11.5px * var(--sim-font-scale));
+  }
+  .dev-compact .utils-row.cols-3 .util-btn {
+    min-height: 62px;
+    font-size: 10.8px; /* FittedBox scaleDown 시뮬레이션 */
+    padding: 7px 3px;
+  }
+  .util-btn .u-ico { font-size: 17px; line-height: 1; }
+  .dev-compact .util-btn .u-ico { font-size: 15px; }
+  .util-btn.prem-highlight {
+    background: linear-gradient(145deg, rgba(255, 199, 0, 0.20), rgba(31, 34, 42, 0.96) 65%);
+    border: 1.5px solid var(--app-gold);
+    box-shadow: 0 0 16px rgba(255, 199, 0, 0.18);
+    color: #FFE066;
+  }
+  .prem-corner-badge {
+    position: absolute; top: -8px; right: 5px;
+    background: linear-gradient(90deg, #FFC700, #FF9F0A); color: #000;
+    font-family: 'Pretendard', sans-serif; font-size: 9px; font-weight: 900;
+    padding: 1.5px 6px; border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); white-space: nowrap;
+  }
+  .prem-corner-badge.locked { background: linear-gradient(90deg, #FF9F0A, #FF5252); color: #fff; }
+
+  /* 자동 캡처 배너 */
+  .auto-cap-bar {
+    background: var(--app-card); border: 1.2px solid var(--app-green); border-radius: 14px;
+    padding: 9px 11px; display: flex; align-items: center; gap: 9px;
+  }
+  .auto-cap-ico {
+    width: 32px; height: 32px; border-radius: 9px; background: rgba(0, 230, 118, 0.15);
+    color: var(--app-green); display: grid; place-items: center; font-size: 15px; flex-shrink: 0;
+  }
+  .auto-cap-mid { flex: 1; min-width: 0; }
+  .auto-cap-title { display: flex; align-items: center; gap: 5px; font-size: calc(12px * var(--sim-font-scale)); font-weight: 700; }
+  .badge-on { font-family: 'Pretendard', sans-serif; font-size: 9.5px; font-weight: 800; padding: 1.5px 5px; border-radius: 6px; background: rgba(0, 230, 118, 0.18); color: var(--app-green); }
+  .auto-cap-sub { font-family: 'Pretendard', sans-serif; font-size: 10.5px; color: var(--app-text-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .auto-cap-cta { font-family: 'Pretendard', sans-serif; font-size: 10.5px; font-weight: 700; padding: 5px 8px; border-radius: 8px; background: #282C37; border: 1px solid rgba(255,255,255,0.12); color: var(--app-text-sub); flex-shrink: 0; }
+
+  .reg-row { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+  .reg-card {
+    min-height: 76px; background: var(--app-card); border: 1px solid var(--app-border); border-radius: 15px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+    font-size: calc(12.8px * var(--sim-font-scale)); font-weight: 700; color: #fff; padding: 8px 6px;
+  }
+  .reg-card .r-ico { font-size: 22px; }
+
+  .yt-card { background: var(--app-card); border: 1px solid var(--app-border); border-radius: 15px; padding: 12px 13px; display: flex; flex-direction: column; gap: 7px; }
+  .yt-head { font-size: 11px; font-weight: 700; color: var(--app-gold); }
+  .yt-body { display: flex; gap: 9px; align-items: center; }
+  .yt-thumb {
+    width: 104px; height: 60px; border-radius: 9px; background: linear-gradient(135deg, #272B36, #181B22);
+    border: 1px solid var(--app-border); display: grid; place-items: center; color: var(--app-gold); font-size: 20px; flex-shrink: 0;
+  }
+  .yt-meta { min-width: 0; font-family: 'Pretendard', sans-serif; }
+  .yt-ch { font-size: 10.5px; color: var(--app-text-sub); margin-bottom: 2px; }
+  .yt-title { font-size: 11.5px; color: #F3F4F6; font-weight: 600; line-height: 1.35; }
+
+  .bottom-nav {
+    height: 54px; background: var(--app-bg); border-top: 1px solid var(--app-border);
+    display: grid; grid-template-columns: repeat(5, 1fr); flex-shrink: 0;
+  }
+  .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 10px; font-weight: 700; color: var(--app-text-muted); }
+  .nav-item.active { color: var(--app-gold); }
+  .nav-item .n-ico { font-size: 16px; line-height: 1; }
+
+  /* ══════════════════════════════════════════════════
+     화면 2: 반응형 콜포인트맵 (모바일 상하 ↔ 폴드/태블릿 좌우 2열)
+  ══════════════════════════════════════════════════ */
+  .cp-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  /* 폴드 펼침(>=600dp)에서는 좌측 지도(56%) + 우측 분석 패널(44%) 자동 2열 분할! */
+  .dev-fold .cp-body {
+    flex-direction: row;
+  }
+  .cp-map-column {
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .dev-fold .cp-map-column {
+    flex: 1.25;
+    min-width: 0;
+    height: 100%;
+    border-right: 1px solid var(--app-border);
+  }
+
+  /* 필터 바 (접기/펼치기 지원!) */
+  .cp-filter-strip {
+    background: var(--app-card); border-bottom: 1px solid var(--app-border);
+    padding: 7px 10px; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0;
+  }
+  .filter-summary-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    font-family: 'Pretendard', sans-serif; font-size: 11px;
+  }
+  .filter-collapse-btn {
+    border: 1px solid var(--app-border); background: #14171D; color: var(--app-gold);
+    font-family: 'Pretendard', sans-serif; font-size: 10.5px; font-weight: 700;
+    padding: 3px 8px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+  }
+  .filter-chips-wrap { display: flex; flex-direction: column; gap: 5px; }
+  .filter-chips-wrap.collapsed { display: none; }
+
+  .chip-scroll { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; }
+  .chip-scroll::-webkit-scrollbar { display: none; }
+  .f-chip {
+    flex-shrink: 0; font-family: 'Pretendard', sans-serif; font-size: 11px; font-weight: 700;
+    padding: 4.5px 9px; border-radius: 8px; background: #14171D; border: 1px solid var(--app-border);
+    color: var(--app-text-sub); cursor: pointer;
+  }
+  .f-chip.active-gold { background: var(--app-gold); border-color: var(--app-gold); color: #000; }
+  .f-chip.active-blue { background: #3B82F6; border-color: #3B82F6; color: #fff; }
+  .f-chip.active-purple { background: #7C3AED; border-color: #8B5CF6; color: #fff; }
+
+  /* 4대 KPI 스트립: 일반 4열 ↔ 소형/큰 글꼴 자동 2x2 그리드 전환! */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    padding: 7px 10px;
+    background: #14161C;
+    border-bottom: 1px solid var(--app-border);
+    flex-shrink: 0;
+  }
+  .dev-compact .kpi-strip,
+  .font-large .kpi-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .kpi-mini {
+    background: var(--app-card); border: 1px solid var(--app-border); border-radius: 10px;
+    padding: 6px 8px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .dev-compact .kpi-mini,
+  .font-large .kpi-mini {
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 5px 10px;
+  }
+  .kpi-mini .k-lbl { font-family: 'Pretendard', sans-serif; font-size: calc(9.5px * var(--sim-font-scale)); color: var(--app-text-sub); }
+  .kpi-mini .k-val { font-family: 'Pretendard', sans-serif; font-size: calc(12.5px * var(--sim-font-scale)); font-weight: 800; color: #fff; margin-top: 2px; }
+  .dev-compact .kpi-mini .k-val, .font-large .kpi-mini .k-val { margin-top: 0; }
+  .kpi-mini .k-val.gold { color: var(--app-gold); }
+  .kpi-mini .k-val.rose { color: #FB7185; }
+  .kpi-mini .k-val.green { color: var(--app-green); }
+
+  /* 지도 뷰포트 (시트 접기/중간/펼치기에 따라 동적 높이 연동!) */
+  .map-viewport {
+    position: relative;
+    height: 230px;
+    background:
+      radial-gradient(circle at 60% 44%, rgba(59, 130, 246, 0.10), transparent 55%),
+      radial-gradient(circle at 28% 68%, rgba(255, 199, 0, 0.08), transparent 45%),
+      #0F131A;
+    overflow: hidden;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--app-border);
+    transition: height 0.25s ease;
+  }
+  .map-viewport.sheet-collapsed { height: 380px; }
+  .dev-compact .map-viewport { height: 185px; }
+  .dev-compact .map-viewport.sheet-collapsed { height: 300px; }
+  .map-viewport.sheet-expanded { height: 110px; }
+  .dev-fold .map-viewport,
+  .dev-fold .map-viewport.sheet-collapsed,
+  .dev-fold .map-viewport.sheet-expanded {
+    height: auto !important;
+    flex: 1;
+    border-bottom: none;
+  }
+
+  .map-grid-svg { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.42; pointer-events: none; }
+  .map-district {
+    position: absolute; font-family: 'Pretendard', sans-serif; font-size: 10px; font-weight: 700;
+    color: rgba(159, 163, 174, 0.55); pointer-events: none;
+  }
+  .map-dot {
+    position: absolute; border-radius: 50%; transform: translate(-50%, -50%);
+    cursor: pointer; transition: transform 0.15s; border: 1.5px solid rgba(255, 255, 255, 0.9);
+  }
+  .map-dot:hover, .map-dot.selected {
+    transform: translate(-50%, -50%) scale(1.38); z-index: 15;
+    box-shadow: 0 0 0 4px rgba(255, 199, 0, 0.35);
+  }
+
+  .map-float-top {
+    position: absolute; top: 8px; left: 8px; right: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+    pointer-events: none; z-index: 20; gap: 6px;
+  }
+  .map-mode-toggle {
+    pointer-events: auto; display: inline-flex; background: rgba(18, 20, 24, 0.9);
+    border: 1px solid var(--app-border); border-radius: 9px; padding: 2px; gap: 2px;
+  }
+  .mm-btn {
+    border: none; background: transparent; color: var(--app-text-sub);
+    font-family: 'Pretendard', sans-serif; font-size: 10px; font-weight: 700;
+    padding: 4px 7px; border-radius: 7px; cursor: pointer;
+  }
+  .mm-btn.active { background: var(--app-gold); color: #000; }
+  .radius-pill {
+    pointer-events: auto; background: rgba(18, 20, 24, 0.9); border: 1px solid rgba(0, 230, 118, 0.45);
+    color: var(--app-green); font-family: 'Pretendard', sans-serif; font-size: 10px; font-weight: 800;
+    padding: 5px 8px; border-radius: 9px; cursor: pointer;
+  }
+  .map-legend {
+    position: absolute; bottom: 8px; left: 8px; z-index: 20;
+    background: rgba(18, 20, 24, 0.88); border: 1px solid var(--app-border); border-radius: 9px;
+    padding: 4px 8px; display: flex; gap: 7px; align-items: center;
+    font-family: 'Pretendard', sans-serif; font-size: 9.5px; color: #E5E7EB;
+  }
+  .lg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 3px; }
+
+  .map-popup {
+    position: absolute; bottom: 34px; right: 8px; left: 8px; z-index: 25;
+    background: rgba(31, 34, 42, 0.97); border: 1px solid var(--app-gold-border); border-left: 4px solid var(--app-gold);
+    border-radius: 12px; padding: 9px 11px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.65);
+    display: none; font-family: 'Pretendard', sans-serif;
+  }
+  .map-popup.show { display: block; }
+  .mp-head { display: flex; align-items: center; justify-content: space-between; font-size: 11px; margin-bottom: 5px; }
+  .mp-route { font-size: 11.5px; color: #F3F4F6; line-height: 1.45; }
+
+  /* 하단 드래그 시트 (모바일) ↔ 우측 고정 사이드 패널 (폴드/태블릿) */
+  .sheet-panel {
+    flex: 1; display: flex; flex-direction: column; background: var(--app-bg); overflow: hidden; min-width: 0;
+  }
+  .dev-fold .sheet-panel {
+    flex: 1;
+    height: 100%;
+  }
+  .sheet-grab-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 5px 12px; background: var(--app-card); border-bottom: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+  }
+  .dev-fold .sheet-grab-row { display: none; }
+  .sheet-handle { width: 34px; height: 4px; border-radius: 99px; background: #4A4D55; }
+  .sheet-size-btns { display: flex; gap: 4px; }
+  .sheet-size-btns button {
+    border: 1px solid var(--app-border); background: #14171D; color: var(--app-text-sub);
+    font-family: 'Pretendard', sans-serif; font-size: 9.5px; font-weight: 700;
+    padding: 2px 6px; border-radius: 6px; cursor: pointer;
+  }
+  .sheet-size-btns button.active { background: var(--app-gold); border-color: var(--app-gold); color: #000; }
+
+  .sheet-tabs { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--app-card); border-bottom: 1px solid var(--app-border); flex-shrink: 0; }
+  .s-tab {
+    border: none; background: transparent; color: var(--app-text-sub);
+    font-family: 'Pretendard', sans-serif; font-size: calc(11px * var(--sim-font-scale)); font-weight: 700;
+    padding: 9px 4px; cursor: pointer; border-bottom: 2px solid transparent;
+  }
+  .s-tab.active { color: var(--app-gold); border-bottom-color: var(--app-gold); }
+  .sheet-scroll { flex: 1; overflow-y: auto; padding: 10px 11px 16px; }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .rank-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-family: 'Pretendard', sans-serif; font-size: 11px; color: var(--app-text-sub); gap: 6px; }
+  .sort-mini { display: flex; gap: 4px; flex-shrink: 0; }
+  .sort-mini button {
+    border: 1px solid var(--app-border); background: var(--app-card); color: var(--app-text-sub);
+    font-family: 'Pretendard', sans-serif; font-size: 10px; font-weight: 700; padding: 3px 7px; border-radius: 6px; cursor: pointer;
+  }
+  .sort-mini button.active { background: var(--app-gold); border-color: var(--app-gold); color: #000; }
+  .rank-item {
+    background: var(--app-card); border: 1px solid var(--app-border); border-radius: 12px;
+    padding: 9px 10px; margin-bottom: 7px; display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; font-family: 'Pretendard', sans-serif; gap: 8px;
+  }
+  .rank-item.selected { border-color: var(--app-gold); background: rgba(255, 199, 0, 0.08); }
+  .rank-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .rank-no { width: 22px; height: 22px; border-radius: 50%; background: #2C2F38; color: #D1D5DB; font-size: 11px; font-weight: 800; display: grid; place-items: center; flex-shrink: 0; }
+  .rank-no.top3 { background: var(--app-gold); color: #000; }
+  .rank-name { font-size: calc(12.5px * var(--sim-font-scale)); font-weight: 800; color: #fff; }
+  .rank-meta { font-size: calc(10.5px * var(--sim-font-scale)); color: var(--app-text-sub); margin-top: 2px; }
+  .rank-fare { text-align: right; flex-shrink: 0; }
+  .rank-fare .rf-val { font-size: calc(12.5px * var(--sim-font-scale)); font-weight: 800; color: var(--app-gold); }
+  .rank-fare .rf-sub { font-size: 9.5px; color: var(--app-text-sub); }
+
+  .bar-row { background: var(--app-card); border: 1px solid var(--app-border); border-radius: 10px; padding: 7px 10px; margin-bottom: 6px; font-family: 'Pretendard', sans-serif; }
+  .bar-top { display: flex; justify-content: space-between; font-size: calc(11px * var(--sim-font-scale)); margin-bottom: 5px; gap: 6px; flex-wrap: wrap; }
+  .bar-track { height: 6px; border-radius: 99px; background: #121418; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; }
+
+  .call-card {
+    background: var(--app-card-elev); border-radius: 13px; border-left: 4px solid #3B82F6;
+    padding: 10px 11px; margin-bottom: 8px; font-family: 'Pretendard', sans-serif; cursor: pointer;
+  }
+  .call-card-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 7px; flex-wrap: wrap; }
+  .cc-left { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .cc-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 5px; }
+  .cc-time { font-size: calc(11px * var(--sim-font-scale)); color: #9CA3AF; }
+  .cc-fare { font-size: calc(12px * var(--sim-font-scale)); font-weight: 800; color: var(--app-gold); }
+  .cc-route { font-size: calc(11.8px * var(--sim-font-scale)); color: #F3F4F6; font-weight: 600; line-height: 1.45; }
+  .cc-dot-b { color: #3B82F6; margin-right: 4px; }
+  .cc-dot-r { color: #EF4444; margin-right: 4px; }
+
+  /* 비구독자 프리미엄 전용 잠금 모달 */
+  .paywall-overlay {
+    position: absolute; inset: 0; z-index: 40;
+    background: rgba(10, 12, 16, 0.78); backdrop-filter: blur(7px);
+    display: none; align-items: center; justify-content: center; padding: 18px;
+  }
+  .paywall-overlay.show { display: flex; }
+  .glass-dialog {
+    width: 100%; max-width: 340px; background: #1C1F27; border: 1px solid rgba(255, 199, 0, 0.38);
+    border-radius: 20px; padding: 18px 16px 14px; box-shadow: 0 18px 46px rgba(0, 0, 0, 0.72); font-family: 'Pretendard', sans-serif;
+  }
+  .gd-icon {
+    width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 199, 0, 0.16);
+    border: 1px solid rgba(255, 199, 0, 0.4); color: var(--app-gold);
+    display: grid; place-items: center; font-size: 21px; margin: 0 auto 9px;
+  }
+  .gd-title { text-align: center; font-family: 'GmarketSans', sans-serif; font-size: 15.5px; font-weight: 700; color: #fff; margin-bottom: 7px; }
+  .gd-desc { font-size: 12.2px; color: #D1D2D4; line-height: 1.55; text-align: center; margin-bottom: 11px; }
+  .gd-perks {
+    background: #14171E; border: 1px solid var(--app-border); border-radius: 12px;
+    padding: 9px 11px; font-size: 11.5px; color: #E5E7EB; display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px;
+  }
+  .gd-no-ad { font-size: 11px; color: #FFAB40; text-align: center; font-weight: 700; margin-bottom: 11px; }
+  .gd-btn-gold {
+    width: 100%; border: none; background: linear-gradient(90deg, #FFC700, #FFB300); color: #000;
+    font-weight: 800; font-size: 12.8px; padding: 11px; border-radius: 12px; cursor: pointer; margin-bottom: 7px;
+  }
+  .gd-btn-close {
+    width: 100%; border: 1px solid rgba(255,255,255,0.12); background: #282C37; color: #D1D5DB;
+    font-weight: 600; font-size: 12px; padding: 9px; border-radius: 12px; cursor: pointer;
+  }
+
+  /* ── 우측: 기획·반응형 제안 보고서 ── */
+  .report-col { display: flex; flex-direction: column; gap: 18px; font-family: 'Pretendard', sans-serif; }
+  .r-card { background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px; padding: 20px 22px; }
+  .r-card h2 {
+    font-family: 'GmarketSans', sans-serif; font-size: 16px; font-weight: 700; color: #fff;
+    display: flex; align-items: center; gap: 9px; margin-bottom: 13px;
+  }
+  .sec-num {
+    width: 24px; height: 24px; border-radius: 8px; background: rgba(255, 199, 0, 0.16);
+    border: 1px solid rgba(255, 199, 0, 0.4); color: var(--app-gold); font-size: 12px; font-weight: 800;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .r-card p { font-size: 13.2px; color: #CBD5E1; line-height: 1.66; }
+  .callout {
+    margin-top: 12px; padding: 12px 14px; border-radius: 12px;
+    background: rgba(255, 199, 0, 0.08); border-left: 4px solid var(--app-gold);
+    font-size: 12.8px; color: #FDE68A; line-height: 1.6;
+  }
+  .callout.green { background: rgba(0, 230, 118, 0.08); border-left-color: var(--app-green); color: #BBF7D0; }
+  .callout.blue { background: rgba(59, 130, 246, 0.10); border-left-color: #3B82F6; color: #BFDBFE; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12.5px; }
+  th, td { padding: 9px 11px; border-bottom: 1px solid var(--panel-border); text-align: left; vertical-align: top; }
+  th { color: var(--app-gold); font-weight: 700; background: rgba(255, 255, 255, 0.02); font-size: 11.8px; }
+  td { color: #E2E8F0; }
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 6px; white-space: nowrap; }
+  .tag.keep { background: rgba(0, 230, 118, 0.16); color: var(--app-green); }
+  .tag.opt { background: rgba(255, 199, 0, 0.16); color: var(--app-gold); }
+  .tag.drop { background: rgba(239, 68, 68, 0.16); color: #F87171; }
+  .tag.new { background: rgba(59, 130, 246, 0.18); color: #60A5FA; }
+
+  .feature-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 11px; margin-top: 11px; }
+  @media (max-width: 720px) { .feature-grid { grid-template-columns: 1fr; } }
+  .f-box { background: #10131A; border: 1px solid var(--panel-border); border-radius: 13px; padding: 13px; }
+  .f-box h4 { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .f-box ul { padding-left: 16px; color: #9CA3AF; font-size: 12.3px; line-height: 1.65; }
+  code { background: rgba(255,255,255,0.07); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; color: #FDE68A; }
+
+  .phase-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .phase-item { display: flex; gap: 12px; background: #10131A; border: 1px solid var(--panel-border); border-radius: 13px; padding: 13px; }
+  .phase-badge {
+    min-width: 68px; height: 26px; border-radius: 8px; background: rgba(255, 199, 0, 0.15);
+    border: 1px solid rgba(255, 199, 0, 0.4); color: var(--app-gold); font-size: 11px; font-weight: 800;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .phase-content h4 { font-size: 13px; color: #fff; margin-bottom: 3px; }
+  .phase-content p { font-size: 12.3px; color: #9CA3AF; }
+  .hint-bar { font-family: 'Pretendard', sans-serif; font-size: 11.5px; color: var(--app-text-sub); text-align: center; max-width: 440px; }
+  .hint-bar b { color: var(--app-gold); }
+</style>
+</head>
+<body>
+
+  <header class="doc-header">
+    <div class="doc-brand">
+      <div class="doc-logo">D</div>
+      <div class="doc-title">
+        <h1>DBROS 「콜포인트맵 (프리미엄 전용)」 기획 · 반응형 UI/UX 제안서</h1>
+        <p>단말기 해상도(소형폰 · 일반폰 · Z폴드/태블릿 · 큰 글꼴) 대응 실물 프로토타입 반영 (v2 · 2026-11-20)</p>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="pill gold">👑 100% 프리미엄 전용 (광고 불가)</span>
+      <span class="pill blue">📐 3단계 해상도 + 큰 글꼴 대응</span>
+      <span class="pill green">💰 서버 추가 과금 0원</span>
+    </div>
+  </header>
+
+  <main class="main-grid" id="mainGrid">
+
+    <!-- ══════════════════════════════════════════════════
+         좌측: 실제 DbrosApp 디자인 + 3종 단말기 해상도 실물 시뮬레이터
+    ══════════════════════════════════════════════════ -->
+    <section class="phone-stage">
+      <div class="sim-controls">
+        <div class="sim-row">
+          <span class="sim-label">화면 보기</span>
+          <div class="seg-group">
+            <button class="seg-btn active" id="btnViewHome" onclick="switchScreen('home')">🏠 홈 화면</button>
+            <button class="seg-btn" id="btnViewMap" onclick="switchScreen('map')">👑 콜포인트맵</button>
+          </div>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">단말기 해상도</span>
+          <div class="seg-group">
+            <button class="seg-btn" id="btnDevCompact" onclick="setDevice('compact')">📱 소형 (340dp)</button>
+            <button class="seg-btn active blue" id="btnDevStandard" onclick="setDevice('standard')">📱 일반 (390dp)</button>
+            <button class="seg-btn" id="btnDevFold" onclick="setDevice('fold')">📖 폴드/태블릿 (720dp)</button>
+          </div>
+        </div>
+        <div class="sim-row">
+          <span class="sim-label">사용자 / 글꼴</span>
+          <div class="seg-group">
+            <button class="seg-btn active green" id="btnUserPrem" onclick="setUserMode('premium')">👑 프리미엄</button>
+            <button class="seg-btn" id="btnUserFree" onclick="setUserMode('free')">🔒 일반유저</button>
+          </div>
+          <div class="seg-group" style="max-width:150px;">
+            <button class="seg-btn active" id="btnFontNormal" onclick="setFontMode('normal')">글꼴 1.0x</button>
+            <button class="seg-btn" id="btnFontLarge" onclick="setFontMode('large')">큰글꼴 1.2x</button>
+          </div>
+        </div>
+        <div class="sim-row" id="rowLayoutToggle">
+          <span class="sim-label">홈 버튼 라인</span>
+          <div class="seg-group">
+            <button class="seg-btn active blue" id="btnAfter3" onclick="setHomeCols(3)">개편안 (3분할)</button>
+            <button class="seg-btn" id="btnBefore2" onclick="setHomeCols(2)">현재 앱 (2분할)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="device-spec-pill" id="deviceSpecPill">📱 일반 스마트폰 (390dp) · 4열 KPI + 드래그 바텀시트</div>
+
+      <!-- 실제 디바이스 프레임 -->
+      <div class="phone-frame dev-standard font-normal" id="phoneFrame">
+        <div class="status-bar">
+          <span>21:42</span>
+          <div style="display:flex;gap:6px;font-size:10.5px;"><span>5G</span><span>📶</span><span>🔋 87%</span></div>
+        </div>
+
+        <!-- ── [화면 1] DbrosApp 실제 홈 화면 ── -->
+        <div class="app-screen active" id="screenHome">
+          <div class="app-bar">
+            <span style="width:28px;"></span>
+            <div class="app-bar-title">
+              <span style="color:var(--app-gold);">DBROS</span>
+              <span id="homePremTag" style="font-family:Pretendard;font-size:10px;background:rgba(255,199,0,0.18);color:#FFC700;padding:2px 6px;border-radius:6px;border:1px solid rgba(255,199,0,0.4);">프리미엄</span>
+            </div>
+            <div style="display:flex;gap:2px;">
+              <button class="app-bar-btn" title="공지">🔔</button>
+              <button class="app-bar-btn" title="가이드">❓</button>
+            </div>
+          </div>
+
+          <div class="home-scroll">
+            <div class="home-col-left">
+              <!-- 오늘 순익 요약 카드 -->
+              <div class="summary-card">
+                <div class="summary-top">
+                  <div class="summary-date-row">
+                    <div class="summary-date-left">
+                      <span class="summary-date">2026년 11월 20일 (금)</span>
+                      <span class="weather-chip">🌙 8°</span>
+                    </div>
+                    <span style="color:#9FA3AE;font-size:12px;">❯</span>
+                  </div>
+                  <div class="summary-mid">
+                    <div class="work-timer-box">
+                      <span class="work-timer-badge">● 운행 중</span>
+                      <span class="work-timer-time">03:42:18</span>
+                    </div>
+                    <div class="net-income-box">
+                      <div class="net-label">오늘 순익</div>
+                      <div class="net-amount">185,000<span>원</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="summary-subbar">
+                  <div class="subbar-cell"><span>운행건수</span><span class="val-blue">6건</span></div>
+                  <div class="subbar-div"></div>
+                  <div class="subbar-cell"><span>지출</span><span class="val-red">15,000원</span></div>
+                </div>
+              </div>
+
+              <!-- 폴드 펼침 시 좌측 하단에 표시되는 기존 일간 차트 패널 -->
+              <div class="fold-chart-card">
+                <div style="font-size:13px;font-weight:700;color:var(--app-gold);">📊 오늘 시간대별 수익 차트 (폴드/태블릿 좌측 패널)</div>
+                <div style="display:flex;align-items:flex-end;gap:10px;height:130px;padding-top:12px;">
+                  <div style="flex:1;background:#2C2F38;height:40%;border-radius:6px;"></div>
+                  <div style="flex:1;background:#3B82F6;height:68%;border-radius:6px;"></div>
+                  <div style="flex:1;background:#FFC700;height:95%;border-radius:6px;"></div>
+                  <div style="flex:1;background:#00E676;height:82%;border-radius:6px;"></div>
+                  <div style="flex:1;background:#3B82F6;height:55%;border-radius:6px;"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;font-family:Pretendard;font-size:10.5px;color:#9FA3AE;">
+                  <span>19시</span><span>20시</span><span>21시</span><span>22시</span><span>23시</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="home-col-right">
+              <!-- 유틸리티 버튼 라인 (3분할 개편안) -->
+              <div class="utils-row cols-3" id="homeUtilsRow">
+                <button class="util-btn" onclick="showToast('⏱ 대기비용 계산기 바텀시트 (기존 기능 유지)')">
+                  <span class="u-ico">⏱️</span>
+                  <span id="lblWaiting">대기비용</span>
+                </button>
+                <button class="util-btn" onclick="showToast('🗺 주변 콜맵 (내 일지 + 현장 위치 지도)')">
+                  <span class="u-ico">🗺️</span>
+                  <span id="lblNearby">주변 콜맵</span>
+                </button>
+                <button class="util-btn prem-highlight" id="btnHomeCallPoint" onclick="openCallPointFromHome()">
+                  <span class="prem-corner-badge" id="homeCpBadge">프리미엄</span>
+                  <span class="u-ico">🔥</span>
+                  <span>콜포인트</span>
+                </button>
+              </div>
+
+              <!-- 화면 캡처 자동등록 배너 -->
+              <div class="auto-cap-bar">
+                <div class="auto-cap-ico">📸</div>
+                <div class="auto-cap-mid">
+                  <div class="auto-cap-title">
+                    <span>화면 캡처 자동등록</span>
+                    <span class="badge-on">ON</span>
+                  </div>
+                  <div class="auto-cap-sub">⚡ 오늘 자동 캡처로 5건 편하게 기록됨!</div>
+                </div>
+                <div class="auto-cap-cta">설정 &gt;</div>
+              </div>
+
+              <!-- 단건 / 다중 등록 -->
+              <div class="reg-row">
+                <div class="reg-card"><span class="r-ico" style="color:var(--app-gold);">💳</span><span>콜카드 단건등록</span></div>
+                <div class="reg-card"><span class="r-ico" style="color:var(--app-gold);">📑</span><span>콜카드 다중등록</span></div>
+              </div>
+
+              <!-- 명예 대리 유튜버 -->
+              <div class="yt-card">
+                <div class="yt-head">명예 대리 유튜버</div>
+                <div class="yt-body">
+                  <div class="yt-thumb">▶</div>
+                  <div class="yt-meta">
+                    <div class="yt-ch">디브로스 대리일기 · 2일 전</div>
+                    <div class="yt-title">금요일 밤 강남·분당 5만원 이상 꿀콜 터지는 황금 시간대 공개!</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="nav-item active"><span class="n-ico">🏠</span>홈</div>
+            <div class="nav-item"><span class="n-ico">📋</span>목록</div>
+            <div class="nav-item"><span class="n-ico">➕</span>작성</div>
+            <div class="nav-item"><span class="n-ico">📊</span>통계</div>
+            <div class="nav-item"><span class="n-ico">⚙️</span>설정</div>
+          </div>
+        </div>
+
+        <!-- ── [화면 2] 신규 콜포인트맵 (프리미엄 전용 · 반응형) ── -->
+        <div class="app-screen" id="screenMap">
+          <div class="app-bar">
+            <button class="app-bar-btn" onclick="switchScreen('home')" title="홈으로">←</button>
+            <div class="app-bar-title">
+              <span>콜포인트맵</span>
+              <span style="font-family:Pretendard;font-size:10px;background:linear-gradient(90deg,#FFC700,#FF9F0A);color:#000;font-weight:900;padding:2px 6px;border-radius:6px;">프리미엄</span>
+            </div>
+            <button class="app-bar-btn" onclick="resetMapFilters()" style="font-size:11.5px;color:var(--app-gold);font-family:Pretendard;font-weight:700;">초기화</button>
+          </div>
+
+          <!-- 반응형 필터 바 (접기/펼치기 가능!) -->
+          <div class="cp-filter-strip">
+            <div class="filter-summary-row">
+              <span id="filterSummaryText" style="color:#D1D5DB;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">필터: 전체 시간 · 전체 단가 · 전 플랫폼</span>
+              <button class="filter-collapse-btn" id="btnToggleFilter" onclick="toggleFilterCollapse()">필터 접기 ▲</button>
+            </div>
+            <div class="filter-chips-wrap" id="filterChipsWrap">
+              <div class="chip-scroll" id="timeChips">
+                <button class="f-chip active-blue" data-val="all" onclick="setFilter('time','all')">전체 시간</button>
+                <button class="f-chip" data-val="evening" onclick="setFilter('time','evening')">초저녁 18~21</button>
+                <button class="f-chip" data-val="peak" onclick="setFilter('time','peak')">🔥피크 21~01</button>
+                <button class="f-chip" data-val="late" onclick="setFilter('time','late')">심야 01~05</button>
+              </div>
+              <div class="chip-scroll" id="farePlatChips">
+                <button class="f-chip active-gold" data-fare="all" onclick="setFilter('fare','all')">전체 단가</button>
+                <button class="f-chip" data-fare="30k" onclick="setFilter('fare','30k')">💰3만↑</button>
+                <button class="f-chip" data-fare="50k" onclick="setFilter('fare','50k')">👑5만↑ 꿀콜</button>
+                <span style="width:1px;background:#2C2F38;margin:2px 2px;"></span>
+                <button class="f-chip active-purple" data-plat="all" onclick="setFilter('plat','all')">전 플랫폼</button>
+                <button class="f-chip" data-plat="카카오" onclick="setFilter('plat','카카오')">카카오</button>
+                <button class="f-chip" data-plat="로지" onclick="setFilter('plat','로지')">로지</button>
+                <button class="f-chip" data-plat="콜마너" onclick="setFilter('plat','콜마너')">콜마너</button>
+                <button class="f-chip" data-plat="티맵" onclick="setFilter('plat','티맵')">티맵</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 반응형 4대 KPI 스트립 (일반 4열 ↔ 소형/큰글꼴 2x2 자동 전환!) -->
+          <div class="kpi-strip">
+            <div class="kpi-mini"><div class="k-lbl">조회 콜</div><div class="k-val" id="kpiCount">0건</div></div>
+            <div class="kpi-mini"><div class="k-lbl">평균 단가</div><div class="k-val gold" id="kpiAvg">0원</div></div>
+            <div class="kpi-mini"><div class="k-lbl">3만↑ 비중</div><div class="k-val rose" id="kpiHigh">0%</div></div>
+            <div class="kpi-mini"><div class="k-lbl">피크 시간</div><div class="k-val green" id="kpiPeak">-</div></div>
+          </div>
+
+          <!-- 메인 반응형 바디: 모바일(상하) ↔ 폴드/태블릿(좌우 2열 분할!) -->
+          <div class="cp-body">
+            <div class="cp-map-column">
+              <div class="map-viewport" id="mapViewport">
+                <svg class="map-grid-svg" viewBox="0 0 390 235" preserveAspectRatio="none">
+                  <path d="M0,92 Q95,78 185,96 T390,82" fill="none" stroke="#1E3A5F" stroke-width="18" opacity="0.65"/>
+                  <path d="M40,0 L70,235 M155,0 L168,235 M265,0 L250,235 M340,0 L365,235" stroke="#262C38" stroke-width="1.2"/>
+                  <path d="M0,45 L390,52 M0,145 L390,138 M0,196 L390,204" stroke="#262C38" stroke-width="1.2"/>
+                </svg>
+                <div class="map-district" style="left:16%;top:22%;">홍대/마포</div>
+                <div class="map-district" style="left:56%;top:24%;">종로/을지로</div>
+                <div class="map-district" style="left:58%;top:58%;">강남/역삼</div>
+                <div class="map-district" style="left:30%;top:62%;">여의도/영등포</div>
+                <div class="map-district" style="left:75%;top:79%;">분당/판교</div>
+                <div class="map-district" style="left:12%;top:80%;">부천/인천</div>
+
+                <div class="map-float-top">
+                  <div class="map-mode-toggle">
+                    <button class="mm-btn active" id="btnColorFare" onclick="setColorMode('fare')">🔥 단가 히트</button>
+                    <button class="mm-btn" id="btnColorPlat" onclick="setColorMode('platform')">🎨 플랫폼</button>
+                  </div>
+                  <button class="radius-pill" id="btnRadius" onclick="cycleRadius()">📍 반경: 전체</button>
+                </div>
+
+                <div id="mapMarkersLayer"></div>
+                <div class="map-legend" id="mapLegend"></div>
+
+                <div class="map-popup" id="mapPopup">
+                  <div class="mp-head">
+                    <span id="mpHeaderLeft"></span>
+                    <button onclick="closePopup()" style="background:none;border:none;color:#9CA3AF;cursor:pointer;font-size:13px;">✕</button>
+                  </div>
+                  <div class="mp-route" id="mpRoute"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 하단 드래그 시트 (모바일) / 우측 고정 분석 패널 (폴드·태블릿) -->
+            <div class="sheet-panel">
+              <div class="sheet-grab-row">
+                <span style="font-family:Pretendard;font-size:10px;color:#9FA3AF;">시트 높이 조절</span>
+                <div class="sheet-handle"></div>
+                <div class="sheet-size-btns">
+                  <button id="szCollapsed" onclick="setSheetSize('collapsed')">지도 크게</button>
+                  <button class="active" id="szMid" onclick="setSheetSize('mid')">기본</button>
+                  <button id="szExpanded" onclick="setSheetSize('expanded')">목록 크게</button>
+                </div>
+              </div>
+              <div class="sheet-tabs">
+                <button class="s-tab active" id="tabHotspot" onclick="switchSheetTab('hotspot')">🔥 핫스팟 TOP</button>
+                <button class="s-tab" id="tabChart" onclick="switchSheetTab('chart')">⏰ 시간·플랫폼</button>
+                <button class="s-tab" id="tabList" onclick="switchSheetTab('list')">📋 콜 목록</button>
+              </div>
+              <div class="sheet-scroll">
+                <div class="tab-pane active" id="paneHotspot">
+                  <div class="rank-header">
+                    <span id="selectedRegionLabel">상권을 탭하면 해당 지역만 필터링됩니다</span>
+                    <div class="sort-mini">
+                      <button class="active" id="sortCount" onclick="setRegionSort('count')">건수순</button>
+                      <button id="sortFare" onclick="setRegionSort('fare')">단가순</button>
+                    </div>
+                  </div>
+                  <div id="hotspotList"></div>
+                </div>
+
+                <div class="tab-pane" id="paneChart">
+                  <div style="font-family:Pretendard;font-size:11.5px;font-weight:700;color:#FFC700;margin-bottom:7px;">⏰ 시간대별 콜 발생 &amp; 평균 단가</div>
+                  <div id="hourBars"></div>
+                  <div style="font-family:Pretendard;font-size:11.5px;font-weight:700;color:#4DABF7;margin:12px 0 7px;">📊 플랫폼별 비중 &amp; 평균 단가</div>
+                  <div id="platformBars"></div>
+                </div>
+
+                <div class="tab-pane" id="paneList">
+                  <div id="callListContainer"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── 비구독자 프리미엄 전용 잠금 모달 ── -->
+        <div class="paywall-overlay" id="paywallModal">
+          <div class="glass-dialog">
+            <div class="gd-icon">👑</div>
+            <div class="gd-title">콜포인트맵 (프리미엄 전용)</div>
+            <div class="gd-desc">
+              전국 누적 <b style="color:#FFC700;">12,480건</b>의 실전 운행 데이터를 분석해<br/>
+              <b style="color:#fff;">지금 몇 시에, 어디서 고단가 꿀콜이 터지는지</b><br/>
+              한눈에 보여주는 프리미엄 전용 상권 분석 맵입니다.
+            </div>
+            <div class="gd-perks">
+              <div>🔥 <b>5만↑ 꿀콜 / 3만↑ 고단가</b> 히트 컬러 필터</div>
+              <div>📍 <b>지역별(동/역) 핫스팟 TOP 15</b> 건수·단가 랭킹</div>
+              <div>⏰ <b>1시간 단위 피크 타임</b> &amp; 플랫폼별 평균 단가</div>
+              <div>📡 <b>매일 새벽 자동 갱신</b>되는 최신 공유 콜 빅데이터</div>
+            </div>
+            <div class="gd-no-ad">※ 본 기능은 광고 체험 없이 프리미엄 구독자 전용으로 제공됩니다</div>
+            <button class="gd-btn-gold" onclick="upgradeDemo()">👑 하루 100원! 프리미엄 구독하고 바로 열기</button>
+            <button class="gd-btn-close" onclick="closePaywall()">닫기</button>
+          </div>
+        </div>
+
+        <div id="simToast" style="position:absolute;bottom:68px;left:14px;right:14px;background:rgba(31,34,42,0.96);border:1px solid var(--app-gold-border);color:#fff;font-family:Pretendard;font-size:12px;padding:10px 14px;border-radius:12px;text-align:center;display:none;z-index:60;"></div>
+      </div>
+
+      <p class="hint-bar">
+        💡 상단 <b>단말기 해상도(소형 340 / 일반 390 / 폴드 720)</b>와 <b>큰글꼴 1.2x</b>를 직접 눌러보시면<br/>
+        <b>4열→2×2 KPI 전환, 필터 접기, 시트 높이 조절, 폴드 2열 분할</b>을 바로 체감하실 수 있습니다!
+      </p>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════
+         우측: 기획 · 반응형 UI/UX 개발 제안 보고서
+    ══════════════════════════════════════════════════ -->
+    <section class="report-col">
+
+      <!-- 1. 기획 의도 및 용어 통일 -->
+      <article class="r-card">
+        <h2><span class="sec-num">1</span>기획 의도 · 용어 통일(「프리미엄」) · 수익화 전략</h2>
+        <p>
+          앱 내 모든 배지·버튼·모달·안내 문구에서 영문 표기 대신 <b>「프리미엄」 / 「프리미엄 전용」</b>으로 통일합니다.
+          DbrosAdmin에 구축된 <b>상권/단가 분석 콜포인트맵</b>을 <b>광고로 열 수 없는 100% 프리미엄 전용 기능</b>으로 홈 화면 최상단 버튼 라인에 배치하여,
+          구독 전환의 결정적 명분(킬러 기능)을 제공합니다.
+        </p>
+        <div class="callout">
+          <b>역할 분리 핵심:</b><br/>
+          • <b>기존 [주변 콜맵]</b> = 내 기록·대기/화장실·현장 위치 확인 지도 (광고 1회 해제 유지)<br/>
+          • <b>신규 [🔥 콜포인트 (프리미엄)]</b> = 시간대·고단가(3만↑/5만↑)·핫스팟 TOP 15·플랫폼 단가 분석 빅데이터 맵 (<b>프리미엄 전용 · 광고 불가</b>)
+        </div>
+      </article>
+
+      <!-- 2. 단말기 해상도 & 큰 글꼴 완벽 대응 UI/UX 방안 (신규 핵심 섹션!) -->
+      <article class="r-card">
+        <h2><span class="sec-num">2</span>단말기 해상도 · 폴더블 · 큰 글꼴 대응 UI/UX 설계</h2>
+        <p>
+          대리운전 기사님 단말기는 <b>보급형 소형폰(320~360dp) · 일반 스마트폰(360~430dp) · 갤럭시 Z 폴드 펼침/태블릿(600dp↑)</b>까지 폭이 매우 넓고,
+          야간 운행 특성상 <b>시스템 글꼴 확대 + 앱 내 <code>FontSizeService</code> 확대</b> 사용자 비중이 매우 높습니다.
+          기존 앱의 <code>ResponsiveLayout</code>(600dp 브레이크포인트)과 <code>FontSizeService</code>를 그대로 확장해 아래 <b>5대 반응형 규칙</b>을 적용합니다.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:22%;">단말기 구간</th>
+              <th style="width:24%;">콜포인트맵 구조</th>
+              <th style="width:24%;">KPI · 필터 대응</th>
+              <th style="width:30%;">홈 3분할 버튼 대응</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>소형폰 / 큰 글꼴</b><br/><code>width &lt; 360dp</code><br/>또는 <code>textScale &gt; 1.15</code></td>
+              <td><b>상하 분할</b> + <code>DraggableScrollableSheet</code><br/>(지도 크게/기본/목록 크게 스냅)</td>
+              <td>• KPI <b>자동 2×2 전환</b> (가로 1줄 배치로 잘림 방지)<br/>• 필터 바 <b>접기/펼치기</b> 버튼으로 지도 시야 확보</td>
+              <td>• 고정 <code>height: 60</code> 제거 → <code>minHeight: 62</code><br/>• <code>FittedBox(scaleDown)</code> + 패딩 자동 축소</td>
+            </tr>
+            <tr>
+              <td><b>일반 스마트폰</b><br/><code>360 ~ 599dp</code><br/>(갤럭시 S / 아이폰)</td>
+              <td><b>상하 분할</b> + <code>DraggableScrollableSheet</code><br/>(접힘 24% / 기본 44% / 펼침 86%)</td>
+              <td>• KPI <b>4열 1줄</b> 컴팩트 스트립<br/>• 시간대·단가·플랫폼 <b>가로 스크롤 칩</b></td>
+              <td>• <code>1 : 1 : 1.12</code> 3분할 세로 2단 카드<br/>• 우상단 <code>프리미엄</code> 배지</td>
+            </tr>
+            <tr>
+              <td><b>Z폴드 펼침 / 태블릿</b><br/><code>width &gt;= 600dp</code><br/>(<code>isFoldOrTablet</code>)</td>
+              <td><b>좌우 2열 분할</b><br/>좌측 지도(56%) + 우측 고정 분석 패널(44%)</td>
+              <td>• 시트 드래그 없이 <b>지도와 핫스팟·차트·목록 동시 조회</b> (Admin과 동일한 경험)</td>
+              <td>• 기존 <code>home_page.dart</code> 우측 컬럼에 3분할 동일 배치 (여유 공간 충분)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="feature-grid">
+          <div class="f-box">
+            <h4>🛡️ 텍스트 잘림·오버플로우 원천 차단 4종 장치</h4>
+            <ul>
+              <li><b><code>DraggableScrollableSheet</code></b>: 기기 세로 길이가 짧아도(640dp) 길어도(930dp) 고정 px 대신 화면 비율로 지도/시트 균형 유지</li>
+              <li><b><code>LayoutBuilder</code> + <code>textScaler</code> 분기</b>: KPI 4열 ↔ 2×2 자동 전환으로 숫자(<code>4.2만</code>, <code>78%</code>) 뭉개짐 0%</li>
+              <li><b>배지/지도 오버레이 <code>TextScaler.clamp(0.9, 1.2)</code></b>: 큰 글꼴 1.5x에서도 지도 플로팅 버튼·<code>프리미엄</code> 배지가 화면을 가리지 않도록 보호</li>
+              <li><b><code>SafeArea</code> + <code>viewPadding.bottom</code></b>: 펀치홀·제스처 바·3버튼 내비게이션 단말기별 하단 겹침 차단</li>
+            </ul>
+          </div>
+          <div class="f-box">
+            <h4>👆 운전 대기 중 한 손 조작(Thumb Zone) 최적화</h4>
+            <ul>
+              <li>주요 탐색(핫스팟 TOP / 시간·플랫폼 / 콜 목록)을 <b>화면 하단 시트</b>에 배치해 엄지손가락 하나로 즉시 조작</li>
+              <li>지도 위에서 상권을 보고 싶을 땐 시트를 아래로 쓱 내리거나 <b>[필터 접기 ▲]</b> 한 번으로 지도를 75% 이상 확대</li>
+              <li><b>내 위치 반경 토글(전체/3km/10km/15km)</b>로 현장에서 필요한 콜만 한 번에 필터링</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3. DbrosAdmin → 모바일 이식 매핑 -->
+      <article class="r-card">
+        <h2><span class="sec-num">3</span>DbrosAdmin 콜포인트맵 → 모바일 앱 이식 매핑</h2>
+        <table>
+          <thead>
+            <tr>
+              <th style="width:28%;">DbrosAdmin 기능</th>
+              <th style="width:17%;">이식 여부</th>
+              <th>모바일 앱 구현 방식</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><b>4대 KPI 요약 카드</b><br/>(건수/평균단가/3만↑비중/피크)</td>
+              <td><span class="tag keep">이식 + 반응형</span></td>
+              <td>일반 4열 / 소형·큰 글꼴 2×2 자동 전환 스트립 (필터 연동 실시간 재계산)</td>
+            </tr>
+            <tr>
+              <td><b>시간대·단가·플랫폼 필터</b><br/>+ 단가 히트/플랫폼 색상 모드</td>
+              <td><span class="tag keep">이식</span></td>
+              <td>접기/펼치기 가능한 2줄 가로 스크롤 칩바 + 지도 좌상단 색상 모드 토글</td>
+            </tr>
+            <tr>
+              <td><b>지역별 핫스팟 TOP 15</b><br/>(건수순 / 평균단가순)</td>
+              <td><span class="tag opt">모바일 최적화</span></td>
+              <td>하단 시트(폴드 우측 패널) <b>[🔥 핫스팟 TOP]</b> 탭 — 클릭 시 해당 상권 카메라 이동</td>
+            </tr>
+            <tr>
+              <td><b>시간대별 막대 &amp; 플랫폼 비중</b></td>
+              <td><span class="tag opt">모바일 최적화</span></td>
+              <td><b>[⏰ 시간·플랫폼]</b> 탭 — 막대 탭 시 해당 1시간 단위 콜만 지도에 필터링</td>
+            </tr>
+            <tr>
+              <td><b>콜 상세 목록 &amp; 마커 팝업</b></td>
+              <td><span class="tag opt">앱 디자인 통일</span></td>
+              <td><b>[📋 콜 목록]</b> 탭 — 방금 적용한 <code>26.11.20 13:15 + 금액 옆 배치</code> 디자인 통일</td>
+            </tr>
+            <tr>
+              <td><b>내 위치 기준 반경 필터</b></td>
+              <td><span class="tag new">모바일 신규</span></td>
+              <td>현장 기사님 필수 기능 (전체 / 3km / 10km / 15km)</td>
+            </tr>
+            <tr>
+              <td><b>데이터 교정 모달 (EditModal)</b></td>
+              <td><span class="tag drop">제외 (관리자전용)</span></td>
+              <td>교정은 DbrosAdmin 전용 유지, 앱은 교정이 이미 반영된 JSON을 읽기 전용으로 사용</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <!-- 4. 데이터 아키텍처 & Shorebird 검토 -->
+      <article class="r-card">
+        <h2><span class="sec-num">4</span>데이터 아키텍처 · 서버 과금 방어 · 배포 방식</h2>
+        <div class="feature-grid">
+          <div class="f-box">
+            <h4>☁️ 서버 추가 과금 0원 (기존 JSON 재활용)</h4>
+            <ul>
+              <li><code>functions/index.js</code>가 매일 새벽 6시 생성하는 <code>public/call_points_map.json</code> 그대로 활용</li>
+              <li>앱 내부 디스크 캐싱(6시간/일 1회 갱신) → 필터/탭 조작 시 네트워크·DB 과금 0원</li>
+              <li>오프라인/지하주차장에서도 마지막 캐시 데이터로 즉시 열림</li>
+            </ul>
+          </div>
+          <div class="f-box">
+            <h4>⚡ 대량 마커 렉 방어 &amp; Shorebird 호환</h4>
+            <ul>
+              <li>지도 마커는 뷰포트 중심 최대 250개 렌더링 제한, KPI·핫스팟·차트는 전체 데이터 집계</li>
+              <li>기존 설치 패키지(<code>google_maps_flutter</code>, <code>http</code>, <code>geolocator</code>) + 기존 <code>Icons.*</code> 재사용 시 <b>Shorebird 패치 가능</b></li>
+              <li>신규 아이콘 추가 시 APK 정식 릴리즈 빌드로 배포</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5. 단계별 작업 계획 -->
+      <article class="r-card">
+        <h2><span class="sec-num">5</span>단계별 작업 계획</h2>
+        <div class="phase-list">
+          <div class="phase-item">
+            <div class="phase-badge">Phase 1</div>
+            <div class="phase-content">
+              <h4>데이터 서비스 &amp; 집계 엔진 (`CallPointAnalyticsService`)</h4>
+              <p><code>public/call_points_map.json</code> 다운로드·디스크 캐싱 + 시간대/단가/플랫폼/반경 필터링 + 4대 KPI·핫스팟 TOP 15·시간별/플랫폼별 집계 엔진 및 단위 테스트</p>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-badge">Phase 2</div>
+            <div class="phase-content">
+              <h4>반응형 `PremiumCallPointMapPage` 구현</h4>
+              <p>소형폰(340dp·큰글꼴 2×2 KPI·필터 접기) / 일반폰(<code>DraggableScrollableSheet</code>) / 폴드·태블릿(600dp↑ 좌우 2열 분할) 3단계 반응형 UI + Google Maps 다크 스타일 연동</p>
+            </div>
+          </div>
+          <div class="phase-item">
+            <div class="phase-badge">Phase 3</div>
+            <div class="phase-content">
+              <h4>홈 화면 3분할 개편 &amp; 프리미엄 전용 잠금 연동</h4>
+              <p><code>home_page.dart</code> <code>_buildUtilsRow()</code> 반응형 3분할 개편(<code>대기비용</code> / <code>주변 콜맵</code> / <code>🔥 콜포인트 · 프리미엄</code>), 비구독자 프리미엄 전용 잠금 모달(광고 불가 · 14일 무료체험/구독 직결)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="callout blue" style="margin-top:14px;">
+          <b>📋 착수 전 확인해 주시면 좋은 3가지:</b><br/>
+          1. <b>비구독자 접근 정책</b>: 제안안대로 <b>100% 프리미엄 전용(광고 불가)</b>으로 진행할까요?<br/>
+          2. <b>지도 최초 진입 반경</b>: <b>내 주변 10km(또는 5km)</b> 기본 vs <b>전국 전체</b> 기본 중 어느 쪽이 좋을까요?<br/>
+          3. <b>배포 방식</b>: 기존 <code>Icons.*</code>만 재사용해 <b>Shorebird 원격 패치</b>로 바로 배포할까요, 아니면 신규 아이콘 포함해 <b>정식 APK 릴리즈</b>로 갈까요?
+        </div>
+      </article>
+
+    </section>
+  </main>
+
+<script>
+  const SAMPLE_POINTS = [
+    { x: 64, y: 60, region: '역삼동', program: '카카오(프콜)', fare: 58000, hour: 23, time: '26.11.20 23:15', sl: '서울 강남구 역삼동 721-12 테헤란로', el: '경기 성남시 분당구 판교동 알파돔', distKm: 1.2 },
+    { x: 61, y: 56, region: '역삼동', program: '로지', fare: 42000, hour: 22, time: '26.11.20 22:40', sl: '서울 강남구 역삼동 강남파이낸스센터', el: '경기 용인시 수지구 죽전동', distKm: 1.5 },
+    { x: 66, y: 63, region: '대치동', program: '카카오(일반)', fare: 52000, hour: 23, time: '26.11.20 23:48', sl: '서울 강남구 대치동 890-33 포스코사거리', el: '인천 연수구 송도동 센트럴파크', distKm: 2.1 },
+    { x: 56, y: 62, region: '서초동', program: '티맵', fare: 36000, hour: 21, time: '26.11.20 21:25', sl: '서울 서초구 서초동 교대역 9번출구', el: '경기 과천시 별양동', distKm: 2.4 },
+    { x: 69, y: 54, region: '청담동', program: '카카오(프콜)', fare: 65000, hour: 0,  time: '26.11.20 00:18', sl: '서울 강남구 청담동 명품거리', el: '경기 하남시 미사강변푸르지오', distKm: 2.8 },
+    { x: 63, y: 58, region: '역삼동', program: '콜마너', fare: 31000, hour: 22, time: '26.11.20 22:05', sl: '서울 강남구 역삼동 선릉역 4번출구', el: '서울 송파구 잠실동', distKm: 1.1 },
+    { x: 35, y: 60, region: '여의도동', program: '카카오(일반)', fare: 48000, hour: 21, time: '26.11.20 21:50', sl: '서울 영등포구 여의도동 LG트윈타워', el: '경기 고양시 일산서구 주엽동', distKm: 8.5 },
+    { x: 31, y: 65, region: '여의도동', program: '로지', fare: 33000, hour: 20, time: '26.11.20 20:15', sl: '서울 영등포구 여의도동 IFC몰', el: '경기 부천시 상동', distKm: 9.2 },
+    { x: 24, y: 28, region: '서교동', program: '콜마너', fare: 27000, hour: 23, time: '26.11.20 23:05', sl: '서울 마포구 서교동 홍대입구역', el: '서울 은평구 불광동', distKm: 11.4 },
+    { x: 21, y: 33, region: '서교동', program: '카카오(일반)', fare: 38000, hour: 1,  time: '26.11.20 01:30', sl: '서울 마포구 서교동 합정역', el: '경기 김포시 구래동', distKm: 11.8 },
+    { x: 54, y: 27, region: '을지로', program: '로지', fare: 45000, hour: 22, time: '26.11.20 22:12', sl: '서울 중구 을지로3가 파인애비뉴', el: '경기 남양주시 별내동', distKm: 6.7 },
+    { x: 58, y: 31, region: '을지로', program: '티맵', fare: 29000, hour: 19, time: '26.11.20 19:45', sl: '서울 중구 을지로2가 시그니처타워', el: '서울 성북구 길음동', distKm: 6.4 },
+    { x: 78, y: 80, region: '백현동', program: '카카오(프콜)', fare: 55000, hour: 22, time: '26.11.20 22:55', sl: '경기 성남시 분당구 백현동 판교역', el: '서울 강남구 압구정동', distKm: 13.5 },
+    { x: 82, y: 84, region: '서현동', program: '로지', fare: 34000, hour: 23, time: '26.11.20 23:32', sl: '경기 성남시 분당구 서현동 로데오', el: '경기 수원시 영통구 이의동', distKm: 15.2 },
+    { x: 75, y: 76, region: '백현동', program: '콜마너', fare: 24000, hour: 18, time: '26.11.20 18:40', sl: '경기 성남시 분당구 백현동 카페거리', el: '경기 광주시 오포읍', distKm: 13.1 },
+    { x: 16, y: 78, region: '상동', program: '로지', fare: 26000, hour: 2,  time: '26.11.20 02:15', sl: '경기 부천시 상동 로데오거리', el: '인천 부평구 삼산동', distKm: 21.0 },
+    { x: 67, y: 59, region: '대치동', program: '핸들포유', fare: 51000, hour: 1,  time: '26.11.20 01:12', sl: '서울 강남구 대치동 은마아파트 입구', el: '경기 화성시 동탄신도시', distKm: 2.3 },
+    { x: 59, y: 54, region: '역삼동', program: '티맵', fare: 39000, hour: 20, time: '26.11.20 20:35', sl: '서울 강남구 역삼동 신논현역', el: '경기 안양시 동안구 평촌동', distKm: 1.7 }
+  ];
+
+  let userMode = 'premium';
+  let deviceMode = 'standard'; // 'compact' | 'standard' | 'fold'
+  let fontMode = 'normal';     // 'normal' | 'large'
+  let filterCollapsed = false;
+  let sheetSize = 'mid';       // 'collapsed' | 'mid' | 'expanded'
+  let filters = { time: 'all', fare: 'all', plat: 'all', region: null, radiusIdx: 0 };
+  const RADIUS_STEPS = [
+    { label: '전체', km: 999 },
+    { label: '3km', km: 3 },
+    { label: '10km', km: 10 },
+    { label: '15km', km: 15 },
+  ];
+  let colorMode = 'fare';
+  let regionSort = 'count';
+  let selectedIdx = null;
+  let currentFiltered = [];
+
+  function getPlatformColor(prog) {
+    if (prog.includes('카카오')) return '#EAB308';
+    if (prog.includes('로지')) return '#22C55E';
+    if (prog.includes('콜마너')) return '#A855F7';
+    if (prog.includes('티맵')) return '#3B82F6';
+    if (prog.includes('핸들')) return '#E5E7EB';
+    return '#9CA3AF';
+  }
+  function getFareColor(fare) {
+    if (fare >= 50000) return '#EF4444';
+    if (fare >= 30000) return '#F59E0B';
+    return '#3B82F6';
+  }
+  function matchTime(h, slot) {
+    if (slot === 'all') return true;
+    if (slot === 'evening') return h >= 18 && h < 21;
+    if (slot === 'peak') return h >= 21 || h === 0;
+    if (slot === 'late') return h >= 1 && h < 5;
+    return true;
+  }
+
+  function updateDeviceSpecLabel() {
+    const pill = document.getElementById('deviceSpecPill');
+    const fontLabel = fontMode === 'large' ? ' · 큰 글꼴 1.2x (2×2 KPI 자동 전환)' : '';
+    if (deviceMode === 'compact') {
+      pill.textContent = '📱 소형폰 (340dp) · 2×2 KPI + 필터 접기 + FittedBox 방어' + (fontMode === 'large' ? ' · 큰 글꼴 1.2x' : '');
+    } else if (deviceMode === 'fold') {
+      pill.textContent = '📖 Z폴드 펼침 / 태블릿 (720dp) · 좌측 지도(56%) + 우측 분석패널(44%) 2열 분할' + fontLabel;
+    } else {
+      pill.textContent = '📱 일반 스마트폰 (390dp) · 4열 KPI + 드래그 바텀시트' + fontLabel;
+    }
+  }
+
+  function setDevice(mode) {
+    deviceMode = mode;
+    const frame = document.getElementById('phoneFrame');
+    frame.classList.remove('dev-compact', 'dev-standard', 'dev-fold');
+    frame.classList.add('dev-' + mode);
+    document.getElementById('btnDevCompact').classList.toggle('active', mode === 'compact');
+    document.getElementById('btnDevStandard').classList.toggle('active', mode === 'standard');
+    document.getElementById('btnDevFold').classList.toggle('active', mode === 'fold');
+    document.getElementById('mainGrid').classList.toggle('wide-preview', mode === 'fold');
+    updateDeviceSpecLabel();
+  }
+
+  function setFontMode(mode) {
+    fontMode = mode;
+    const frame = document.getElementById('phoneFrame');
+    frame.classList.remove('font-normal', 'font-large');
+    frame.classList.add('font-' + mode);
+    document.getElementById('btnFontNormal').classList.toggle('active', mode === 'normal');
+    document.getElementById('btnFontLarge').classList.toggle('active', mode === 'large');
+    updateDeviceSpecLabel();
+  }
+
+  function toggleFilterCollapse() {
+    filterCollapsed = !filterCollapsed;
+    document.getElementById('filterChipsWrap').classList.toggle('collapsed', filterCollapsed);
+    document.getElementById('btnToggleFilter').textContent = filterCollapsed ? '필터 펼치기 ▼' : '필터 접기 ▲';
+  }
+
+  function setSheetSize(sz) {
+    sheetSize = sz;
+    const mv = document.getElementById('mapViewport');
+    mv.classList.remove('sheet-collapsed', 'sheet-expanded');
+    if (sz === 'collapsed') mv.classList.add('sheet-collapsed');
+    if (sz === 'expanded') mv.classList.add('sheet-expanded');
+    document.getElementById('szCollapsed').classList.toggle('active', sz === 'collapsed');
+    document.getElementById('szMid').classList.toggle('active', sz === 'mid');
+    document.getElementById('szExpanded').classList.toggle('active', sz === 'expanded');
+  }
+
+  function switchScreen(name) {
+    document.getElementById('screenHome').classList.toggle('active', name === 'home');
+    document.getElementById('screenMap').classList.toggle('active', name === 'map');
+    document.getElementById('btnViewHome').classList.toggle('active', name === 'home');
+    document.getElementById('btnViewMap').classList.toggle('active', name === 'map');
+    document.getElementById('rowLayoutToggle').style.display = name === 'home' ? 'flex' : 'none';
+    if (name === 'map') {
+      document.getElementById('paywallModal').classList.toggle('show', userMode === 'free');
+      renderAllMap();
+    } else {
+      document.getElementById('paywallModal').classList.remove('show');
+    }
+  }
+
+  function setUserMode(mode) {
+    userMode = mode;
+    document.getElementById('btnUserPrem').classList.toggle('active', mode === 'premium');
+    document.getElementById('btnUserFree').classList.toggle('active', mode === 'free');
+    document.getElementById('homePremTag').style.display = mode === 'premium' ? 'inline-block' : 'none';
+    const badge = document.getElementById('homeCpBadge');
+    if (mode === 'premium') {
+      badge.textContent = '프리미엄';
+      badge.classList.remove('locked');
+      document.getElementById('paywallModal').classList.remove('show');
+    } else {
+      badge.textContent = '🔒 프리미엄';
+      badge.classList.add('locked');
+      if (document.getElementById('screenMap').classList.contains('active')) {
+        document.getElementById('paywallModal').classList.add('show');
+      }
+    }
+  }
+
+  function setHomeCols(cols) {
+    const row = document.getElementById('homeUtilsRow');
+    const cpBtn = document.getElementById('btnHomeCallPoint');
+    document.getElementById('btnAfter3').classList.toggle('active', cols === 3);
+    document.getElementById('btnBefore2').classList.toggle('active', cols === 2);
+    if (cols === 2) {
+      row.className = 'utils-row cols-2';
+      cpBtn.style.display = 'none';
+      document.getElementById('lblWaiting').textContent = '대기비용 계산';
+    } else {
+      row.className = 'utils-row cols-3';
+      cpBtn.style.display = 'flex';
+      document.getElementById('lblWaiting').textContent = '대기비용';
+    }
+  }
+
+  function openCallPointFromHome() {
+    if (userMode === 'free') {
+      document.getElementById('paywallModal').classList.add('show');
+    } else {
+      switchScreen('map');
+    }
+  }
+
+  function closePaywall() {
+    document.getElementById('paywallModal').classList.remove('show');
+    if (document.getElementById('screenMap').classList.contains('active') && userMode === 'free') {
+      switchScreen('home');
+    }
+  }
+
+  function upgradeDemo() {
+    setUserMode('premium');
+    switchScreen('map');
+    showToast('👑 프리미엄 구독 활성화 시뮬레이션! 콜포인트맵이 즉시 열렸습니다.');
+  }
+
+  function showToast(msg) {
+    const el = document.getElementById('simToast');
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(window._t);
+    window._t = setTimeout(() => { el.style.display = 'none'; }, 2200);
+  }
+
+  function updateFilterSummary() {
+    const tMap = { all: '전체 시간', evening: '초저녁(18~21)', peak: '야간피크(21~01)', late: '심야(01~05)' };
+    const fMap = { all: '전체 단가', '30k': '3만↑', '50k': '5만↑ 꿀콜' };
+    const pTxt = filters.plat === 'all' ? '전 플랫폼' : filters.plat;
+    const rTxt = filters.region ? ` · 📍${filters.region}` : '';
+    document.getElementById('filterSummaryText').textContent =
+      `필터: ${tMap[filters.time]} · ${fMap[filters.fare]} · ${pTxt}${rTxt}`;
+  }
+
+  function setFilter(key, val) {
+    filters[key] = val;
+    selectedIdx = null;
+    closePopup();
+    if (key === 'time') {
+      document.querySelectorAll('#timeChips .f-chip').forEach(b => b.classList.toggle('active-blue', b.dataset.val === val));
+    } else if (key === 'fare') {
+      document.querySelectorAll('#farePlatChips [data-fare]').forEach(b => b.classList.toggle('active-gold', b.dataset.fare === val));
+    } else if (key === 'plat') {
+      document.querySelectorAll('#farePlatChips [data-plat]').forEach(b => b.classList.toggle('active-purple', b.dataset.plat === val));
+    }
+    renderAllMap();
+  }
+
+  function setColorMode(mode) {
+    colorMode = mode;
+    document.getElementById('btnColorFare').classList.toggle('active', mode === 'fare');
+    document.getElementById('btnColorPlat').classList.toggle('active', mode === 'platform');
+    renderAllMap();
+  }
+
+  function cycleRadius() {
+    filters.radiusIdx = (filters.radiusIdx + 1) % RADIUS_STEPS.length;
+    document.getElementById('btnRadius').textContent = '📍 반경: ' + RADIUS_STEPS[filters.radiusIdx].label;
+    closePopup();
+    renderAllMap();
+  }
+
+  function resetMapFilters() {
+    filters = { time: 'all', fare: 'all', plat: 'all', region: null, radiusIdx: 0 };
+    document.getElementById('btnRadius').textContent = '📍 반경: 전체';
+    setFilter('time', 'all');
+    setFilter('fare', 'all');
+    setFilter('plat', 'all');
+  }
+
+  function switchSheetTab(tab) {
+    ['hotspot', 'chart', 'list'].forEach(t => {
+      document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+      document.getElementById('pane' + t.charAt(0).toUpperCase() + t.slice(1)).classList.toggle('active', t === tab);
+    });
+  }
+
+  function setRegionSort(sort) {
+    regionSort = sort;
+    document.getElementById('sortCount').classList.toggle('active', sort === 'count');
+    document.getElementById('sortFare').classList.toggle('active', sort === 'fare');
+    renderAllMap();
+  }
+
+  function closePopup() { document.getElementById('mapPopup').classList.remove('show'); }
+
+  function openMarkerPopup(pt, idx) {
+    selectedIdx = idx;
+    const pColor = getPlatformColor(pt.program);
+    document.getElementById('mpHeaderLeft').innerHTML = `
+      <span style="background:${pColor}33;color:${pColor};padding:2px 6px;border-radius:4px;font-weight:800;margin-right:6px;">${pt.program}</span>
+      <span style="color:#9CA3AF;margin-right:6px;">${pt.time}</span>
+      <span style="color:#FFC700;font-weight:800;">${pt.fare.toLocaleString()}원</span>
+    `;
+    document.getElementById('mpRoute').innerHTML = `
+      <div><span class="cc-dot-b">●</span>${pt.sl}</div>
+      <div><span class="cc-dot-r">●</span>${pt.el}</div>
+    `;
+    document.getElementById('mapPopup').classList.add('show');
+    renderMarkersOnly();
+  }
+
+  function getFiltered(includeRegion = true) {
+    const maxKm = RADIUS_STEPS[filters.radiusIdx].km;
+    return SAMPLE_POINTS.filter(p => {
+      if (!matchTime(p.hour, filters.time)) return false;
+      if (filters.fare === '30k' && p.fare < 30000) return false;
+      if (filters.fare === '50k' && p.fare < 50000) return false;
+      if (filters.plat !== 'all' && !p.program.includes(filters.plat)) return false;
+      if (p.distKm > maxKm) return false;
+      if (includeRegion && filters.region && p.region !== filters.region) return false;
+      return true;
+    });
+  }
+
+  function renderMarkersOnly() {
+    const layer = document.getElementById('mapMarkersLayer');
+    layer.innerHTML = '';
+    currentFiltered.forEach((pt, idx) => {
+      const dot = document.createElement('div');
+      dot.className = 'map-dot' + (selectedIdx === idx ? ' selected' : '');
+      const color = colorMode === 'fare' ? getFareColor(pt.fare) : getPlatformColor(pt.program);
+      const size = colorMode === 'fare' ? (pt.fare >= 50000 ? 18 : pt.fare >= 30000 ? 14 : 11) : 14;
+      dot.style.left = pt.x + '%';
+      dot.style.top = pt.y + '%';
+      dot.style.width = size + 'px';
+      dot.style.height = size + 'px';
+      dot.style.background = color;
+      if (colorMode === 'fare' && pt.fare >= 50000) {
+        dot.style.borderColor = '#FDE047';
+        dot.style.borderWidth = '2px';
+      }
+      dot.onclick = () => openMarkerPopup(pt, idx);
+      layer.appendChild(dot);
+    });
+  }
+
+  function renderAllMap() {
+    updateFilterSummary();
+    currentFiltered = getFiltered(true);
+    const baseForRegion = getFiltered(false);
+
+    const cnt = currentFiltered.length;
+    const avg = cnt ? Math.round(currentFiltered.reduce((s, p) => s + p.fare, 0) / cnt) : 0;
+    const high30 = currentFiltered.filter(p => p.fare >= 30000).length;
+    const highRatio = cnt ? Math.round((high30 / cnt) * 100) : 0;
+    const hourCounts = {};
+    currentFiltered.forEach(p => { hourCounts[p.hour] = (hourCounts[p.hour] || 0) + 1; });
+    const peakEntry = Object.entries(hourCounts).sort((a, b) => b[1] - a[1])[0];
+
+    document.getElementById('kpiCount').textContent = cnt + '건';
+    document.getElementById('kpiAvg').textContent = avg ? (avg / 10000).toFixed(1) + '만' : '-';
+    document.getElementById('kpiHigh').textContent = highRatio + '%';
+    document.getElementById('kpiPeak').textContent = peakEntry ? `${String(peakEntry[0]).padStart(2, '0')}시` : '-';
+
+    renderMarkersOnly();
+    const lg = document.getElementById('mapLegend');
+    lg.innerHTML = colorMode === 'fare'
+      ? `<span><i class="lg-dot" style="background:#EF4444;border:1px solid #FDE047;"></i>5만↑ 꿀콜</span><span><i class="lg-dot" style="background:#F59E0B;"></i>3~5만</span><span><i class="lg-dot" style="background:#3B82F6;"></i>3만 미만</span>`
+      : `<span><i class="lg-dot" style="background:#EAB308;"></i>카카오</span><span><i class="lg-dot" style="background:#22C55E;"></i>로지</span><span><i class="lg-dot" style="background:#A855F7;"></i>콜마너</span><span><i class="lg-dot" style="background:#3B82F6;"></i>티맵</span>`;
+
+    const rMap = new Map();
+    baseForRegion.forEach(p => {
+      const cur = rMap.get(p.region) || { region: p.region, count: 0, sum: 0, max: 0, hours: {} };
+      cur.count++; cur.sum += p.fare;
+      if (p.fare > cur.max) cur.max = p.fare;
+      cur.hours[p.hour] = (cur.hours[p.hour] || 0) + 1;
+      rMap.set(p.region, cur);
+    });
+    const rList = Array.from(rMap.values()).map(r => {
+      const topH = Object.entries(r.hours).sort((a, b) => b[1] - a[1])[0];
+      return { ...r, avg: Math.round(r.sum / r.count), mainHour: topH ? `${String(topH[0]).padStart(2, '0')}시` : '-' };
+    });
+    if (regionSort === 'fare') rList.sort((a, b) => b.avg - a.avg || b.count - a.count);
+    else rList.sort((a, b) => b.count - a.count || b.avg - a.avg);
+
+    document.getElementById('selectedRegionLabel').innerHTML = filters.region
+      ? `📍 <b style="color:#FFC700;">${filters.region}</b> 선택됨 (재탭 시 해제)`
+      : '상권을 탭하면 해당 지역만 필터링됩니다';
+
+    document.getElementById('hotspotList').innerHTML = rList.length === 0
+      ? '<div style="text-align:center;color:#6E717C;font-size:12px;padding:24px;">조건에 맞는 핫스팟이 없습니다.</div>'
+      : rList.map((r, i) => `
+          <div class="rank-item ${filters.region === r.region ? 'selected' : ''}" onclick="toggleRegion('${r.region}')">
+            <div class="rank-left">
+              <div class="rank-no ${i < 3 ? 'top3' : ''}">${i + 1}</div>
+              <div>
+                <div class="rank-name">${r.region} <span style="font-size:10.5px;color:#60A5FA;font-weight:700;margin-left:3px;">${r.count}건</span></div>
+                <div class="rank-meta">피크 ${r.mainHour} · 최고 ${r.max.toLocaleString()}원</div>
+              </div>
+            </div>
+            <div class="rank-fare">
+              <div class="rf-val">${r.avg.toLocaleString()}원</div>
+              <div class="rf-sub">평균 단가</div>
+            </div>
+          </div>
+        `).join('');
+
+    const hoursOrder = [18, 19, 20, 21, 22, 23, 0, 1, 2];
+    const hBuckets = hoursOrder.map(h => {
+      const items = currentFiltered.filter(p => p.hour === h);
+      const sum = items.reduce((s, p) => s + p.fare, 0);
+      return { hour: h, count: items.length, avg: items.length ? Math.round(sum / items.length) : 0 };
+    }).filter(b => b.count > 0);
+    const maxH = Math.max(1, ...hBuckets.map(b => b.count));
+
+    document.getElementById('hourBars').innerHTML = hBuckets.length === 0
+      ? '<div style="text-align:center;color:#6E717C;font-size:12px;padding:14px;">데이터 없음</div>'
+      : hBuckets.map(b => {
+          const pct = Math.max(12, Math.round((b.count / maxH) * 100));
+          const peak = b.hour >= 21 || b.hour <= 0;
+          return `
+            <div class="bar-row">
+              <div class="bar-top">
+                <span style="font-weight:700;color:#E5E7EB;">${String(b.hour).padStart(2,'0')}시 ~ ${String((b.hour+1)%24).padStart(2,'0')}시 ${peak ? '<span style="font-size:9.5px;color:#FB7185;background:rgba(244,63,94,0.16);padding:1px 5px;border-radius:4px;">피크</span>' : ''}</span>
+                <span><b style="color:#fff;">${b.count}건</b> · <b style="color:#FFC700;">평균 ${b.avg.toLocaleString()}원</b></span>
+              </div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${peak ? 'linear-gradient(90deg,#3B82F6,#00E676)' : '#3B82F6'};"></div></div>
+            </div>
+          `;
+        }).join('');
+
+    const plats = [
+      { key: '카카오', name: '카카오', color: '#EAB308' },
+      { key: '로지', name: '로지', color: '#22C55E' },
+      { key: '콜마너', name: '콜마너', color: '#A855F7' },
+      { key: '티맵', name: '티맵', color: '#3B82F6' },
+      { key: '핸들', name: '핸들포유', color: '#E5E7EB' },
+    ];
+    document.getElementById('platformBars').innerHTML = plats.map(pl => {
+      const m = currentFiltered.filter(p => p.program.includes(pl.key));
+      if (!m.length) return '';
+      const ratio = Math.round((m.length / cnt) * 100);
+      const pAvg = Math.round(m.reduce((s, p) => s + p.fare, 0) / m.length);
+      return `
+        <div class="bar-row">
+          <div class="bar-top">
+            <span style="font-weight:700;color:#fff;">${pl.name} <span style="color:#9CA3AF;font-weight:500;">(${m.length}건 · ${ratio}%)</span></span>
+            <span style="color:#FFC700;font-weight:800;">평균 ${pAvg.toLocaleString()}원</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" style="width:${ratio}%;background:${pl.color};"></div></div>
+        </div>
+      `;
+    }).join('') || '<div style="text-align:center;color:#6E717C;font-size:12px;padding:14px;">데이터 없음</div>';
+
+    document.getElementById('callListContainer').innerHTML = currentFiltered.length === 0
+      ? '<div style="text-align:center;color:#6E717C;font-size:12px;padding:24px;">조건에 맞는 콜이 없습니다.</div>'
+      : currentFiltered.map((pt, idx) => {
+          const pc = getPlatformColor(pt.program);
+          return `
+            <div class="call-card" style="border-left-color:${pc};" onclick="openMarkerPopup(currentFiltered[${idx}], ${idx})">
+              <div class="call-card-top">
+                <div class="cc-left">
+                  <span class="cc-badge" style="background:${pc}28;color:${pc};">${pt.region}</span>
+                  <span class="cc-time">${pt.time}</span>
+                  <span class="cc-fare">${pt.fare.toLocaleString()}원</span>
+                </div>
+                <span class="cc-badge" style="background:rgba(96,165,250,0.12);color:#60A5FA;">${pt.program}</span>
+              </div>
+              <div class="cc-route">
+                <div><span class="cc-dot-b">●</span>${pt.sl}</div>
+                <div><span class="cc-dot-r">●</span>${pt.el}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+  }
+
+  function toggleRegion(region) {
+    filters.region = filters.region === region ? null : region;
+    closePopup();
+    renderAllMap();
+  }
+
+  renderAllMap();
+</script>
+</body>
+</html>

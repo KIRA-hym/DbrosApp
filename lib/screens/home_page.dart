@@ -42,6 +42,7 @@ import 'settings_page.dart';
 import '../expense_main_wrapper.dart';
 import '../widgets/waiting_fee_bottom_sheet.dart';
 import 'call_point_map_page.dart';
+import 'premium_call_point_map_page.dart';
 import '../widgets/permission_disclosure_dialog.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../widgets/onboarding_dialog.dart';
@@ -1248,8 +1249,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.stretch,
                                         children: [
-                                          SizedBox(
-                                            height: 60,
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(
+                                              minHeight: 64,
+                                            ),
                                             child: _buildUtilsRow(),
                                           ),
                                           SizedBox(height: sectionGap),
@@ -1285,8 +1288,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                                       children: [
                                         _buildTodaySummaryCard(),
                                         const SizedBox(height: 8),
-                                        SizedBox(
-                                          height: 60,
+                                        ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            minHeight: 64,
+                                          ),
                                           child: _buildUtilsRow(),
                                         ),
                                         Padding(
@@ -2275,91 +2280,437 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     );
   }
 
+  Future<void> _openPremiumCallPointMap() async {
+    if (!kMapFeaturesEnabled) return;
+    if (!kMonetizationEnabled || SettingsService.isPremiumUser) {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const PremiumCallPointMapPage()),
+      );
+      return;
+    }
+
+    final bool canTrial = PremiumService.canStartLaunchTrial;
+    final action = await AppGlassDialog.show<String>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.workspace_premium,
+        title: '콜포인트맵 (프리미엄 전용)',
+        contentWidget: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              '전국 실전 운행 데이터를 분석해\n지금 몇 시에, 어디서 고단가 꿀콜이 터지는지\n한눈에 보여주는 프리미엄 전용 상권 분석 맵입니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                color: Color(0xFFD1D2D4),
+                fontSize: 13.5,
+                height: 1.55,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16181E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '🔥 5만↑ 꿀콜 / 3만↑ 고단가 히트 색상 필터',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      color: Color(0xFFE5E7EB),
+                      fontSize: 12.5,
+                      height: 1.6,
+                    ),
+                  ),
+                  Text(
+                    '📍 지역별(동/역) 핫스팟 TOP 15 건수·단가 랭킹',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      color: Color(0xFFE5E7EB),
+                      fontSize: 12.5,
+                      height: 1.6,
+                    ),
+                  ),
+                  Text(
+                    '⏰ 1시간 단위 피크 타임 & 플랫폼별 평균 단가',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      color: Color(0xFFE5E7EB),
+                      fontSize: 12.5,
+                      height: 1.6,
+                    ),
+                  ),
+                  Text(
+                    '📡 내 위치 반경(3/5/10km/전체) 즉시 분석',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard',
+                      color: Color(0xFFE5E7EB),
+                      fontSize: 12.5,
+                      height: 1.6,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '※ 본 기능은 광고 체험 없이 프리미엄 구독자 전용으로 제공됩니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                color: Color(0xFFFFAB40),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: canTrial
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(
+                ctx,
+                canTrial ? 'start_trial' : 'subscribe',
+              ),
+              child: Text(
+                canTrial
+                    ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하고 콜포인트맵 열기'
+                    : '👑 하루 100원! 프리미엄 구독하고\n콜포인트맵 바로 열기',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              label: '닫기',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'start_trial') {
+      if (!mounted) return;
+      final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+        context,
+      );
+      if ((started || SettingsService.isPremiumUser) && mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PremiumCallPointMapPage()),
+        );
+      }
+      return;
+    }
+
+    if (action == 'subscribe') {
+      if (!mounted) return;
+      final purchased = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallPage()),
+      );
+      if ((purchased == true || SettingsService.isPremiumUser) && mounted) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PremiumCallPointMapPage()),
+        );
+      }
+    }
+  }
+
   Widget _buildUtilsRow() {
-    return Row(
-      children: [
-        Expanded(
-          key: _keyWaitingFee,
-          child: InkWell(
-            onTap: () => WaitingFeeBottomSheet.show(context),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color!,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Theme.of(context).primaryColor),
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.timer_outlined,
-                    color: Color(0xFFFFC700),
-                    size: 20,
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    '대기비용 계산',
-                    style: TextStyle(
-                      color: Color(0xFFFFC700),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+    final screenW = MediaQuery.sizeOf(context).width;
+    final bool isCompact = screenW < 360;
+    final double gap = isCompact ? 6 : 8;
+    final double iconSize = isCompact ? 17 : 19;
+    final double labelSize = isCompact ? 11.5 : 12.5;
+    final primary = Theme.of(context).primaryColor;
+    final cardColor = Theme.of(context).cardTheme.color!;
+
+    return ValueListenableBuilder<bool>(
+      valueListenable: SettingsService.isPremiumUserNotifier,
+      builder: (context, isPremium, _) {
+        final bool unlocked = !kMonetizationEnabled || isPremium;
+
+        return Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+              Expanded(
+                flex: 10,
+                key: _keyWaitingFee,
+                child: InkWell(
+                  onTap: () => WaitingFeeBottomSheet.show(context),
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 4 : 6,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: primary),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          color: const Color(0xFFFFC700),
+                          size: iconSize,
+                        ),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '대기비용',
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: const Color(0xFFFFC700),
+                              fontWeight: FontWeight.bold,
+                              fontSize: labelSize,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-        ),
-        SizedBox(width: 12),
-        Expanded(
-          key: _keyMap,
-          child: InkWell(
-            onTap: () {
-              if (!kMapFeaturesEnabled) return;
-              ProFeatureGuard.checkAndRun(
-                context: context,
-                featureKey: 'call_map',
-                canUseFree: FeatureUsageService.canUseCallMapFree,
-                canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
-                onGranted: (isFreeTicket) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const CallPointMapPage()),
-                  );
-                },
-              );
-            },
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardTheme.color!,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Theme.of(context).primaryColor),
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Stack(clipBehavior: Clip.none, children: [const Icon(Icons.map, color: Color(0xFFFFC700), size: 20), if (_hasMapUpdate) Positioned(right: -2, top: -2, child: Container(padding: const EdgeInsets.all(3), decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle), child: const Text('N', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))))]),
-                  SizedBox(width: 6),
-                  Text(
-                    '주변 콜맵',
-                    style: TextStyle(
-                      color: kMapFeaturesEnabled
-                          ? Theme.of(context).primaryColor
-                          : Colors.grey,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
+              SizedBox(width: gap),
+              Expanded(
+                flex: 10,
+                key: _keyMap,
+                child: InkWell(
+                  onTap: () {
+                    if (!kMapFeaturesEnabled) return;
+                    ProFeatureGuard.checkAndRun(
+                      context: context,
+                      featureKey: 'call_map',
+                      canUseFree: FeatureUsageService.canUseCallMapFree,
+                      canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
+                      onGranted: (isFreeTicket) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const CallPointMapPage(),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isCompact ? 4 : 6,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: primary),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Icon(
+                              Icons.map,
+                              color: const Color(0xFFFFC700),
+                              size: iconSize,
+                            ),
+                            if (_hasMapUpdate)
+                              Positioned(
+                                right: -4,
+                                top: -3,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2.5),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Text(
+                                    'N',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '주변 콜맵',
+                            maxLines: 1,
+                            style: TextStyle(
+                              color: kMapFeaturesEnabled
+                                  ? primary
+                                  : Colors.grey,
+                              fontWeight: FontWeight.bold,
+                              fontSize: labelSize,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
+              SizedBox(width: gap),
+              Expanded(
+                flex: 11,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    InkWell(
+                      onTap: _openPremiumCallPointMap,
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isCompact ? 4 : 6,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              primary.withValues(alpha: 0.22),
+                              cardColor,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: primary, width: 1.4),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.workspace_premium,
+                              color: const Color(0xFFFFC700),
+                              size: iconSize,
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                '콜포인트',
+                                maxLines: 1,
+                                style: TextStyle(
+                                  color: kMapFeaturesEnabled
+                                      ? const Color(0xFFFFE066)
+                                      : Colors.grey,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: labelSize,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Positioned(
+                      top: -8,
+                      right: 6,
+                      child: IgnorePointer(
+                        child: MediaQuery.withClampedTextScaling(
+                          minScaleFactor: 0.9,
+                          maxScaleFactor: 1.1,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: unlocked
+                                    ? const [
+                                        Color(0xFFFFC700),
+                                        Color(0xFFFF9F0A),
+                                      ]
+                                    : const [
+                                        Color(0xFFFF9F0A),
+                                        Color(0xFFFF5252),
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Colors.black45,
+                                  blurRadius: 4,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Text(
+                              unlocked ? '프리미엄' : '🔒 프리미엄',
+                              style: TextStyle(
+                                fontFamily: 'Pretendard',
+                                color: unlocked ? Colors.black : Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 
