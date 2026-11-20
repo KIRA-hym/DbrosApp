@@ -212,10 +212,29 @@ class CallPointAnalyticsService {
   static const String _endpointUrl =
       'https://us-central1-dbros-apps-7bbmw4.cloudfunctions.net/getCallPointsMap';
   static const String _cacheFileName = 'call_points_analytics_cache.json';
-  static const Duration _cacheTtl = Duration(hours: 6);
+  static const Duration _manualRefreshCooldown = Duration(minutes: 1);
 
   static CallPointDataset? _memoryCache;
   static DateTime? _memoryCachedAt;
+  static DateTime? _lastManualRefreshAt;
+
+  /// 서버 스케줄러(매일 06:00) 기준 가장 최근 갱신 경계 시각(06:05)을 반환합니다.
+  /// - 현재 시각이 06:05 이후이면 오늘 06:05
+  /// - 현재 시각이 06:05 이전이면 어제 06:05
+  static DateTime latestDailyBatchBoundary([DateTime? now]) {
+    final current = now ?? DateTime.now();
+    final todayBoundary =
+        DateTime(current.year, current.month, current.day, 6, 5);
+    if (!current.isBefore(todayBoundary)) {
+      return todayBoundary;
+    }
+    return todayBoundary.subtract(const Duration(days: 1));
+  }
+
+  /// [cachedAt]이 가장 최근 06:05 배치 이후에 받은 데이터이면 하루 재요청을 차단(true)합니다.
+  static bool isCacheFresh(DateTime cachedAt, {DateTime? now}) {
+    return !cachedAt.isBefore(latestDailyBatchBoundary(now));
+  }
 
   /// 주요 시간대 표시 순서 (18시~23시 -> 00시~05시 -> 주간)
   static const List<int> orderedHours = <int>[
@@ -223,12 +242,22 @@ class CallPointAnalyticsService {
     15, 16, 17,
   ];
 
-  /// 서버 공유 콜포인트 빅데이터 로드 (메모리 → 디스크 캐시 → 네트워크)
+  /// 서버 공유 콜포인트 빅데이터 로드 (메모리 → 디스크 1일 1회 캐시 → 네트워크)
   static Future<CallPointDataset> loadDataset({bool forceRefresh = false}) async {
+    final now = DateTime.now();
+
+    // 수동 새로고침 연타 방지 (1분 쿨다운)
+    if (forceRefresh &&
+        _memoryCache != null &&
+        _lastManualRefreshAt != null &&
+        now.difference(_lastManualRefreshAt!) < _manualRefreshCooldown) {
+      return _memoryCache!;
+    }
+
     if (!forceRefresh &&
         _memoryCache != null &&
         _memoryCachedAt != null &&
-        DateTime.now().difference(_memoryCachedAt!) < _cacheTtl) {
+        isCacheFresh(_memoryCachedAt!, now: now)) {
       return _memoryCache!;
     }
 
@@ -239,12 +268,12 @@ class CallPointAnalyticsService {
         cacheFile = File('${dir.path}/$_cacheFileName');
         if (!forceRefresh && await cacheFile.exists()) {
           final modified = await cacheFile.lastModified();
-          if (DateTime.now().difference(modified) < _cacheTtl) {
+          if (isCacheFresh(modified, now: now)) {
             final raw = await cacheFile.readAsString();
             final parsed = parsePayload(raw, fromCache: true);
             if (parsed.points.isNotEmpty) {
               _memoryCache = parsed;
-              _memoryCachedAt = DateTime.now();
+              _memoryCachedAt = modified;
               return parsed;
             }
           }
@@ -255,15 +284,18 @@ class CallPointAnalyticsService {
     }
 
     try {
-      final uri = Uri.parse(
-        '$_endpointUrl?t=${DateTime.now().millisecondsSinceEpoch}',
-      );
+      // 일반 로드는 쿼리스트링 없이 호출하여 CDN/HTTP Cache-Control(max-age=3600) 활용
+      final uri = forceRefresh
+          ? Uri.parse('$_endpointUrl?t=${now.millisecondsSinceEpoch}')
+          : Uri.parse(_endpointUrl);
       final resp = await http.get(uri).timeout(const Duration(seconds: 12));
       if (resp.statusCode == 200) {
         final body = utf8.decode(resp.bodyBytes);
         final dataset = parsePayload(body, fromCache: false);
+        final fetchedAt = DateTime.now();
         _memoryCache = dataset;
-        _memoryCachedAt = DateTime.now();
+        _memoryCachedAt = fetchedAt;
+        if (forceRefresh) _lastManualRefreshAt = fetchedAt;
         if (cacheFile != null) {
           try {
             await cacheFile.writeAsString(body);

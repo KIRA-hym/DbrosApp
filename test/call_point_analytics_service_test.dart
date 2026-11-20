@@ -132,5 +132,25 @@ void main() {
       expect(CallRadiusFilter.km10.next, CallRadiusFilter.all);
       expect(CallRadiusFilter.all.next, CallRadiusFilter.km3);
     });
+
+    test('매일 06:05 배치 기준 1일 1회 캐시 유효성 검증', () {
+      // 11/20 19:00에 캐시 저장 -> 같은 야간 근무 11/21 02:30에도 유효 (재다운로드 0회)
+      final cachedEvening = DateTime(2026, 11, 20, 19, 0);
+      expect(
+        CallPointAnalyticsService.isCacheFresh(
+          cachedEvening,
+          now: DateTime(2026, 11, 21, 2, 30),
+        ),
+        isTrue,
+      );
+      // 다음날 06:05 배치 이후(11/21 06:10)에는 캐시 만료 -> 새 데이터 1회 다운로드
+      expect(
+        CallPointAnalyticsService.isCacheFresh(
+          cachedEvening,
+          now: DateTime(2026, 11, 21, 6, 10),
+        ),
+        isFalse,
+      );
+    });
   });
 }
