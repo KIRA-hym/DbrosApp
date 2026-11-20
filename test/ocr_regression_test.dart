@@ -6,6 +6,8 @@ import 'package:dbros_app/utils/kakao_call_card_ocr.dart';
 import 'package:dbros_app/utils/kakao_custom_call_ocr.dart';
 import 'package:dbros_app/utils/logi_colmanner_ocr.dart';
 import 'package:dbros_app/utils/logi_fare_parse.dart';
+import 'package:dbros_app/utils/geocoding_utils.dart';
+import 'package:dbros_app/utils/ocr_address_normalize.dart';
 import 'package:dbros_app/utils/tmap_trip_detail_ocr.dart';
 
 void main() {
@@ -1788,6 +1790,98 @@ O1:28
 ''';
       final parsed = LogiColmannerOcr.parseLogi(rawText);
       expect(parsed.waypoint, '등촌초교');
+    });
+
+    test('Carrier status-bar noise: detects SKT/KT/LGU+ while preserving real SKT/KT buildings', () {
+      expect(isCarrierStatusBarNoiseLine('SKT'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('SKT 5G'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('SKT 오전 1:20'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('SKT 23:15'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('SKT T전화'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('SKTelecom LTE 85%'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('KT 5G'), isTrue);
+      expect(isCarrierStatusBarNoiseLine('LG U+ LTE'), isTrue);
+
+      // 실제 건물/상호명은 절대 필터링되지 않아야 함
+      expect(isCarrierStatusBarNoiseLine('서울 중구 을지로2가 SKT타워'), isFalse);
+      expect(isCarrierStatusBarNoiseLine('SKT 대리점'), isFalse);
+      expect(isCarrierStatusBarNoiseLine('서울 종로구 KT광화문빌딩'), isFalse);
+
+      expect(stripCarrierStatusNoiseTokens('SKT 서울 강남구 역삼동 123'), '서울 강남구 역삼동 123');
+      expect(stripCarrierStatusNoiseTokens('SKT 5G 경기 성남시 분당구 정자동'), '경기 성남시 분당구 정자동');
+      expect(stripCarrierStatusNoiseTokens('서울 중구 을지로2가 SKT타워'), '서울 중구 을지로2가 SKT타워');
+      expect(stripCarrierStatusNoiseTokens('경기 성남시 분당구 정자동 SKT 대리점'), '경기 성남시 분당구 정자동 SKT 대리점');
+    });
+
+    test('Kakao call card ignores SKT status-bar line at top', () {
+      const rawText = '''
+SKT 오전 1:20
+SKT T전화
+배정 완료
+배정취소 메뉴
+신원동
+역전할머니맥주 고양신원점
+경기 과천시 원문동
+래미안슈르아파트 325동
+100점
+카드 | 확정
+40,800 P
+고객과 통화
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawText);
+      expect(parsed.startLocation, '신원동 역전할머니맥주 고양신원점');
+      expect(parsed.endLocation, '경기 과천시 원문동 래미안슈르아파트 325동');
+      expect(parsed.startLocation, isNot(contains('SKT')));
+      expect(parsed.grossFare, 40800);
+    });
+
+    test('Tmap completed trip detail ignores SKT status-bar between labels', () {
+      const rawText = '''
+01:55 SKT
+운행번호
+44520721
+출발
+SKT 오전 1:20
+도착
+서울 강서구 마곡동 902탭하우스 마곡발산점
+실수익 36,000P
+보험사
+운행 상세 정보
+경기 안산시 상록구 본오동 경기 안산시 상록구 본오동 963-9 SKT
+보험종류 TMAP 대리 보험
+DB손해보험
+''';
+      final parsed = TmapTripDetailOcr.tryParse(rawText);
+      expect(parsed, isNotNull);
+      expect(parsed!.startAddress, '서울 강서구 마곡동 902탭하우스 마곡발산점');
+      expect(parsed.endAddress, '경기 안산시 상록구 본오동 경기 안산시 상록구 본오동 963-9');
+      expect(parsed.startAddress, isNot(contains('SKT')));
+      expect(parsed.endAddress, isNot(contains('SKT')));
+      expect(parsed.grossFare, 36000);
+    });
+
+    test('GeocodingUtils builds spaced, deduped, road-branch and 대한민국 candidates', () {
+      expect(GeocodingUtils.isValidSouthKoreaCoord(null, null), isFalse);
+      expect(GeocodingUtils.isValidSouthKoreaCoord(0.0, 0.0), isFalse);
+      expect(GeocodingUtils.isValidSouthKoreaCoord(37.5665, 126.9780), isTrue);
+      expect(GeocodingUtils.isValidSouthKoreaCoord(40.7128, -74.0060), isFalse);
+
+      final tmapDup = GeocodingUtils.buildGeocodeCandidates(
+        '경기 안산시 상록구 본오동 경기 안산시 상록구 본오동 963-9',
+      );
+      expect(tmapDup.first, '경기 안산시 상록구 본오동 963-9');
+      expect(tmapDup, contains('대한민국 경기 안산시 상록구 본오동 963-9'));
+
+      final glued = GeocodingUtils.buildGeocodeCandidates('부천시원미구 중동1134-5');
+      expect(glued, contains('부천시 원미구 중동 1134-5'));
+      expect(glued, contains('부천시 원미구 중동'));
+
+      final gluedPoi = GeocodingUtils.buildGeocodeCandidates('서울 마포구 합정동삼아빌딩');
+      expect(gluedPoi, contains('서울 마포구 합정동'));
+
+      final roadBranch = GeocodingUtils.buildGeocodeCandidates('경기 안양시 동안구 시민대로 327번길 11');
+      expect(roadBranch, contains('경기 안양시 동안구 시민대로 327번길 11'));
+      expect(roadBranch, contains('경기 안양시 동안구 시민대로 327번길'));
     });
   });
 }

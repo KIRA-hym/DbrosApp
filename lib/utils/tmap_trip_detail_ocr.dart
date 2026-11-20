@@ -1,6 +1,7 @@
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/remote_config_service.dart';
 import '../services/ocr_error_logger.dart';
+import 'ocr_address_normalize.dart';
 
 /// T맵 대리 「운행 상세 정보」 파싱 결과
 class TmapTripDetailParsed {
@@ -153,6 +154,7 @@ class TmapTripDetailOcr {
           
           // Fare cleanup at the end (e.g. " 28,000p")
           res = res.replaceAll(RegExp(r'\s+[\d,]{4,}\s*[a-zA-Z원].*$'), '');
+          res = stripCarrierStatusNoiseTokens(res);
           return res.replaceAll(RegExp(r'\s+'), ' ').trim();
         }
         startCand = cleanNoise(startCand);
@@ -229,6 +231,7 @@ class TmapTripDetailOcr {
       if (cashIdx != -1) res = res.substring(0, cashIdx);
       final bonusMatch = RegExp(r'[Ll└ㄴ]?\s*보너스\s*[\d,]+').firstMatch(res);
       if (bonusMatch != null) res = res.substring(0, bonusMatch.start);
+      res = stripCarrierStatusNoiseTokens(res);
       return res.trim();
     }
     startAddress = cleanAddr(startAddress);
@@ -281,6 +284,7 @@ class TmapTripDetailOcr {
     }
     bool isInvalidChunk(String a) {
       if (a.isEmpty) return true;
+      if (isCarrierStatusBarNoiseLine(a)) return true;
       final c = a.replaceAll(RegExp(r'(?:실수익|보험사|보험종류|운행\s*상세\s*정보).*$'), '').trim();
       if (c.isEmpty) return true;
       if (c.contains('운행일자') || c.contains('운행번호') || c.contains('요기요')) return true;

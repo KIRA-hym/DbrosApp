@@ -487,8 +487,14 @@ class DriveLogDatabase {
     final out = Map<String, dynamic>.from(row);
     ensureNonEmptyWorkDriveDatesInPlace(out);
 
-    // 자동 좌표 추출 (좌표가 비어있고, 주소가 있는 경우에만 실행)
+    // 자동 좌표 추출 (좌표가 비어있거나 0.0·대한민국 외 비정상 좌표이고, 주소가 있는 경우 실행)
     if (!kIsWeb) {
+      final startLatVal = (out['start_lat'] as num?)?.toDouble();
+      final startLngVal = (out['start_lng'] as num?)?.toDouble();
+      if (!GeocodingUtils.isValidSouthKoreaCoord(startLatVal, startLngVal)) {
+        out['start_lat'] = null;
+        out['start_lng'] = null;
+      }
       final startLocStr = out['start_location']?.toString().trim() ?? '';
       if (startLocStr.isNotEmpty && (out['start_lat'] == null || out['start_lng'] == null)) {
         try {
@@ -500,6 +506,12 @@ class DriveLogDatabase {
         } catch (_) {}
       }
 
+      final endLatVal = (out['end_lat'] as num?)?.toDouble();
+      final endLngVal = (out['end_lng'] as num?)?.toDouble();
+      if (!GeocodingUtils.isValidSouthKoreaCoord(endLatVal, endLngVal)) {
+        out['end_lat'] = null;
+        out['end_lng'] = null;
+      }
       final endLocStr = out['end_location']?.toString().trim() ?? '';
       if (endLocStr.isNotEmpty && (out['end_lat'] == null || out['end_lng'] == null)) {
         try {

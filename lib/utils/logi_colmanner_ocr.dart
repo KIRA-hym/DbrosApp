@@ -2,6 +2,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import '../services/ocr_error_logger.dart';
 import '../services/remote_config_service.dart';
 import 'logi_fare_parse.dart';
+import 'ocr_address_normalize.dart';
 
 class PartnerCallParsed {
   // 날짜/시간은 이미지 Exif 메타데이터를 사용하므로 항상 빈 문자열
@@ -678,6 +679,7 @@ class LogiColmannerOcr {
   static bool _isLogiNoiseLine(String line) {
     final n = _normalizeKey(line);
     if (n.startsWith('요금') || n.startsWith('입금액')) return true;
+    if (isCarrierStatusBarNoiseLine(line)) return true;
     if (line.contains('운행시작') || line.contains('운행 시작')) return true;
     if (line.contains('법인명') || line.contains('할증요금') || line.contains('할증') || n == '적요') return true;
     // 로지 콜카드 하단 기사 메모 노이즈 — 주소와 무관한 운영 지시 문구
@@ -732,6 +734,7 @@ class LogiColmannerOcr {
       '도착지',
     };
     if (exact.contains(n)) return true;
+    if (isCarrierStatusBarNoiseLine(line)) return true;
     if (n == '||' || n.startsWith('경로')) return true;
     if (line.contains('운행시작연기')) return true;
     if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(line)) return true;
@@ -1179,6 +1182,8 @@ class LogiColmannerOcr {
 
   static String _cleanAddr(String s, {required bool isLogi, required bool isStart}) {
     var res = s.trim();
+    if (res.isEmpty) return '';
+    res = stripCarrierStatusNoiseTokens(res);
     if (res.contains('신중동역')) print('DEBUG_CLEANADDR_IN: $s');
     if (res.isEmpty) return '';
 
@@ -2269,6 +2274,7 @@ class LogiColmannerOcr {
   static bool _isColmannerNoiseLine(String line) {
     final n = _normalizeKey(line);
     if (n.startsWith('요금') || n.startsWith('입금액')) return true;
+    if (isCarrierStatusBarNoiseLine(line)) return true;
     if (line.contains('고객전화') || line.contains('상황실') || line.contains('상황실연락처')) return true;
     if (line.contains('이니~') || line.contains('이니--') || line.contains('이니-니')) return true;
     if (n.contains('차감합계') || n.contains('입금합계') || n.contains('경로거리') || n.contains('소요시간') || n.contains('출도')) return true;

@@ -48,6 +48,7 @@ import '../utils/kakao_custom_call_ocr.dart';
 import '../utils/ocr_failure_feedback.dart';
 import '../utils/app_bottom_sheet.dart';
 import '../utils/address_normalize.dart';
+import '../utils/geocoding_utils.dart';
 import '../config/feature_flags.dart';
 import '../utils/formatters.dart';
 import '../utils/app_image_picker.dart';
@@ -179,6 +180,8 @@ class _DriveLogFormState extends State<DriveLogForm>
   String _coordBoundEndLoc = '';
   bool _startCoordModifiedByUser = false;
   bool _endCoordModifiedByUser = false;
+  bool _startCoordManuallyPicked = false;
+  bool _endCoordManuallyPicked = false;
 
   // Guide Keys
   final GlobalKey _keyOcrBtn = GlobalKey();
@@ -249,8 +252,16 @@ class _DriveLogFormState extends State<DriveLogForm>
       _memoCon.text = log['memo'] ?? '';
       _startLat = (log['start_lat'] as num?)?.toDouble();
       _startLng = (log['start_lng'] as num?)?.toDouble();
+      if (!GeocodingUtils.isValidSouthKoreaCoord(_startLat, _startLng)) {
+        _startLat = null;
+        _startLng = null;
+      }
       _endLat = (log['end_lat'] as num?)?.toDouble();
       _endLng = (log['end_lng'] as num?)?.toDouble();
+      if (!GeocodingUtils.isValidSouthKoreaCoord(_endLat, _endLng)) {
+        _endLat = null;
+        _endLng = null;
+      }
       _coordBoundStartLoc = _startLocCon.text.trim();
       _coordBoundEndLoc = _endLocCon.text.trim();
       final String? imagePath = log['image_path'] as String?;
@@ -317,6 +328,21 @@ class _DriveLogFormState extends State<DriveLogForm>
   void _onStartLocTextChanged() {
     _markDirty();
     final cur = _startLocCon.text.trim();
+    if (cur.isEmpty) {
+      if (_startLat != null ||
+          _startLng != null ||
+          _startCoordManuallyPicked ||
+          !_startCoordModifiedByUser) {
+        setState(() {
+          _startLat = null;
+          _startLng = null;
+          _startCoordManuallyPicked = false;
+          _startCoordModifiedByUser = true;
+        });
+      }
+      return;
+    }
+    if (_startCoordManuallyPicked) return;
     if (cur != _coordBoundStartLoc) {
       if (_startLat != null ||
           _startLng != null ||
@@ -333,6 +359,21 @@ class _DriveLogFormState extends State<DriveLogForm>
   void _onEndLocTextChanged() {
     _markDirty();
     final cur = _endLocCon.text.trim();
+    if (cur.isEmpty) {
+      if (_endLat != null ||
+          _endLng != null ||
+          _endCoordManuallyPicked ||
+          !_endCoordModifiedByUser) {
+        setState(() {
+          _endLat = null;
+          _endLng = null;
+          _endCoordManuallyPicked = false;
+          _endCoordModifiedByUser = true;
+        });
+      }
+      return;
+    }
+    if (_endCoordManuallyPicked) return;
     if (cur != _coordBoundEndLoc) {
       if (_endLat != null || _endLng != null || !_endCoordModifiedByUser) {
         setState(() {
@@ -1014,6 +1055,8 @@ RULES:
     _coordBoundEndLoc = '';
     _startCoordModifiedByUser = true;
     _endCoordModifiedByUser = true;
+    _startCoordManuallyPicked = false;
+    _endCoordManuallyPicked = false;
 
     if (detected == KakaoCustomCallOcr.programCustom) {
       _parseKakaoCustom(blocks, fullText: recognizedText.text);
@@ -1541,25 +1584,42 @@ RULES:
     final String startN = normalizeAddressForGeocode(start);
     final String endN = normalizeAddressForGeocode(end);
     try {
-      final List<Location> startLocations = await locationFromAddress(
-        startN.isNotEmpty ? startN : start,
-      );
-      final List<Location> endLocations = await locationFromAddress(
-        endN.isNotEmpty ? endN : end,
-      );
-      if (startLocations.isNotEmpty && endLocations.isNotEmpty) {
-        final Location startLoc = startLocations.first;
-        final Location endLoc = endLocations.first;
+      double? slat =
+          GeocodingUtils.isValidSouthKoreaCoord(_startLat, _startLng)
+              ? _startLat
+              : null;
+      double? slng = slat != null ? _startLng : null;
+      double? dlat =
+          GeocodingUtils.isValidSouthKoreaCoord(_endLat, _endLng)
+              ? _endLat
+              : null;
+      double? dlng = dlat != null ? _endLng : null;
+
+      if (slat == null || slng == null) {
+        final loc = await GeocodingUtils.getCoordinateFromAddressFallback(start);
+        if (loc != null) {
+          slat = loc.latitude;
+          slng = loc.longitude;
+        }
+      }
+      if (dlat == null || dlng == null) {
+        final loc = await GeocodingUtils.getCoordinateFromAddressFallback(end);
+        if (loc != null) {
+          dlat = loc.latitude;
+          dlng = loc.longitude;
+        }
+      }
+      if (slat != null && slng != null && dlat != null && dlng != null) {
         final Uri naverRouteUri = Uri(
           scheme: "nmap",
           host: "route",
           path: "car",
           queryParameters: {
-            "slat": startLoc.latitude.toStringAsFixed(7),
-            "slng": startLoc.longitude.toStringAsFixed(7),
+            "slat": slat.toStringAsFixed(7),
+            "slng": slng.toStringAsFixed(7),
             "sname": startN.isNotEmpty ? startN : start,
-            "dlat": endLoc.latitude.toStringAsFixed(7),
-            "dlng": endLoc.longitude.toStringAsFixed(7),
+            "dlat": dlat.toStringAsFixed(7),
+            "dlng": dlng.toStringAsFixed(7),
             "dname": endN.isNotEmpty ? endN : end,
           },
         );
@@ -1600,7 +1660,8 @@ RULES:
 
   Future<void> _openStartMapPicker() async {
     if (!kMapFeaturesEnabled) return;
-    if (_startLocCon.text.trim() != _coordBoundStartLoc) {
+    if (!_startCoordManuallyPicked &&
+        _startLocCon.text.trim() != _coordBoundStartLoc) {
       _startLat = null;
       _startLng = null;
     }
@@ -1609,9 +1670,10 @@ RULES:
       MaterialPageRoute<LatLng?>(
         builder: (_) => LocationPickMapPage(
           addressQuery: _startLocCon.text,
-          initialLatLng: _startLat != null && _startLng != null
-              ? LatLng(_startLat!, _startLng!)
-              : null,
+          initialLatLng:
+              GeocodingUtils.isValidSouthKoreaCoord(_startLat, _startLng)
+                  ? LatLng(_startLat!, _startLng!)
+                  : null,
           title: '출발 위치',
         ),
       ),
@@ -1621,6 +1683,7 @@ RULES:
       _startLat = result.latitude;
       _startLng = result.longitude;
       _coordBoundStartLoc = _startLocCon.text.trim();
+      _startCoordManuallyPicked = true;
       _startCoordModifiedByUser = false;
       FormStateProvider.isWriteFormDirtyNotifier.value = true;
     });
@@ -1628,7 +1691,8 @@ RULES:
 
   Future<void> _openEndMapPicker() async {
     if (!kMapFeaturesEnabled) return;
-    if (_endLocCon.text.trim() != _coordBoundEndLoc) {
+    if (!_endCoordManuallyPicked &&
+        _endLocCon.text.trim() != _coordBoundEndLoc) {
       _endLat = null;
       _endLng = null;
     }
@@ -1637,9 +1701,10 @@ RULES:
       MaterialPageRoute<LatLng?>(
         builder: (_) => LocationPickMapPage(
           addressQuery: _endLocCon.text,
-          initialLatLng: _endLat != null && _endLng != null
-              ? LatLng(_endLat!, _endLng!)
-              : null,
+          initialLatLng:
+              GeocodingUtils.isValidSouthKoreaCoord(_endLat, _endLng)
+                  ? LatLng(_endLat!, _endLng!)
+                  : null,
           title: '도착 위치',
         ),
       ),
@@ -1649,6 +1714,7 @@ RULES:
       _endLat = result.latitude;
       _endLng = result.longitude;
       _coordBoundEndLoc = _endLocCon.text.trim();
+      _endCoordManuallyPicked = true;
       _endCoordModifiedByUser = false;
       FormStateProvider.isWriteFormDirtyNotifier.value = true;
     });
@@ -1879,6 +1945,7 @@ RULES:
       if (!proceed) return;
     }
 
+    final List<String> missingCoordLabels = <String>[];
     try {
       if (!mounted) return;
 
@@ -1926,11 +1993,13 @@ RULES:
             prefix: 'manual',
           );
 
-      if (_startLocCon.text.trim() != _coordBoundStartLoc) {
+      if (!_startCoordManuallyPicked &&
+          _startLocCon.text.trim() != _coordBoundStartLoc) {
         _startLat = null;
         _startLng = null;
       }
-      if (_endLocCon.text.trim() != _coordBoundEndLoc) {
+      if (!_endCoordManuallyPicked &&
+          _endLocCon.text.trim() != _coordBoundEndLoc) {
         _endLat = null;
         _endLng = null;
       }
@@ -1975,6 +2044,22 @@ RULES:
       };
 
       await DriveLogDatabase.instance.insertOrUpdateDriveLog(row);
+
+      _startLat = (row['start_lat'] as num?)?.toDouble();
+      _startLng = (row['start_lng'] as num?)?.toDouble();
+      _endLat = (row['end_lat'] as num?)?.toDouble();
+      _endLng = (row['end_lng'] as num?)?.toDouble();
+      _coordBoundStartLoc = _startLocCon.text.trim();
+      _coordBoundEndLoc = _endLocCon.text.trim();
+
+      if (_coordBoundStartLoc.isNotEmpty &&
+          !GeocodingUtils.isValidSouthKoreaCoord(_startLat, _startLng)) {
+        missingCoordLabels.add('출발지');
+      }
+      if (_coordBoundEndLoc.isNotEmpty &&
+          !GeocodingUtils.isValidSouthKoreaCoord(_endLat, _endLng)) {
+        missingCoordLabels.add('도착지');
+      }
 
       // ���̾�̽�(Firestore) ������ǥ ������ ���� ���� (�񵿱� ó��)
       final String startLocCheck = _startLocCon.text.trim();
@@ -2056,9 +2141,12 @@ RULES:
       }
     }
 
-    final String savedMsg = _logId != null
+    final String baseSavedMsg = _logId != null
         ? "운행일지가 수정되었습니다."
         : "운행일지가 등록되었습니다.";
+    final String savedMsg = missingCoordLabels.isEmpty
+        ? baseSavedMsg
+        : "$baseSavedMsg (${missingCoordLabels.join('·')} 좌표를 찾지 못해 지도 핀으로 지정해 주세요)";
 
     if (widget.fromOverlay) {
       final messenger = ScaffoldMessenger.of(context);

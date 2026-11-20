@@ -1,3 +1,5 @@
+import 'ocr_address_normalize.dart';
+
 /// OCR·콜앱 등 비정규 문자열을 지오코딩·네이버 길찾기에 넘기기 좋게 다듬습니다.
 String normalizeAddressForGeocode(String raw) {
   var s = raw.trim();
@@ -28,6 +30,7 @@ String normalizeAddressForGeocode(String raw) {
   s = s.replaceFirst(RegExp(r'^법\s*[:：]?\s*', caseSensitive: false), '');
   s = s.replaceFirst(RegExp(r'^출발지\s*[:：]?\s*', caseSensitive: false), '');
   s = s.replaceFirst(RegExp(r'^도착지\s*[:：]?\s*', caseSensitive: false), '');
+  s = stripCarrierStatusNoiseTokens(s);
 
   const noisePrefixes = <String>[
     '(제휴)',
