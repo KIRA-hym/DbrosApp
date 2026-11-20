@@ -380,7 +380,11 @@ class KakaoCallCardOcr {
 
   static bool _excludePaymentOrActionStrip(String text) {
     final t = text.trim();
-    if (isCarrierStatusBarNoiseLine(t)) return true;
+    if (isCarrierStatusBarNoiseLine(t) ||
+        isFloatingAppOverlayNoiseLine(t) ||
+        isCommonCallCardBannerNoiseLine(t)) {
+      return true;
+    }
     if (t.length <= 6) {
       const shortUi = {'고객', '메모', '상황실', '운영센터', '메뉴', '기사님', '콜센터'};
       if (shortUi.contains(t)) return true;
@@ -566,7 +570,11 @@ class KakaoCallCardOcr {
 
   static bool _looksLikeAddressLine(String line) {
     final t = line.trim();
-    if (isCarrierStatusBarNoiseLine(t)) return false;
+    if (isCarrierStatusBarNoiseLine(t) ||
+        isFloatingAppOverlayNoiseLine(t) ||
+        isCommonCallCardBannerNoiseLine(t)) {
+      return false;
+    }
     if (t.length < 2) return false;
     if (!RegExp(r'[가-힣]').hasMatch(t)) return false;
     if (_isDateTimeMetaLine(t)) return false;

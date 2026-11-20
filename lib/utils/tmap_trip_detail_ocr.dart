@@ -155,6 +155,7 @@ class TmapTripDetailOcr {
           // Fare cleanup at the end (e.g. " 28,000p")
           res = res.replaceAll(RegExp(r'\s+[\d,]{4,}\s*[a-zA-Z원].*$'), '');
           res = stripCarrierStatusNoiseTokens(res);
+          res = stripFloatingAppOverlayNoise(res);
           return res.replaceAll(RegExp(r'\s+'), ' ').trim();
         }
         startCand = cleanNoise(startCand);
@@ -232,6 +233,7 @@ class TmapTripDetailOcr {
       final bonusMatch = RegExp(r'[Ll└ㄴ]?\s*보너스\s*[\d,]+').firstMatch(res);
       if (bonusMatch != null) res = res.substring(0, bonusMatch.start);
       res = stripCarrierStatusNoiseTokens(res);
+      res = stripFloatingAppOverlayNoise(res);
       return res.trim();
     }
     startAddress = cleanAddr(startAddress);
@@ -284,7 +286,7 @@ class TmapTripDetailOcr {
     }
     bool isInvalidChunk(String a) {
       if (a.isEmpty) return true;
-      if (isCarrierStatusBarNoiseLine(a)) return true;
+      if (isCarrierStatusBarNoiseLine(a) || isFloatingAppOverlayNoiseLine(a)) return true;
       final c = a.replaceAll(RegExp(r'(?:실수익|보험사|보험종류|운행\s*상세\s*정보).*$'), '').trim();
       if (c.isEmpty) return true;
       if (c.contains('운행일자') || c.contains('운행번호') || c.contains('요기요')) return true;

@@ -679,7 +679,11 @@ class LogiColmannerOcr {
   static bool _isLogiNoiseLine(String line) {
     final n = _normalizeKey(line);
     if (n.startsWith('요금') || n.startsWith('입금액')) return true;
-    if (isCarrierStatusBarNoiseLine(line)) return true;
+    if (isCarrierStatusBarNoiseLine(line) ||
+        isFloatingAppOverlayNoiseLine(line) ||
+        isCommonCallCardBannerNoiseLine(line)) {
+      return true;
+    }
     if (line.contains('운행시작') || line.contains('운행 시작')) return true;
     if (line.contains('법인명') || line.contains('할증요금') || line.contains('할증') || n == '적요') return true;
     // 로지 콜카드 하단 기사 메모 노이즈 — 주소와 무관한 운영 지시 문구
@@ -734,7 +738,11 @@ class LogiColmannerOcr {
       '도착지',
     };
     if (exact.contains(n)) return true;
-    if (isCarrierStatusBarNoiseLine(line)) return true;
+    if (isCarrierStatusBarNoiseLine(line) ||
+        isFloatingAppOverlayNoiseLine(line) ||
+        isCommonCallCardBannerNoiseLine(line)) {
+      return true;
+    }
     if (n == '||' || n.startsWith('경로')) return true;
     if (line.contains('운행시작연기')) return true;
     if (RegExp(r'^\d{1,2}:\d{2}').hasMatch(line)) return true;
@@ -1184,6 +1192,7 @@ class LogiColmannerOcr {
     var res = s.trim();
     if (res.isEmpty) return '';
     res = stripCarrierStatusNoiseTokens(res);
+    res = stripCommonCallCardBannerNoise(res);
     if (res.contains('신중동역')) print('DEBUG_CLEANADDR_IN: $s');
     if (res.isEmpty) return '';
 
@@ -1411,6 +1420,8 @@ class LogiColmannerOcr {
     // 전체 괄호 일괄 제거 (운남동)영종자이 등 대비)
     res = res.replaceAll(RegExp(r'[\]\}\)"]'), ' ');
 
+    res = stripCommonCallCardBannerNoise(res);
+    res = res.replaceAll(RegExp(r'\s+지$|\s+지도$'), '');
     res = res.replaceAll(RegExp(r'\s+'), ' ').trim();
     res = _deduplicateAdjacentTokens(res);
 
@@ -2274,7 +2285,11 @@ class LogiColmannerOcr {
   static bool _isColmannerNoiseLine(String line) {
     final n = _normalizeKey(line);
     if (n.startsWith('요금') || n.startsWith('입금액')) return true;
-    if (isCarrierStatusBarNoiseLine(line)) return true;
+    if (isCarrierStatusBarNoiseLine(line) ||
+        isFloatingAppOverlayNoiseLine(line) ||
+        isCommonCallCardBannerNoiseLine(line)) {
+      return true;
+    }
     if (line.contains('고객전화') || line.contains('상황실') || line.contains('상황실연락처')) return true;
     if (line.contains('이니~') || line.contains('이니--') || line.contains('이니-니')) return true;
     if (n.contains('차감합계') || n.contains('입금합계') || n.contains('경로거리') || n.contains('소요시간') || n.contains('출도')) return true;

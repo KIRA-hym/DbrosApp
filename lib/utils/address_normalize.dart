@@ -31,6 +31,7 @@ String normalizeAddressForGeocode(String raw) {
   s = s.replaceFirst(RegExp(r'^출발지\s*[:：]?\s*', caseSensitive: false), '');
   s = s.replaceFirst(RegExp(r'^도착지\s*[:：]?\s*', caseSensitive: false), '');
   s = stripCarrierStatusNoiseTokens(s);
+  s = stripCommonCallCardBannerNoise(s);
 
   const noisePrefixes = <String>[
     '(제휴)',

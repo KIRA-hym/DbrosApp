@@ -1882,6 +1882,101 @@ DB손해보험
       final roadBranch = GeocodingUtils.buildGeocodeCandidates('경기 안양시 동안구 시민대로 327번길 11');
       expect(roadBranch, contains('경기 안양시 동안구 시민대로 327번길 11'));
       expect(roadBranch, contains('경기 안양시 동안구 시민대로 327번길'));
+
+      // 도로명(영동대로/강동대로) 및 일반 상호(파리바게뜨)가 동/리 오절단되지 않아야 함
+      final yeongdong = GeocodingUtils.buildGeocodeCandidates('서울 강남구 영동대로 513');
+      expect(yeongdong, isNot(contains('서울 강남구 영동')));
+      expect(yeongdong, contains('서울 강남구 영동대로 513'));
+      final paris = GeocodingUtils.buildGeocodeCandidates('서울 강남구 파리바게뜨');
+      expect(paris, isNot(contains('서울 강남구 파리')));
+    });
+
+    test('Floating app overlay icons and call-card banner/memo noise are stripped cleanly', () {
+      // 샘플 1: 플로팅 앱 오버레이 텍스트
+      expect(
+        stripFloatingAppOverlayNoise(
+          '경기 양주시 삼숭동 양주옥정역로제비앙메트로1단지 대리 LOGI TALK D2 기사용 기사님 kakao',
+        ),
+        '경기 양주시 삼숭동 양주옥정역로제비앙메트로1단지',
+      );
+      expect(isFloatingAppOverlayNoiseLine('대리 LOGI TALK D2 기사용 기사님 kakao'), isTrue);
+      expect(stripFloatingAppOverlayNoise('경기 성남시 분당구 정자동 SKT 대리점'), '경기 성남시 분당구 정자동 SKT 대리점');
+
+      // 샘플 2: 킥&휠금지 호출앱 기자
+      expect(
+        stripCommonCallCardBannerNoise('경기 수원시 영통구 킥&휠금지 호출앱 기자'),
+        '경기 수원시 영통구',
+      );
+
+      // 샘플 3: 10분이내 근처기사만, 먼저!
+      expect(
+        stripCommonCallCardBannerNoise('서울 강남구 대치동 890-33 지 10분이내 근처기사만, 먼저!'),
+        '서울 강남구 대치동 890-33 지',
+      );
+
+      // 샘플 4: 자동 설정된 주소입니다 안내 배너
+      expect(
+        stripCommonCallCardBannerNoise(
+          '경기 김포시 구래동 자동 설정된 주소입니다 출발 전 고객과 정확한 목적지를 꼭 확인해 주세요. 세부 주소나 건물명이 필요할',
+        ),
+        '경기 김포시 구래동',
+      );
+
+      // 샘플 5: 예약 일시 + 실탑승자/전화번호/현금0원
+      final s5 = stripCommonCallCardBannerNoise(
+        '10 13(화 06:00 S후 서울 영등포구 여의도동 LG트윈타워 실탑승자:임동일010-9588-0994 김성현 현금 0원',
+      );
+      expect(s5, '서울 영등포구 여의도동 LG트윈타워');
+
+      // 샘플 6: 1.세미 이상 필수! 킥보드,전동힐 절대금지!
+      expect(
+        stripCommonCallCardBannerNoise('남궁현 상무 1.세미 이상 필수! 킥보드,전동힐 절대금지! 2.대기'),
+        '남궁현 상무',
+      );
+
+      // 샘플 7: 중간대기/출발대기/운행 중
+      expect(
+        stripCommonCallCardBannerNoise(
+          '경기 하남시 하남선동 미사강변푸르지오2차 중간대기: 출발대기: 운행 중 (중간 대기 시작',
+        ),
+        '경기 하남시 하남선동 미사강변푸르지오2차',
+      );
+
+      // 샘플 8: 콜마너 상단 잔액 바 + 선두 콜론
+      expect(
+        stripCommonCallCardBannerNoise(': 한남동 아워홈그랜드하잇트용산점 잔액 : 134,664원'),
+        '한남동 아워홈그랜드하잇트용산점',
+      );
+      expect(isCommonCallCardBannerNoiseLine('위치 : 한남동/ 아워홈그랜드하잇트용산점 잔액 : 134,664원'), isTrue);
+
+      // 로지 실전 통합 검증: 출발지 끝 '지' + 10분이내 근처기사만, 도착지 플로팅 앱 오버레이
+      const logiRaw = '''
+요금 35000원
+출발지
+도착지
+상세:서울 강남구 대치동 890-33 지 10분이내 근처기사만, 먼저!
+경기 양주시 삼숭동 양주옥정역로제비앙메트로1단지 대리 LOGI TALK D2 기사용 기사님 kakao
+완료
+''';
+      final logiParsed = LogiColmannerOcr.parseLogi(logiRaw);
+      expect(logiParsed.startLocation, '서울 강남구 대치동 890-33');
+      expect(logiParsed.endLocation, '경기 양주시 삼숭동 양주옥정역로제비앙메트로1단지');
+
+      // 카카오 실전 통합 검증: 목적지 자동 설정 안내 배너 제거
+      const kakaoRaw = '''
+배정 완료
+배정취소 메뉴
+경기 고양시일산서구 주엽동
+상록회관일산주엽점
+경기 김포시 구래동
+자동 설정된 주소입니다 출발 전 고객과 정확한 목적지를 꼭 확인해 주세요. 세부 주소나 건물명이 필요할
+100점
+카드 | 확정
+28,000 P
+''';
+      final kakaoParsed = KakaoCallCardOcr.parseScreen(const [], kakaoRaw);
+      expect(kakaoParsed.startLocation, '경기 고양시일산서구 주엽동 상록회관일산주엽점');
+      expect(kakaoParsed.endLocation, '경기 김포시 구래동');
     });
   });
 }

@@ -101,10 +101,16 @@ class GeocodingUtils {
     for (int i = 0; i < tokens.length; i++) {
       final t = tokens[i];
       // 예: "합정동삼아빌딩"처럼 동 뒤에 상호명이 붙여쓰기된 경우 동까지만 절삭
+      // 도로명("영동대로", "강동대로")·일반 상호("파리바게뜨") 오절단을 막기 위해 '동' 단위 + 비(로/길/구/시)로 한정
       final gluedDongMatch = RegExp(
-        r'^([가-힣]{1,6}(?:동|읍|면|리|가))([가-힣]{2,})$',
+        r'^([가-힣]{2,6}동)([가-힣]{2,})$',
       ).firstMatch(t);
-      if (gluedDongMatch != null && !t.endsWith('동') && !t.endsWith('구') && !t.endsWith('시')) {
+      if (gluedDongMatch != null &&
+          !t.endsWith('동') &&
+          !t.endsWith('구') &&
+          !t.endsWith('시') &&
+          !t.endsWith('로') &&
+          !t.endsWith('길')) {
         unitTokens.add(gluedDongMatch.group(1)!);
         foundUnit = true;
         break;
@@ -152,15 +158,15 @@ class GeocodingUtils {
       addCandidate(unitOnly);
     }
 
-    // 3. 국가명('대한민국 ') 접두어 보강 후보 추가 (Android Geocoder 해외 오매칭/실패 방지)
-    final baseSnapshot = List<String>.from(candidates);
+    // 3. 핵심 후보에 국가명('대한민국 ') 접두어 보강 (후보 과다로 인한 저장 지연 방지를 위해 상위 3개 핵심 후보에만 적용)
+    final baseSnapshot = candidates.take(3).toList();
     for (final c in baseSnapshot) {
       if (!c.startsWith('대한민국')) {
         addCandidate('대한민국 $c');
       }
     }
 
-    return candidates;
+    return candidates.take(6).toList();
   }
 
   static Future<void> _ensureKoreanLocale() async {
@@ -183,7 +189,7 @@ class GeocodingUtils {
     for (final candidate in candidates) {
       try {
         final List<Location> locations = await locationFromAddress(candidate)
-            .timeout(const Duration(seconds: 6));
+            .timeout(const Duration(seconds: 4));
         for (final loc in locations) {
           if (_isValidSouthKorea(loc)) {
             if (candidate != addr) {
