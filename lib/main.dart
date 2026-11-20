@@ -293,10 +293,28 @@ class _QuickRegisterOverlayRootState extends State<_QuickRegisterOverlayRoot> {
         }
       }
     });
+    SettingsService.featureUnlockVersionNotifier.addListener(
+      _onOverlayUnlockStateChanged,
+    );
+  }
+
+  Future<void> _onOverlayUnlockStateChanged() async {
+    if (kIsWeb) return;
+    try {
+      await SettingsService.reload();
+      final unlocked = SettingsService.isFeatureUnlocked('overlay_quick') ||
+          SettingsService.isFeatureUnlocked('status_bar');
+      if (!unlocked) {
+        await FlutterOverlayWindow.closeOverlay();
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    SettingsService.featureUnlockVersionNotifier.removeListener(
+      _onOverlayUnlockStateChanged,
+    );
     _sub?.cancel();
     super.dispose();
   }
@@ -620,7 +638,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
       if (next != _lastNotifiedWorkDateYmd) {
         _lastNotifiedWorkDateYmd = next;
       }
-      SettingsService.syncFeatureUnlockStates();
+      SettingsService.scheduleUnlockTimer();
       RemoteConfigService().forceFetch().then((updated) {
         if (updated && mounted) {
           setState(() {});

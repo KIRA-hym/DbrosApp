@@ -123,11 +123,26 @@ class HomePage extends StatefulWidget {
     return true;
   }
 
-  /// 광고 시청 후 2시간 패스 부여 및 화면 캡처 자동등록 활성화
+  /// 광고 시청 후 2시간 패스 부여 및 화면 캡처 자동등록 활성화 (하루 1회 제한)
   static Future<void> watchAdAndEnableAutoCapture(
     BuildContext context, {
     VoidCallback? onEnabled,
   }) async {
+    if (!context.mounted) return;
+    final canWatchAdToday =
+        await FeatureUsageService.canUseTimedAdPassToday('auto_screenshot');
+    if (!canWatchAdToday) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              '오늘의 2시간 광고 체험을 모두 사용했습니다. 내일(오전 9시 이후) 다시 이용해 주세요.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
     if (!context.mounted) return;
     showDialog(
       context: context,
@@ -146,11 +161,11 @@ class HomePage extends StatefulWidget {
       onAdClosed: () async {
         if (context.mounted) Navigator.pop(context);
         if (rewardEarned) {
-          await FeatureUsageService.grantTimedPass(
+          final granted = await FeatureUsageService.grantTimedPass(
             'auto_screenshot',
             const Duration(hours: 2),
           );
-          if (context.mounted) {
+          if (granted && context.mounted) {
             await enableScreenshotAutoWithPermission(
               context,
               onEnabled: onEnabled,
@@ -228,6 +243,8 @@ class HomePage extends StatefulWidget {
     }
 
     final bool canTrial = PremiumService.canStartLaunchTrial;
+    final bool canWatchAdToday =
+        FeatureUsageService.canUseTimedAdPassTodaySync('auto_screenshot');
 
     final action = await AppGlassDialog.show<String>(
       context: context,
@@ -263,15 +280,28 @@ class HomePage extends StatefulWidget {
                   height: 1.55,
                 ),
                 children: [
-                  const TextSpan(text: '30초 광고를 시청하면 '),
-                  const TextSpan(
-                    text: '2시간 동안만',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                  if (canWatchAdToday) ...[
+                    const TextSpan(text: '30초 광고를 시청하면 '),
+                    const TextSpan(
+                      text: '하루 1회, 2시간 동안만',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+                    const TextSpan(text: ' 적용되고 자동 종료되지만,\n\n'),
+                  ] else ...[
+                    const TextSpan(
+                      text: '오늘의 광고 체험(2시간)을 모두 사용했습니다.\n',
+                      style: TextStyle(
+                        color: Color(0xFFFFAB40),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const TextSpan(
+                      text: '내일(오전 9시 이후) 다시 이용하실 수 있습니다.\n\n',
+                    ),
+                  ],
                   if (canTrial) ...[
                     const TextSpan(text: '아직 사용하지 않은 '),
                     const TextSpan(
@@ -341,31 +371,32 @@ class HomePage extends StatefulWidget {
               ),
             ),
           ),
-          Builder(
-            builder: (ctx) => OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFF282C37),
-                foregroundColor: const Color(0xFFE5E7EB),
-                side: const BorderSide(color: Colors.white12),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 14,
+          if (canWatchAdToday)
+            Builder(
+              builder: (ctx) => OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFF282C37),
+                  foregroundColor: const Color(0xFFE5E7EB),
+                  side: const BorderSide(color: Colors.white12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              onPressed: () => Navigator.pop(ctx, 'watch_ad'),
-              child: const Text(
-                '📺 30초 광고 보고 2시간만 사용하기',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
+                onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+                child: const Text(
+                  '📺 30초 광고 보고 2시간 사용하기 (오늘 1회)',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
             ),
-          ),
           Builder(
             builder: (ctx) => GlassDialogCancelButton(
               onPressed: () => Navigator.pop(ctx, 'cancel'),
@@ -1472,6 +1503,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!SettingsService.screenshotAutoRegisterEnabled &&
         !SettingsService.isFeatureUnlocked('auto_screenshot')) {
       final bool canTrial = PremiumService.canStartLaunchTrial;
+      final bool canWatchAdToday =
+          FeatureUsageService.canUseTimedAdPassTodaySync('auto_screenshot');
 
       final routineAction = await AppGlassDialog.show<String>(
         context: context,
@@ -1495,15 +1528,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const TextSpan(text: '을 켜두시겠습니까?\n\n30초 광고를 시청하면 '),
-                const TextSpan(
-                  text: '2시간 동안만',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                if (canWatchAdToday) ...[
+                  const TextSpan(text: '을 켜두시겠습니까?\n\n30초 광고를 시청하면 '),
+                  const TextSpan(
+                    text: '하루 1회, 2시간 동안만',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만, '),
+                  const TextSpan(text: ' 적용되고 자동 종료되지만, '),
+                ] else ...[
+                  const TextSpan(text: '을 이용해 보세요.\n\n'),
+                  const TextSpan(
+                    text: '오늘의 광고 체험(2시간)을 모두 사용했습니다.\n',
+                    style: TextStyle(
+                      color: Color(0xFFFFAB40),
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(text: '내일(오전 9시 이후) 다시 이용하거나, '),
+                ],
                 if (canTrial) ...[
                   const TextSpan(text: '아직 사용하지 않은 '),
                   const TextSpan(
@@ -1571,31 +1616,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                 ),
               ),
             ),
-            Builder(
-              builder: (ctx) => OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: const Color(0xFF282C37),
-                  foregroundColor: const Color(0xFFE5E7EB),
-                  side: const BorderSide(color: Colors.white12),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 14,
+            if (canWatchAdToday)
+              Builder(
+                builder: (ctx) => OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: const Color(0xFF282C37),
+                    foregroundColor: const Color(0xFFE5E7EB),
+                    side: const BorderSide(color: Colors.white12),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 12,
+                      horizontal: 14,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: () => Navigator.pop(ctx, 'watch_ad'),
-                child: const Text(
-                  '📺 30초 광고 보고 2시간만 사용하기',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13.5,
+                  onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+                  child: const Text(
+                    '📺 30초 광고 보고 2시간 사용하기 (오늘 1회)',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13.5,
+                    ),
                   ),
                 ),
               ),
-            ),
             Builder(
               builder: (ctx) => GlassDialogCancelButton(
                 label: '그냥 출근만 하기',
@@ -2399,6 +2445,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   '⏱️ $timeStr',
                   style: const TextStyle(
                     color: Color(0xFFFFC700),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            } else if (!isOn &&
+                !SettingsService.isPremiumUser &&
+                !FeatureUsageService.canUseTimedAdPassTodaySync(
+                  'auto_screenshot',
+                )) {
+              extraBadge = Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0x26FF9100),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0x73FF9100)),
+                ),
+                child: const Text(
+                  '오늘 체험 완료',
+                  style: TextStyle(
+                    color: Color(0xFFFFAB40),
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                   ),

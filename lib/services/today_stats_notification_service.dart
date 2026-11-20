@@ -72,6 +72,11 @@ class TodayStatsNotificationService {
     final today = WorkDateUtils.effectiveWorkDateYmd();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
+        await SettingsService.reload();
+        if (!SettingsService.statusBarQuickEnabled) {
+          await cancel();
+          return;
+        }
         bool granted = await FlutterOverlayWindow.isPermissionGranted();
         if (!granted) {
           await FlutterOverlayWindow.requestPermission();

@@ -2482,6 +2482,10 @@ class _SettingsPageState extends State<SettingsPage> {
     VoidCallback onSuccess,
   ) async {
     final bool canTrial = PremiumService.canStartLaunchTrial;
+    final bool isDailyLimited =
+        FeatureUsageService.isDailySingleAdPassFeature(featureKey);
+    final bool canWatchAdToday =
+        FeatureUsageService.canUseTimedAdPassTodaySync(featureKey);
 
     final action = await AppGlassDialog.show<String>(
       context: context,
@@ -2497,15 +2501,28 @@ class _SettingsPageState extends State<SettingsPage> {
               height: 1.55,
             ),
             children: [
-              const TextSpan(text: '30초 광고를 시청하면 '),
-              const TextSpan(
-                text: '2시간 동안만',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+              if (canWatchAdToday) ...[
+                const TextSpan(text: '30초 광고를 시청하면 '),
+                TextSpan(
+                  text: isDailyLimited ? '하루 1회, 2시간 동안만' : '2시간 동안만',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+                const TextSpan(text: ' 혜택이 적용되고 자동 종료되지만,\n\n'),
+              ] else ...[
+                const TextSpan(
+                  text: '오늘의 광고 체험(2시간)을 모두 사용했습니다.\n',
+                  style: TextStyle(
+                    color: Color(0xFFFFAB40),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const TextSpan(
+                  text: '내일(오전 9시 이후) 다시 이용하실 수 있습니다.\n\n',
+                ),
+              ],
               if (canTrial) ...[
                 const TextSpan(text: '아직 사용하지 않은 '),
                 const TextSpan(
@@ -2570,28 +2587,31 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
           ),
-          Builder(
-            builder: (ctx) => OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                backgroundColor: const Color(0xFF282C37),
-                foregroundColor: const Color(0xFFE5E7EB),
-                side: const BorderSide(color: Colors.white12),
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          if (canWatchAdToday)
+            Builder(
+              builder: (ctx) => OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFF282C37),
+                  foregroundColor: const Color(0xFFE5E7EB),
+                  side: const BorderSide(color: Colors.white12),
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
-              ),
-              onPressed: () => Navigator.pop(ctx, 'watch_ad'),
-              child: const Text(
-                '📺 30초 광고 보고 2시간만 사용하기',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13.5,
+                onPressed: () => Navigator.pop(ctx, 'watch_ad'),
+                child: Text(
+                  isDailyLimited
+                      ? '📺 30초 광고 보고 2시간 사용하기 (오늘 1회)'
+                      : '📺 30초 광고 보고 2시간만 사용하기',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13.5,
+                  ),
                 ),
               ),
             ),
-          ),
           Builder(
             builder: (ctx) => GlassDialogCancelButton(
               onPressed: () => Navigator.pop(ctx, 'cancel'),
@@ -2627,6 +2647,19 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (action == 'watch_ad') {
       if (!context.mounted) return;
+      if (!await FeatureUsageService.canUseTimedAdPassToday(featureKey)) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '오늘의 2시간 광고 체험을 모두 사용했습니다. 내일(오전 9시 이후) 다시 이용해 주세요.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      if (!context.mounted) return;
 
       showDialog(
         context: context,
@@ -2645,11 +2678,13 @@ class _SettingsPageState extends State<SettingsPage> {
         onAdClosed: () async {
           if (context.mounted) Navigator.pop(context); // Close loading dialog
           if (rewardEarned) {
-            await FeatureUsageService.grantTimedPass(
+            final granted = await FeatureUsageService.grantTimedPass(
               featureKey,
               const Duration(hours: 2),
             );
-            onSuccess();
+            if (granted) {
+              onSuccess();
+            }
           }
         },
         onAdFailed: () {

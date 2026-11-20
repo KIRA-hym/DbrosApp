@@ -57,6 +57,33 @@ class FeatureUsageService {
   
   static String get _todayKey => WorkDateUtils.effectiveWorkDateYmd();
 
+  /// 하루 1회(2시간) 광고 체험 제한이 적용되는 기능 목록
+  static const Set<String> _dailySingleAdPassFeatures = <String>{
+    'auto_screenshot',
+    'status_bar',
+  };
+
+  /// 해당 기능이 하루 1회 광고 체험 제한 대상인지 여부
+  static bool isDailySingleAdPassFeature(String featureKey) =>
+      _dailySingleAdPassFeatures.contains(featureKey);
+
+  /// 오늘(근무일 오전 9시 기준) 광고 시청으로 시간제 패스를 추가 발급받을 수 있는지 동기 확인
+  static bool canUseTimedAdPassTodaySync(String featureKey) {
+    if (!isDailySingleAdPassFeature(featureKey)) return true;
+    final lastDate = _prefs.getString('${featureKey}_date');
+    if (lastDate != _todayKey) return true;
+    final adCount = _prefs.getInt('${featureKey}_ad_count') ?? 0;
+    return adCount < 1;
+  }
+
+  /// 오늘(근무일 오전 9시 기준) 광고 시청으로 시간제 패스를 추가 발급받을 수 있는지 비동기 확인
+  static Future<bool> canUseTimedAdPassToday(String featureKey) async {
+    if (!isDailySingleAdPassFeature(featureKey)) return true;
+    await _checkAndResetDailyCounter(featureKey);
+    final adCount = _prefs.getInt('${featureKey}_ad_count') ?? 0;
+    return adCount < 1;
+  }
+
   static Future<void> _checkAndResetDailyCounter(String featureKey) async {
     final lastDate = _prefs.getString('${featureKey}_date');
     if (lastDate != _todayKey) {
@@ -83,13 +110,18 @@ class FeatureUsageService {
   }
 
   /// 시간제 패스 부여 (편의기능 2시간, 통계 1시간 등)
-  static Future<void> grantTimedPass(String featureKey, Duration duration) async {
+  /// 하루 1회 제한 기능(`auto_screenshot`, `status_bar`)은 이미 오늘 사용 완료 시 false 반환.
+  static Future<bool> grantTimedPass(String featureKey, Duration duration) async {
     await _checkAndResetDailyCounter(featureKey);
+    final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
+    if (isDailySingleAdPassFeature(featureKey) && count >= 1) {
+      return false;
+    }
     final expireMs = DateTime.now().add(duration).millisecondsSinceEpoch;
     await _prefs.setInt('${featureKey}_unlock_until_ms', expireMs);
-    final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     await _prefs.setInt('${featureKey}_ad_count', count + 1);
     SettingsService.scheduleUnlockTimer();
+    return true;
   }
 
   static Future<void> grantDailyPass(String featureKey) async {

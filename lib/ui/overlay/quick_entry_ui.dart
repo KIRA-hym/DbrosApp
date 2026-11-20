@@ -43,6 +43,17 @@ class _QuickEntryUIState extends State<QuickEntryUI> {
       setState(() => _showForm = true);
       return;
     }
+
+    // 별도 Isolate 만료 체크: 2시간 패스 만료 시 즉시 오버레이 종료
+    try {
+      await SettingsService.reload();
+      final unlocked = SettingsService.isFeatureUnlocked('overlay_quick') ||
+          SettingsService.isFeatureUnlocked('status_bar');
+      if (!unlocked) {
+        await FlutterOverlayWindow.closeOverlay();
+        return;
+      }
+    } catch (_) {}
     
     try {
       _lastPos = await FlutterOverlayWindow.getOverlayPosition();

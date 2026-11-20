@@ -700,45 +700,57 @@ class _DriveLogFormState extends State<DriveLogForm>
   /// OS 공유 시트 등에서 전달된 파일 경로로 OCR (갤러리 선택과 동일 파이프)
   Future<void> _runOcrOnSharedPath(String path) async {
     final canProceed = await _ensureOcrDisclaimer();
-    if (!canProceed) return;
+    if (!canProceed || !mounted) return;
 
-    try {
-      final file = File(path);
-      if (!file.existsSync()) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('공유한 이미지를 열 수 없습니다. 저장소 권한을 확인해 주세요.'),
-            ),
+    ProFeatureGuard.checkAndRun(
+      context: context,
+      featureKey: 'single_ocr',
+      canUseFree: FeatureUsageService.canUseSingleOcrFree,
+      canUseWithAd: FeatureUsageService.canUseSingleOcrWithAd,
+      autoConsumeFree: false,
+      onGranted: (isFreeTicket) async {
+        try {
+          final file = File(path);
+          if (!file.existsSync()) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('공유한 이미지를 열 수 없습니다. 저장소 권한을 확인해 주세요.'),
+                ),
+              );
+            }
+            return;
+          }
+          if (isFreeTicket) {
+            await FeatureUsageService.incrementFreeUsage('single_ocr');
+          }
+          if (!mounted) return;
+          setState(() => _capturedImage = file);
+
+          final originalDate = file.existsSync()
+              ? file.lastModifiedSync()
+              : DateTime.now();
+
+          final inputImage = InputImage.fromFilePath(file.path);
+          final textRecognizer = TextRecognizer(
+            script: TextRecognitionScript.korean,
           );
+          final RecognizedText recognizedText = await textRecognizer.processImage(
+            inputImage,
+          );
+          await textRecognizer.close();
+
+          if (!mounted) return;
+          _detectProgramAndParse(recognizedText, originalDate: originalDate);
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('공유 이미지 처리 중 오류: $e')));
+          }
         }
-        return;
-      }
-      if (!mounted) return;
-      setState(() => _capturedImage = file);
-
-      final originalDate = file.existsSync()
-          ? file.lastModifiedSync()
-          : DateTime.now();
-
-      final inputImage = InputImage.fromFilePath(file.path);
-      final textRecognizer = TextRecognizer(
-        script: TextRecognitionScript.korean,
-      );
-      final RecognizedText recognizedText = await textRecognizer.processImage(
-        inputImage,
-      );
-      await textRecognizer.close();
-
-      if (!mounted) return;
-      _detectProgramAndParse(recognizedText, originalDate: originalDate);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('공유 이미지 처리 중 오류: $e')));
-      }
-    }
+      },
+    );
   }
 
     // ──────────────────────────────────────────────────────────────

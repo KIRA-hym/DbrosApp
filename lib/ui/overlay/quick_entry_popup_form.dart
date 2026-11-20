@@ -236,6 +236,26 @@ class _QuickEntryPopupFormState extends State<QuickEntryPopupForm> {
   }
 
   Future<void> _submit() async {
+    if (!kIsWeb) {
+      try {
+        await SettingsService.reload();
+        final unlocked = SettingsService.isFeatureUnlocked('overlay_quick') ||
+            SettingsService.isFeatureUnlocked('status_bar');
+        if (!unlocked) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('이용 시간이 만료되었습니다. 앱에서 다시 활성화해 주세요.'),
+              ),
+            );
+          }
+          await FlutterOverlayWindow.closeOverlay();
+          return;
+        }
+      } catch (_) {}
+    }
+    if (!mounted) return;
+
     final origin = _originController.text.trim();
     final dest = _destController.text.trim();
     final priceStr = _priceController.text.trim().replaceAll(',', '');
