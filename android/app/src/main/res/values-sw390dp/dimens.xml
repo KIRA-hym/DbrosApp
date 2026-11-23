@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 일반·울트라·폴드 단말기 (390dp 이상) 상태바 고정알림 치수 -->
+<resources>
+    <dimen name="notif_icon_size">24dp</dimen>
+    <dimen name="notif_net_box_width">86dp</dimen>
+    <dimen name="notif_net_text_size">24dp</dimen>
+    <dimen name="notif_unit_text_size">13dp</dimen>
+    <dimen name="notif_meta_text_size">11.5dp</dimen>
+</resources>

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 접힌 알림: 본문 2줄 + 우측 퀵등록 (시스템/제조사에 따라 2줄 표시) -->
+<!-- 접힌 알림: 좌측(2단 부스트 아이콘 + 10만단위 고정폭 순익 + 원), 우측(날짜 + 근무시간 HH:mm) -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_compact_root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
@@ -8,57 +9,91 @@
     android:paddingTop="2dp"
     android:paddingBottom="2dp">
 
+    <!-- 좌측 순익 블록 -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:id="@+id/notification_compact_icon"
+            android:layout_width="@dimen/notif_icon_size"
+            android:layout_height="@dimen/notif_icon_size"
+            android:layout_marginEnd="2dp"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_today_profit_boost" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:baselineAligned="true">
+
+            <TextView
+                android:id="@+id/notification_compact_line2_net"
+                android:layout_width="@dimen/notif_net_box_width"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:fontFeatureSettings="tnum"
+                android:letterSpacing="-0.03"
+                android:textStyle="bold"
+                android:textSize="@dimen/notif_net_text_size"
+                style="@style/TextAppearance.Compat.Notification.Title" />
+
+            <TextView
+                android:id="@+id/notification_compact_net_unit"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="2dp"
+                android:maxLines="1"
+                android:includeFontPadding="false"
+                android:text="원"
+                android:textStyle="bold"
+                android:textSize="@dimen/notif_unit_text_size"
+                style="@style/TextAppearance.Compat.Notification.Title" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 우측 날짜 & 근무시간(초 단위 제거, 우측 정렬 2줄) -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
+        android:layout_marginStart="6dp"
         android:orientation="vertical"
-        android:gravity="center_vertical">
+        android:gravity="end|center_vertical">
 
         <TextView
             android:id="@+id/notification_compact_line1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:gravity="end"
             android:maxLines="1"
             android:ellipsize="end"
+            android:includeFontPadding="false"
             android:textStyle="bold"
-            style="@style/TextAppearance.Compat.Notification.Line2" />
+            android:textSize="@dimen/notif_meta_text_size"
+            style="@style/TextAppearance.Compat.Notification.Title" />
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/notification_compact_line2_text"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/notification_compact_line2_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxLines="1"
-                android:text="⏰ "
-                android:textStyle="bold"
-                style="@style/TextAppearance.Compat.Notification.Line2" />
-
-            <Chronometer
-                android:id="@+id/notification_chronometer"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textStyle="bold"
-                style="@style/TextAppearance.Compat.Notification.Line2" />
-        </LinearLayout>
+            android:layout_marginTop="3dp"
+            android:gravity="end"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:text="⏰ 출근 전"
+            android:textStyle="bold"
+            android:textSize="@dimen/notif_meta_text_size"
+            style="@style/TextAppearance.Compat.Notification.Line2" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/notification_compact_line2_net"
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:gravity="center"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:maxLines="1"
-        android:textStyle="bold"
-        android:textSize="16sp"
-        style="@style/TextAppearance.Compat.Notification.Title" />
 
     <TextView
         android:id="@+id/notification_quick"
@@ -67,7 +102,7 @@
         android:text="⚡ 퀵등록"
         android:textColor="#FFC107"
         android:textStyle="bold"
-        android:textSize="13sp"
+        android:textSize="13dp"
         android:paddingStart="10dp"
         android:paddingEnd="8dp"
         android:paddingTop="6dp"

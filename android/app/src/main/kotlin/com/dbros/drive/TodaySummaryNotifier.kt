@@ -6,13 +6,22 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.util.TypedValue
 import android.widget.RemoteViews
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import java.text.DecimalFormat
 import java.util.concurrent.atomic.AtomicReference
 
-/** 오늘 요약 알림 — 접힌: 근무일자/순익 2줄, 펼침: 동일 2줄 + 수입·지출 한 줄 + 퀵등록. */
+/**
+ * 오늘 요약 고정 알림:
+ * - 좌측: 2단 부스트 상승 아이콘 + 10만 단위 고정폭(우측 정렬) 순익 + 원
+ * - 우측: 근무일자 + 근무시간(초 단위 제거, HH:mm 분 단위 자동 갱신)
+ * - 텍스트 크기는 dp 단위(values/sw360dp/sw390dp)로 고정하여 시스템 글꼴 확대(1.5x+) 시에도 깨지지 않음.
+ */
 object TodaySummaryNotifier {
 
     // v4: 오늘 요약을 무조건 최상단에 고정하기 위해 채널 분리 및 Importance 상향 (v3 -> v4)
@@ -25,14 +34,23 @@ object TodaySummaryNotifier {
     private const val RC_UNDISMISS = 94004
 
     private val lastSnapshot = AtomicReference<Snapshot?>(null)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var minuteTickRunnable: Runnable? = null
 
     data class Snapshot(
         val income: Int,
         val expense: Int,
         val workDate: String,
         val elapsedSeconds: Int,
-        val isClockedIn: Boolean
-    )
+        val isClockedIn: Boolean,
+        val recordedAtElapsedRealtimeMs: Long = SystemClock.elapsedRealtime()
+    ) {
+        fun currentElapsedSeconds(): Int {
+            if (!isClockedIn) return 0
+            val deltaSec = ((SystemClock.elapsedRealtime() - recordedAtElapsedRealtimeMs) / 1000L).toInt()
+            return maxOf(0, elapsedSeconds + maxOf(0, deltaSec))
+        }
+    }
 
     fun show(
         context: Context,
@@ -42,40 +60,65 @@ object TodaySummaryNotifier {
         elapsedSeconds: Int,
         isClockedIn: Boolean
     ) {
-        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) {
+        val appContext = context.applicationContext
+        if (!NotificationManagerCompat.from(appContext).areNotificationsEnabled()) {
+            cancelMinuteTick()
             return
         }
-        ensureChannel(context)
-        lastSnapshot.set(Snapshot(income, expense, workDate, elapsedSeconds, isClockedIn))
+        ensureChannel(appContext)
+        val snap = Snapshot(
+            income = income,
+            expense = expense,
+            workDate = workDate,
+            elapsedSeconds = maxOf(0, elapsedSeconds),
+            isClockedIn = isClockedIn,
+            recordedAtElapsedRealtimeMs = SystemClock.elapsedRealtime()
+        )
+        lastSnapshot.set(snap)
+        renderSnapshot(appContext, snap)
+        scheduleNextMinuteTickIfNeeded(appContext, snap)
+    }
 
+    private fun renderSnapshot(context: Context, snap: Snapshot) {
         val pkg = context.packageName
         val compact = RemoteViews(pkg, R.layout.notification_today_one_row)
         val expanded = RemoteViews(pkg, R.layout.notification_today_expanded)
 
-        val line1 = formatLine1(workDate)
+        val line1 = formatLine1(snap.workDate)
         compact.setTextViewText(R.id.notification_compact_line1, line1)
         expanded.setTextViewText(R.id.notification_expanded_line1, line1)
 
-        val netStr = formatNetProfit(income, expense)
-        compact.setTextViewText(R.id.notification_compact_line2_net, netStr)
-        expanded.setTextViewText(R.id.notification_expanded_line2_net, netStr)
+        val netValueStr = formatNetValue(snap.income, snap.expense)
+        compact.setTextViewText(R.id.notification_compact_line2_net, netValueStr)
+        expanded.setTextViewText(R.id.notification_expanded_line2_net, netValueStr)
 
-        if (isClockedIn) {
-            val baseTime = android.os.SystemClock.elapsedRealtime() - (elapsedSeconds * 1000L)
-            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간 : ")
-            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간 : ")
-            
-            compact.setChronometer(R.id.notification_chronometer, baseTime, "%s", true)
-            expanded.setChronometer(R.id.notification_expanded_chronometer, baseTime, "%s", true)
-            compact.setViewVisibility(R.id.notification_chronometer, android.view.View.VISIBLE)
-            expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.VISIBLE)
-        } else {
-            compact.setTextViewText(R.id.notification_compact_line2_text, "⏰ 근무시간: 출근 전")
-            expanded.setTextViewText(R.id.notification_expanded_line2_text, "⏰ 근무시간: 출근 전")
-            
-            compact.setViewVisibility(R.id.notification_chronometer, android.view.View.GONE)
-            expanded.setViewVisibility(R.id.notification_expanded_chronometer, android.view.View.GONE)
+        // 단말기 해상도(dp) 기준 고정 텍스트 크기 적용 (시스템 글꼴 확대 영향 차단 + 7자리 이상 예외 자동 축소)
+        val density = context.resources.displayMetrics.density.coerceAtLeast(1f)
+        val baseNetDp = context.resources.getDimension(R.dimen.notif_net_text_size) / density
+        val baseUnitDp = context.resources.getDimension(R.dimen.notif_unit_text_size) / density
+        val baseMetaDp = context.resources.getDimension(R.dimen.notif_meta_text_size) / density
+        val adjustedNetDp = when {
+            netValueStr.length >= 9 -> (baseNetDp - 4f).coerceAtLeast(15f)
+            netValueStr.length >= 8 -> (baseNetDp - 2.5f).coerceAtLeast(16.5f)
+            else -> baseNetDp
         }
+
+        compact.setTextViewTextSize(R.id.notification_compact_line2_net, TypedValue.COMPLEX_UNIT_DIP, adjustedNetDp)
+        expanded.setTextViewTextSize(R.id.notification_expanded_line2_net, TypedValue.COMPLEX_UNIT_DIP, adjustedNetDp)
+        compact.setTextViewTextSize(R.id.notification_compact_net_unit, TypedValue.COMPLEX_UNIT_DIP, baseUnitDp)
+        expanded.setTextViewTextSize(R.id.notification_expanded_net_unit, TypedValue.COMPLEX_UNIT_DIP, baseUnitDp)
+        compact.setTextViewTextSize(R.id.notification_compact_line1, TypedValue.COMPLEX_UNIT_DIP, baseMetaDp)
+        expanded.setTextViewTextSize(R.id.notification_expanded_line1, TypedValue.COMPLEX_UNIT_DIP, baseMetaDp)
+        compact.setTextViewTextSize(R.id.notification_compact_line2_text, TypedValue.COMPLEX_UNIT_DIP, baseMetaDp)
+        expanded.setTextViewTextSize(R.id.notification_expanded_line2_text, TypedValue.COMPLEX_UNIT_DIP, baseMetaDp)
+
+        val timeText = if (snap.isClockedIn) {
+            formatWorkDurationHm(snap.currentElapsedSeconds())
+        } else {
+            "⏰ 출근 전"
+        }
+        compact.setTextViewText(R.id.notification_compact_line2_text, timeText)
+        expanded.setTextViewText(R.id.notification_expanded_line2_text, timeText)
 
         val intentFlags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
 
@@ -109,13 +152,20 @@ object TodaySummaryNotifier {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        compact.setOnClickPendingIntent(R.id.notification_compact_root, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_icon, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_line2_net, piFull)
+        compact.setOnClickPendingIntent(R.id.notification_compact_net_unit, piFull)
         compact.setOnClickPendingIntent(R.id.notification_compact_line1, piFull)
         compact.setOnClickPendingIntent(R.id.notification_compact_line2_text, piFull)
-        compact.setOnClickPendingIntent(R.id.notification_chronometer, piFull)
         compact.setOnClickPendingIntent(R.id.notification_quick, piQuick)
+
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_root, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_icon, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_line2_net, piFull)
+        expanded.setOnClickPendingIntent(R.id.notification_expanded_net_unit, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line1, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_expanded_line2_text, piFull)
-        expanded.setOnClickPendingIntent(R.id.notification_expanded_chronometer, piFull)
         expanded.setOnClickPendingIntent(R.id.notification_quick_expanded, piQuick)
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -141,12 +191,35 @@ object TodaySummaryNotifier {
             .setCustomBigContentView(expanded)
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val built = builder.build()
-        // Notification.FLAG_NO_CLEAR 는 시스템/설정에서 앱 종료 시 알림 정리를 막을 수 있음 — 설정하지 않음
-        nm.notify(NOTIFICATION_ID, built)
+        nm.notify(NOTIFICATION_ID, builder.build())
+    }
+
+    private fun scheduleNextMinuteTickIfNeeded(context: Context, snap: Snapshot) {
+        cancelMinuteTick()
+        if (!snap.isClockedIn) return
+
+        val currentSec = snap.currentElapsedSeconds()
+        val secondsUntilNextMinute = 60 - (currentSec % 60)
+        val delayMs = (secondsUntilNextMinute * 1000L).coerceAtLeast(1000L)
+
+        val runnable = Runnable {
+            val latest = lastSnapshot.get() ?: return@Runnable
+            if (!latest.isClockedIn) return@Runnable
+            if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return@Runnable
+            renderSnapshot(context, latest)
+            scheduleNextMinuteTickIfNeeded(context, latest)
+        }
+        minuteTickRunnable = runnable
+        mainHandler.postDelayed(runnable, delayMs)
+    }
+
+    private fun cancelMinuteTick() {
+        minuteTickRunnable?.let { mainHandler.removeCallbacks(it) }
+        minuteTickRunnable = null
     }
 
     fun cancel(context: Context) {
+        cancelMinuteTick()
         lastSnapshot.set(null)
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.cancel(NOTIFICATION_ID)
@@ -155,7 +228,9 @@ object TodaySummaryNotifier {
     /** 스와이프 제거 직후 — 마지막 요약이 있고 앱이 살아 있으면 즉시 다시 표시. */
     fun reshowAfterDismiss(context: Context) {
         val snap = lastSnapshot.get() ?: return
-        show(context, snap.income, snap.expense, snap.workDate, snap.elapsedSeconds, snap.isClockedIn)
+        val appContext = context.applicationContext
+        renderSnapshot(appContext, snap)
+        scheduleNextMinuteTickIfNeeded(appContext, snap)
     }
 
     private fun ensureChannel(context: Context) {
@@ -179,9 +254,16 @@ object TodaySummaryNotifier {
         return "📅 $workDate"
     }
 
-    private fun formatNetProfit(income: Int, expense: Int): String {
+    private fun formatNetValue(income: Int, expense: Int): String {
         val df = DecimalFormat("#,###")
         val net = income - expense
-        return "💰 ${df.format(net)}원"
+        return df.format(net)
+    }
+
+    private fun formatWorkDurationHm(elapsedSeconds: Int): String {
+        val totalMinutes = maxOf(0, elapsedSeconds / 60)
+        val hours = totalMinutes / 60
+        val minutes = totalMinutes % 60
+        return String.format("⏰ %02d:%02d", hours, minutes)
     }
 }

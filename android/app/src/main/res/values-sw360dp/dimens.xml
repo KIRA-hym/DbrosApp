@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 표준 단말기 (360dp ~ 389dp, 갤럭시 기본) 상태바 고정알림 치수 -->
+<resources>
+    <dimen name="notif_icon_size">23dp</dimen>
+    <dimen name="notif_net_box_width">79dp</dimen>
+    <dimen name="notif_net_text_size">22dp</dimen>
+    <dimen name="notif_unit_text_size">12.5dp</dimen>
+    <dimen name="notif_meta_text_size">11dp</dimen>
+</resources>

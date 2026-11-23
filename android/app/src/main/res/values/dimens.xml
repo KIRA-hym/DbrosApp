@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 초소형 단말기 (< 360dp) 상태바 고정알림 치수 (dp 고정으로 시스템 글꼴 확대 영향 차단) -->
+<resources>
+    <dimen name="notif_icon_size">21dp</dimen>
+    <dimen name="notif_net_box_width">72dp</dimen>
+    <dimen name="notif_net_text_size">20dp</dimen>
+    <dimen name="notif_unit_text_size">11.5dp</dimen>
+    <dimen name="notif_meta_text_size">10.5dp</dimen>
+</resources>

@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DbrosApp 상태바 고정알림 v4 — 상승차트 아이콘 8종 & 글꼴크기 실시간 비교</title>
+  <style>
+    :root {
+      --bg-outer: #0E1117;
+      --panel-bg: #171B24;
+      --border: #2A303E;
+      --accent: #FFC700;
+      --danger: #FF5252;
+      --success: #22C55E;
+      --text-main: #F3F4F6;
+      --text-sub: #9CA3AF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "SamsungOneKorean", "Malgun Gothic", sans-serif;
+      background: radial-gradient(circle at 20% 0%, #1F2937 0%, #0E1117 65%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px 16px 56px;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 199, 0, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(255, 199, 0, 0.4);
+    }
+
+    .header p {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 22px;
+      align-items: start;
+    }
+
+    @media (max-width: 960px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 삼성 One UI 알림 패널 시뮬레이터 */
+    .shade-stage {
+      background: linear-gradient(135deg, #6C766E 0%, #525E5C 42%, #47575F 75%, #55616D 100%);
+      border-radius: 26px;
+      padding: 22px 14px 26px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      overflow-x: auto;
+      transition: background 0.2s ease;
+    }
+
+    .shade-stage.light-mode {
+      background: linear-gradient(135deg, #D9E2E8 0%, #C6D1DA 55%, #B8C4CE 100%);
+    }
+
+    .device-width-wrap {
+      width: 390px;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+      transition: width 0.2s ease;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .shade-stage.light-mode .section-label {
+      color: rgba(17, 24, 39, 0.82);
+    }
+
+    /* 알림 알약 카드 */
+    .notif-pill {
+      width: 100%;
+      min-height: 76px;
+      padding: 12px 14px;
+      border-radius: 38px;
+      background: rgba(34, 41, 44, 0.74);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      color: #FFFFFF;
+      overflow: hidden;
+    }
+
+    .shade-stage.light-mode .notif-pill {
+      background: rgba(255, 255, 255, 0.93);
+      border-color: rgba(0, 0, 0, 0.06);
+      color: #111827;
+    }
+
+    .notif-pill.safe-card {
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34), 0 0 0 1.5px rgba(255, 199, 0, 0.45);
+    }
+
+    .notif-pill.overflow-warn {
+      box-shadow: 0 10px 28px rgba(255, 82, 82, 0.35), 0 0 0 2px #FF5252;
+    }
+
+    .app-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 15px;
+      background: #0D0F12;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: inset 0 0 0 1px rgba(255, 199, 0, 0.22);
+    }
+
+    .app-icon .brand {
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 13px;
+      color: #F5C542;
+      line-height: 1;
+    }
+
+    .app-icon .sub {
+      font-size: 6.5px;
+      color: #D4B45A;
+      margin-top: 3px;
+    }
+
+    .expand-chevron {
+      width: 16px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .shade-stage.light-mode .expand-chevron {
+      color: rgba(17, 24, 39, 0.55);
+    }
+
+    .remote-views {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    /* 공통 Dbros 알림 내부 구조 (각 카드별 CSS 변수로 폰트/폭 독립 제어) */
+    .net-group {
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .icon-slot {
+      width: var(--icon-sz, 24px);
+      height: var(--icon-sz, 24px);
+      margin-right: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .icon-slot svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .amount-baseline {
+      display: flex;
+      align-items: baseline;
+    }
+
+    .net-num {
+      width: var(--num-box-w, 98px);
+      text-align: right;
+      font-size: var(--num-fs, 24px);
+      font-weight: 800;
+      letter-spacing: -0.7px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      color: #FFFFFF;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: font-size 0.12s ease, width 0.12s ease;
+    }
+
+    .shade-stage.light-mode .net-num {
+      color: #111827;
+    }
+
+    .net-unit {
+      font-size: var(--unit-fs, 13px);
+      font-weight: 700;
+      margin-left: 2px;
+      color: #FFFFFF;
+      opacity: 0.92;
+      white-space: nowrap;
+      transition: font-size 0.12s ease;
+    }
+
+    .shade-stage.light-mode .net-unit {
+      color: #111827;
+    }
+
+    .right-meta {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 3px;
+    }
+
+    .meta-row {
+      font-size: var(--meta-fs, 11.5px);
+      font-weight: 700;
+      line-height: 1.22;
+      color: rgba(255, 255, 255, 0.92);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      transition: font-size 0.12s ease;
+    }
+
+    .meta-row.sub-time {
+      color: rgba(255, 255, 255, 0.78);
+      font-weight: 600;
+    }
+
+    .shade-stage.light-mode .meta-row { color: #1F2937; }
+    .shade-stage.light-mode .meta-row.sub-time { color: #4B5563; }
+
+    .show-guides .net-num {
+      background: rgba(255, 199, 0, 0.16);
+      outline: 1px dashed rgba(255, 199, 0, 0.8);
+      border-radius: 4px;
+    }
+
+    .show-guides .right-meta {
+      background: rgba(56, 189, 248, 0.14);
+      outline: 1px dashed rgba(56, 189, 248, 0.75);
+      border-radius: 4px;
+    }
+
+    /* 상태 진단 배지 */
+    .diag-pill {
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .diag-pill.ok {
+      background: rgba(34, 197, 94, 0.22);
+      color: #86EFAC;
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+    .shade-stage.light-mode .diag-pill.ok {
+      color: #065F46;
+      background: rgba(34, 197, 94, 0.2);
+    }
+    .diag-pill.warn {
+      background: rgba(255, 82, 82, 0.26);
+      color: #FECACA;
+      border: 1px solid rgba(255, 82, 82, 0.65);
+    }
+    .shade-stage.light-mode .diag-pill.warn {
+      color: #991B1B;
+    }
+
+    /* Icon Gallery (상승 화살표 계열 8종) */
+    .icon-gallery {
+      margin-top: 16px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+
+    .icon-gallery h2 {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 560px) {
+      .icon-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .icon-card {
+      background: #1E2330;
+      border: 1.5px solid #2D3446;
+      border-radius: 12px;
+      padding: 11px 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      text-align: center;
+      transition: all 0.14s ease;
+    }
+
+    .icon-card:hover {
+      border-color: rgba(255, 199, 0, 0.55);
+    }
+
+    .icon-card.active {
+      background: rgba(255, 199, 0, 0.13);
+      border-color: var(--accent);
+    }
+
+    .icon-card .preview {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-card .preview svg {
+      width: 26px;
+      height: 26px;
+    }
+
+    .icon-card .name {
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #F3F4F6;
+    }
+
+    .icon-card .desc {
+      font-size: 10px;
+      color: #9CA3AF;
+      line-height: 1.25;
+    }
+
+    /* Controls Panel */
+    .controls {
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .ctrl-group h3 {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: var(--accent);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ctrl-sub {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .btn-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      background: #222734;
+      color: #D1D5DB;
+      border: 1px solid #32394A;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.14s ease;
+    }
+
+    .chip.active {
+      background: var(--accent);
+      color: #111;
+      border-color: var(--accent);
+    }
+
+    .chip:hover:not(.active) {
+      border-color: rgba(255, 199, 0, 0.55);
+      color: #fff;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .slider-row input[type="range"] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .slider-val {
+      min-width: 52px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .tip-box {
+      background: #12151C;
+      border: 1px solid #2A303E;
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: 11.5px;
+      color: #CBD5E1;
+      line-height: 1.5;
+    }
+
+    .tip-box strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>
+        DbrosApp 상태바 고정알림 v4 — 상승 화살표 계열 아이콘 8종 & 글꼴크기 실시간 비교
+        <span class="badge">sp 가변 vs dp 고정 동시 비교</span>
+      </h1>
+      <p>
+        우측 <strong>시스템 글꼴 크기 (0.85x ~ 1.50x)</strong> 를 조절하면,
+        <strong>위 카드(일반 sp)</strong>는 글꼴 크기에 따라 실시간으로 커지고 잘리는 모습을,
+        <strong>아래 카드(dp 고정 · 추천)</strong>는 글꼴을 키워도 어떻게 안 깨지고 유지되는지를 한눈에 동시에 비교할 수 있습니다.
+      </p>
+    </header>
+
+    <div class="grid">
+      <!-- 좌측: 실시간 비교 상태바 2단 + 상승 화살표 계열 8종 갤러리 -->
+      <div>
+        <div id="shade-stage" class="shade-stage">
+          <div id="device-wrap" class="device-width-wrap">
+
+            <!-- 카드 1: 일반 sp (단말기 시스템 글꼴 크기 설정에 실시간 반응!) -->
+            <div class="section-label">
+              <span>① 단말기 글꼴 크기 연동 시 (<code>sp</code> 단위) — <strong id="sp-size-tag">24sp / 11.5sp</strong></span>
+              <span id="sp-diag" class="diag-pill ok">정상</span>
+            </div>
+            <div id="card-sp" class="notif-pill">
+              <div class="app-icon">
+                <div class="brand">Dbros</div>
+                <div class="sub">운행일지관리</div>
+              </div>
+              <div class="remote-views">
+                <div class="net-group">
+                  <div class="icon-slot" id="icon-slot-sp"></div>
+                  <div class="amount-baseline">
+                    <span id="sp-net-num" class="net-num">158,000</span>
+                    <span class="net-unit">원</span>
+                  </div>
+                </div>
+                <div class="right-meta">
+                  <div class="meta-row" id="sp-date">📅 2026-11-23</div>
+                  <div class="meta-row sub-time" id="sp-time">⏰ 03:25</div>
+                </div>
+              </div>
+              <div class="expand-chevron">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+
+            <!-- 카드 2: dp 고정 + 해상도별 자동조절 (추천! 글꼴 1.5배에도 안 깨짐) -->
+            <div class="section-label" style="margin-top: 8px;">
+              <span style="color:#FFC700;">② 해상도별 자동조절 + 글꼴 고정 (<code>dp</code> 단위 · 추천) — <strong id="dp-size-tag">24dp / 11.5dp</strong></span>
+              <span id="dp-diag" class="diag-pill ok">안정</span>
+            </div>
+            <div id="card-dp" class="notif-pill safe-card">
+              <div class="app-icon">
+                <div class="brand">Dbros</div>
+                <div class="sub">운행일지관리</div>
+              </div>
+              <div class="remote-views">
+                <div class="net-group">
+                  <div class="icon-slot" id="icon-slot-dp"></div>
+                  <div class="amount-baseline">
+                    <span id="dp-net-num" class="net-num">158,000</span>
+                    <span class="net-unit">원</span>
+                  </div>
+                </div>
+                <div class="right-meta">
+                  <div class="meta-row" id="dp-date">📅 2026-11-23</div>
+                  <div class="meta-row sub-time" id="dp-time">⏰ 03:25</div>
+                </div>
+              </div>
+              <div class="expand-chevron">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- 수입 상승 화살표 계열 아이콘 8종 갤러리 -->
+        <section class="icon-gallery">
+          <h2>
+            <span>📈 수입 상승 화살표 계열 아이콘 8종 (클릭 시 위 상태바 즉시 반영)</span>
+            <span style="font-size:11px;color:#9CA3AF;font-weight:600;">다크/라이트 알림바 자동 색상 대응</span>
+          </h2>
+          <div class="icon-grid" id="icon-grid"></div>
+        </section>
+      </div>
+
+      <!-- 우측: 컨트롤 패널 -->
+      <aside class="controls">
+        <div class="ctrl-group">
+          <h3>1. 단말기 시스템 글꼴 크기 설정 <span id="scale-val-top" style="color:#fff;">1.00x</span></h3>
+          <div class="ctrl-sub">버튼/슬라이더를 움직이면 <strong>①번 카드가 실시간으로 커지며</strong>, ②번 카드와 바로 비교됩니다.</div>
+          <div class="btn-wrap" id="scale-chips">
+            <button class="chip" onclick="setFontScale(0.85, this)">작게 0.85x</button>
+            <button class="chip active" onclick="setFontScale(1.0, this)">보통 1.0x</button>
+            <button class="chip" onclick="setFontScale(1.15, this)">크게 1.15x</button>
+            <button class="chip" onclick="setFontScale(1.3, this)">매우 크게 1.3x</button>
+            <button class="chip" onclick="setFontScale(1.5, this)">최대 1.5x</button>
+          </div>
+          <div class="slider-row">
+            <input id="scale-slider" type="range" min="85" max="150" step="5" value="100" oninput="onSliderScale(this.value)" />
+            <span class="slider-val" id="scale-val">1.00x</span>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <h3>2. 단말기 해상도 (가로폭)</h3>
+          <div class="ctrl-sub">해상도를 바꾸면 ①②번 카드 모두 실제 기기 폭으로 조절됩니다.</div>
+          <div class="btn-wrap" id="width-chips">
+            <button class="chip" onclick="setDeviceWidth(320, this)">320dp (초소형)</button>
+            <button class="chip" onclick="setDeviceWidth(360, this)">360dp (기본)</button>
+            <button class="chip active" onclick="setDeviceWidth(390, this)">390dp (일반)</button>
+            <button class="chip" onclick="setDeviceWidth(412, this)">412dp (울트라)</button>
+            <button class="chip" onclick="setDeviceWidth(500, this)">폴드 펼침</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <h3>3. 순익 금액 & 근무시간</h3>
+          <div class="btn-wrap" id="amount-chips" style="margin-bottom: 8px;">
+            <button class="chip" onclick="setAmount(0, this)">0원</button>
+            <button class="chip" onclick="setAmount(23200, this)">23,200원</button>
+            <button class="chip active" onclick="setAmount(158000, this)">158,000원</button>
+            <button class="chip" onclick="setAmount(999000, this)">999,000원</button>
+            <button class="chip" onclick="setAmount(-15000, this)">-15,000원</button>
+          </div>
+          <div class="btn-wrap" id="time-chips">
+            <button class="chip" onclick="setWorkTime(null, this)">출근 전</button>
+            <button class="chip active" onclick="setWorkTime(205, this)">⏰ 03:25</button>
+            <button class="chip" onclick="setWorkTime(710, this)">⏰ 11:50</button>
+          </div>
+        </div>
+
+        <div class="ctrl-group">
+          <h3>4. 알림바 테마 & 여백 가이드</h3>
+          <div class="btn-wrap">
+            <button class="chip" id="btn-theme" onclick="toggleTheme()">라이트 알림바 (검정글씨)</button>
+            <button class="chip" id="btn-guides" onclick="toggleGuides()">10만단위 여백 박스</button>
+          </div>
+        </div>
+
+        <div class="tip-box">
+          <strong>💡 왜 ②번(<code>dp</code> + 해상도 분기)을 추천하나요?</strong><br/>
+          대리 기사님들은 휴대폰 글꼴 크기를 <strong>크게(1.3x~1.5x)</strong> 쓰시는 경우가 매우 많습니다.
+          ①번처럼 일반 <code>sp</code>를 쓰면 1.3x 이상에서 금액·날짜가 잘리지만,
+          ②번(<code>values/sw360dp/sw390dp</code> + <code>dp</code> 단위)을 쓰면 어떤 기종·글꼴에서도 항상 손목닥터처럼 크고 안 깨지게 유지됩니다.
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    function makeIcons(isLight) {
+      const c = isLight ? '#D97706' : '#FFC700';       // 메인 골드
+      const c2 = isLight ? '#B45309' : '#FFE066';      // 포인트 밝은/진한 골드
+      const fillBg = isLight ? 'rgba(217,119,6,0.14)' : 'rgba(255,199,0,0.16)';
+      const areaFill = isLight ? 'rgba(217,119,6,0.22)' : 'rgba(255,199,0,0.24)';
+
+      return [
+        {
+          id: 'trend_box',
+          name: '① 꺾은선 박스 (기본)',
+          desc: '둥근 사각 + 상승선',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${fillBg}" stroke="${c}" stroke-width="1.5"/>
+            <path d="M6 15.5L10.2 11.3L13 14.1L18 8.5" stroke="${c}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14.2 8.5H18V12.3" stroke="${c}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'bar_trend',
+          name: '② 막대차트 + 화살표',
+          desc: '계단식 막대 + 상승',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${fillBg}" stroke="${c}" stroke-width="1.4"/>
+            <rect x="5.5" y="14.5" width="3" height="4" rx="1" fill="${c}" fill-opacity="0.55"/>
+            <rect x="10.5" y="12" width="3" height="6.5" rx="1" fill="${c}" fill-opacity="0.78"/>
+            <rect x="15.5" y="9.5" width="3" height="9" rx="1" fill="${c}"/>
+            <path d="M6 11L11.5 7.5L17.5 6" stroke="${c2}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15 5.2L18 5.8L16.8 8.5" stroke="${c2}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'area_chart',
+          name: '③ 금융 영역 차트',
+          desc: '면 채움 상승 그래프',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${fillBg}" stroke="${c}" stroke-width="1.5"/>
+            <path d="M5.5 17.5V14.5L9.5 11.2L12.6 13.4L18 7.8V17.5Z" fill="${areaFill}"/>
+            <path d="M5.5 14.5L9.5 11.2L12.6 13.4L18 7.8" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M14.5 7.8H18V11.3" stroke="${c}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'circle_diag',
+          name: '④ 원형 대각 상승',
+          desc: '원형 프레임 + ↗ 화살표',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" fill="${fillBg}" stroke="${c}" stroke-width="1.6"/>
+            <path d="M8 16L16 8" stroke="${c}" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M10.2 8H16V13.8" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'won_trend',
+          name: '⑤ ₩ + 상승 화살표',
+          desc: '원화 기호 + 상승 결합',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${fillBg}" stroke="${c}" stroke-width="1.5"/>
+            <text x="9.5" y="17.2" text-anchor="middle" fill="${c}" font-size="11.5" font-weight="900" font-family="sans-serif">₩</text>
+            <path d="M14.5 11.5L18.5 6.8" stroke="${c2}" stroke-width="2" stroke-linecap="round"/>
+            <path d="M15.3 6.8H18.7V10.2" stroke="${c2}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'double_up',
+          name: '⑥ 2단 부스트 상승',
+          desc: '이중 상승 쉐브론',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="2" width="20" height="20" rx="6" fill="${fillBg}" stroke="${c}" stroke-width="1.5"/>
+            <path d="M7.5 16.5L12 12L16.5 16.5" stroke="${c}" stroke-opacity="0.65" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7.5 11.5L12 7L16.5 11.5" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'coin_growth',
+          name: '⑦ 코인 + 상승선',
+          desc: '동전 위 수익 상승',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <circle cx="9.2" cy="14.8" r="6.2" fill="${c}"/>
+            <text x="9.2" y="17.4" text-anchor="middle" fill="#14161A" font-size="8.2" font-weight="900" font-family="sans-serif">₩</text>
+            <path d="M13 10.5L19.5 4.5" stroke="${c}" stroke-width="2.3" stroke-linecap="round"/>
+            <path d="M15.2 4.5H19.5V8.8" stroke="${c}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        },
+        {
+          id: 'minimal_line',
+          name: '⑧ 미니멀 단독선',
+          desc: '박스 없이 화살표만',
+          svg: `<svg viewBox="0 0 24 24" fill="none">
+            <path d="M3.5 17.5L9.5 11.5L13.5 15.2L20.5 7" stroke="${c}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M15.2 7H20.5V12.3" stroke="${c}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>`
+        }
+      ];
+    }
+
+    const state = {
+      iconId: 'trend_box',
+      deviceWidth: 390,
+      fontScale: 1.0,
+      amount: 158000,
+      workMinutes: 205,
+      lightMode: false,
+      showGuides: false
+    };
+
+    function buildIconGallery() {
+      const icons = makeIcons(state.lightMode);
+      const grid = document.getElementById('icon-grid');
+      grid.innerHTML = icons.map(ic => `
+        <button class="icon-card ${ic.id === state.iconId ? 'active' : ''}" onclick="selectIcon('${ic.id}')">
+          <div class="preview">${ic.svg}</div>
+          <div class="name">${ic.name}</div>
+          <div class="desc">${ic.desc}</div>
+        </button>
+      `).join('');
+    }
+
+    function selectIcon(id) {
+      state.iconId = id;
+      buildIconGallery();
+      render();
+    }
+
+    function getBaseMetricsForWidth(w) {
+      if (w < 360) {
+        return { num: 20, unit: 11.5, meta: 10.5, boxW: 72, iconSz: 21 };
+      } else if (w < 390) {
+        return { num: 22, unit: 12.5, meta: 11, boxW: 79, iconSz: 23 };
+      } else {
+        return { num: 24, unit: 13, meta: 11.5, boxW: 86, iconSz: 24 };
+      }
+    }
+
+    function render() {
+      const icons = makeIcons(state.lightMode);
+      const icon = icons.find(i => i.id === state.iconId) || icons[0];
+      document.getElementById('icon-slot-sp').innerHTML = icon.svg;
+      document.getElementById('icon-slot-dp').innerHTML = icon.svg;
+
+      const wrap = document.getElementById('device-wrap');
+      wrap.style.width = `${state.deviceWidth}px`;
+
+      const formatted = state.amount.toLocaleString('ko-KR');
+      const timeStr = state.workMinutes === null
+        ? '⏰ 출근 전'
+        : `⏰ ${String(Math.floor(state.workMinutes / 60)).padStart(2, '0')}:${String(state.workMinutes % 60).padStart(2, '0')}`;
+
+      document.getElementById('sp-net-num').textContent = formatted;
+      document.getElementById('dp-net-num').textContent = formatted;
+      document.getElementById('sp-time').textContent = timeStr;
+      document.getElementById('dp-time').textContent = timeStr;
+
+      // ① 일반 sp 카드: 시스템 폰트 배율(state.fontScale)이 그대로 적용됨
+      const s = state.fontScale;
+      const spNum = +(24 * s).toFixed(1);
+      const spUnit = +(13 * s).toFixed(1);
+      const spMeta = +(11.5 * s).toFixed(1);
+      const cardSp = document.getElementById('card-sp');
+      cardSp.style.setProperty('--num-fs', `${spNum}px`);
+      cardSp.style.setProperty('--unit-fs', `${spUnit}px`);
+      cardSp.style.setProperty('--meta-fs', `${spMeta}px`);
+      cardSp.style.setProperty('--num-box-w', `86px`);
+      cardSp.style.setProperty('--icon-sz', `24px`);
+      document.getElementById('sp-size-tag').textContent =
+        `순익 ${spNum}px / 날짜 ${spMeta}px (${s.toFixed(2)}x 반영)`;
+
+      // ② dp 고정 + 해상도별 자동조절 카드: 시스템 폰트 배율 무관, 해상도(sw)별 최적화
+      const m = getBaseMetricsForWidth(state.deviceWidth);
+      const cardDp = document.getElementById('card-dp');
+      cardDp.style.setProperty('--num-fs', `${m.num}px`);
+      cardDp.style.setProperty('--unit-fs', `${m.unit}px`);
+      cardDp.style.setProperty('--meta-fs', `${m.meta}px`);
+      cardDp.style.setProperty('--num-box-w', `${m.boxW}px`);
+      cardDp.style.setProperty('--icon-sz', `${m.iconSz}px`);
+      document.getElementById('dp-size-tag').textContent =
+        `순익 ${m.num}dp / 날짜 ${m.meta}dp (${state.deviceWidth}dp 맞춤)`;
+
+      requestAnimationFrame(checkOverflows);
+    }
+
+    function diagnoseCard(prefix, cardId, diagId) {
+      const numEl = document.getElementById(`${prefix}-net-num`);
+      const dateEl = document.getElementById(`${prefix}-date`);
+      const timeEl = document.getElementById(`${prefix}-time`);
+      const card = document.getElementById(cardId);
+      const diag = document.getElementById(diagId);
+
+      const clipped = [];
+      if (numEl.scrollWidth > numEl.clientWidth + 1) clipped.push('금액');
+      if (dateEl.scrollWidth > dateEl.clientWidth + 1) clipped.push('날짜');
+      if (timeEl.scrollWidth > timeEl.clientWidth + 1) clipped.push('시간');
+
+      const hasErr = clipped.length > 0;
+      card.classList.toggle('overflow-warn', hasErr);
+      diag.className = `diag-pill ${hasErr ? 'warn' : 'ok'}`;
+      diag.textContent = hasErr ? `⚠️ ${clipped.join('·')} 잘림` : '✅ 잘림 없음';
+    }
+
+    function checkOverflows() {
+      diagnoseCard('sp', 'card-sp', 'sp-diag');
+      diagnoseCard('dp', 'card-dp', 'dp-diag');
+    }
+
+    function activateChip(groupId, btn) {
+      document.querySelectorAll(`#${groupId} .chip`).forEach(el => el.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function setFontScale(scale, btn) {
+      state.fontScale = scale;
+      document.getElementById('scale-slider').value = Math.round(scale * 100);
+      document.getElementById('scale-val').textContent = `${scale.toFixed(2)}x`;
+      document.getElementById('scale-val-top').textContent = `${scale.toFixed(2)}x`;
+      activateChip('scale-chips', btn);
+      render();
+    }
+
+    function onSliderScale(val) {
+      const scale = Number(val) / 100;
+      state.fontScale = scale;
+      document.getElementById('scale-val').textContent = `${scale.toFixed(2)}x`;
+      document.getElementById('scale-val-top').textContent = `${scale.toFixed(2)}x`;
+      document.querySelectorAll('#scale-chips .chip').forEach(el => el.classList.remove('active'));
+      render();
+    }
+
+    function setDeviceWidth(px, btn) {
+      state.deviceWidth = px;
+      activateChip('width-chips', btn);
+      render();
+    }
+
+    function setAmount(val, btn) {
+      state.amount = val;
+      activateChip('amount-chips', btn);
+      render();
+    }
+
+    function setWorkTime(mins, btn) {
+      state.workMinutes = mins;
+      activateChip('time-chips', btn);
+      render();
+    }
+
+    function toggleTheme() {
+      state.lightMode = !state.lightMode;
+      document.getElementById('shade-stage').classList.toggle('light-mode', state.lightMode);
+      const btn = document.getElementById('btn-theme');
+      btn.classList.toggle('active', state.lightMode);
+      btn.textContent = state.lightMode ? '다크 알림바 (흰색글씨)' : '라이트 알림바 (검정글씨)';
+      buildIconGallery();
+      render();
+    }
+
+    function toggleGuides() {
+      state.showGuides = !state.showGuides;
+      document.getElementById('card-sp').classList.toggle('show-guides', state.showGuides);
+      document.getElementById('card-dp').classList.toggle('show-guides', state.showGuides);
+      const btn = document.getElementById('btn-guides');
+      btn.classList.toggle('active', state.showGuides);
+    }
+
+    buildIconGallery();
+    render();
+  </script>
+</body>
+</html>
