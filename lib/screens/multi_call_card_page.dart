@@ -14,7 +14,6 @@ import '../widgets/responsive_body.dart';
 import '../widgets/ad_banner_widget.dart';
 import '../widgets/app_empty_state.dart';
 import '../utils/pro_feature_guard.dart';
-import '../services/feature_usage_service.dart';
 import '../utils/call_card_recognition_disclaimer.dart';
 
 class MultiCallCardForm extends StatefulWidget {
@@ -76,8 +75,8 @@ class _MultiCallCardFormState extends State<MultiCallCardForm> {
     ProFeatureGuard.checkAndRun(
       context: context,
       featureKey: 'multi_ocr',
-      canUseFree: () async => false, // 1회차부터 광고
-      canUseWithAd: FeatureUsageService.canUseMultiOcrWithAd,
+      canUseFree: () async => false, // 프리미엄 전용
+      canUseWithAd: () async => false, // 광고 체험 불가 (프리미엄 전용)
       autoConsumeFree: false,
       onGranted: (isFreeTicket) async {
         try {

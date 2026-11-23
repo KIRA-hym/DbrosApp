@@ -2449,6 +2449,126 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _openMultiCallCardRegister() async {
+    Future<void> launchMultiRegister() async {
+      if (!mounted) return;
+      final canProceed = await ensureCallCardRecognitionDisclaimer(
+        context,
+        'multi',
+      );
+      if (!canProceed || !mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MultiCallCardForm()),
+      );
+      TodayStatsProvider.instance.refresh();
+    }
+
+    if (!kMonetizationEnabled || SettingsService.isPremiumUser) {
+      await launchMultiRegister();
+      return;
+    }
+
+    final bool canTrial = PremiumService.canStartLaunchTrial;
+    final action = await AppGlassDialog.show<String>(
+      context: context,
+      dialog: AppGlassDialog(
+        icon: Icons.workspace_premium,
+        title: '콜카드 다중등록 (프리미엄 전용)',
+        contentWidget: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '여러 장의 콜카드 캡처를 한 번에 불러와\n운행일지로 일괄 자동 등록하는\n프리미엄 전용 기능입니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                color: Color(0xFFD1D2D4),
+                fontSize: 13.5,
+                height: 1.55,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              '※ 본 기능은 광고 체험 없이 프리미엄 구독자 전용으로 제공됩니다.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontFamily: 'Pretendard',
+                color: Color(0xFFFFAB40),
+                fontSize: 11.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Builder(
+            builder: (ctx) => ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: canTrial
+                    ? const Color(0xFF00E676)
+                    : const Color(0xFFFFC700),
+                foregroundColor: Colors.black,
+                elevation: 2,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 12,
+                  horizontal: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              onPressed: () => Navigator.pop(
+                ctx,
+                canTrial ? 'start_trial' : 'subscribe',
+              ),
+              child: Text(
+                canTrial
+                    ? '🎁 출시기념! 결제 없이 14일 무료체험\n즉시 시작하고 다중등록 열기'
+                    : '👑 하루 100원! 프리미엄 구독하고\n다중등록 바로 열기',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 13.5,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ),
+          Builder(
+            builder: (ctx) => GlassDialogCancelButton(
+              onPressed: () => Navigator.pop(ctx, 'cancel'),
+              label: '닫기',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (action == 'start_trial') {
+      if (!mounted) return;
+      final started = await PremiumService.tryStartLaunchTrialWithFeedback(
+        context,
+      );
+      if ((started || SettingsService.isPremiumUser) && mounted) {
+        await launchMultiRegister();
+      }
+      return;
+    }
+
+    if (action == 'subscribe') {
+      if (!mounted) return;
+      final purchased = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(builder: (_) => const PaywallPage()),
+      );
+      if ((purchased == true || SettingsService.isPremiumUser) && mounted) {
+        await launchMultiRegister();
+      }
+    }
+  }
+
   Widget _buildUtilsRow() {
     final screenW = MediaQuery.sizeOf(context).width;
     final bool isCompact = screenW < 360;
@@ -2458,259 +2578,187 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final primary = Theme.of(context).primaryColor;
     final cardColor = Theme.of(context).cardTheme.color!;
 
-    return ValueListenableBuilder<bool>(
-      valueListenable: SettingsService.isPremiumUserNotifier,
-      builder: (context, isPremium, _) {
-        final bool unlocked = !kMonetizationEnabled || isPremium;
-
-        return Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-              Expanded(
-                flex: 10,
-                key: _keyWaitingFee,
-                child: InkWell(
-                  onTap: () => WaitingFeeBottomSheet.show(context),
-                  borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isCompact ? 4 : 6,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: primary),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.timer_outlined,
-                          color: const Color(0xFFFFC700),
-                          size: iconSize,
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            '대기비용',
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: const Color(0xFFFFC700),
-                              fontWeight: FontWeight.bold,
-                              fontSize: labelSize,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 10,
+            key: _keyWaitingFee,
+            child: InkWell(
+              onTap: () => WaitingFeeBottomSheet.show(context),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 4 : 6,
+                  vertical: 8,
                 ),
-              ),
-              SizedBox(width: gap),
-              Expanded(
-                flex: 10,
-                key: _keyMap,
-                child: InkWell(
-                  onTap: () {
-                    if (!kMapFeaturesEnabled) return;
-                    ProFeatureGuard.checkAndRun(
-                      context: context,
-                      featureKey: 'call_map',
-                      canUseFree: FeatureUsageService.canUseCallMapFree,
-                      canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
-                      onGranted: (isFreeTicket) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const CallPointMapPage(),
-                          ),
-                        );
-                      },
-                    );
-                  },
+                decoration: BoxDecoration(
+                  color: cardColor,
                   borderRadius: BorderRadius.circular(14),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isCompact ? 4 : 6,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: cardColor,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: primary),
-                    ),
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Icon(
-                              Icons.map,
-                              color: const Color(0xFFFFC700),
-                              size: iconSize,
-                            ),
-                            if (_hasMapUpdate)
-                              Positioned(
-                                right: -4,
-                                top: -3,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2.5),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Text(
-                                    'N',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 7.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            '주변 콜맵',
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: kMapFeaturesEnabled
-                                  ? primary
-                                  : Colors.grey,
-                              fontWeight: FontWeight.bold,
-                              fontSize: labelSize,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  border: Border.all(color: primary),
                 ),
-              ),
-              SizedBox(width: gap),
-              Expanded(
-                flex: 11,
-                child: Stack(
-                  clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    InkWell(
-                      onTap: _openPremiumCallPointMap,
-                      borderRadius: BorderRadius.circular(14),
-                      child: Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isCompact ? 4 : 6,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              primary.withValues(alpha: 0.22),
-                              cardColor,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: primary, width: 1.4),
-                        ),
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.workspace_premium,
-                              color: const Color(0xFFFFC700),
-                              size: iconSize,
-                            ),
-                            const SizedBox(height: 4),
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                '콜포인트',
-                                maxLines: 1,
-                                style: TextStyle(
-                                  color: kMapFeaturesEnabled
-                                      ? const Color(0xFFFFE066)
-                                      : Colors.grey,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: labelSize,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    Icon(
+                      Icons.timer_outlined,
+                      color: const Color(0xFFFFC700),
+                      size: iconSize,
                     ),
-                    Positioned(
-                      top: -8,
-                      right: 6,
-                      child: IgnorePointer(
-                        child: MediaQuery.withClampedTextScaling(
-                          minScaleFactor: 0.9,
-                          maxScaleFactor: 1.1,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: unlocked
-                                    ? const [
-                                        Color(0xFFFFC700),
-                                        Color(0xFFFF9F0A),
-                                      ]
-                                    : const [
-                                        Color(0xFFFF9F0A),
-                                        Color(0xFFFF5252),
-                                      ],
-                              ),
-                              borderRadius: BorderRadius.circular(999),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black45,
-                                  blurRadius: 4,
-                                  offset: Offset(0, 1),
-                                ),
-                              ],
-                            ),
-                            child: Text(
-                              unlocked ? '프리미엄' : '🔒 프리미엄',
-                              style: TextStyle(
-                                fontFamily: 'Pretendard',
-                                color: unlocked ? Colors.black : Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '대기비용',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: const Color(0xFFFFC700),
+                          fontWeight: FontWeight.bold,
+                          fontSize: labelSize,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
             ),
           ),
-        );
-      },
+          SizedBox(width: gap),
+          Expanded(
+            flex: 10,
+            key: _keyMap,
+            child: InkWell(
+              onTap: () {
+                if (!kMapFeaturesEnabled) return;
+                ProFeatureGuard.checkAndRun(
+                  context: context,
+                  featureKey: 'call_map',
+                  canUseFree: FeatureUsageService.canUseCallMapFree,
+                  canUseWithAd: FeatureUsageService.canUseCallMapWithAd,
+                  onGranted: (isFreeTicket) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CallPointMapPage(),
+                      ),
+                    );
+                  },
+                );
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 4 : 6,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: primary),
+                ),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Icon(
+                          Icons.map,
+                          color: const Color(0xFFFFC700),
+                          size: iconSize,
+                        ),
+                        if (_hasMapUpdate)
+                          Positioned(
+                            right: -4,
+                            top: -3,
+                            child: Container(
+                              padding: const EdgeInsets.all(2.5),
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Text(
+                                'N',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '주변 콜맵',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: kMapFeaturesEnabled ? primary : Colors.grey,
+                          fontWeight: FontWeight.bold,
+                          fontSize: labelSize,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          SizedBox(width: gap),
+          Expanded(
+            flex: 10,
+            child: InkWell(
+              onTap: _openPremiumCallPointMap,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                width: double.infinity,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompact ? 4 : 6,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: primary),
+                ),
+                alignment: Alignment.center,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium,
+                      color: const Color(0xFFFFC700),
+                      size: iconSize,
+                    ),
+                    const SizedBox(height: 4),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        '콜포인트',
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: kMapFeaturesEnabled ? primary : Colors.grey,
+                          fontWeight: FontWeight.bold,
+                          fontSize: labelSize,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3031,18 +3079,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         Expanded(
           key: _keyMultiRegister,
           child: InkWell(
-            onTap: () async {
-              final canProceed = await ensureCallCardRecognitionDisclaimer(
-                context,
-                'multi',
-              );
-              if (!canProceed) return;
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MultiCallCardForm()),
-              );
-              TodayStatsProvider.instance.refresh();
-            },
+            onTap: _openMultiCallCardRegister,
             borderRadius: BorderRadius.circular(16),
             child: Container(
               decoration: BoxDecoration(
