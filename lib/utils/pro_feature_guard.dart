@@ -3,6 +3,7 @@ import '../services/settings_service.dart';
 import '../services/premium_service.dart';
 import '../services/feature_usage_service.dart';
 import '../services/rewarded_ad_service.dart';
+import '../services/trusted_clock_service.dart';
 import '../config/feature_flags.dart';
 import '../widgets/app_glass_dialog.dart';
 import '../screens/paywall_page.dart';
@@ -32,6 +33,10 @@ class ProFeatureGuard {
       onGranted(true);
       return;
     }
+
+    // 기기 날짜/시간 조작 우회 방어: 무료·시간제 패스 검사 전 신뢰 시각 동기화 (5분 캐시)
+    await TrustedClockService.syncWithServer();
+    if (!context.mounted) return;
 
     // 1. Check if Timed/Daily Pass is already active (e.g. stats 1h pass)
     if (await FeatureUsageService.hasDailyPassAsync(featureKey)) {

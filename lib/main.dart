@@ -42,6 +42,7 @@ import 'services/expense_repository.dart';
 import 'services/rewarded_ad_service.dart';
 import 'screens/expense_home_page.dart';
 import 'services/settings_service.dart';
+import 'services/trusted_clock_service.dart';
 import 'services/font_size_service.dart';
 import 'services/subscription_service.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -120,6 +121,8 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
+  await TrustedClockService.init();
+  unawaited(TrustedClockService.syncWithServer());
   await SettingsService.init();
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
@@ -208,6 +211,8 @@ void overlayMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   try { await Firebase.initializeApp(); } catch (e) {}
+  await TrustedClockService.init();
+  unawaited(TrustedClockService.syncWithServer());
   await SettingsService.init();
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
@@ -336,6 +341,8 @@ void popupMain() async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   try { await Firebase.initializeApp(); } catch (e) {}
+  await TrustedClockService.init();
+  unawaited(TrustedClockService.syncWithServer());
   await SettingsService.init();
   await FeatureUsageService.init();
   await FontSizeService.loadFontSize();
@@ -552,10 +559,30 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
     _lastShorebirdCheckTime = DateTime.now();
     _tabEventSub = mainTabEventController.stream.listen((index) {
       if (mounted) {
-        setState(() => _selectedIndex = index);
+        _selectTabSafely(index);
       }
     });
     SettingsService.featureUnlockVersionNotifier.addListener(_onUnlockStateChanged);
+  }
+
+  void _selectTabSafely(int index) {
+    if (index < 0 || index >= _pages.length) return;
+    if (index == 3 && !SettingsService.isFeatureUnlocked('stats')) {
+      ProFeatureGuard.checkAndRun(
+        context: context,
+        featureKey: 'stats',
+        canUseFree: () async => false,
+        canUseWithAd: FeatureUsageService.canUseStatsWithAd,
+        onGranted: (isFreeTicket) {
+          if (mounted) {
+            setState(() => _selectedIndex = index);
+          }
+        },
+      );
+      return;
+    }
+    setState(() => _selectedIndex = index);
+    if (index == 0) TodayStatsProvider.instance.refresh();
   }
 
   void _onUnlockStateChanged() {
@@ -639,6 +666,24 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         _lastNotifiedWorkDateYmd = next;
       }
       SettingsService.scheduleUnlockTimer();
+      unawaited(
+        TrustedClockService.syncWithServer(force: true).then((_) {
+          SettingsService.scheduleUnlockTimer();
+          TodayStatsNotificationService.instance.refreshFromDbIfEnabled();
+          if (!kIsWeb && Platform.isAndroid) {
+            unawaited(
+              ScreenshotAutoRegisterService.instance
+                  .syncWithSettingsPreference(),
+            );
+            if (!SettingsService.overlayQuickRegisterEnabled) {
+              unawaited(
+                TodayStatsNotificationService.instance
+                    .closeQuickRegisterOverlayIfActive(),
+              );
+            }
+          }
+        }),
+      );
       RemoteConfigService().forceFetch().then((updated) {
         if (updated && mounted) {
           setState(() {});
@@ -666,6 +711,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
         _workDateNotificationTick = Timer.periodic(const Duration(minutes: 1), (_) => _refreshNotificationIfWorkDateChanged());
       }
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.hidden) {
+      unawaited(TrustedClockService.persistHighWater());
       _workDateNotificationTick?.cancel();
     }
   }
@@ -691,12 +737,7 @@ class _MainWrapperState extends State<MainWrapper> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     return MainTabScope(
-      selectTab: (index) {
-        if (index >= 0 && index < _pages.length) {
-          setState(() => _selectedIndex = index);
-          if (index == 0) TodayStatsProvider.instance.refresh();
-        }
-      },
+      selectTab: _selectTabSafely,
       child: ShorebirdUpdateHost(
         child: PopScope(
         canPop: false,

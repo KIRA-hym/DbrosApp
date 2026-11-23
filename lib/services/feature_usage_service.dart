@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/work_date_utils.dart';
 import 'settings_service.dart';
+import 'trusted_clock_service.dart';
 
 class FeatureUsageService {
   static late SharedPreferences _prefs;
@@ -26,7 +26,7 @@ class FeatureUsageService {
     }
 
     final expiry = _prefs.getInt(_globalPremiumExpiryKey) ?? 0;
-    final isActive = DateTime.now().millisecondsSinceEpoch < expiry;
+    final isActive = TrustedClockService.nowMs() < expiry;
     if (globalPremiumNotifier.value != isActive) {
       globalPremiumNotifier.value = isActive;
     }
@@ -39,8 +39,10 @@ class FeatureUsageService {
 
   /// 광고 시청 완료 시 24시간 프리미엄 권한 부여
   static Future<void> grantGlobalPremium24h() async {
-    final expiry = DateTime.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;
+    final expiry =
+        TrustedClockService.now().add(const Duration(hours: 24)).millisecondsSinceEpoch;
     await _prefs.setInt(_globalPremiumExpiryKey, expiry);
+    await TrustedClockService.persistHighWater();
     _updateGlobalPremiumState();
   }
 
@@ -55,7 +57,7 @@ class FeatureUsageService {
     return globalPremiumNotifier.value;
   }
   
-  static String get _todayKey => WorkDateUtils.effectiveWorkDateYmd();
+  static String get _todayKey => TrustedClockService.effectiveWorkDateYmd();
 
   /// 하루 1회(2시간) 광고 체험 제한이 적용되는 기능 목록
   static const Set<String> _dailySingleAdPassFeatures = <String>{
@@ -71,7 +73,10 @@ class FeatureUsageService {
   static bool canUseTimedAdPassTodaySync(String featureKey) {
     if (!isDailySingleAdPassFeature(featureKey)) return true;
     final lastDate = _prefs.getString('${featureKey}_date');
-    if (lastDate != _todayKey) return true;
+    final today = _todayKey;
+    if (lastDate == null || lastDate.isEmpty) return true;
+    // 실제로 다음 근무일로 넘어간 경우에만 새 1회 허용 (과거 날짜 조작 시 리셋 차단)
+    if (today.compareTo(lastDate) > 0) return true;
     final adCount = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     return adCount < 1;
   }
@@ -79,6 +84,7 @@ class FeatureUsageService {
   /// 오늘(근무일 오전 9시 기준) 광고 시청으로 시간제 패스를 추가 발급받을 수 있는지 비동기 확인
   static Future<bool> canUseTimedAdPassToday(String featureKey) async {
     if (!isDailySingleAdPassFeature(featureKey)) return true;
+    await TrustedClockService.syncWithServer();
     await _checkAndResetDailyCounter(featureKey);
     final adCount = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     return adCount < 1;
@@ -86,8 +92,14 @@ class FeatureUsageService {
 
   static Future<void> _checkAndResetDailyCounter(String featureKey) async {
     final lastDate = _prefs.getString('${featureKey}_date');
-    if (lastDate != _todayKey) {
-      await _prefs.setString('${featureKey}_date', _todayKey);
+    final today = _todayKey;
+    if (lastDate == null || lastDate.isEmpty) {
+      await _prefs.setString('${featureKey}_date', today);
+      return;
+    }
+    // 시계를 과거로 돌려 today < lastDate 가 된 경우 절대 카운터를 초기화하지 않는다.
+    if (today.compareTo(lastDate) > 0) {
+      await _prefs.setString('${featureKey}_date', today);
       await _prefs.setInt('${featureKey}_free_count', 0);
       await _prefs.setInt('${featureKey}_ad_count', 0);
       await _prefs.setBool('${featureKey}_daily_pass', false);
@@ -99,7 +111,7 @@ class FeatureUsageService {
   static Future<bool> hasDailyPassAsync(String featureKey) async {
     final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
     if (unlockUntilMs > 0) {
-      if (DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+      if (TrustedClockService.nowMs() <= unlockUntilMs) {
         return true;
       } else {
         await _prefs.setInt('${featureKey}_unlock_until_ms', 0);
@@ -112,14 +124,17 @@ class FeatureUsageService {
   /// 시간제 패스 부여 (편의기능 2시간, 통계 1시간 등)
   /// 하루 1회 제한 기능(`auto_screenshot`, `status_bar`)은 이미 오늘 사용 완료 시 false 반환.
   static Future<bool> grantTimedPass(String featureKey, Duration duration) async {
+    await TrustedClockService.syncWithServer();
     await _checkAndResetDailyCounter(featureKey);
     final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     if (isDailySingleAdPassFeature(featureKey) && count >= 1) {
       return false;
     }
-    final expireMs = DateTime.now().add(duration).millisecondsSinceEpoch;
+    final expireMs =
+        TrustedClockService.now().add(duration).millisecondsSinceEpoch;
     await _prefs.setInt('${featureKey}_unlock_until_ms', expireMs);
     await _prefs.setInt('${featureKey}_ad_count', count + 1);
+    await TrustedClockService.persistHighWater();
     SettingsService.scheduleUnlockTimer();
     return true;
   }
@@ -135,18 +150,20 @@ class FeatureUsageService {
       await grantTimedPass(featureKey, const Duration(hours: 1));
       return;
     }
+    await TrustedClockService.syncWithServer();
     await _checkAndResetDailyCounter(featureKey);
     await _prefs.setBool('${featureKey}_daily_pass', true);
     // 통계/로깅용으로 카운트도 증가
     final count = _prefs.getInt('${featureKey}_ad_count') ?? 0;
     await _prefs.setInt('${featureKey}_ad_count', count + 1);
+    await TrustedClockService.persistHighWater();
     SettingsService.syncFeatureUnlockStates();
   }
 
   // 동기(Synchronous) 읽기 - UI나 프로바이더에서 즉시 상태를 확인할 때 사용
   static bool hasDailyPassSync(String featureKey) {
     final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
-    if (unlockUntilMs > 0 && DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+    if (unlockUntilMs > 0 && TrustedClockService.nowMs() <= unlockUntilMs) {
       return true;
     }
     final lastDate = _prefs.getString('${featureKey}_date');

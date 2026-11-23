@@ -62,11 +62,10 @@ bool _homeNoticeClosed = false;
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
-  /// 미디어 권한 확인 후 화면 캡처 자동등록 활성화
-  static Future<bool> enableScreenshotAutoWithPermission(
-    BuildContext context, {
-    VoidCallback? onEnabled,
-  }) async {
+  /// 스크린샷 자동등록에 필요한 미디어 권한 사전 확인
+  static Future<bool> _ensureScreenshotMediaPermission(
+    BuildContext context,
+  ) async {
     if (!kIsWeb && Platform.isAndroid) {
       final storageStatus = await Permission.storage.request();
       final photosStatus = await Permission.photos.request();
@@ -109,6 +108,17 @@ class HomePage extends StatefulWidget {
         return false;
       }
     }
+    return true;
+  }
+
+  /// 미디어 권한 확인 후 화면 캡처 자동등록 활성화
+  static Future<bool> enableScreenshotAutoWithPermission(
+    BuildContext context, {
+    VoidCallback? onEnabled,
+  }) async {
+    if (!await _ensureScreenshotMediaPermission(context)) {
+      return false;
+    }
 
     await SettingsService.setScreenshotAutoRegisterEnabled(true);
     await ScreenshotAutoRegisterService.instance.syncWithSettingsPreference();
@@ -142,6 +152,11 @@ class HomePage extends StatefulWidget {
           ),
         );
       }
+      return;
+    }
+    // 광고 시청 전 미디어 권한을 먼저 확인하여 권한 거부 시 1일 체험권 증발 방지
+    if (!context.mounted) return;
+    if (!await _ensureScreenshotMediaPermission(context)) {
       return;
     }
     if (!context.mounted) return;

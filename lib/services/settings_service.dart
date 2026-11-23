@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show ThemeMode;
 import '../config/feature_flags.dart';
 import '../utils/work_date_utils.dart';
+import 'trusted_clock_service.dart';
 
 class SettingsService {
   static late SharedPreferences _prefs;
@@ -190,7 +191,7 @@ class SettingsService {
     if (!isPromo) return false;
     final expireMs = _prefs.getInt('promoExpireMs') ?? 0;
     if (expireMs == 0) return true; // 무제한
-    if (DateTime.now().millisecondsSinceEpoch > expireMs) {
+    if (TrustedClockService.nowMs() > expireMs) {
       _prefs.setBool('isPromoPremium', false);
       return false; // 만료됨
     }
@@ -209,7 +210,7 @@ class SettingsService {
     if (value && expireAt != null) {
       await _prefs.setInt('promoExpireMs', expireAt.millisecondsSinceEpoch);
     } else if (value && durationDays != null) {
-      final expireMs = DateTime.now()
+      final expireMs = TrustedClockService.now()
           .add(Duration(days: durationDays))
           .millisecondsSinceEpoch;
       await _prefs.setInt('promoExpireMs', expireMs);
@@ -396,12 +397,12 @@ class SettingsService {
   static bool _hasDailyPass(String featureKey) {
     final unlockUntilMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
     if (unlockUntilMs > 0) {
-      if (DateTime.now().millisecondsSinceEpoch <= unlockUntilMs) {
+      if (TrustedClockService.nowMs() <= unlockUntilMs) {
         return true;
       }
     }
     final lastDate = _prefs.getString('${featureKey}_date');
-    if (lastDate != WorkDateUtils.effectiveWorkDateYmd()) return false;
+    if (lastDate != TrustedClockService.effectiveWorkDateYmd()) return false;
     return _prefs.getBool('${featureKey}_daily_pass') ?? false;
   }
 
@@ -409,7 +410,7 @@ class SettingsService {
     if (!kMonetizationEnabled) return true;
     if (isPremiumUser) return true;
     final expireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
-    if (expireMs > 0 && DateTime.now().millisecondsSinceEpoch <= expireMs) {
+    if (expireMs > 0 && TrustedClockService.nowMs() <= expireMs) {
       return true;
     }
     if (featureKey != null && featureKey.isNotEmpty) {
@@ -428,8 +429,9 @@ class SettingsService {
   }
 
   static Future<void> unlockFeaturesByAd() async {
-    final expireMs = DateTime.now().millisecondsSinceEpoch + (2 * 60 * 60 * 1000); 
+    final expireMs = TrustedClockService.nowMs() + (2 * 60 * 60 * 1000); 
     await _prefs.setInt('adRewardExpireMs', expireMs);
+    await TrustedClockService.persistHighWater();
     _startAdRewardTimer();
   }
 
@@ -444,7 +446,7 @@ class SettingsService {
       return;
     }
 
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final nowMs = TrustedClockService.nowMs();
     int? earliestFutureExpireMs;
 
     final globalExpireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
@@ -486,7 +488,7 @@ class SettingsService {
   /// 광고 보상(2시간 패스)으로 잠금 해제된 기능의 남은 시간을 반환 (프리미엄이거나 만료된 경우 null)
   static Duration? getRemainingUnlockDuration(String featureKey) {
     if (isPremiumUser) return null;
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final nowMs = TrustedClockService.nowMs();
     final keyExpireMs = _prefs.getInt('${featureKey}_unlock_until_ms') ?? 0;
     final globalExpireMs = _prefs.getInt('adRewardExpireMs') ?? 0;
     final targetMs = keyExpireMs > globalExpireMs ? keyExpireMs : globalExpireMs;

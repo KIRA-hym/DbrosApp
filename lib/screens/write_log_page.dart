@@ -673,7 +673,7 @@ class _DriveLogFormState extends State<DriveLogForm>
         final result = await AppImagePicker.pickSingleGalleryImage(context);
         if (result == null) return;
 
-        if (isFreeTicket) {
+        if (isFreeTicket && !SettingsService.isPremiumUser) {
           await FeatureUsageService.incrementFreeUsage('single_ocr');
         }
 
@@ -721,7 +721,7 @@ class _DriveLogFormState extends State<DriveLogForm>
             }
             return;
           }
-          if (isFreeTicket) {
+          if (isFreeTicket && !SettingsService.isPremiumUser) {
             await FeatureUsageService.incrementFreeUsage('single_ocr');
           }
           if (!mounted) return;

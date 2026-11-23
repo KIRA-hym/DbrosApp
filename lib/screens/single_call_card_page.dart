@@ -16,6 +16,7 @@ import '../widgets/ad_banner_widget.dart';
 import '../widgets/app_empty_state.dart';
 import '../utils/pro_feature_guard.dart';
 import '../services/feature_usage_service.dart';
+import '../services/settings_service.dart';
 import '../utils/call_card_recognition_disclaimer.dart';
 
 class SingleCallCardForm extends StatefulWidget {
@@ -71,7 +72,7 @@ class _SingleCallCardFormState extends State<SingleCallCardForm> {
           final result = await AppImagePicker.pickSingleGalleryImage(context);
           if (result == null) return;
 
-          if (isFreeTicket) {
+          if (isFreeTicket && !SettingsService.isPremiumUser) {
             await FeatureUsageService.incrementFreeUsage('single_ocr');
           }
 

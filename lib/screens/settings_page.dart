@@ -836,8 +836,11 @@ class _SettingsPageState extends State<SettingsPage> {
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked('status_bar')) {
+                if (!await _requirePermission([Permission.notification], "알림")) {
+                  return;
+                }
+                if (!mounted) return;
                 _showAdRewardDialog(context, 'status_bar', () async {
-                  if (!await _requirePermission([Permission.notification], "알림")) return;
                   await SettingsService.setStatusBarQuickEnabled(true);
                   await TodayStatsNotificationService.instance
                       .refreshFromDbIfEnabled();
@@ -878,51 +881,52 @@ class _SettingsPageState extends State<SettingsPage> {
             activeColor: Theme.of(context).primaryColor,
             onChanged: (value) async {
               if (value && !SettingsService.isFeatureUnlocked('auto_screenshot')) {
-                _showAdRewardDialog(context, 'auto_screenshot', () async {
-                  if (!kIsWeb && Platform.isAndroid) {
-                    final storageStatus = await Permission.storage.request();
-                    final photosStatus = await Permission.photos.request();
+                if (!kIsWeb && Platform.isAndroid) {
+                  final storageStatus = await Permission.storage.request();
+                  final photosStatus = await Permission.photos.request();
 
-                    if (!storageStatus.isGranted && !photosStatus.isGranted) {
-                      if (!mounted) return;
-                      AppGlassDialog.show<void>(
-                        context: context,
-                        dialog: AppGlassDialog(
-                          icon: Icons.folder_off_outlined,
-                          title: '권한 설정 필요',
-                          content:
-                              '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
-                          actions: [
-                            Builder(
-                              builder: (ctx) => GlassDialogCancelButton(
-                                onPressed: () => Navigator.pop(ctx),
-                                label: '취소',
-                              ),
+                  if (!storageStatus.isGranted && !photosStatus.isGranted) {
+                    if (!mounted) return;
+                    AppGlassDialog.show<void>(
+                      context: context,
+                      dialog: AppGlassDialog(
+                        icon: Icons.folder_off_outlined,
+                        title: '권한 설정 필요',
+                        content:
+                            '스크린샷 자동 저장을 위해 파일 접근 권한이 필요합니다.\n\n[설정] > [권한]에서 저장공간(파일/미디어) 접근 권한을 허용해 주세요.',
+                        actions: [
+                          Builder(
+                            builder: (ctx) => GlassDialogCancelButton(
+                              onPressed: () => Navigator.pop(ctx),
+                              label: '취소',
                             ),
-                            const SizedBox(width: 8),
-                            Builder(
-                              builder: (ctx) => Expanded(
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                    openAppSettings();
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Theme.of(
-                                      context,
-                                    ).primaryColor,
-                                    foregroundColor: Colors.black,
-                                  ),
-                                  child: const Text('설정으로 이동'),
+                          ),
+                          const SizedBox(width: 8),
+                          Builder(
+                            builder: (ctx) => Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(ctx);
+                                  openAppSettings();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).primaryColor,
+                                  foregroundColor: Colors.black,
                                 ),
+                                child: const Text('설정으로 이동'),
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                      return;
-                    }
+                          ),
+                        ],
+                      ),
+                    );
+                    return;
                   }
+                }
+                if (!mounted) return;
+                _showAdRewardDialog(context, 'auto_screenshot', () async {
                   await SettingsService.setScreenshotAutoRegisterEnabled(true);
                   await ScreenshotAutoRegisterService.instance
                       .syncWithSettingsPreference();
@@ -1019,12 +1023,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     activeColor: Theme.of(context).primaryColor,
                     onChanged: (value) async {
                       if (value && !SettingsService.isFeatureUnlocked('overlay_quick')) {
+                        if (!await _requestSystemAlertWindowPermission()) {
+                          return;
+                        }
+                        if (!mounted) return;
                         _showAdRewardDialog(context, 'overlay_quick', () async {
-                          if (!await _requestSystemAlertWindowPermission())
-                            return;
                           await SettingsService.setOverlayQuickRegisterEnabled(
                             true,
                           );
+                          if (!mounted) return;
                           await OverlayManager.showOverlay(context);
                         });
                         return;
