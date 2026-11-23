@@ -44,6 +44,7 @@ import '../widgets/settings/theme_settings_section.dart';
 import '../widgets/settings/ai_premium_section.dart';
 import '../services/today_stats_notification_service.dart';
 import 'ocr_debug_page.dart';
+import 'ocr_error_report_page.dart';
 import '../services/db_helper.dart';
 import '../utils/geocoding_utils.dart';
 import '../utils/snackbar_utils.dart';
@@ -295,6 +296,17 @@ class _SettingsPageState extends State<SettingsPage> {
       _buildNoticeSection(),
       Container(key: _keyThemeSettings, child: const ThemeSettingsSection()),
       Container(key: _keyBackupRestore, child: _buildBackupRestoreSettings()),
+      if (!kIsWeb && Platform.isAndroid)
+        _buildListManageButton(
+          title: '콜카드 인식오류 제보',
+          icon: Icons.receipt_long,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const OcrErrorReportPage()),
+            );
+          },
+        ),
       Container(
         key: _keyFeeInsurance,
         child: _buildListManageButton(
