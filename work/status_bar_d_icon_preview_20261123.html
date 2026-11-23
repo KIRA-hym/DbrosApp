@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DbrosApp 상단 상태바 시그니처 필기체 D 아이콘 6종 비교</title>
+  <style>
+    :root {
+      --bg: #0E1117;
+      --panel: #171B24;
+      --border: #2A303E;
+      --accent: #FFC700;
+      --text: #F3F4F6;
+      --sub: #9CA3AF;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "SamsungOneKorean", "Malgun Gothic", sans-serif;
+      background: radial-gradient(circle at 20% 0%, #1F2937 0%, #0E1117 65%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 56px;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .header h1 {
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(255, 199, 0, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(255, 199, 0, 0.4);
+    }
+
+    .header p {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--sub);
+      line-height: 1.5;
+    }
+
+    .stage-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 720px) {
+      .stage-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .stage-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .stage-title {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--sub);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sys-bar {
+      height: 36px;
+      border-radius: 12px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sys-bar.light-beige {
+      background: #B8AE9A;
+      color: #262522;
+    }
+
+    .sys-bar.dark-bar {
+      background: #101216;
+      color: #F3F4F6;
+      border: 1px solid #262B36;
+    }
+
+    .sys-bar.zoom2 {
+      height: 62px;
+      padding: 0 18px;
+    }
+
+    .bar-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .sys-bar.zoom2 .bar-left {
+      gap: 15px;
+    }
+
+    .clock {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .sys-bar.zoom2 .clock {
+      font-size: 25px;
+    }
+
+    .other-9988 {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 8.5px;
+      font-weight: 900;
+      line-height: 0.92;
+      letter-spacing: -0.5px;
+    }
+
+    .sys-bar.zoom2 .other-9988 {
+      font-size: 15px;
+    }
+
+    .other-zeus {
+      width: 17px;
+      height: 17px;
+      border-radius: 5px;
+      background: #141923;
+      color: #E2C17A;
+      font-size: 5.5px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      letter-spacing: -0.3px;
+    }
+
+    .sys-bar.zoom2 .other-zeus {
+      width: 30px;
+      height: 30px;
+      border-radius: 9px;
+      font-size: 9.5px;
+    }
+
+    .dbros-slot {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sys-bar.zoom2 .dbros-slot {
+      width: 32px;
+      height: 32px;
+    }
+
+    .dbros-slot svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .bar-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      opacity: 0.85;
+    }
+
+    .sys-bar.zoom2 .bar-right {
+      font-size: 15px;
+    }
+
+    .gallery-title {
+      font-size: 15px;
+      font-weight: 800;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 720px) {
+      .gallery {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 14px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      transition: all 0.15s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(255, 199, 0, 0.55);
+    }
+
+    .card.active {
+      background: rgba(255, 199, 0, 0.1);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(255, 199, 0, 0.35);
+    }
+
+    .preview-pair {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .swatch {
+      width: 54px;
+      height: 54px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px;
+    }
+
+    .swatch.light {
+      background: #B8AE9A;
+      color: #262522;
+    }
+
+    .swatch.dark {
+      background: #0F1115;
+      color: #FFFFFF;
+      border: 1px solid #2A303E;
+    }
+
+    .swatch svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .card-name {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .card-desc {
+      font-size: 11.5px;
+      color: var(--sub);
+      line-height: 1.4;
+    }
+
+    .note {
+      margin-top: 20px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-size: 12.5px;
+      color: #CBD5E1;
+      line-height: 1.55;
+    }
+
+    .note strong {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="header">
+      <h1>
+        Dbros 로고 시그니처 필기체 D 상태바 아이콘 6종
+        <span class="tag">기존 Dbros 로고 D 그대로 · b 제거 · 24dp 꽉 채움</span>
+      </h1>
+      <p>
+        실제 앱 로고(<code>assets/icon.png</code>)의 <strong>필기체 D 곡선과 가로획</strong>을 그대로 살리되,
+        뭉개지던 <code>b</code>를 빼고 <code>D</code> 한 글자만 영역에 꽉 차도록 벡터로 정밀하게 다듬었습니다.
+      </p>
+    </header>
+
+    <!-- 상단 상태바 실시간 비교 -->
+    <section class="stage-grid">
+      <div class="stage-card">
+        <div class="stage-title">
+          <span>☀️ 밝은 상태바 (보내주신 스크린샷 배경)</span>
+          <span id="selected-label-1" style="color: var(--accent);">① 시그니처 필기체 D (미디엄·추천)</span>
+        </div>
+        <div class="sys-bar light-beige">
+          <div class="bar-left">
+            <span class="clock">16:13</span>
+            <span class="other-9988"><span>99</span><span>88</span></span>
+            <span class="other-zeus">ZEUS</span>
+            <span class="dbros-slot" id="slot-light-1x"></span>
+          </div>
+          <div class="bar-right"><span>5G</span><span>88%</span></div>
+        </div>
+        <div class="sys-bar light-beige zoom2">
+          <div class="bar-left">
+            <span class="clock">16:13</span>
+            <span class="other-9988"><span>99</span><span>88</span></span>
+            <span class="other-zeus">ZEUS</span>
+            <span class="dbros-slot" id="slot-light-2x"></span>
+          </div>
+          <div class="bar-right">2x 확대</div>
+        </div>
+      </div>
+
+      <div class="stage-card">
+        <div class="stage-title">
+          <span>🌙 어두운 상태바 (야간 운행)</span>
+          <span>OS 자동 흰색 틴트</span>
+        </div>
+        <div class="sys-bar dark-bar">
+          <div class="bar-left">
+            <span class="clock">02:56</span>
+            <span class="other-9988"><span>99</span><span>88</span></span>
+            <span class="other-zeus">ZEUS</span>
+            <span class="dbros-slot" id="slot-dark-1x"></span>
+          </div>
+          <div class="bar-right"><span>5G</span><span>88%</span></div>
+        </div>
+        <div class="sys-bar dark-bar zoom2">
+          <div class="bar-left">
+            <span class="clock">02:56</span>
+            <span class="other-9988"><span>99</span><span>88</span></span>
+            <span class="other-zeus">ZEUS</span>
+            <span class="dbros-slot" id="slot-dark-2x"></span>
+          </div>
+          <div class="bar-right">2x 확대</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="gallery-title">
+      <span>✍️ Dbros 시그니처 필기체 D 변형 6종 (클릭하여 상단바에서 바로 비교)</span>
+      <span style="font-size:12px;color:#9CA3AF;font-weight:600;">모두 Android VectorDrawable XML 1:1 적용</span>
+    </div>
+    <section class="gallery" id="gallery"></section>
+
+    <div class="note">
+      <strong>💡 디자이너 포인트</strong><br/>
+      • 기존 <code>Db</code>는 2글자를 가로로 욱여넣어 상하 여백이 크고 <code>b</code>가 뭉개졌지만, <strong>실제 Dbros 로고의 필기체 <code>D</code> 1글자</strong>만 24×24dp 안에 꽉 채우면 <strong>18px 작은 크기에서도 곡선과 가로획이 선명하게 살아납니다.</strong><br/>
+      • <strong>① 미디엄(추천)</strong>은 옆 <code>9988</code>과 획 두께가 가장 조화롭고, <strong>② 볼드</strong>는 작은 화면에서도 존재감이 가장 뚜렷합니다.
+    </div>
+  </div>
+
+  <script>
+    // 실제 assets/icon.png Dbros 필기체 D 의 3획(사선 기둥 + 시그니처 루프 + 가로 포인트획)을
+    // 24x24 viewBox 에 꽉 차도록 정밀 트레이싱
+    function dbrosScriptPaths({ swMain, swCross, includeCross = true, scale = 1, tx = 0, ty = 0 }) {
+      return `<g transform="translate(${tx} ${ty}) scale(${scale})" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <!-- 사선 기둥 -->
+        <path d="M14.2 5.4 L5.4 19.6" stroke-width="${swMain}"/>
+        <!-- 시그니처 필기체 D 큰 고리 -->
+        <path d="M3.2 12.1 C1.8 9.9 3.6 5.4 9.5 3.1 C15.2 0.9 21.8 2.2 21.6 7.9 C21.4 13.7 15.6 19.2 9.2 21.2 C4.6 22.6 1.6 21.4 2.4 19.2 C3.1 17.3 6.2 15.7 10.6 14.7" stroke-width="${swMain}"/>
+        ${includeCross ? `<!-- 필기체 중앙 가로획 -->
+        <path d="M5.2 15.5 L12.0 13.7" stroke-width="${swCross}"/>` : ''}
+      </g>`;
+    }
+
+    const D_ICONS = [
+      {
+        id: 'script_medium',
+        name: '① 시그니처 필기체 D (미디엄·추천)',
+        desc: '실제 Dbros 로고 필기체 D 그대로 · 옆 9988과 가장 균형 잡힌 굵기',
+        svg: `<svg viewBox="0 0 24 24">${dbrosScriptPaths({ swMain: 2.35, swCross: 1.85 })}</svg>`
+      },
+      {
+        id: 'script_bold',
+        name: '② 시그니처 필기체 D (볼드)',
+        desc: '획을 더 도톰하게 키워 18px 작은 상태바에서도 가장 또렷한 시인성',
+        svg: `<svg viewBox="0 0 24 24">${dbrosScriptPaths({ swMain: 2.9, swCross: 2.2 })}</svg>`
+      },
+      {
+        id: 'script_slim',
+        name: '③ 시그니처 필기체 D (슬림 원본)',
+        desc: '앱 로고 네온 라인 굵기에 가장 가까운 날렵하고 우아한 필기체',
+        svg: `<svg viewBox="0 0 24 24">${dbrosScriptPaths({ swMain: 1.8, swCross: 1.45 })}</svg>`
+      },
+      {
+        id: 'script_clean_nocross',
+        name: '④ 깔끔한 필기체 D (가로획 생략)',
+        desc: '작은 크기에서 더 단순·선명하도록 중앙 가로획을 빼고 고리만 강조',
+        svg: `<svg viewBox="0 0 24 24">
+          <g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14.2 5.4 L5.4 19.6" stroke-width="2.5"/>
+            <path d="M3.2 12.1 C1.8 9.9 3.6 5.4 9.5 3.1 C15.2 0.9 21.8 2.2 21.6 7.9 C21.4 13.7 15.6 19.2 9.2 21.2 C4.6 22.6 1.6 21.4 2.4 19.2 C3.0 17.6 5.2 16.4 8.2 15.4" stroke-width="2.5"/>
+          </g>
+        </svg>`
+      },
+      {
+        id: 'script_squircle_badge',
+        name: '⑤ 둥근 사각 속 필기체 D',
+        desc: '꽉 찬 둥근 사각형 안에 Dbros 필기체 D를 선명하게 새긴 형태',
+        svg: `<svg viewBox="0 0 24 24">
+          <defs>
+            <mask id="m-sq">
+              <rect width="24" height="24" fill="white"/>
+              <g transform="translate(2.7 2.5) scale(0.78)" fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.2 5.4 L5.4 19.6" stroke-width="2.7"/>
+                <path d="M3.2 12.1 C1.8 9.9 3.6 5.4 9.5 3.1 C15.2 0.9 21.8 2.2 21.6 7.9 C21.4 13.7 15.6 19.2 9.2 21.2 C4.6 22.6 1.6 21.4 2.4 19.2 C3.1 17.3 6.2 15.7 10.6 14.7" stroke-width="2.7"/>
+              </g>
+            </mask>
+          </defs>
+          <rect x="1.5" y="1.5" width="21" height="21" rx="5.5" fill="currentColor" mask="url(#m-sq)"/>
+        </svg>`
+      },
+      {
+        id: 'script_circle_outline',
+        name: '⑥ 링 프레임 속 필기체 D',
+        desc: '얇은 원형 링 안에 Dbros 필기체 D를 담아 정돈된 엠블럼 느낌',
+        svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10.4" stroke-width="1.6"/>
+          <g transform="translate(3.4 3.2) scale(0.72)">
+            <path d="M14.2 5.4 L5.4 19.6" stroke-width="2.7"/>
+            <path d="M3.2 12.1 C1.8 9.9 3.6 5.4 9.5 3.1 C15.2 0.9 21.8 2.2 21.6 7.9 C21.4 13.7 15.6 19.2 9.2 21.2 C4.6 22.6 1.6 21.4 2.4 19.2 C3.1 17.3 6.2 15.7 10.6 14.7" stroke-width="2.7"/>
+          </g>
+        </svg>`
+      }
+    ];
+
+    let selectedId = 'script_medium';
+
+    function renderGallery() {
+      const el = document.getElementById('gallery');
+      el.innerHTML = D_ICONS.map(ic => `
+        <button class="card ${ic.id === selectedId ? 'active' : ''}" onclick="selectIcon('${ic.id}')">
+          <div class="preview-pair">
+            <div class="swatch light">${ic.svg}</div>
+            <div class="swatch dark">${ic.svg}</div>
+          </div>
+          <div class="card-name">${ic.name}</div>
+          <div class="card-desc">${ic.desc}</div>
+        </button>
+      `).join('');
+    }
+
+    function renderBars() {
+      const icon = D_ICONS.find(i => i.id === selectedId) || D_ICONS[0];
+      document.getElementById('slot-light-1x').innerHTML = icon.svg;
+      document.getElementById('slot-light-2x').innerHTML = icon.svg;
+      document.getElementById('slot-dark-1x').innerHTML = icon.svg;
+      document.getElementById('slot-dark-2x').innerHTML = icon.svg;
+      document.getElementById('selected-label-1').textContent = icon.name;
+    }
+
+    function selectIcon(id) {
+      selectedId = id;
+      renderGallery();
+      renderBars();
+    }
+
+    renderGallery();
+    renderBars();
+  </script>
+</body>
+</html>
