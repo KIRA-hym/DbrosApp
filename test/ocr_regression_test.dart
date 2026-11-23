@@ -1978,6 +1978,57 @@ DB손해보험
       expect(kakaoParsed.startLocation, '경기 고양시일산서구 주엽동 상록회관일산주엽점');
       expect(kakaoParsed.endLocation, '경기 김포시 구래동');
     });
+
+    test('카카오 배정 완료 상단 상태바 10개 배지 노이즈로 인한 출발/도착 1칸 밀림 방지', () {
+      const rawWithStatusCount = '''
+SKT 2:56
+10개
+99
+88
+28
+배정 완료
+배정취소 메뉴
+대리 기사용
+기사님
+상암동
+투썸플레이스 디지털미디어시티역점
+D1
+서울 강북구 미아동
+SK북한산시티아파트 134동
+카드 | 확정
+23,200 P
+고객과 통화
+고객과 메시지
+고객과 만날 장소 길찾기
+고객에게 위치정보가 공유됩니다.
+밀어서 고객에게 도착알림
+''';
+      final parsed = KakaoCallCardOcr.parseScreen(const [], rawWithStatusCount);
+      expect(parsed.startLocation, '상암동 투썸플레이스 디지털미디어시티역점');
+      expect(parsed.endLocation, '서울 강북구 미아동 SK북한산시티아파트 134동');
+      expect(parsed.grossFare, 23200);
+
+      // 헤더('배정 완료') 위쪽에 임의의 한글 상태바 위젯이 들어온 경우도 헤더 절삭으로 방어
+      const rawWithHangulStatusWidget = '''
+SKT 2:56
+미세좋음
+배정 완료
+배정취소 메뉴
+상암동
+투썸플레이스 디지털미디어시티역점
+서울 강북구 미아동
+SK북한산시티아파트 134동
+카드 | 확정
+23,200 P
+''';
+      final parsed2 = KakaoCallCardOcr.parseScreen(
+        const [],
+        rawWithHangulStatusWidget,
+      );
+      expect(parsed2.startLocation, '상암동 투썸플레이스 디지털미디어시티역점');
+      expect(parsed2.endLocation, '서울 강북구 미아동 SK북한산시티아파트 134동');
+      expect(parsed2.grossFare, 23200);
+    });
   });
 }
 

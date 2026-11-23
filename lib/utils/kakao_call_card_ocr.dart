@@ -474,8 +474,26 @@ class KakaoCallCardOcr {
         break;
       }
     }
-    final slice = lines.sublist(0, endIdx);
-    final waypoint = _parseWaypointFromLines(slice);
+    final fullSlice = lines.sublist(0, endIdx);
+    // [보완] '배정 완료' 헤더 위쪽 안드로이드 상태바 노이즈('10개', '맑음' 등)로 인한 주소 1칸 밀림 방지
+    // 헤더 이후 구간에 주소 후보가 2줄 이상 정상 존재할 때만 헤더 이전 구간을 안전 절삭한다.
+    var startIdx = 0;
+    for (var i = 0; i < endIdx; i++) {
+      if (_compact(lines[i]).contains('배정완료')) {
+        final afterHeader = lines.sublist(i + 1, endIdx);
+        final validAfter = afterHeader
+            .where(
+              (l) => !_excludePaymentOrActionStrip(l) && _looksLikeAddressLine(l),
+            )
+            .length;
+        if (validAfter >= 2) {
+          startIdx = i + 1;
+        }
+        break;
+      }
+    }
+    final slice = lines.sublist(startIdx, endIdx);
+    final waypoint = _parseWaypointFromLines(fullSlice);
     final fromLines = _parseAddressesFromLines(slice);
 
     return (
@@ -582,6 +600,8 @@ class KakaoCallCardOcr {
     if (_looksLikeFareAmountLine(t)) return false;
     if (_looksLikeKakaoActionLine(t)) return false;
     if (RegExp(r'^\d+\s*점$').hasMatch(t.replaceAll(',', ''))) return false;
+    // 안드로이드 상단 상태바·알림 배지 순수 수량/단위 줄 제외 ('10개', '3건', '5분', '28%' 등)
+    if (RegExp(r'^\d{1,3}\+?\s*(?:개|건|분|초|%|℃|°)$').hasMatch(t)) return false;
     if (RegExp(r'^[\d,]+\s*(P|원)?$').hasMatch(t)) return false;
     if (t.contains('배정취소') || t.contains('배정 완료') || t.contains('제휴콜') || t.contains('메뉴')) return false;
     if (t.contains('무료보험') || t.contains('법인')) return false;
